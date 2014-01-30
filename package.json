@@ -1,0 +1,42 @@
+{
+  "name": "mpEnc_js",
+  "version": "0.0.0",
+  "description": "Multi-party messaging encryption protocol implementation in JavaScript",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "karma start karma.conf.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@code.developers.mega.co.nz:gk/mpenc_js.git"
+  },
+  "keywords": [
+    "mpEnc",
+    "messaging",
+    "encryption"
+  ],
+  "author": "Guy K. Kloss",
+  "license": "AGPL-3",
+  "gitHead": "064cfd52ef69822d4bacf3b18e6979c49a3ca8ed",
+  "readmeFilename": "README.md",
+  "devDependencies": {
+    "karma-script-launcher": "~0.1.0",
+    "karma-chrome-launcher": "~0.1.2",
+    "karma-firefox-launcher": "~0.1.3",
+    "karma-html2js-preprocessor": "~0.1.0",
+    "karma-jasmine": "~0.1.5",
+    "karma-coffee-preprocessor": "~0.1.2",
+    "requirejs": "~2.1.10",
+    "karma-requirejs": "~0.2.1",
+    "karma-phantomjs-launcher": "~0.1.1",
+    "karma": "~0.10.9",
+    "mocha": "~1.17.1",
+    "karma-mocha": "~0.1.1",
+    "karma-chai": "0.0.2",
+    "karma-sinon": "~1.0.0"
+  }
+}
