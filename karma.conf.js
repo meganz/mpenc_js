@@ -12,12 +12,9 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
       'test/test-main.js',
-      'src/*.js',
-      'lib/*.js',
-      'test/*.js'
-      // {pattern: 'src/*.js', included: false},
-      // {pattern: 'lib/*.js', included: false},
-      // {pattern: 'test/*.js', included: false}
+      {pattern: 'src/*.js', included: true},
+      {pattern: 'lib/*.js', included: true},
+      {pattern: 'test/*.js', included: true}
     ],
 
     // list of files to exclude
@@ -26,7 +23,7 @@ module.exports = function(config) {
 
     // test results reporter to use
     // possible values: 'dots', 'progress', 'junit', 'growl', 'coverage'
-    reporters: ['progress'],
+    reporters: ['progress', 'coverage'],
 
     // web server port
     port: 9876,

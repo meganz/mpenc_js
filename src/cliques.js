@@ -94,7 +94,7 @@ CliquesMember.prototype.ika = function(otherMembers) {
     if (this.privKey) {
         _clearmem(this.privKey);
         this.privKey = null;
-        this._debubPrivKey = null;
+        this._debugPrivKey = null;
     }
     var startMessage = new CliquesMessage(this.id);
     startMessage.members = [this.id].concat(otherMembers);
@@ -113,7 +113,7 @@ CliquesMember.prototype.ika = function(otherMembers) {
  * @method
  */
 CliquesMember.prototype.akaJoin = function(newMembers) {
-    assert(len(otherMembers) !== 0, 'No members to add.');
+    assert(newMembers.length !== 0, 'No members to add.');
     var allMembers = this.members.concat(newMembers);
     assert(_arrayIsSet(allMembers), 'Duplicates in member list detected!');
     
@@ -148,6 +148,53 @@ CliquesMember.prototype.akaJoin = function(newMembers) {
 
 
 /**
+ * Start the AKA (Auxiliary Key Agreement) for excluding members.
+ * 
+ * @param excludeMembers
+ *     Iterable of new members to join the group.
+ * @returns {CliquesMessage}
+ * @method
+ */
+CliquesMember.prototype.akaExclude = function(excludeMembers) {
+    assert(excludeMembers.length !== 0, 'No members to exclude.');
+    assert(_arrayIsSubSet(excludeMembers, this.members),
+           'Members list to exclude is not a sub-set of previous members!');
+    assert(excludeMembers.indexOf(this.id) < 0,
+           'Cannot exclude mysefl.');
+//    var allMembers = this.members.concat(newMembers);
+//    assert(_arrayIsSet(allMembers), 'Duplicates in member list detected!');
+//    
+//    // Replace members list.
+//    this.members = allMembers;
+//    
+//    // Renew all keys.
+//    var retValue = this._renewPrivKey();
+//    var cardinal = retValue.cardinal;
+//    var cardinalDebugKey = retValue.cardinalDebugKey;
+//    
+//    // TODO:
+//    // * make this._renewPrivKey()
+//    // * continue from here down
+//    
+//    // Start of AKA upflow, so we can't be the last member in the chain.
+//    // Add the new cardinal key.
+//    this.intKeys.push(cardinal);
+//    this._debugIntKeys.push(cardinalDebugKey);
+//    
+//    // Pass a message on to the first new member to join.
+//    var startMessage = new CliquesMessage(this.id);
+//    startMessage.members = allMembers;
+//    startMessage.dest = newMembers[0];
+//    startMessage.agreement = 'aka';
+//    startMessage.flow = 'upflow';
+//    startMessage.keys = this.intKeys;
+//    startMessage.debugKeys = this._debugIntKeys;
+//    
+//    return startMessage;
+};
+
+
+/**
  * IKA/AKA upflow phase message processing.
  * 
  * @param message
@@ -161,56 +208,83 @@ CliquesMember.prototype.upflow = function(message) {
     this.members = message.members;
     this.intKeys = message.keys;
     this._debugIntKeys = message.debugKeys;
-    if (!this.intKeys) {
+    if (this.intKeys.length === 0) {
         // We're the first, so let's initialise it.
         this.intKeys = [null];
         this._debugIntKeys = [null];
     }
-
+    
     // Renew all keys.
-    
-    // Make a new secret, and convert that to a format the Curve25519
-    // implementation understands.
-    this.privKey = _newKey256();
-    var keys = message.keys.map(_arrayCopy);
-    var debugKeys = message.debugKeys.map(_arrayCopy);
-    if (keys.length === 0) {
-        // We're the first, so let's initialise it.
-        keys = [null];
-        debugKeys = [null];
-    }
-    
-    // Update intermediate keys.
-    for (var i = 0; i < keys.length - 1; i++) {
-        keys[i] = _scalarMultiply(this.privKey, keys[i]);
-        debugKeys[i] = _scalarMultiplyDebug(this.id, debugKeys[i]);
-    }
-    
-    // New cardinal is last cardinal scalar multiplied with our private.
-    var lastIndex = keys.length - 1;
-    var cardinalKey = _scalarMultiply(this.privKey, keys[lastIndex]);
-    var cardinalDebugKey = _scalarMultiplyDebug(this.id, debugKeys[lastIndex]);
-    if (this.myPos === this.members.length - 1) {
-        // I'm the last in the chain.
-        // Cardinal is secret key, and broadcast all intermediate keys.
-        this.groupKey = cardinalKey;
-        this._debugGroupKey = cardinalDebugKey;
-        this._setKeys(keys, debugKeys);
+    var result = this._renewPrivKey();
+    var myPos = this.members.indexOf(this.id);
+    if (myPos === this.members.length - 1) {
+        // I'm the last in the chain:
+        // Cardinal is secret key.
+        this.groupKey = result.cardinalKey;
+        this._debugGroupKey = result.cardinalDebugKey;
+        this._setKeys(this.intKeys, this._debugIntKeys);
+        // Broadcast all intermediate keys.
         message.source = this.id;
         message.dest = '';
         message.flow = 'downflow';
     } else {
-        // Add the new cardinal key and pass a message on to the next in line.
-        keys.push(cardinalKey);
-        debugKeys.push(cardinalDebugKey);
+        // Add the new cardinal key.
+        this.intKeys.push(result.cardinalKey);
+        this._debugIntKeys.push(result.cardinalDebugKey);
+        // Pass a message on to the next in line.
         message.source = this.id;
-        message.dest = this.members[this.myPos + 1];
+        message.dest = this.members[myPos + 1];
     }
-    message.keys = keys;
-    message.debugKeys = debugKeys;
+    message.keys = this.intKeys;
+    message.debugKeys = this._debugIntKeys;
     return message;
 };
 
+
+/**
+ * .Renew the private key, update the set of intermediate keys and return
+ *  the new cardinal key.
+ * 
+ * @returns - Cardinal key and cardinal debug key in an object.
+ * @private
+ * @method
+ */
+CliquesMember.prototype._renewPrivKey = function() {
+    var myPos = this.members.indexOf(this.id);
+    if (this.privKey) {
+        // Patch our old private key into intermediate keys.
+        this.intKeys[myPos] = _scalarMultiply(this.privKey, this.intKeys[myPos]);
+        this._debugIntKeys[myPos] = _scalarMultiplyDebug(this._debugPrivKey,
+                                                         this._debugIntKeys[myPos]);
+        // Discard old private key.
+        _clearmem(this.privKey);
+        this.privKey = null;
+    }
+    
+    // Make a new private key.
+    this.privKey = _newKey256();
+    if (this._debugPrivKey) {
+        this._debugPrivKey = this._debugPrivKey + "'";
+    } else {
+        this._debugPrivKey = this.id;
+    }
+    
+    // Update intermediate keys.
+    for (var i = 0; i < this.intKeys.length; i++) {
+        if (i !== myPos) {
+            this.intKeys[i] = _scalarMultiply(this.privKey, this.intKeys[i]);
+            this._debugIntKeys[i] = _scalarMultiplyDebug(this._debugPrivKey,
+                                                         this._debugIntKeys[i]);
+        }
+    }
+    
+    // New cardinal is "own" intermediate scalar multiplied with our private.
+    return {
+        'cardinalKey': _scalarMultiply(this.privKey, this.intKeys[myPos]),
+        'cardinalDebugKey' : _scalarMultiplyDebug(this._debugPrivKey,
+                                                  this._debugIntKeys[myPos])
+    };
+};
 
 /**
  * IKA downflow phase broadcast message receive.
@@ -221,8 +295,17 @@ CliquesMember.prototype.upflow = function(message) {
  */
 CliquesMember.prototype.downflow = function(message) {
     assert(_arrayIsSet(message.members), 'Duplicates in member list detected!');
-    assert(this.members.toString() === message.members.toString(),
-           'Member list mis-match in protocol');
+    assert(message.members.indexOf(this.id) >= 0,
+           'Not in members list, must be excluded.');
+    if (message.agreement === 'ika') {
+        assert(this.members.toString() === message.members.toString(),
+               'Member list mis-match in protocol');
+    } else {
+        assert(_arrayIsSubSet(this.members, message.members),
+               'Members list in message not a super-set of previous members!');
+    }
+    
+    this.members = message.members;
     this._setKeys(message.keys, message.debugKeys);
 };
 

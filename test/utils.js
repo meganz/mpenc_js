@@ -37,5 +37,5 @@ function arrayCompare(array1, array2) {
  * @returns {Number} - Bits of the key.
  */
 function keyBits(key) {
-    return _curve255.c255lhexencode(key).length * 4;
+    return c255lhexencode(key).length * 4;
 }
