@@ -73,6 +73,7 @@ describe('CliquesMember class', function() {
             var numMembers = 5;
             var participant = new CliquesMember('3');
             participant.privKey = _PRIV_KEY();
+            participant._debugPrivKey = '3';
             var intKeys = [];
             var debugIntKeys = ['2*3*4*5*G', '1*3*4*5*G', '1*2*4*5*G',
                                 '1*2*3*5*G', '1*2*3*4*G'];
@@ -275,6 +276,52 @@ describe('CliquesMember class', function() {
             assert.throws(function() { participant.akaJoin(['2']); },
                           'Duplicates in member list detected!');
         });
+        
+        it('join a member using aka', function() {
+            var numMembers = 5;
+            var members = [];
+            var participant = new CliquesMember('3');
+            participant.privKey = _PRIV_KEY();
+            participant._debugPrivKey = '3';
+            participant.groupKey = _PRIV_KEY();
+            participant._debugGroupKey = '3*1*2*4*5*G';
+            participant._debugIntKeys = ['2*3*4*5*G', '1*3*4*5*G', '1*2*4*5*G',
+                                         '1*2*3*5*G', '1*2*3*4*G'];
+            participant.intKeys = [];
+            for (var i = 1; i <= numMembers; i++) {
+                members.push(i.toString());
+                participant.intKeys.push(_PRIV_KEY());
+                participant.members.push(i.toString());
+            }
+            var message = participant.akaJoin(['6']);
+            assert.lengthOf(message.members, 6);
+            assert.lengthOf(message.keys, 6);
+            assert.strictEqual(keyBits(participant.privKey), 256);
+            assert.notDeepEqual(participant.privKey, PRIV_KEY);
+            assert.strictEqual(message.agreement, 'aka');
+            assert.strictEqual(message.flow, 'upflow');
+            for (var i = 0; i < message.debugKeys.length; i++) {
+                assert.ok(message.debugKeys[i].indexOf("3*") >= 0);
+                if (i === 2) {
+                    assert.ok(message.debugKeys[i].indexOf("3'*") < 0);
+                } else {
+                    assert.ok(message.debugKeys[i].indexOf("3'*") >= 0);
+                }
+            }
+            assert.strictEqual(keyBits(message.keys[0]), 256);
+            assert.strictEqual(keyBits(message.keys[5]), 256);
+            assert.strictEqual(message.source, '3');
+            assert.strictEqual(message.dest, '6');
+            // Upflow for the new guy '6'.
+            var newParticipant = new CliquesMember('6');
+            message = newParticipant.upflow(message);
+            assert.strictEqual(newParticipant._debugGroupKey, "6*3'*3*1*2*4*5*G");
+            // Downflow for initiator and new guy.
+            participant.downflow(message);
+            assert.strictEqual(participant._debugGroupKey, "3'*6*3*1*2*4*5*G");
+            newParticipant.downflow(message);
+            assert.deepEqual(participant.groupKey, newParticipant.groupKey);
+        });
     });
 
     describe('#akaExclude() method', function() {
@@ -304,48 +351,167 @@ describe('CliquesMember class', function() {
             assert.throws(function() { participant.akaExclude(['3', '5']); },
                           'Cannot exclude mysefl.');
         });
-
-
+        
+        it('exclude members using aka', function() {
+            var initialMembers = 5;
+            var participant = new CliquesMember('3');
+            participant.intKeys = [];
+            participant._debugIntKeys = [];
+            for (var i = 1; i <= initialMembers; i++) {
+                participant.members.push(i.toString());
+                participant.intKeys.push(_PRIV_KEY());
+                participant._debugIntKeys.push(i.toString());
+                participant.privKey = _PRIV_KEY();
+                participant.goupKey = _PRIV_KEY();
+            }
+            var exclMembers = ['1', '4'];
+            var thenMembers = ['2', '3', '5'];
+            participant._debugGroupKey = '1*2*3*4*5*G';
+            var message = participant.akaExclude(exclMembers);
+            assert.deepEqual(message.members, thenMembers);
+            assert.deepEqual(participant.members, thenMembers);
+            assert.lengthOf(participant._debugIntKeys, 3);
+            assert.lengthOf(participant.intKeys, 3);
+            assert.notDeepEqual(participant.privKey, PRIV_KEY);
+            assert.notDeepEqual(participant.groupKey, PRIV_KEY);
+        });
+    });
+    
+    describe('#akaRefresh() method', function() {
+        it('refresh own private key using aka', function() {
+            var initialMembers = 5;
+            var participant = new CliquesMember('3');
+            participant.intKeys = [];
+            participant._debugIntKeys = [];
+            for (var i = 1; i <= initialMembers; i++) {
+                participant.members.push(i.toString());
+                participant.intKeys.push(_PRIV_KEY());
+                participant._debugIntKeys.push(i.toString());
+                participant.privKey = _PRIV_KEY();
+                participant.goupKey = _PRIV_KEY();
+            }
+            var chkGroupKey = participant.groupKey;
+            var message = participant.akaRefresh();
+            assert.notDeepEqual(participant.privKey, PRIV_KEY);
+            assert.notDeepEqual(participant.groupKey, chkGroupKey);
+        });
     });
     
     describe('whole ika', function() {
-//        it('whole ika flow for 5 members', function() {
-//            var numMembers = 5;
-//            var initiator = 0;
-//            var members = [];
-//            var participants = [];
-//            for (var i = 1; i <= numMembers; i++) {
-//                members.push(i.toString());
-//                participants.push(new CliquesMember(i.toString()));
-//            }
-//            var otherMembers = [];
-//            for (var i = 2; i <= numMembers; i++) {
-//                otherMembers.push(i.toString());
-//            }
-//            // Start me up.
-//            var message = participants[initiator].startIka(otherMembers);
-//            while (message.msgType === 'ika_upflow') {
-//                var nextRecipient = message.dest;
-//                if (message.dest !== '') {
-//                    message = participants[nextRecipient - 1].upflow(message);
-//                } else {
-//                    throw new Error("This shouldn't happen!");
-//                }
-//            }
-//            var keyCheck = null;
-//            for (var i = 0; i < numMembers; i++) {
-//                var participant = participants[i];
-//                var member = members[i];
-//                participant.ikaDownflow(message);
-//                assert(participant.id, member);
-//                assert(arrayCompare(participant.members, members), true);
-//                if (!keyCheck) {
-//                    keyCheck = participant.groupKey;
-//                } else {
-//                    assert(arrayCompare(participant.groupKey, keyCheck), true);
-//                }
-//            }
-//        });
+        it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh', function() {
+            var numMembers = 5;
+            var initiator = 0;
+            var members = [];
+            var participants = [];
+            for (var i = 1; i <= numMembers; i++) {
+                members.push(i.toString());
+                participants.push(new CliquesMember(i.toString()));
+            }
+            var otherMembers = [];
+            for (var i = 2; i <= numMembers; i++) {
+                otherMembers.push(i.toString());
+            }
+            // IKA start.
+            var message = participants[initiator].ika(otherMembers);
+            
+            // IKA upflow.
+            while (message.flow === 'upflow') {
+                if (message.dest !== '') {
+                    var nextId = message.members.indexOf(message.dest);
+                    message = participants[nextId].upflow(message);
+                } else {
+                    assert.ok(false,
+                              "This shouldn't happen, something's seriously dodgy!");
+                }
+            }
+            
+            // IKA downflow for all.
+            var keyCheck = null;
+            for (var i = 0; i < numMembers; i++) {
+                var participant = participants[i];
+                participant.downflow(message);
+                assert.strictEqual(participant.id, members[i]);
+                assert.deepEqual(participant.members, members);
+                if (!keyCheck) {
+                    keyCheck = participant.groupKey;
+                } else {
+                    assert.deepEqual(participant.groupKey, keyCheck);
+                }
+            }
+            
+            // AKA to join two new guys.
+            var newMembers = ['6', '7'];
+            for (var i = 0; i < newMembers.length; i++) {
+                participants.push(new CliquesMember(newMembers[i]));
+            }
+            
+            // '4' starts AKA for join.
+            message = participants[3].akaJoin(newMembers);
+            // AKA upflow for join.
+            while (message.flow === 'upflow') {
+                if (message.dest !== '') {
+                    var nextId = message.members.indexOf(message.dest);
+                    message = participants[nextId].upflow(message);
+                } else {
+                    assert.ok(false,
+                              "This shouldn't happen, something's seriously dodgy!");
+                }
+            }
+            
+            // AKA downflow for join.
+            keyCheck = null;
+            for (var i = 0; i < message.members.length; i++) {
+                var member = message.members[i];
+                var participant = participants[i];
+                participant.downflow(message);
+                assert.strictEqual(participant.id, member);
+                assert.deepEqual(participant.members, message.members);
+                if (!keyCheck) {
+                    keyCheck = participant.groupKey;
+                } else {
+                    assert.deepEqual(participant.groupKey, keyCheck);
+                }
+            }
+            
+            // '3' excludes some members.
+            var toExclude = ['1', '4'];
+            message = participants[2].akaExclude(toExclude);
+            
+            // AKA downflow for exclude.
+            keyCheck = null;
+            for (var i = 0; i < participants.length; i++) {
+                var participant = participants[i];
+                if (message.members.indexOf(participant.id) < 0) {
+                    assert.throws(function() { participant.downflow(message); },
+                                  'Not in members list, must be excluded.');
+                    continue;
+                }
+                participant.downflow(message);
+                assert.deepEqual(participant.members, message.members);
+                if (!keyCheck) {
+                    keyCheck = participant.groupKey;
+                } else {
+                    assert.deepEqual(participant.groupKey, keyCheck);
+                }
+            }
+            
+            // '2' initiates a key refresh.
+            message = participants[1].akaRefresh();
+            
+            // AKA downflow for refresh.
+            keyCheck = null;
+            for (var i = 0; i < participants.length; i++) {
+                if (message.members.indexOf(participants[i].id) >= 0) {
+                    participants[i].downflow(message);
+                    assert.deepEqual(participants[i].members, message.members);
+                    if (!keyCheck) {
+                        keyCheck = participants[i].groupKey;
+                    } else {
+                        assert.deepEqual(participants[i].groupKey, keyCheck);
+                    }
+                }
+            }
+        });
     });
 });
 

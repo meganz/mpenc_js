@@ -122,17 +122,11 @@ CliquesMember.prototype.akaJoin = function(newMembers) {
     
     // Renew all keys.
     var retValue = this._renewPrivKey();
-    var cardinal = retValue.cardinal;
-    var cardinalDebugKey = retValue.cardinalDebugKey;
-    
-    // TODO:
-    // * make this._renewPrivKey()
-    // * continue from here down
     
     // Start of AKA upflow, so we can't be the last member in the chain.
     // Add the new cardinal key.
-    this.intKeys.push(cardinal);
-    this._debugIntKeys.push(cardinalDebugKey);
+    this.intKeys.push(retValue.cardinalKey);
+    this._debugIntKeys.push(retValue.cardinalDebugKey);
     
     // Pass a message on to the first new member to join.
     var startMessage = new CliquesMessage(this.id);
@@ -161,36 +155,73 @@ CliquesMember.prototype.akaExclude = function(excludeMembers) {
            'Members list to exclude is not a sub-set of previous members!');
     assert(excludeMembers.indexOf(this.id) < 0,
            'Cannot exclude mysefl.');
-//    var allMembers = this.members.concat(newMembers);
-//    assert(_arrayIsSet(allMembers), 'Duplicates in member list detected!');
-//    
-//    // Replace members list.
-//    this.members = allMembers;
-//    
-//    // Renew all keys.
-//    var retValue = this._renewPrivKey();
-//    var cardinal = retValue.cardinal;
-//    var cardinalDebugKey = retValue.cardinalDebugKey;
-//    
-//    // TODO:
-//    // * make this._renewPrivKey()
-//    // * continue from here down
-//    
-//    // Start of AKA upflow, so we can't be the last member in the chain.
-//    // Add the new cardinal key.
-//    this.intKeys.push(cardinal);
-//    this._debugIntKeys.push(cardinalDebugKey);
-//    
-//    // Pass a message on to the first new member to join.
-//    var startMessage = new CliquesMessage(this.id);
-//    startMessage.members = allMembers;
-//    startMessage.dest = newMembers[0];
-//    startMessage.agreement = 'aka';
-//    startMessage.flow = 'upflow';
-//    startMessage.keys = this.intKeys;
-//    startMessage.debugKeys = this._debugIntKeys;
-//    
-//    return startMessage;
+    
+    // Which indices need to be excluded.
+    var indicesToExclude = [];
+    
+    for (var i = 0; i < excludeMembers.length; i++) {
+        indicesToExclude.push(this.members.indexOf(excludeMembers[i]));
+    }
+    indicesToExclude.sort();
+    indicesToExclude.reverse();
+        
+    // Kick 'em.
+    for (var i = 0; i < indicesToExclude.length; i++) {
+        this.members.remove(indicesToExclude[i]);
+        this.intKeys.remove(indicesToExclude[i]);
+        this._debugIntKeys.remove(indicesToExclude[i]);
+    }
+    
+    // Renew all keys.
+    var retValue = this._renewPrivKey();
+    
+    // Discard old and make new group key.
+    if (this.groupKey) {
+        _clearmem(this.groupKey);
+        this.groupKey = null;
+    }
+    this.groupKey = retValue.cardinal;
+    this._debugGroupKey = retValue.cardinalDebugKey;
+    
+    // Pass broadcast message on to all members.
+    var broadcastMessage = new CliquesMessage(this.id);
+    broadcastMessage.members = this.members;
+    broadcastMessage.agreement = 'aka';
+    broadcastMessage.flow = 'downflow';
+    broadcastMessage.keys = this.intKeys;
+    broadcastMessage.debugKeys = this._debugIntKeys;
+    
+    return broadcastMessage;
+};
+
+
+/**
+ * Start the AKA (Auxiliary Key Agreement) for refreshing the own private key.
+ * 
+ * @returns {CliquesMessage}
+ * @method
+ */
+CliquesMember.prototype.akaRefresh = function() {
+    // Renew all keys.
+    var retValue = this._renewPrivKey();
+    
+    // Discard old and make new group key.
+    if (this.groupKey) {
+        _clearmem(this.groupKey);
+        this.groupKey = null;
+    }
+    this.groupKey = retValue.cardinal;
+    this._debugGroupKey = retValue.cardinalDebugKey;
+    
+    // Pass broadcast message on to all members.
+    var broadcastMessage = new CliquesMessage(this.id);
+    broadcastMessage.members = this.members;
+    broadcastMessage.agreement = 'aka';
+    broadcastMessage.flow = 'downflow';
+    broadcastMessage.keys = this.intKeys;
+    broadcastMessage.debugKeys = this._debugIntKeys;
+    
+    return broadcastMessage;
 };
 
 
@@ -295,8 +326,6 @@ CliquesMember.prototype._renewPrivKey = function() {
  */
 CliquesMember.prototype.downflow = function(message) {
     assert(_arrayIsSet(message.members), 'Duplicates in member list detected!');
-    assert(message.members.indexOf(this.id) >= 0,
-           'Not in members list, must be excluded.');
     if (message.agreement === 'ika') {
         assert(this.members.toString() === message.members.toString(),
                'Member list mis-match in protocol');
@@ -304,6 +333,8 @@ CliquesMember.prototype.downflow = function(message) {
         assert(_arrayIsSubSet(this.members, message.members),
                'Members list in message not a super-set of previous members!');
     }
+    assert(message.members.indexOf(this.id) >= 0,
+           'Not in members list, must be excluded.');
     
     this.members = message.members;
     this._setKeys(message.keys, message.debugKeys);
@@ -320,21 +351,18 @@ CliquesMember.prototype.downflow = function(message) {
  */
 CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
     if ((this.intKeys) && (this.groupKey)) {
-        if (intKeys.toString() === this.intKeys.toString()) {
-            // We're OK already.
-            return
-        } else {
-            _clearmem(this.groupKey);
-        }
+        _clearmem(this.groupKey);
+        this.groupKey = null;
+        this._debugGroupKey = null;
     }
     // New objects for intermediate keys.
-    this.myPos = this.members.indexOf(this.id);
+    var myPos = this.members.indexOf(this.id);
     this.intKeys = intKeys.map(_arrayCopy);
     this._debugIntKeys = debugKeys.map(_arrayCopy);
     this.groupKey = _scalarMultiply(this.privKey,
-                                    this.intKeys[this.myPos]);
-    this._debugGroupKey = _scalarMultiplyDebug(this.id,
-                                               this._debugIntKeys[this.myPos]);
+                                    this.intKeys[myPos]);
+    this._debugGroupKey = _scalarMultiplyDebug(this._debugPrivKey,
+                                               this._debugIntKeys[myPos]);
 };
 
 
