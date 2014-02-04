@@ -52,24 +52,29 @@ function CliquesMessage(source, dest, agreement, flow, members, keys, debugKeys)
  * This implementation is using the Curve25519 for ECDH mechanisms as a base 
  * extended for group key agreement.
  * 
- * @param id
+ * @constructor
+ * @param id {string}
  *     Member's identifier string.
  * @returns {CliquesMember}
- * @constructor
+ * 
+ * @property id {string} - Member's identifier string.
+ * @property members - List of all participants.
+ * @property intKeys
+ *     List (array) of intermediate keys for all participants. The key for
+ *     each participant contains all others' contributions but the
+ *     participant's one.
+ * @property privKey - This participant's private key.
+ * @property keyTimestamp
+ *     Time stamp indicator when `privKey` was created/refreshed.
+ *     Some monotonously increasing counter.
+ * @property groupKey - Shared secret, the group key.
  */
 function CliquesMember(id) {
-    /** @member id - Member's identifier string. */
     this.id = id;
-    /** @member members - List of all participants. */
     this.members = [];
-    /** @member intKeys
-     *      List (array) of intermediate keys for all participants. The key for
-     *      each participant contains all others' contributions but the
-     *      participant's one. */
     this.intKeys = null;
-    /** @member privKey - This participant's private key. */
     this.privKey = null;
-    /** @member groupKey - Shared secret, the group key. */
+    this.keyTimestamp = null;
     this.groupKey = null;
     // For debugging: Chain of all scalar multiplication keys.
     this._debugIntKeys = null;
@@ -115,7 +120,8 @@ CliquesMember.prototype.ika = function(otherMembers) {
 CliquesMember.prototype.akaJoin = function(newMembers) {
     assert(newMembers.length !== 0, 'No members to add.');
     var allMembers = this.members.concat(newMembers);
-    assert(_arrayIsSet(allMembers), 'Duplicates in member list detected!');
+    assert(_noDuplicatesInList(allMembers),
+           'Duplicates in member list detected!');
     
     // Replace members list.
     this.members = allMembers;
@@ -156,20 +162,12 @@ CliquesMember.prototype.akaExclude = function(excludeMembers) {
     assert(excludeMembers.indexOf(this.id) < 0,
            'Cannot exclude mysefl.');
     
-    // Which indices need to be excluded.
-    var indicesToExclude = [];
-    
-    for (var i = 0; i < excludeMembers.length; i++) {
-        indicesToExclude.push(this.members.indexOf(excludeMembers[i]));
-    }
-    indicesToExclude.sort();
-    indicesToExclude.reverse();
-        
     // Kick 'em.
-    for (var i = 0; i < indicesToExclude.length; i++) {
-        this.members.remove(indicesToExclude[i]);
-        this.intKeys.remove(indicesToExclude[i]);
-        this._debugIntKeys.remove(indicesToExclude[i]);
+    for (var i = 0; i < excludeMembers.length; i++) {
+        var index = this.members.indexOf(excludeMembers[i]);
+        this.members[index] = null;
+        this.intKeys[index] = null;
+        this._debugIntKeys[index] = null;
     }
     
     // Renew all keys.
@@ -234,7 +232,8 @@ CliquesMember.prototype.akaRefresh = function() {
  * @method
  */
 CliquesMember.prototype.upflow = function(message) {
-    assert(_arrayIsSet(message.members), 'Duplicates in member list detected!');
+    assert(_noDuplicatesInList(message.members),
+           'Duplicates in member list detected!');
     
     this.members = message.members;
     this.intKeys = message.keys;
@@ -294,6 +293,7 @@ CliquesMember.prototype._renewPrivKey = function() {
     
     // Make a new private key.
     this.privKey = _newKey256();
+    this.keyTimestamp = Math.round(Date.now() / 1000);
     if (this._debugPrivKey) {
         this._debugPrivKey = this._debugPrivKey + "'";
     } else {
@@ -325,13 +325,11 @@ CliquesMember.prototype._renewPrivKey = function() {
  * @method
  */
 CliquesMember.prototype.downflow = function(message) {
-    assert(_arrayIsSet(message.members), 'Duplicates in member list detected!');
+    assert(_noDuplicatesInList(message.members),
+           'Duplicates in member list detected!');
     if (message.agreement === 'ika') {
         assert(this.members.toString() === message.members.toString(),
                'Member list mis-match in protocol');
-    } else {
-        assert(_arrayIsSubSet(this.members, message.members),
-               'Members list in message not a super-set of previous members!');
     }
     assert(message.members.indexOf(this.id) >= 0,
            'Not in members list, must be excluded.');
@@ -502,4 +500,22 @@ function _newKey256() {
     // TODO: Replace with Mega's implementation of rand(n)
     // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
     return c255lhexdecode(sjcl.codec.hex.fromBits(sjcl.random.randomWords(8, 6)));
+}
+
+
+/**
+ * Determines whether the list contains duplicates while excluding removed
+ * elements (null).
+ * 
+ * @returns True for no duplicates in list.
+ * @private
+ */
+function _noDuplicatesInList(aList) {
+    var listCheck = [];
+    for (var i = 0; i < aList.length; i++) {
+        if (aList[i] !== null) {
+            listCheck.push(aList[i]);
+        }
+    }
+    return _arrayIsSet(listCheck);
 }

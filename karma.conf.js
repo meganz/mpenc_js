@@ -25,6 +25,12 @@ module.exports = function(config) {
     // possible values: 'dots', 'progress', 'junit', 'growl', 'coverage'
     reporters: ['progress', 'coverage'],
 
+    // Coverage configuration
+    coverageReporter: {
+        type: 'html',
+        dir: 'coverage/' 
+    },
+    
     // web server port
     port: 9876,
 

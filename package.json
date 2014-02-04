@@ -38,6 +38,9 @@
     "karma-mocha": "~0.1.1",
     "karma-chai": "0.0.2",
     "karma-sinon": "~1.0.0",
-    "karma-coverage": "~0.1.5"
+    "karma-coverage": "~0.1.5",
+    "istanbul": "~0.2.4",
+    "ibrik": "~1.0.1",
+    "dateformat": "~1.0.7-1.2.3"
   }
 }

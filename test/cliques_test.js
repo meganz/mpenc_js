@@ -145,7 +145,9 @@ describe('CliquesMember class', function() {
             startMessage.members = members;
             startMessage.agreement = 'ika';
             startMessage.flow = 'upflow';
+            var oldTs = participant.keyTimestamp;
             var newMessage = participant.upflow(startMessage);
+            assert.ok(participant.keyTimestamp > oldTs);
             assert.deepEqual(participant.members, members);
             assert.deepEqual(newMessage.members, members);
             assert.strictEqual(keyBits(participant.privKey), 256);
@@ -293,7 +295,9 @@ describe('CliquesMember class', function() {
                 participant.intKeys.push(_PRIV_KEY());
                 participant.members.push(i.toString());
             }
+            var oldTs = participant.keyTimestamp;
             var message = participant.akaJoin(['6']);
+            assert.ok(participant.keyTimestamp > oldTs);
             assert.lengthOf(message.members, 6);
             assert.lengthOf(message.keys, 6);
             assert.strictEqual(keyBits(participant.privKey), 256);
@@ -364,14 +368,14 @@ describe('CliquesMember class', function() {
                 participant.privKey = _PRIV_KEY();
                 participant.goupKey = _PRIV_KEY();
             }
-            var exclMembers = ['1', '4'];
-            var thenMembers = ['2', '3', '5'];
+            // Exclude members '1' and '4'.
+            var thenMembers = [null, '2', '3', null, '5'];
             participant._debugGroupKey = '1*2*3*4*5*G';
-            var message = participant.akaExclude(exclMembers);
+            var oldTs = participant.keyTimestamp;
+            var message = participant.akaExclude(['1', '4']);
+            assert.ok(participant.keyTimestamp > oldTs);
             assert.deepEqual(message.members, thenMembers);
             assert.deepEqual(participant.members, thenMembers);
-            assert.lengthOf(participant._debugIntKeys, 3);
-            assert.lengthOf(participant.intKeys, 3);
             assert.notDeepEqual(participant.privKey, PRIV_KEY);
             assert.notDeepEqual(participant.groupKey, PRIV_KEY);
         });
@@ -391,7 +395,9 @@ describe('CliquesMember class', function() {
                 participant.goupKey = _PRIV_KEY();
             }
             var chkGroupKey = participant.groupKey;
+            var oldTs = participant.keyTimestamp;
             var message = participant.akaRefresh();
+            assert.ok(participant.keyTimestamp > oldTs);
             assert.notDeepEqual(participant.privKey, PRIV_KEY);
             assert.notDeepEqual(participant.groupKey, chkGroupKey);
         });
