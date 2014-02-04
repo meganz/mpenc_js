@@ -1,0 +1,10 @@
+# Compiled Object files
+*.pyc
+*.pyo
+
+# Editor, IDE and dev environment stuff
+*~
+.project
+.settings
+coverage
+node_modules
