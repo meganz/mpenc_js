@@ -8,3 +8,6 @@
 .settings
 coverage
 node_modules
+
+# Documentation generator
+doc/api

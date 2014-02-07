@@ -17,7 +17,8 @@
 
 /**
  * Assertion exception.
- * @param message - Message for exception on failure.
+ * @param message
+ *     Message for exception on failure.
  * @constructor
  */
 function AssertionFailed(message) {
@@ -32,8 +33,10 @@ AssertionFailed.prototype.name = 'AssertionFailed';
  * 
  * Throws an AssertionFailed exception with the given `message` on failure.
  * 
- * @param test - Test statement.
- * @param message - Message for exception on failure.
+ * @param test
+ *     Test statement.
+ * @param message
+ *     Message for exception on failure.
  */
 function assert(test, message) {
     if (!test) {
