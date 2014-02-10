@@ -25,17 +25,115 @@
 "use strict";
 
 /**
- * Generates a new 256 bit random key, and converts it into a format that
- * the Curve25519 implementatino understands.
+ * Generates a new random key as an array of 32 bit words.
  * 
+ * @param bits
+ *     Number of bits of key strength (must be a multiple of 32).
+ * @returns
+ *     32 bit word array of the key.
+ * @private
+ */
+function _newKey32(bits) {
+    // TODO: Replace with Mega's implementation of rand(n)
+    // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
+    var paranoia = [0,48,64,96,128,192,256,384,512,768,1024].indexOf(bits);
+    return sjcl.random.randomWords(Math.floor(bits / 32), paranoia);
+}
+
+
+/**
+ * Generates a new random key, and converts it into a format that
+ * the Curve25519 implementation understands.
+ * 
+ * @param bits
+ *     Number of bits of key strength (must be a multiple of 32).
  * @returns
  *     16 bit word array of the key.
  * @private
  */
-function _newKey256() {
-    // TODO: Replace with Mega's implementation of rand(n)
-    // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
-    return c255lhexdecode(sjcl.codec.hex.fromBits(sjcl.random.randomWords(8, 6)));
+function _newKey16(bits) {
+    return _key32to16(_newKey32(bits));
+}
+
+
+/**
+ * Generates a new random key, and converts it into a format that
+ * the Ed25519 implementation understands.
+ * 
+ * @param bits
+ *     Number of bits of key strength (must be a multiple of 32).
+ * @returns
+ *     8 bit value array of the key.
+ * @private
+ */
+function _newKey08(bits) {
+    return _key32to08(_newKey32(bits));
+}
+
+
+/**
+ * Converts a key representation to an array with 8 bit chunks.
+ * 
+ * @param key
+ *     The key as a 32 bit word array.
+ * @returns
+ *     8 bit value array of the key.
+ * @private
+ */
+function _key32to08(key) {
+    var keyOut = [];
+    for (var i = 0; i < key.length; i++) {
+        var value = key[i];
+        for (var j = 0; j < 4; j++) {
+            keyOut.push(value % 0xff & 0xff);
+            value = value >> 8;
+        }
+    }
+    return keyOut;
+}
+
+
+/**
+ * Converts a key representation to an array with 16 bit chunks.
+ * 
+ * @param key
+ *     The key as a 32 bit word array.
+ * @returns
+ *     16 bit value array of the key.
+ * @private
+ */
+function _key32to16(key) {
+    var keyOut = [];
+    for (var i = 0; i < key.length; i++) {
+        var value = key[i];
+        for (var j = 0; j < 2; j++) {
+            keyOut.push(value % 0xffff & 0xffff);
+            value = value >> 16;
+        }
+    }
+    return keyOut;
+}
+
+
+/**
+ * Converts a key representation to an array with 16 bit chunks.
+ * 
+ * @param key
+ *     The key as a 32 bit word array.
+ * @returns
+ *     16 bit value array of the key.
+ * @private
+ */
+function _key08toHex(key) {
+    var out = '';
+    for (var i = 0; i < key.length; i++) {
+        var value = key[i];
+        for (var j = 0; j < 2; j++) {
+            out += c255lhexchars[value % 0x0f];
+            value = value >> 4;
+        }
+    }
+    return out;
 }
 
 

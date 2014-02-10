@@ -11,9 +11,16 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
-      'test/test-main.js',
+      // Dependency-based load order of lib/ modules.
+      'lib/sjcl.js',
+      'lib/curve255.js',
+      'lib/jsbn.js',
+      'lib/jsbn2.js',
+      'lib/sha512.js',
+      'lib/djbec.js',
+      
+      //{pattern: 'lib/*.js', included: true},
       {pattern: 'src/*.js', included: true},
-      {pattern: 'lib/*.js', included: true},
       {pattern: 'test/*.js', included: true}
     ],
 

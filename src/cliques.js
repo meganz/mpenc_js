@@ -315,7 +315,7 @@ CliquesMember.prototype._renewPrivKey = function() {
     }
     
     // Make a new private key.
-    this.privKey = _newKey256();
+    this.privKey = _newKey16(256);
     this.keyTimestamp = Math.round(Date.now() / 1000);
     if (this._debugPrivKey) {
         this._debugPrivKey = this._debugPrivKey + "'";

@@ -55,11 +55,11 @@ describe("SignatureKeyExchangeMember class", function() {
             var otherMembers = ['2', '3', '4', '5'];
             var startMessage = participant.commit(otherMembers);
             assert.strictEqual(startMessage.source, '1');
-            assert.strictEqual(startMessage.dest, '');
+            assert.strictEqual(startMessage.dest, '2');
             assert.strictEqual(startMessage.msgType, 'upflow');
             assert.deepEqual(startMessage.members, ['1'].concat(otherMembers));
-            assert.deepEqual(startMessage.nonces, []);
-            assert.deepEqual(startMessage.pubKeys, []);
+            assert.lengthOf(startMessage.nonces, 1);
+            assert.lengthOf(startMessage.pubKeys, 1);
         });
     });
     
@@ -94,5 +94,9 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.lengthOf(message.nonces, 1);
             assert.lengthOf(message.pubKeys, 1);
         });
+        
+//        it('TODO: remove this', function() {
+//            //
+//        });
     });
 });

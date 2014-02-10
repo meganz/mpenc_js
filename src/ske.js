@@ -107,6 +107,9 @@ SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
     this.ephemeralPubKeys = null;
     var startMessage = new SignatureKeyExchangeMessage(this.id, '', 'upflow');
     startMessage.members = [this.id].concat(otherMembers);
+    this.nonce = null;
+    this.nonces = [];
+    this.ephemeralPubKeys = [];
     return this.upflow(startMessage);
 };
 
@@ -130,7 +133,15 @@ SignatureKeyExchangeMember.prototype.upflow = function(message) {
     this.ephemeralPubKeys = message.pubKeys;
     
     // Make new nonce and ephemeral signing key pair.
-    this.nonces[myPos] = _newKey256();
+    this.nonce = _newKey08(256);
+    this.nonces.push(this.nonce);
+    this.ephemeralPrivKey = _newKey08(512);
+    this.ephemeralPubKey = ed25519publickey(this.ephemeralPrivKey);
+    this.ephemeralPubKeys.push(this.ephemeralPubKey);
+    
+    // Add them to the message.
+    message.nonces = this.nonces;
+    message.pubKeys = this.pubKeys;
     
     // Pass on a message.
     if (myPos === this.members.length - 1) {
