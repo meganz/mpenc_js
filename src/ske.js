@@ -137,7 +137,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     this.nonce = mpenc.utils._newKey08(256);
     this.nonces.push(this.nonce);
     this.ephemeralPrivKey = mpenc.utils._newKey08(512);
-    this.ephemeralPubKey = ed25519publickey(this.ephemeralPrivKey);
+    this.ephemeralPubKey = djbec.publickey(this.ephemeralPrivKey);
     this.ephemeralPubKeys.push(this.ephemeralPubKey);
     
     // Add them to the message.
