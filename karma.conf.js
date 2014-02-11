@@ -20,6 +20,7 @@ module.exports = function(config) {
       'lib/djbec.js',
       
       //{pattern: 'lib/*.js', included: true},
+      'src/mpenc.js',
       {pattern: 'src/*.js', included: true},
       {pattern: 'test/*.js', included: true}
     ],

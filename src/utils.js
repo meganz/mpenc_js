@@ -33,12 +33,12 @@
  *     32 bit word array of the key.
  * @private
  */
-function _newKey32(bits) {
+mpenc.utils._newKey32 = function(bits) {
     // TODO: Replace with Mega's implementation of rand(n)
     // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
     var paranoia = [0,48,64,96,128,192,256,384,512,768,1024].indexOf(bits);
     return sjcl.random.randomWords(Math.floor(bits / 32), paranoia);
-}
+};
 
 
 /**
@@ -51,9 +51,9 @@ function _newKey32(bits) {
  *     16 bit word array of the key.
  * @private
  */
-function _newKey16(bits) {
-    return _key32to16(_newKey32(bits));
-}
+mpenc.utils._newKey16 = function(bits) {
+    return mpenc.utils._key32to16(mpenc.utils._newKey32(bits));
+};
 
 
 /**
@@ -66,9 +66,9 @@ function _newKey16(bits) {
  *     8 bit value array of the key.
  * @private
  */
-function _newKey08(bits) {
-    return _key32to08(_newKey32(bits));
-}
+mpenc.utils._newKey08 = function(bits) {
+    return mpenc.utils._key32to08(mpenc.utils._newKey32(bits));
+};
 
 
 /**
@@ -80,7 +80,7 @@ function _newKey08(bits) {
  *     8 bit value array of the key.
  * @private
  */
-function _key32to08(key) {
+mpenc.utils._key32to08 = function(key) {
     var keyOut = [];
     for (var i = 0; i < key.length; i++) {
         var value = key[i];
@@ -90,7 +90,7 @@ function _key32to08(key) {
         }
     }
     return keyOut;
-}
+};
 
 
 /**
@@ -102,7 +102,7 @@ function _key32to08(key) {
  *     16 bit value array of the key.
  * @private
  */
-function _key32to16(key) {
+mpenc.utils._key32to16 = function(key) {
     var keyOut = [];
     for (var i = 0; i < key.length; i++) {
         var value = key[i];
@@ -112,7 +112,7 @@ function _key32to16(key) {
         }
     }
     return keyOut;
-}
+};
 
 
 /**
@@ -124,7 +124,7 @@ function _key32to16(key) {
  *     16 bit value array of the key.
  * @private
  */
-function _key08toHex(key) {
+mpenc.utils._key08toHex = function(key) {
     var out = '';
     for (var i = 0; i < key.length; i++) {
         var value = key[i];
@@ -134,7 +134,7 @@ function _key08toHex(key) {
         }
     }
     return out;
-}
+};
 
 
 /**
@@ -144,11 +144,11 @@ function _key08toHex(key) {
  *     The key to clear.
  * @private
  */
-function _clearmem(key) {
+mpenc.utils._clearmem = function(key) {
     for (var i = 0; i < key.length; i++) {
         key[i] = 0;
     }
-}
+};
 
 
 /**
@@ -160,9 +160,9 @@ function _clearmem(key) {
  *     The item itself.
  * @private
  */
-function _arrayCopy(item) {
+mpenc.utils._arrayCopy = function(item) {
     return item;
-}
+};
 
 
 /**
@@ -177,7 +177,7 @@ function _arrayCopy(item) {
  *     True for uniqueness.
  * @private
  */
-function _arrayIsSet(theArray) {
+mpenc.utils._arrayIsSet = function(theArray) {
     // Until ES6 is down everywhere to offer the Set() class, we need to work
     // around it.
     var mockSet = {};
@@ -191,7 +191,7 @@ function _arrayIsSet(theArray) {
         }
     }
     return true;
-}
+};
 
 
 /**
@@ -208,7 +208,7 @@ function _arrayIsSet(theArray) {
  *     True for the first being a subset of the second.
  * @private
  */
-function _arrayIsSubSet(subset, superset) {
+mpenc.utils._arrayIsSubSet = function(subset, superset) {
     // Until ES6 is down everywhere to offer the Set() class, we need to work
     // around it.
     var mockSet = {};
@@ -227,7 +227,7 @@ function _arrayIsSubSet(subset, superset) {
         }
     }
     return true;
-}
+};
 
 
 /**
@@ -238,12 +238,12 @@ function _arrayIsSubSet(subset, superset) {
  *     True for no duplicates in list.
  * @private
  */
-function _noDuplicatesInList(aList) {
+mpenc.utils._noDuplicatesInList = function(aList) {
     var listCheck = [];
     for (var i = 0; i < aList.length; i++) {
         if (aList[i] !== null) {
             listCheck.push(aList[i]);
         }
     }
-    return _arrayIsSet(listCheck);
-}
+    return mpenc.utils._arrayIsSet(listCheck);
+};

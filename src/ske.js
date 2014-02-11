@@ -52,8 +52,8 @@
  *     List (array) of all participants' ephemeral public keys.
  * @returns {SignatureKeyExchangeMessage}
  */
-function SignatureKeyExchangeMessage(source, dest, msgType, members, nonces,
-                                     pubKeys) {
+mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, msgType,
+                                                 members, nonces, pubKeys) {
     this.source = source || '';
     this.dest = dest || '';
     this.msgType = msgType || '';
@@ -62,7 +62,7 @@ function SignatureKeyExchangeMessage(source, dest, msgType, members, nonces,
     this.pubKeys = pubKeys || [];
     
     return this;
-}
+};
 
 
 /**
@@ -80,7 +80,7 @@ function SignatureKeyExchangeMessage(source, dest, msgType, members, nonces,
  * @property members
  *     List of all participants.
  */
-function SignatureKeyExchangeMember(id) {
+mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.id = id;
     this.members = [];
     this.ephemeralPrivKey = null;
@@ -91,7 +91,7 @@ function SignatureKeyExchangeMember(id) {
     this.sessionId = null;
     this.staticPrivKey = null;
     return this;
-}
+};
 
 
 /**
@@ -102,10 +102,11 @@ function SignatureKeyExchangeMember(id) {
  * @returns {SignatureKeyExchangeMessage}
  * @method
  */
-SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
+mpenc.ske.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
     assert(otherMembers.length !== 0, 'No members to add.');
     this.ephemeralPubKeys = null;
-    var startMessage = new SignatureKeyExchangeMessage(this.id, '', 'upflow');
+    var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+                                                                 '', 'upflow');
     startMessage.members = [this.id].concat(otherMembers);
     this.nonce = null;
     this.nonces = [];
@@ -122,8 +123,8 @@ SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
  * @returns {CSignatureKeyExchangeMessage}
  * @method
  */
-SignatureKeyExchangeMember.prototype.upflow = function(message) {
-    assert(_noDuplicatesInList(message.members),
+mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
+    assert(mpenc.utils._noDuplicatesInList(message.members),
            'Duplicates in member list detected!');
     var myPos = message.members.indexOf(this.id);
     assert(myPos >= 0, 'Not member of this key exchange!');
@@ -133,9 +134,9 @@ SignatureKeyExchangeMember.prototype.upflow = function(message) {
     this.ephemeralPubKeys = message.pubKeys;
     
     // Make new nonce and ephemeral signing key pair.
-    this.nonce = _newKey08(256);
+    this.nonce = mpenc.utils._newKey08(256);
     this.nonces.push(this.nonce);
-    this.ephemeralPrivKey = _newKey08(512);
+    this.ephemeralPrivKey = mpenc.utils._newKey08(512);
     this.ephemeralPubKey = ed25519publickey(this.ephemeralPrivKey);
     this.ephemeralPubKeys.push(this.ephemeralPubKey);
     

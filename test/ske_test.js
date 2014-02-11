@@ -28,15 +28,17 @@ describe("module level", function() {
 });
 
 describe("SignatureKeyExchangeMember class", function() {
+    var ns = mpenc.ske;
+    
     describe('constructur', function() {
         it('simple constructor', function() {
-            new SignatureKeyExchangeMember();
+            new ns.SignatureKeyExchangeMember();
         });
     });
     
     describe('#commit() method', function() {
         it('start commit chain', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             var otherMembers = ['2', '3', '4', '5'];
             var spy = sinon.spy();
             participant.upflow = spy;
@@ -45,13 +47,13 @@ describe("SignatureKeyExchangeMember class", function() {
         });
         
         it('start commit chain without members', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             assert.throws(function() { participant.commit([]); },
                           'No members to add.');
         });
         
         it('start commit', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             var otherMembers = ['2', '3', '4', '5'];
             var startMessage = participant.commit(otherMembers);
             assert.strictEqual(startMessage.source, '1');
@@ -65,28 +67,29 @@ describe("SignatureKeyExchangeMember class", function() {
     
     describe('#upflow() method', function() {
         it('upflow duplicates in member list', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             var members = ['3', '1', '2', '3', '4', '5', '6'];
-            var startMessage = new SignatureKeyExchangeMessage();
+            var startMessage = new ns.SignatureKeyExchangeMessage();
             startMessage.members = members;
             assert.throws(function() { participant.upflow(startMessage); },
                           'Duplicates in member list detected!');
         });
         
         it('upflow not in member list', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             var members = ['2', '3', '4', '5', '6'];
-            var startMessage = new SignatureKeyExchangeMessage();
+            var startMessage = new ns.SignatureKeyExchangeMessage();
             startMessage.members = members;
             assert.throws(function() { participant.upflow(startMessage); },
                           'Not member of this key exchange!');
         });
         
         it('upflow, for initiator', function() {
-            var participant = new SignatureKeyExchangeMember('1');
+            var participant = new ns.SignatureKeyExchangeMember('1');
             var members = ['1', '2', '3', '4', '5'];
-            var startMessage = new SignatureKeyExchangeMessage('1', '', 'upflow',
-                                                               members);
+            var startMessage = new ns.SignatureKeyExchangeMessage('1', '',
+                                                                  'upflow',
+                                                                  members);
             var message = participant.upflow(startMessage);
             assert.strictEqual(message.source, '1');
             assert.strictEqual(message.dest, '2');
@@ -95,8 +98,8 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.lengthOf(message.pubKeys, 1);
         });
         
-//        it('TODO: remove this', function() {
-//            //
-//        });
+        it('TODO: remove this', function() {
+            //
+        });
     });
 });

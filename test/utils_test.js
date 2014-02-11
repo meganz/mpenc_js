@@ -25,20 +25,22 @@
 "use strict";
 
 describe("module level", function() {
+    var ns = mpenc.utils;
+
     describe('_arrayIsSubSet()', function() {
         it('check for sub/superset between arrays', function() {
             var subset = ['1', '2', '3'];
             var superset = ['0', '1', '2', '3', '4'];
-            assert.ok(_arrayIsSubSet(subset, superset));
-            assert.strictEqual(_arrayIsSubSet(superset, subset), false);
+            assert.ok(ns._arrayIsSubSet(subset, superset));
+            assert.strictEqual(ns._arrayIsSubSet(superset, subset), false);
         });
     });
     
     describe('_arrayIsSet()', function() {
         it('check for non-duplicatoin of members in array', function() {
             var theArray = ['1', '2', '3'];
-            assert.ok(_arrayIsSet(theArray));
-            assert.strictEqual(_arrayIsSet(['2'].concat(theArray)), false);
+            assert.ok(ns._arrayIsSet(theArray));
+            assert.strictEqual(ns._arrayIsSet(['2'].concat(theArray)), false);
         });
     });
 });

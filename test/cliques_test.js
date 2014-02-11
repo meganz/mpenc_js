@@ -37,35 +37,39 @@ var COMP_KEY_B32 = 'ns4dzlsvnww5hxlt7tqt2ica7m3fxffgib3mqeo4lnonrx663ri';
 var COMP_KEY = c255lbase32decode(COMP_KEY_B32);
 
 describe("module level", function() {
+    var ns = mpenc.cliques;
+    
     describe('_scalarMultiplyDebug()', function() {
         it('should multiply debug with base point if no key given', function() {
-            assert.strictEqual(_scalarMultiplyDebug('1'), '1*G');
-            assert.strictEqual(_scalarMultiplyDebug('2'), '2*G');
+            assert.strictEqual(ns._scalarMultiplyDebug('1'), '1*G');
+            assert.strictEqual(ns._scalarMultiplyDebug('2'), '2*G');
         });
         
         it('should multiply debug priv key with intermediate key', function() {
-            assert.deepEqual(_scalarMultiplyDebug('1', '2*G'), '1*2*G');
-            assert.deepEqual(_scalarMultiplyDebug('2', '3*4*5*G'), '2*3*4*5*G');
+            assert.deepEqual(ns._scalarMultiplyDebug('1', '2*G'), '1*2*G');
+            assert.deepEqual(ns._scalarMultiplyDebug('2', '3*4*5*G'), '2*3*4*5*G');
         });
     });
 
     describe('_scalarMultiply()', function() {
         it('should multiply with base point if no key given', function() {
-            var compPubKey = _scalarMultiply(PRIV_KEY);
+            var compPubKey = ns._scalarMultiply(PRIV_KEY);
             assert.deepEqual(compPubKey, PUB_KEY);
         });
         
         it('should multiply priv key with intermediate key', function() {
-            var compPubKey = _scalarMultiply(PRIV_KEY, PRIV_KEY);
+            var compPubKey = ns._scalarMultiply(PRIV_KEY, PRIV_KEY);
             assert.deepEqual(compPubKey, COMP_KEY);
         });
     });
 });
 
 describe('CliquesMember class', function() {
+    var ns = mpenc.cliques;
+    
     describe('constructor', function() {
         it('simple CliquesMember constructor', function() {
-            var participant = new CliquesMember('4');
+            var participant = new ns.CliquesMember('4');
             assert.strictEqual(participant.id, '4');
         });
     });
@@ -73,7 +77,7 @@ describe('CliquesMember class', function() {
     describe('#_setKeys() method', function() {
         it('update local key state', function() {
             var numMembers = 5;
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.privKey = _PRIV_KEY();
             participant._debugPrivKey = '3';
             var intKeys = [];
@@ -95,7 +99,7 @@ describe('CliquesMember class', function() {
     describe('#_renewPrivKey() method', function() {
         it('reniewing private key and int keys', function() {
             var numMembers = 5;
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.privKey = _PRIV_KEY();
             participant._debugPrivKey = '3';
             participant._debugIntKeys = ['2*3*4*5*G', '1*3*4*5*G', '1*2*4*5*G',
@@ -124,7 +128,7 @@ describe('CliquesMember class', function() {
 
     describe('#ika() method', function() {
         it('start the IKA', function() {
-            var participant = new CliquesMember('1');
+            var participant = new ns.CliquesMember('1');
             var spy = sinon.spy();
             participant.upflow = spy;
             var otherMembers = ['2', '3', '4', '5', '6'];
@@ -133,7 +137,7 @@ describe('CliquesMember class', function() {
         });
     
         it('start the IKA without members', function() {
-            var participant = new CliquesMember('1');
+            var participant = new ns.CliquesMember('1');
             assert.throws(function() { participant.ika([]); },
                           'No members to add.');
         });
@@ -141,9 +145,9 @@ describe('CliquesMember class', function() {
 
     describe('#upflow() method', function() {
         it('ika upflow, no previous messages', function() {
-            var participant = new CliquesMember('1');
+            var participant = new ns.CliquesMember('1');
             var members = ['1', '2', '3', '4', '5', '6'];
-            var startMessage = new CliquesMessage();
+            var startMessage = new ns.CliquesMessage();
             startMessage.members = members;
             startMessage.agreement = 'ika';
             startMessage.flow = 'upflow';
@@ -163,9 +167,9 @@ describe('CliquesMember class', function() {
         });
         
         it('ika upflow duplicates in member list', function() {
-            var participant = new CliquesMember('1');
+            var participant = new ns.CliquesMember('1');
             var members = ['3', '1', '2', '3', '4', '5', '6'];
-            var startMessage = new CliquesMessage();
+            var startMessage = new ns.CliquesMessage();
             startMessage.members = members;
             assert.throws(function() { participant.upflow(startMessage); },
                           'Duplicates in member list detected!');
@@ -177,9 +181,9 @@ describe('CliquesMember class', function() {
             var participants = [];
             for (var i = 1; i <= numMembers; i++) {
                 members.push(i.toString());
-                participants.push(new CliquesMember(i.toString()));
+                participants.push(new ns.CliquesMember(i.toString()));
             }
-            var message = new CliquesMessage();
+            var message = new ns.CliquesMessage();
             message.members = members;
             message.agreement = 'ika';
             message.flow = 'upflow';
@@ -218,9 +222,9 @@ describe('CliquesMember class', function() {
     describe('#downflow() method', function() {
         it('ika downflow duplicates in member list', function() {
             var members = ['3', '1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = ['1', '2', '3', '4', '5'];
-            var broadcastMessage = new CliquesMessage();
+            var broadcastMessage = new ns.CliquesMessage();
             broadcastMessage.members = members;
             assert.throws(function() { participant.downflow(broadcastMessage); },
                           'Duplicates in member list detected!');
@@ -228,9 +232,9 @@ describe('CliquesMember class', function() {
         
         it('ika downflow member list mismatch', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = ['1', '2', '3', '4'];
-            var broadcastMessage = new CliquesMessage();
+            var broadcastMessage = new ns.CliquesMessage();
             broadcastMessage.members = members;
             broadcastMessage.agreement = 'ika';
             assert.throws(function() { participant.downflow(broadcastMessage); },
@@ -245,16 +249,16 @@ describe('CliquesMember class', function() {
                 members.push(i.toString());
                 messageKeys.push(_PRIV_KEY());
             }
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant.privKey = _PRIV_KEY();
-            var broadcastMessage = new CliquesMessage();
+            var broadcastMessage = new ns.CliquesMessage();
             broadcastMessage.source = '5';
             broadcastMessage.agreement = 'ika';
             broadcastMessage.flow = 'downflow';
             broadcastMessage.members = members;
             broadcastMessage.keys = messageKeys;
-            broadcastMessage.debugKeys = members.map(_arrayCopy);
+            broadcastMessage.debugKeys = members.map(mpenc.utils._arrayCopy);
             participant.downflow(broadcastMessage);
             assert.deepEqual(participant.intKeys, messageKeys);
             assert.strictEqual(keyBits(participant.groupKey), 256);
@@ -265,7 +269,7 @@ describe('CliquesMember class', function() {
     describe('#akaJoin() method', function() {
         it('join empty member list using aka', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant._debugGroupKey = '1*2*3*4*5*G';
             assert.throws(function() { participant.akaJoin([]); },
@@ -274,7 +278,7 @@ describe('CliquesMember class', function() {
         
         it('join duplicate member list using aka', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant._debugGroupKey = '1*2*3*4*5*G';
             assert.throws(function() { participant.akaJoin(['2']); },
@@ -284,7 +288,7 @@ describe('CliquesMember class', function() {
         it('join a member using aka', function() {
             var numMembers = 5;
             var members = [];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.privKey = _PRIV_KEY();
             participant._debugPrivKey = '3';
             participant.groupKey = _PRIV_KEY();
@@ -319,7 +323,7 @@ describe('CliquesMember class', function() {
             assert.strictEqual(message.source, '3');
             assert.strictEqual(message.dest, '6');
             // Upflow for the new guy '6'.
-            var newParticipant = new CliquesMember('6');
+            var newParticipant = new ns.CliquesMember('6');
             message = newParticipant.upflow(message);
             assert.strictEqual(newParticipant._debugGroupKey, "6*3'*3*1*2*4*5*G");
             // Downflow for initiator and new guy.
@@ -333,7 +337,7 @@ describe('CliquesMember class', function() {
     describe('#akaExclude() method', function() {
         it('exclude empty member list using aka', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant._debugGroupKey = '1*2*3*4*5*G';
             assert.throws(function() { participant.akaExclude([]); },
@@ -342,7 +346,7 @@ describe('CliquesMember class', function() {
         
         it('exclude non existing member using aka', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant._debugGroupKey = '1*2*3*4*5*G';
             assert.throws(function() { participant.akaExclude(['1', '7']); },
@@ -351,7 +355,7 @@ describe('CliquesMember class', function() {
         
         it('exclude self using aka', function() {
             var members = ['1', '2', '3', '4', '5'];
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.members = members;
             participant._debugGroupKey = '1*2*3*4*5*G';
             assert.throws(function() { participant.akaExclude(['3', '5']); },
@@ -360,7 +364,7 @@ describe('CliquesMember class', function() {
         
         it('exclude members using aka', function() {
             var initialMembers = 5;
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.intKeys = [];
             participant._debugIntKeys = [];
             for (var i = 1; i <= initialMembers; i++) {
@@ -386,7 +390,7 @@ describe('CliquesMember class', function() {
     describe('#akaRefresh() method', function() {
         it('refresh own private key using aka', function() {
             var initialMembers = 5;
-            var participant = new CliquesMember('3');
+            var participant = new ns.CliquesMember('3');
             participant.intKeys = [];
             participant._debugIntKeys = [];
             for (var i = 1; i <= initialMembers; i++) {
@@ -413,7 +417,7 @@ describe('CliquesMember class', function() {
             var participants = [];
             for (var i = 1; i <= numMembers; i++) {
                 members.push(i.toString());
-                participants.push(new CliquesMember(i.toString()));
+                participants.push(new ns.CliquesMember(i.toString()));
             }
             var otherMembers = [];
             for (var i = 2; i <= numMembers; i++) {
@@ -450,7 +454,7 @@ describe('CliquesMember class', function() {
             // AKA to join two new guys.
             var newMembers = ['6', '7'];
             for (var i = 0; i < newMembers.length; i++) {
-                participants.push(new CliquesMember(newMembers[i]));
+                participants.push(new ns.CliquesMember(newMembers[i]));
             }
             
             // '4' starts AKA for join.
@@ -529,5 +533,5 @@ describe('CliquesMember class', function() {
  * @returns Array of words.
  */
 function _PRIV_KEY() {
-    return PRIV_KEY.map(_arrayCopy);
+    return PRIV_KEY.map(mpenc.utils._arrayCopy);
 }
