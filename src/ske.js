@@ -1,18 +1,31 @@
 /**
- * @module ske
- *
+ * @fileOverview
+ * Implementation of an authenticated Signature Key Exchange scheme.
+ */
+
+"use strict";
+
+/**
+ * @namespace
  * Implementation of an authenticated Signature Key Exchange scheme.
  * 
+ * @description
+ * <p>Implementation of an authenticated Signature Key Exchange scheme.</p>
+ * 
+ * <p>
  * This scheme is trying to prevent replay attacks by the use of a nonce-based
- * session ID as described in 
+ * session ID as described in </p>
  * 
- * Jens-Matthias Bohli and Rainer Steinwandt. 2006.
- * "Deniable Group Key Agreement."
- * VIETCRYPT 2006, LNCS 4341, pp. 298-311.
+ * <p>
+ * Jens-Matthias Bohli and Rainer Steinwandt. 2006.<br/>
+ * "Deniable Group Key Agreement."<br/>
+ * VIETCRYPT 2006, LNCS 4341, pp. 298-311.</p>
  * 
- * This implementation is using the Edwards25519 for an EC signature mechanism
- * to complement the Curve25519-based group key agreement.
+ * <p>
+ * This implementation is using the Edwards25519 for an ECDSA signature
+ * mechanism to complement the Curve25519-based group key agreement.</p>
  */
+mpenc.ske = {};
 
 /*
  * Created: 5 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -31,8 +44,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-
-"use strict";
 
 /**
  * Carries message content for the authenticated signature key exchange.

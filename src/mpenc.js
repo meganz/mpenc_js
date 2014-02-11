@@ -22,17 +22,15 @@
 
 "use strict";
 
-/** @namespace The multi-party encrypted chat protocol, top-level namespace. */
-var mpenc = {
-    /** @namespace CLIQUES protocol for group key agreement. */
-    cliques: {},
-    
-    /** @namespace Authenticated signature key exchange. */
-    ske: {},
-    
-    /** @namespace Miscellaneous utilities. */
-    utils: {},
-};
+/**
+ * @namespace
+ * The multi-party encrypted chat protocol, top-level namespace.
+ * 
+ * @description
+ * This is eventually to be extended towards the mpOTR standard, currently
+ * under development.
+ */
+var mpenc = {};
 
 if(typeof module !== 'undefined' && module.exports){
   module.exports = mpenc;

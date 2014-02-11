@@ -1,8 +1,10 @@
 /**
- * @module ske_test
- * 
- * Test of the ske module (Signature Key Exchange).
+ * @fileOverview
+ * Test of the `mpenc.ske` module (Signature Key Exchange).
  */
+
+
+"use strict";
 
 /*
  * Created: 5 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -21,9 +23,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-
-"use strict";
-
 describe("module level", function() {
 });
 
@@ -100,6 +99,7 @@ describe("SignatureKeyExchangeMember class", function() {
         
         it('TODO: remove this', function() {
             //
+            
         });
     });
 });

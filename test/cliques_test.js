@@ -1,7 +1,6 @@
 /**
- * @module cliques_test
- * 
- * Test of the cliques module (CLIQUES group key agreement protocol).
+ * @fileOverview
+ * Test of the `mpenc.cliques` module.
  */
 
 /*

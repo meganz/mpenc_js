@@ -1,7 +1,6 @@
 /**
- * @module utils_test
- *
- * Tests for utilities.
+ * @fileOverview
+ * Tests for `mpenc.utils` module.
  */
 
 /*

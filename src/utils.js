@@ -1,8 +1,18 @@
 /**
- * @module utils
- * 
+ * @fileOverview
  * Some utilities.
  */
+
+"use strict";
+
+/**
+ * @namespace
+ * Some utilities.
+ * 
+ * @description
+ * Some utilities.
+ */
+mpenc.utils = {};
 
 /*
  * Created: 7 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -21,8 +31,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-
-"use strict";
 
 /**
  * Generates a new random key as an array of 32 bit words.

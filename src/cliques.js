@@ -1,16 +1,27 @@
 /**
- * @module cliques
- * 
+ * @fileOverview
+ * Implementation of group key agreement based on CLIQUES.
+ */
+
+"use strict";
+
+/** 
+ * @namespace
  * Implementation of group key agreement based on CLIQUES.
  * 
- * Michael Steiner, Gene Tsudik, and Michael Waidner. 2000.
- * "Key Agreement in Dynamic Peer Groups."
- * IEEE Trans. Parallel Distrib. Syst. 11, 8 (August 2000), 769-780.
- * DOI=10.1109/71.877936
+ * @description
+ * <p>Implementation of group key agreement based on CLIQUES.</p>
  * 
- * This implementation is using the Curve25519 for ECDH mechanisms as a base
- * extended for group key agreement.
+ * <p>
+ * Michael Steiner, Gene Tsudik, and Michael Waidner. 2000.<br/>
+ * "Key Agreement in Dynamic Peer Groups."<br/>
+ * IEEE Trans. Parallel Distrib. Syst. 11, 8 (August 2000), 769-780.<br/>
+ * DOI=10.1109/71.877936</p>
+ * 
+ * <p>This implementation is using the Curve25519 for ECDH mechanisms as a base
+ * extended for group key agreement.</p>
  */
+mpenc.cliques = {};
 
 /*
  * Created: 20 Jan 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -29,8 +40,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-
-"use strict";
 
 /**
  * Carries message content for the CLIQUES protocol.
@@ -116,7 +125,7 @@ mpenc.cliques.CliquesMember = function(id) {
  * @method
  */
 mpenc.cliques.CliquesMember.prototype.ika = function(otherMembers) {
-    assert(otherMembers.length !== 0, 'No members to add.');
+    _assert(otherMembers.length !== 0, 'No members to add.');
     this.intKeys = null;
     this._debugIntKeys = null;
     if (this.privKey) {
@@ -141,10 +150,10 @@ mpenc.cliques.CliquesMember.prototype.ika = function(otherMembers) {
  * @method
  */
 mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
-    assert(newMembers.length !== 0, 'No members to add.');
+    _assert(newMembers.length !== 0, 'No members to add.');
     var allMembers = this.members.concat(newMembers);
-    assert(mpenc.utils._noDuplicatesInList(allMembers),
-           'Duplicates in member list detected!');
+    _assert(mpenc.utils._noDuplicatesInList(allMembers),
+            'Duplicates in member list detected!');
     
     // Replace members list.
     this.members = allMembers;
@@ -179,11 +188,11 @@ mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
  * @method
  */
 mpenc.cliques.CliquesMember.prototype.akaExclude = function(excludeMembers) {
-    assert(excludeMembers.length !== 0, 'No members to exclude.');
-    assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
-           'Members list to exclude is not a sub-set of previous members!');
-    assert(excludeMembers.indexOf(this.id) < 0,
-           'Cannot exclude mysefl.');
+    _assert(excludeMembers.length !== 0, 'No members to exclude.');
+    _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
+            'Members list to exclude is not a sub-set of previous members!');
+    _assert(excludeMembers.indexOf(this.id) < 0,
+            'Cannot exclude mysefl.');
     
     // Kick 'em.
     for (var i = 0; i < excludeMembers.length; i++) {
@@ -255,8 +264,8 @@ mpenc.cliques.CliquesMember.prototype.akaRefresh = function() {
  * @method
  */
 mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
-    assert(mpenc.utils._noDuplicatesInList(message.members),
-           'Duplicates in member list detected!');
+    _assert(mpenc.utils._noDuplicatesInList(message.members),
+            'Duplicates in member list detected!');
     
     this.members = message.members;
     this.intKeys = message.keys;
@@ -351,14 +360,14 @@ mpenc.cliques.CliquesMember.prototype._renewPrivKey = function() {
  * @method
  */
 mpenc.cliques.CliquesMember.prototype.downflow = function(message) {
-    assert(mpenc.utils._noDuplicatesInList(message.members),
-           'Duplicates in member list detected!');
+    _assert(mpenc.utils._noDuplicatesInList(message.members),
+            'Duplicates in member list detected!');
     if (message.agreement === 'ika') {
-        assert(this.members.toString() === message.members.toString(),
-               'Member list mis-match in protocol');
+        _assert(this.members.toString() === message.members.toString(),
+                'Member list mis-match in protocol');
     }
-    assert(message.members.indexOf(this.id) >= 0,
-           'Not in members list, must be excluded.');
+    _assert(message.members.indexOf(this.id) >= 0,
+            'Not in members list, must be excluded.');
     
     this.members = message.members;
     this._setKeys(message.keys, message.debugKeys);

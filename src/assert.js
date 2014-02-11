@@ -1,19 +1,27 @@
 /**
- * @module assert
- * 
+ * @fileOverview
+ * Assertion helper module.
+ */
+
+"use strict";
+
+/**
+ * @namespace
  * Assertion helper module.
  * 
- * Example usage:
+ * @description
+ * <p>Assertion helper module.</p>
+ * 
+ * <p>Example usage:</p>
  * 
  * <pre>
  * function lastElement(array) {
- *     assert(array.length > 0, "empty array in lastElement");
+ *     _assert(array.length > 0, "empty array in lastElement");
  *     return array[array.length - 1];
  * }
  * </pre>
  */
-
-"use strict";
+mpenc.assert = {};
 
 /**
  * Assertion exception.
@@ -21,26 +29,27 @@
  *     Message for exception on failure.
  * @constructor
  */
-function AssertionFailed(message) {
+mpenc.assert.AssertionFailed = function(message) {
     this.message = message;
-}
-AssertionFailed.prototype = Object.create(Error.prototype);
-AssertionFailed.prototype.name = 'AssertionFailed';
+};
+mpenc.assert.AssertionFailed.prototype = Object.create(Error.prototype);
+mpenc.assert.AssertionFailed.prototype.name = 'AssertionFailed';
 
 
 /**
  * Assert a given test condition.
  * 
- * Throws an AssertionFailed exception with the given `message` on failure.
+ * Throws an `AssertionFailed` exception with the given `message` on failure.
  * 
  * @param test
  *     Test statement.
  * @param message
  *     Message for exception on failure.
  */
-function assert(test, message) {
+mpenc.assert.assert = function(test, message) {
     if (!test) {
-        throw new AssertionFailed(message);
+        throw new mpenc.assert.AssertionFailed(message);
     }
-}
+};
 
+var _assert = mpenc.assert.assert;
