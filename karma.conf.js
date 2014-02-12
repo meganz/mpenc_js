@@ -33,7 +33,14 @@ module.exports = function(config) {
     // possible values: 'dots', 'progress', 'junit', 'growl', 'coverage'
     reporters: ['progress', 'coverage'],
 
-    // Coverage configuration
+    // Source files to generate a coverage report for.
+    // (Do not include tests or libraries.
+    // These files will be instrumented by Istanbul.)
+    preprocessors: {
+         'src/*.js': ['coverage']
+     },
+
+// Coverage configuration
     coverageReporter: {
         type: 'html',
         dir: 'coverage/' 
