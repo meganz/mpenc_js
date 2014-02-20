@@ -171,3 +171,122 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     message.pubKeys = this.ephemeralPubKeys;
     return message;
 };
+
+
+/**
+ * Converts a (binary) string to a multi-precision integer (MPI).
+ * 
+ * @param binstring
+ *     Binary string representation of data.
+ * @returns
+ *     MPI representation.
+ */
+mpenc.ske._binstring2mpi = function(binstring) {
+    var contentLength = binstring.length * 8;
+    var data = String.fromCharCode(contentLength >> 8)
+             + String.fromCharCode(contentLength & 255) + binstring;
+    return mpi2b(data);
+};
+
+
+/**
+ * Converts a multi-precision integer (MPI) to a (binary) string.
+ * 
+ * @param mpi
+ *     MPI representation.
+ * @returns
+ *     Binary string representation of data.
+ */
+mpenc.ske._mpi2binstring = function(mpi) {
+    return b2mpi(mpi).slice(2);
+};
+
+/**
+ * Encodes the message according to the EME-PKCS1-V1_5 encoding scheme in
+ * RFC 2437, section 9.1.2.
+ * 
+ * see: http://tools.ietf.org/html/rfc2437#section-9.1.2
+ * 
+ * @param message
+ *     Message to encode.
+ * @param length
+ *     Destination length of the encoded message in bytes.
+ * @returns
+ *     Encoded message as binary string.
+ */
+mpenc.ske._pkcs1v15_encode = function(message, length) {
+    _assert(message.length < length - 10,
+            'message too long for encoding scheme');
+    
+    // Padding string.
+    var padding = '';
+    for (var i = 0; i < length - message.length - 2; i++) {
+        padding += String.fromCharCode(1 + Math.floor(255 * Math.random()));
+    }
+    
+    return String.fromCharCode(2) + padding + String.fromCharCode(0) + message;
+};
+
+
+/**
+ * Decodes the message according to the EME-PKCS1-V1_5 encoding scheme in
+ * RFC 2437, section 9.1.2.
+ * 
+ * see: http://tools.ietf.org/html/rfc2437#section-9.1.2
+ * 
+ * @param message
+ *     Message to decode.
+ * @returns
+ *     Decoded message as binary string.
+ */
+mpenc.ske._pkcs1v15_decode = function(message) {
+    _assert(message.length > 10, 'message decoding error');
+    return message.slice(message.indexOf(String.fromCharCode(0)) + 1);
+};
+
+
+/**
+ * Encrypts a binary string using an RSA public key. The data to be encrypted
+ * must be encryptable <em>directly</em> using the key after annotating it with
+ * content length: Max. size of cleartext <= key size in bytes - 4.
+ * 
+ * @param cleartext
+ *     Cleartext to encrypt.
+ * @param pubkey
+ *     Public RSA key.
+ * @returns
+ *     Ciphertext encoded as binary string.
+ */
+mpenc.ske.smallrsaencrypt = function(cleartext, pubkey) {
+    // pubkey[2] is length of key in bits.
+    var keyLength = pubkey[2] >> 3;
+    
+    // Convert to MPI format and return cipher as binary string.
+    var data = mpenc.ske._binstring2mpi(mpenc.ske._pkcs1v15_encode(cleartext,
+                                                                   keyLength));
+    return mpenc.ske._mpi2binstring(RSAencrypt(data, pubkey[1], pubkey[0]));
+};
+
+
+/**
+ * Decrypts a binary string using an RSA private key. The data to be decrypted
+ * must be decryptable <em>directly</em> using the key, and it must be 
+ * annotated it with content length: Max. size of ciphertext <= key size in bytes.
+ * 
+ * @param ciphertext
+ *     Ciphertext to decrypt.
+ * @param privkey
+ *     Private RSA key.
+ * @returns
+ *     Cleartext encoded as binary string.
+ */
+mpenc.ske.smallrsadecrypt = function(ciphertext, privkey) {
+    var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
+    
+    // Decrypt ciphertext.
+    var cleartext = RSAdecrypt(mpenc.ske._binstring2mpi(ciphertext),
+                               privkey[2], privkey[0], privkey[1], privkey[3]);
+    var data = mpenc.ske._mpi2binstring(cleartext);
+    
+    return mpenc.ske._pkcs1v15_decode(data);
+};
