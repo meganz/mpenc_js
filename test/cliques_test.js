@@ -155,12 +155,12 @@ describe('CliquesMember class', function() {
             assert.ok(participant.keyTimestamp > oldTs);
             assert.deepEqual(participant.members, members);
             assert.deepEqual(newMessage.members, members);
-            assert.strictEqual(keyBits(participant.privKey), 256);
+            assert.strictEqual(keyBits(participant.privKey, 16), 256);
             assert.strictEqual(newMessage.agreement, 'ika');
             assert.strictEqual(newMessage.flow, 'upflow');
             assert.lengthOf(newMessage.keys, 2);
             assert.strictEqual(newMessage.keys[0], null);
-            assert.strictEqual(keyBits(newMessage.keys[newMessage.keys.length - 1]), 256);
+            assert.strictEqual(keyBits(newMessage.keys[newMessage.keys.length - 1], 16), 256);
             assert.strictEqual(newMessage.source, '1');
             assert.strictEqual(newMessage.dest, '2');
         });
@@ -189,15 +189,15 @@ describe('CliquesMember class', function() {
             for (var i = 0; i < numMembers - 1; i++) {
                 message = participants[i].upflow(message);
                 assert.deepEqual(participants[i].members, members);
-                assert.strictEqual(keyBits(participants[i].privKey), 256);
+                assert.strictEqual(keyBits(participants[i].privKey, 16), 256);
                 assert.strictEqual(message.agreement, 'ika');
                 assert.strictEqual(message.flow, 'upflow');
                 assert.lengthOf(message.keys, i + 2);
-                assert.strictEqual(keyBits(message.keys[i + 1]), 256);
+                assert.strictEqual(keyBits(message.keys[i + 1], 16), 256);
                 if (i === 0) {
                     assert.strictEqual(message.keys[0], null);
                 } else {
-                    assert.strictEqual(keyBits(message.keys[0]), 256);
+                    assert.strictEqual(keyBits(message.keys[0], 16), 256);
                 }
                 assert.strictEqual(message.source, members[i]);
                 assert.strictEqual(message.dest, members[i + 1]);
@@ -206,12 +206,12 @@ describe('CliquesMember class', function() {
             // The last member behaves differently.
             message = participants[numMembers - 1].upflow(message);
             assert.deepEqual(participants[i].members, members);
-            assert.strictEqual(keyBits(participants[i].privKey), 256);
+            assert.strictEqual(keyBits(participants[i].privKey, 16), 256);
             assert.strictEqual(message.agreement, 'ika');
             assert.strictEqual(message.flow, 'downflow');
             assert.lengthOf(message.keys, numMembers);
-            assert.strictEqual(keyBits(message.keys[0]), 256);
-            assert.strictEqual(keyBits(message.keys[numMembers - 1]), 256);
+            assert.strictEqual(keyBits(message.keys[0], 16), 256);
+            assert.strictEqual(keyBits(message.keys[numMembers - 1], 16), 256);
             // Last one goes to all.
             assert.strictEqual(message.source, members[numMembers - 1]);
             assert.strictEqual(message.dest, '');
@@ -260,7 +260,7 @@ describe('CliquesMember class', function() {
             broadcastMessage.debugKeys = members.map(mpenc.utils._arrayCopy);
             participant.downflow(broadcastMessage);
             assert.deepEqual(participant.intKeys, messageKeys);
-            assert.strictEqual(keyBits(participant.groupKey), 256);
+            assert.strictEqual(keyBits(participant.groupKey, 16), 256);
             assert.notDeepEqual(participant.groupKey, PRIV_KEY);
         });
     });
@@ -305,7 +305,7 @@ describe('CliquesMember class', function() {
             assert.ok(participant.keyTimestamp > oldTs);
             assert.lengthOf(message.members, 6);
             assert.lengthOf(message.keys, 6);
-            assert.strictEqual(keyBits(participant.privKey), 256);
+            assert.strictEqual(keyBits(participant.privKey, 16), 256);
             assert.notDeepEqual(participant.privKey, PRIV_KEY);
             assert.strictEqual(message.agreement, 'aka');
             assert.strictEqual(message.flow, 'upflow');
@@ -317,8 +317,8 @@ describe('CliquesMember class', function() {
                     assert.ok(message.debugKeys[i].indexOf("3'*") >= 0);
                 }
             }
-            assert.strictEqual(keyBits(message.keys[0]), 256);
-            assert.strictEqual(keyBits(message.keys[5]), 256);
+            assert.strictEqual(keyBits(message.keys[0], 16), 256);
+            assert.strictEqual(keyBits(message.keys[5], 16), 256);
             assert.strictEqual(message.source, '3');
             assert.strictEqual(message.dest, '6');
             // Upflow for the new guy '6'.

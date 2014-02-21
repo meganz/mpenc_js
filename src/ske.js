@@ -53,7 +53,7 @@ mpenc.ske = {};
  *     Message originator (from).
  * @param dest
  *     Message destination (to).
- * @param msgType
+ * @param flow
  *     Message type.
  * @param members
  *     List (array) of all participating members.
@@ -61,16 +61,20 @@ mpenc.ske = {};
  *     List (array) of all participants' nonces.
  * @param pubKeys
  *     List (array) of all participants' ephemeral public keys.
+ * @param sessionSignature
+ *     Signature to acknowledge the session.
  * @returns {SignatureKeyExchangeMessage}
  */
-mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, msgType,
-                                                 members, nonces, pubKeys) {
+mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, flow, members,
+                                                 nonces, pubKeys,
+                                                 sessionSignature) {
     this.source = source || '';
     this.dest = dest || '';
-    this.msgType = msgType || '';
+    this.flow = flow || '';
     this.members = members || [];
     this.nonces = nonces || [];
     this.pubKeys = pubKeys || [];
+    this.sessionSignature = sessionSignature || null;
     
     return this;
 };
@@ -151,17 +155,16 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     this.ephemeralPubKey = djbec.publickey(this.ephemeralPrivKey);
     this.ephemeralPubKeys.push(this.ephemeralPubKey);
     
-    // Add them to the message.
-    message.nonces = this.nonces;
-    message.pubKeys = this.pubKeys;
-    
     // Pass on a message.
     if (myPos === this.members.length - 1) {
+        // Compute my session ID.
+        this.sessionId = mpenc.ske._computeSid(this.members, this.nonces);
         // I'm the last in the chain:
         // Broadcast all intermediate keys.
         message.source = this.id;
         message.dest = '';
         message.flow = 'downflow';
+        message.sessionSignature = this._computeSessionSig();
     } else {
         // Pass a message on to the next in line.
         message.source = this.id;
@@ -170,6 +173,24 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     message.nonces = this.nonces;
     message.pubKeys = this.ephemeralPubKeys;
     return message;
+};
+
+
+/**
+ * Computes a session acknowledgement signature sigma(m) of a message
+ * m = (pid_i, E_i, sid) using the static private key.
+ * 
+ * @returns
+ *     Session signature.
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
+    assert(this.sessionId, 'Session ID not available.');
+    assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
+    var sidString = djbec._bytes2string(this.sessionId);
+    var ePubKeyString = djbec._bytes2string(this.ephemeralPubKey);
+    return mpenc.ske.smallrsasign(this.id + ePubKeyString + sidString,
+                                  this.staticPrivKey);
 };
 
 
@@ -219,6 +240,7 @@ mpenc.ske._pkcs1v15_encode = function(message, length) {
             'message too long for encoding scheme');
     
     // Padding string.
+    // TODO: Replace this with cryptographically secure random numbers.
     var padding = '';
     for (var i = 0; i < length - message.length - 2; i++) {
         padding += String.fromCharCode(1 + Math.floor(255 * Math.random()));
@@ -247,8 +269,9 @@ mpenc.ske._pkcs1v15_decode = function(message) {
 
 /**
  * Encrypts a binary string using an RSA public key. The data to be encrypted
- * must be encryptable <em>directly</em> using the key after annotating it with
- * content length: Max. size of cleartext <= key size in bytes - 4.
+ * must be encryptable <em>directly</em> using the key.
+ * 
+ * For secure random padding, the max. size of message = key size in bytes - 10.
  * 
  * @param cleartext
  *     Cleartext to encrypt.
@@ -270,8 +293,7 @@ mpenc.ske.smallrsaencrypt = function(cleartext, pubkey) {
 
 /**
  * Decrypts a binary string using an RSA private key. The data to be decrypted
- * must be decryptable <em>directly</em> using the key, and it must be 
- * annotated it with content length: Max. size of ciphertext <= key size in bytes.
+ * must be decryptable <em>directly</em> using the key.
  * 
  * @param ciphertext
  *     Ciphertext to decrypt.
@@ -281,12 +303,85 @@ mpenc.ske.smallrsaencrypt = function(cleartext, pubkey) {
  *     Cleartext encoded as binary string.
  */
 mpenc.ske.smallrsadecrypt = function(ciphertext, privkey) {
-    var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
-    
-    // Decrypt ciphertext.
     var cleartext = RSAdecrypt(mpenc.ske._binstring2mpi(ciphertext),
                                privkey[2], privkey[0], privkey[1], privkey[3]);
     var data = mpenc.ske._mpi2binstring(cleartext);
-    
     return mpenc.ske._pkcs1v15_decode(data);
+};
+
+
+/**
+ * Encrypts a binary string using an RSA private key for the purpose of signing
+ * (authenticating). The data to be encrypted must be decryptable
+ * <em>directly</em> using the key.
+ * 
+ * For secure random padding, the max. size of message = key size in bytes - 10.
+ * 
+ * @param cleartext
+ *     Message to encrypt.
+ * @param privkey
+ *     Private RSA key.
+ * @returns
+ *     Encrypted message encoded as binary string.
+ */
+mpenc.ske.smallrsasign = function(cleartext, privkey) {
+    var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
+        
+    // Convert to MPI format and return cipher as binary string.
+    var data = mpenc.ske._pkcs1v15_encode(cleartext, keyLength);
+    // Decrypt ciphertext.
+    var cipher = RSAdecrypt(mpenc.ske._binstring2mpi(data),
+                            privkey[2], privkey[0], privkey[1], privkey[3]);
+    return mpenc.ske._mpi2binstring(cipher);
+};
+
+
+/**
+ * Encrypts a binary string using an RSA public key. The data to be encrypted
+ * must be encryptable <em>directly</em> using the key.
+ * 
+ * @param ciphertext
+ *     Ciphertext to encrypt.
+ * @param pubkey
+ *     Public RSA key.
+ * @returns
+ *     Cleartext encoded as binary string.
+ */
+mpenc.ske.smallrsaverify = function(ciphertext, pubkey) {
+    // Convert to MPI format and return cleartext as binary string.
+    var data = mpenc.ske._binstring2mpi(ciphertext);
+    var cleartext = mpenc.ske._mpi2binstring(RSAencrypt(data, pubkey[1], pubkey[0]));
+    return mpenc.ske._pkcs1v15_decode(cleartext);
+};
+
+
+/**
+ * Encrypts a binary string using an RSA public key. The data to be encrypted
+ * must be encryptable <em>directly</em> using the key.
+ * 
+ * @param members
+ *     Members participating in protocol.
+ * @param nonces
+ *     Nonces of the members in matching order.
+ * @returns
+ *     Session ID as binary string.
+ */
+mpenc.ske._computeSid = function(members, nonces) {
+    // Create a mapping to access sorted/paired items later.
+    var mapping = {};
+    for (var i = 0; i < members.length; i++) {
+        mapping[members[i]] = nonces[i];
+    }
+    var sortedMembers = members.concat();
+    sortedMembers.sort();
+    
+    // Compose the item chain.
+    var pidItems = '';
+    var nonceItems = '';
+    for (var i = 0; i < sortedMembers.length; i++) {
+        var pid = sortedMembers[i];
+        pidItems += pid;
+        nonceItems += mapping[pid];
+    }
+    return sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems + nonceItems));
 };

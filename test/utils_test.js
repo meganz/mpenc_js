@@ -42,4 +42,34 @@ describe("module level", function() {
             assert.strictEqual(ns._arrayIsSet(['2'].concat(theArray)), false);
         });
     });
+    
+    describe('_newKey32()', function() {
+        it('properly sized keys', function() {
+            var keySizes = [128, 256, 512];
+            for (var i = 0; i < keySizes.length; i++) {
+                var newKey = ns._newKey32(keySizes[i]);
+                assert.strictEqual(keyBits(newKey), keySizes[i]);
+            }
+        });
+    });
+    
+    describe('_newKey16()', function() {
+        it('properly sized keys', function() {
+            var keySizes = [128, 256, 512];
+            for (var i = 0; i < keySizes.length; i++) {
+                var newKey = ns._newKey16(keySizes[i]);
+                assert.strictEqual(keyBits(newKey, 16), keySizes[i]);
+            }
+        });
+    });
+    
+    describe('_newKey08()', function() {
+        it('properly sized keys', function() {
+            var keySizes = [128, 256, 512];
+            for (var i = 0; i < keySizes.length; i++) {
+                var newKey = ns._newKey08(keySizes[i]);
+                assert.strictEqual(keyBits(newKey, 8), keySizes[i]);
+            }
+        });
+    });
 });

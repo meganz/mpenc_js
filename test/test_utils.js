@@ -34,9 +34,14 @@ function arrayCompare(array1, array2) {
 
 /**
  * Number of bits in a key.
- * @param key - The key to inspect.
- * @returns {Number} - Bits of the key.
+ * @param key
+ *     The key to inspect.
+ * @param wordSize
+ *     Number of bits per word.
+ * @returns {Number}
+ *     Bits of the key.
  */
-function keyBits(key) {
-    return c255lhexencode(key).length * 4;
+function keyBits(key, wordSize) {
+    wordSize = wordSize || 32;
+    return key.length * wordSize;
 }

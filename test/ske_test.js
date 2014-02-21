@@ -212,6 +212,35 @@ describe("module level", function() {
             }
         });
     });
+        
+    describe('_smallrsaensign()/_smallrsadverify()', function() {
+        it('RSA signing and verification round trip', function() {
+            var messages = ['foo', 'The answer is 42!'];
+            for (var i = 0; i < messages.length; i++) {
+                var cipher = ns.smallrsasign(messages[i], RSA_PRIV_KEY);
+                var clear = ns.smallrsaverify(cipher, RSA_PUB_KEY);
+                assert.strictEqual(clear, messages[i]);
+            }
+        });
+    });
+
+    describe('_computeSid()', function() {
+        it('compute SID', function() {
+            var members = ['3', '1', '2', '4', '5'];
+            var nonces = ['3333', '1111', '2222', '4444', '5555'];
+            var EXPECTED = [182, 103, 240, 172, 49, 9, 66, 173,
+                            157, 25, 191, 178, 191, 83, 149, 11,
+                            164, 136, 60, 231, 106, 104, 76, 35,
+                            187, 82, 125, 251, 225, 191, 124, 159];
+            var sid = ns._computeSid(members, nonces);
+            assert.deepEqual(sid, EXPECTED);
+            // Now in changed order of items.
+            members.sort();
+            nonces.sort();
+            sid = ns._computeSid(members, nonces);
+            assert.deepEqual(sid, EXPECTED);
+        });
+    });
 });
 
 describe("SignatureKeyExchangeMember class", function() {
@@ -245,10 +274,27 @@ describe("SignatureKeyExchangeMember class", function() {
             var startMessage = participant.commit(otherMembers);
             assert.strictEqual(startMessage.source, '1');
             assert.strictEqual(startMessage.dest, '2');
-            assert.strictEqual(startMessage.msgType, 'upflow');
+            assert.strictEqual(startMessage.flow, 'upflow');
             assert.deepEqual(startMessage.members, ['1'].concat(otherMembers));
             assert.lengthOf(startMessage.nonces, 1);
             assert.lengthOf(startMessage.pubKeys, 1);
+        });
+    });
+    
+    describe('#_computeSessionSig() method', function() {
+        it('sign something', function() {
+            var participant = new ns.SignatureKeyExchangeMember('1');
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            participant.sessionId = [182, 103, 240, 172, 49, 9, 66, 173,
+                                     157, 25, 191, 178, 191, 83, 149, 11,
+                                     164, 136, 60, 231, 106, 104, 76, 35,
+                                     187, 82, 125, 251, 225, 191, 124, 159];
+            participant.ephemeralPubKey = [131, 36, 132, 111, 115, 227, 167, 227,
+                                           28, 87, 83, 128, 107, 24, 125, 224,
+                                           68, 134, 211, 18, 166, 85, 239, 45,
+                                           83, 79, 31, 185, 67, 186, 252, 159];
+            var signature = participant._computeSessionSig();
+            assert.lengthOf(signature, 256);
         });
     });
     
@@ -285,7 +331,57 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.lengthOf(message.pubKeys, 1);
         });
         
-        it('TODO: remove this', function() {
+        it('upflow, for all members', function() {
+            var numMembers = 5;
+            var members = [];
+            var participants = [];
+            for (var i = 1; i <= numMembers; i++) {
+                members.push(i.toString());
+                participants.push(new ns.SignatureKeyExchangeMember(i.toString()));
+            }
+            var message = new ns.SignatureKeyExchangeMessage('1', '',
+                                                             'upflow',
+                                                             members);
+            for (var i = 0; i < numMembers - 1; i++) {
+                message = participants[i].upflow(message);
+                assert.deepEqual(participants[i].members, members);
+                assert.strictEqual(keyBits(participants[i].ephemeralPrivKey, 8), 512);
+                assert.strictEqual(keyBits(participants[i].ephemeralPubKey, 8), 256);
+                assert.strictEqual(message.flow, 'upflow');
+                assert.lengthOf(message.pubKeys, i + 1);
+                assert.strictEqual(keyBits(message.pubKeys[i], 8), 256);
+                assert.lengthOf(message.nonces, i + 1);
+                assert.strictEqual(keyBits(message.nonces[i], 8), 256);
+                assert.strictEqual(message.source, members[i]);
+                assert.strictEqual(message.dest, members[i + 1]);
+            }
+
+            // The last member behaves differently.
+            var lastid = numMembers - 1;
+            participants[lastid].staticPrivKey = RSA_PRIV_KEY;
+            message = participants[lastid].upflow(message);
+            assert.deepEqual(participants[lastid].members, members);
+            assert.deepEqual(participants[lastid].members, members);
+            assert.strictEqual(keyBits(participants[lastid].ephemeralPrivKey, 8), 512);
+            assert.strictEqual(keyBits(participants[lastid].ephemeralPubKey, 8), 256);
+            assert.strictEqual(message.flow, 'downflow');
+            assert.lengthOf(message.pubKeys, numMembers);
+            assert.strictEqual(keyBits(message.pubKeys[lastid], 8), 256);
+            assert.lengthOf(message.nonces, numMembers);
+            assert.strictEqual(keyBits(message.nonces[lastid], 8), 256);
+            assert.strictEqual(message.source, members[lastid]);
+            assert.strictEqual(message.dest, '');
+            assert.strictEqual(keyBits(participants[lastid].sessionId, 8), 256);
+            assert.lengthOf(message.sessionSignature, 256);
+        });
+    });
+    
+    describe('#downflow() method', function() {
+        it('TODO: remove', function() {
+//            var bytes = djbec._string2bytes(message.sessionSignature);
+//            var hex = djbec._bytes2hex(bytes);
+//            assert.deepEqual(bytes, djbec._hex2bytes(hex));
+            // TODO: Move _hex2bytes and _bytes2hex out of djbec.js
         });
     });
 });
