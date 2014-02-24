@@ -21,6 +21,10 @@ Code Contributions
 ** https://github.com/Caligatio/jsSHA/
 ** File: `sha512.js`
 ** License: BSD license
+* Herbert Hanewinkel/John M. Hanna
+** http://www.hanewin.net/encrypt/rsa.js
+** File: rsa.js
+** License GPL (v2?)
 
 maybe try to use the slightly slower djbec.js instead:
 http://www.flownet.com/ron/code/djbec.js
