@@ -64,6 +64,21 @@ mpenc.ske = {};
  * @param sessionSignature
  *     Signature to acknowledge the session.
  * @returns {SignatureKeyExchangeMessage}
+ * 
+ * @property source
+ *     Sender participant ID of message.
+ * @property dest
+ *     Destination participatn ID of message (empty for broadcast).
+ * @property flow
+ *     Flow direction of message ('upflow' or 'downflow').
+ * @property members
+ *     Participant IDs of members.
+ * @property nonces
+ *     Nonces of members.
+ * @property pubKeys
+ *     Ephemeral public signing key of members.
+ * @property sessionSignature
+ *     Session acknowledgement signature using sender's static key.
  */
 mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, flow, members,
                                                  nonces, pubKeys,
@@ -94,10 +109,29 @@ mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, flow, members,
  *     Member's identifier string.
  * @property members
  *     List of all participants.
+ * @property authenticatedMembers
+ *     List of boolean authentication values for members.
+ * @property ephemeralPrivKey
+ *     Own ephemeral private signing key.
+ * @property ephemeralPubKey
+ *     Own ephemeral public signing key.
+ * @property nonce
+ *     Own nonce value for this session.
+ * @property nonces
+ *     Nonce values of members for this session.
+ * @property ephemeralPubKeys
+ *     Ephemeral signing keys for members.
+ * @property sessionId
+ *     Session ID of this session.
+ * @property staticPrivKey
+ *     Own static (long term) signing key.
+ * @property staticPubKeyDir
+ *     "Directory" of static public keys, using the participant ID as key. 
  */
 mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.id = id;
     this.members = [];
+    this.authenticatedMembers = null;
     this.ephemeralPrivKey = null;
     this.ephemeralPubKey = null;
     this.nonce = null;
@@ -105,6 +139,7 @@ mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.ephemeralPubKeys = null;
     this.sessionId = null;
     this.staticPrivKey = null;
+    this.staticPubKeyDir = {};
     return this;
 };
 
@@ -144,9 +179,9 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     var myPos = message.members.indexOf(this.id);
     assert(myPos >= 0, 'Not member of this key exchange!');
 
-    this.members = message.members;
-    this.nonces = message.nonces;
-    this.ephemeralPubKeys = message.pubKeys;
+    this.members = message.members.map(mpenc.utils._arrayCopy);
+    this.nonces = message.nonces.map(mpenc.utils._arrayCopy);
+    this.ephemeralPubKeys = message.pubKeys.map(mpenc.utils._arrayCopy);
     
     // Make new nonce and ephemeral signing key pair.
     this.nonce = mpenc.utils._newKey08(256);
@@ -160,10 +195,12 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
         // Compute my session ID.
         this.sessionId = mpenc.ske._computeSid(this.members, this.nonces);
         // I'm the last in the chain:
-        // Broadcast all intermediate keys.
+        // Broadcast own session authentication.
         message.source = this.id;
         message.dest = '';
         message.flow = 'downflow';
+        this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers[myPos] = true;
         message.sessionSignature = this._computeSessionSig();
     } else {
         // Pass a message on to the next in line.
@@ -191,6 +228,76 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKey);
     return mpenc.ske.smallrsasign(this.id + ePubKeyString + sidString,
                                   this.staticPrivKey);
+};
+
+
+/**
+ * Verifies a session acknowledgement signature sigma(m) of a message
+ * m = (pid_i, E_i, sid) using the static public key.
+ * 
+ * @param memberId
+ *     Participant ID of the member to verify the signature against.
+ * @param signature
+ *     Session acknowledgement signature.
+ * @returns
+ *     Whether the signature verifies against the member's static public key.
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memberId, signature) {
+    assert(this.sessionId, 'Session ID not available.');
+    var memberPos = this.members.indexOf(memberId);
+    assert(memberPos >= 0, 'Member not in participants list.')
+    assert(this.ephemeralPubKeys[memberPos], 'No ephemeral key pair available.');
+    var sidString = djbec._bytes2string(this.sessionId);
+    var ePubKeyString = djbec._bytes2string(this.ephemeralPubKeys[memberPos]);
+    var decrypted = mpenc.ske.smallrsaverify(signature,
+                                             this.staticPubKeyDir[memberId]);
+    return (decrypted === this.id + ePubKeyString + sidString);
+};
+
+
+/**
+ * SKE downflow phase message processing.
+ * 
+ * Returns null for the case that it has sent a downflow message already.
+ * 
+ * @param message
+ *     Received downflow message. See {@link SignatureKeyExchangeMessage}.
+ * @returns {CSignatureKeyExchangeMessage} or null.
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
+    assert(mpenc.utils._noDuplicatesInList(message.members),
+           'Duplicates in member list detected!');
+    var myPos = message.members.indexOf(this.id);
+    
+    // Generate session ID for received information.
+    var sid = mpenc.ske._computeSid(message.members, message.nonces);
+    
+    if (this.sessionId !== sid) {
+        this.members = message.members.map(mpenc.utils._arrayCopy);
+        this.nonces = message.nonces.map(mpenc.utils._arrayCopy);
+        this.ephemeralPubKeys = message.pubKeys.map(mpenc.utils._arrayCopy);
+        this.sessionId = sid;
+        
+        // Authenticate myself.
+        this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers[myPos] = true;
+        
+        // Verify the session authentication from sender.
+        var verifies = this._verifySessionSig(message.source);
+        assert(verifies, 'Authentication of member failed: ' + message.source);
+        var senderPos = message.members.indexOf(message.source);
+        this.authenticatedMembers[senderPos] = true;
+        
+        // We haven't acknowledged, yet, so pass on the message.
+        message.source = this.id;
+        message.sessionSignature = this._computeSessionSig();
+        return message;
+    } 
+    
+    // We've acknowledged already, so no more broadcasts from us.
+    return null;
 };
 
 

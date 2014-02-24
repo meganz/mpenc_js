@@ -72,4 +72,17 @@ describe("module level", function() {
             }
         });
     });
+    
+    describe('hex2bytearray()', function() {
+        it('simple conversion test', function() {
+            var values = ['477579', '61339391d56552dad72495a71a47b0f11ba3ebaf'];
+            var expected = [[71, 117, 121],
+                            [97, 51, 147, 145, 213, 101, 82, 218, 215, 36,
+                             149, 167, 26, 71, 176, 241, 27, 163, 235, 175]];
+            for (var i = 0; i < values.length; i++) {
+                var result = ns.hex2bytearray(values[i]);
+                assert.deepEqual(result, expected[i]);
+            }
+        });
+    });
 });

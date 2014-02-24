@@ -32,6 +32,8 @@ mpenc.utils = {};
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+mpenc.utils._HEX_CHARS = '0123456789abcdef';
+
 /**
  * Generates a new random key as an array of 32 bit words.
  * 
@@ -174,6 +176,26 @@ mpenc.utils._arrayCopy = function(item) {
 
 
 /**
+ * Dumb array maker/initialiser helper.
+ * 
+ * @param size
+ *     Size of new array.
+ * @param template
+ *     Default value to initialise every element with.
+ * @returns
+ *     The new array.
+ * @private
+ */
+mpenc.utils._arrayMaker = function(size, template) {
+    var arr = new Array(size);
+    for (var i = 0; i < size; i++) {
+        arr[i] = template;
+    }
+    return arr;
+};
+
+
+/**
  * Checks for unique occurrence of all elements within the array.
  * 
  * Note: Array members must be directly comparable for equality
@@ -255,3 +277,44 @@ mpenc.utils._noDuplicatesInList = function(aList) {
     }
     return mpenc.utils._arrayIsSet(listCheck);
 };
+
+
+/**
+ * Converts a hex string to a a byte array (array of Uint8, retains endianness).
+ * 
+ * Note: No sanity or error checks are performed.
+ * 
+ * @param hexstring
+ *     Hexadecimal string.
+ * @returns
+ *     Array of byte values (unsigned integers).
+ */
+mpenc.utils.hex2bytearray = function(hexstring) {
+    var result = [];
+    var i = 0;
+    while (i < hexstring.length) {
+        result.push((mpenc.utils._HEX_CHARS.indexOf(hexstring.charAt(i++)) << 4)
+                    + mpenc.utils._HEX_CHARS.indexOf(hexstring.charAt(i++)));
+    }
+    return result;
+};
+
+/**
+ * Converts a byte array to a hex string (array of Uint8, retains endianness).
+ * 
+ * Note: No sanity or error checks are performed.
+ * 
+ * @param arr
+ *     Array of byte values (unsigned integers).
+ * @returns
+ *     Hexadecimal string.
+ */
+mpenc.utils.bytearray2hex = function(arr) {
+    var result = '';
+    for (var i = 0; i < arr.length; i++) {
+        result += CHARS.charAt(arr[i] >> 4)
+                + mpenc.utils._HEX_CHARS.charAt(arr[i] & 15);
+    }
+    return result;
+};
+
