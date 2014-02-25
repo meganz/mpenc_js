@@ -224,12 +224,12 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
 mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
     assert(this.sessionId, 'Session ID not available.');
     assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
-    var sidString = djbec._bytes2string(this.sessionId);
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKey);
-    var sessionAck = this.id + ePubKeyString + sidString;
+    var sessionAck = this.id + ePubKeyString + this.sessionId;
     var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-    return mpenc.ske.smallrsasign(djbec._bytes2string(hashValue),
-                                  this.staticPrivKey);
+    var sidBytes = mpenc.ske.smallrsasign(djbec._bytes2string(hashValue),
+                                          this.staticPrivKey);
+    return djbec._bytes2string(sidBytes);
 };
 
 
@@ -253,14 +253,13 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
            "Member's ephemeral pub key missing.");
     assert(this.staticPubKeyDir[memberId],
            "Member's static pub key missing.");
-    var sidString = djbec._bytes2string(this.sessionId);
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKeys[memberPos]);
     var decrypted = mpenc.ske.smallrsaverify(signature,
                                              this.staticPubKeyDir[memberId]);
-    var sessionAck = memberId + ePubKeyString + sidString;
-    var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-    hashValue = djbec._bytes2string(hashValue);
-    return (decrypted === hashValue);
+    var sessionAck = memberId + ePubKeyString + this.sessionId;
+    var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
+    dump(memberId, hashValueBytes, djbec._string2bytes(decrypted));
+    return (decrypted === djbec._bytes2string(hashValueBytes));
 };
 
 
@@ -316,6 +315,18 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
     
     // We've acknowledged already, so no more broadcasts from us.
     return message;
+};
+
+
+/**
+ * Returns true if the authenticated signature key exchange is fully
+ * acknowledged.
+ * 
+ * @returns True on a valid session.
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
+    return this.authenticatedMembers.every(function(item) { return item; });
 };
 
 
@@ -508,5 +519,7 @@ mpenc.ske._computeSid = function(members, nonces) {
         pidItems += pid;
         nonceItems += mapping[pid];
     }
-    return sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems + nonceItems));
+    var sidBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems
+                                                                   + nonceItems));
+    return djbec._bytes2string(sidBytes);
 };
