@@ -94,26 +94,26 @@ var ED25519_PUB_KEY = [114, 247, 225, 72, 118, 8, 119, 84, 147, 80, 152, 202,
                        198, 41, 182, 156, 177, 201, 239, 63, 174, 55, 144, 55,
                        93, 86, 137, 103, 65, 133, 147, 229];
 
-var SIGNATURE = [95, 246, 200, 16, 186, 217, 110, 4, 42, 25, 154, 34, 75, 141,
-                 93, 104, 128, 186, 178, 212, 171, 141, 93, 73, 237, 3, 132,
-                 191, 196, 160, 41, 125, 238, 96, 231, 235, 58, 72, 33, 112,
-                 131, 178, 122, 171, 98, 196, 188, 161, 57, 143, 64, 204, 20,
-                 90, 119, 49, 88, 30, 21, 94, 250, 203, 114, 148, 180, 128, 75,
-                 75, 201, 219, 98, 92, 112, 203, 176, 210, 74, 59, 101, 175,
-                 66, 199, 41, 165, 200, 101, 168, 98, 42, 2, 77, 7, 114, 10,
-                 149, 48, 142, 94, 92, 135, 80, 45, 98, 124, 100, 94, 4, 197,
-                 96, 143, 22, 207, 45, 127, 171, 51, 112, 35, 117, 28, 134,
-                 232, 0, 5, 119, 203, 132, 70, 11, 234, 191, 223, 37, 221, 35,
-                 228, 240, 102, 216, 238, 196, 254, 175, 148, 16, 250, 111,
-                 150, 4, 216, 90, 187, 95, 14, 237, 102, 253, 201, 187, 166,
-                 226, 194, 120, 247, 240, 60, 41, 244, 186, 117, 63, 211, 20,
-                 130, 171, 200, 163, 239, 148, 235, 145, 216, 213, 99, 113,
-                 150, 211, 233, 12, 22, 76, 0, 42, 255, 237, 244, 244, 45, 106,
-                 157, 113, 254, 40, 135, 150, 163, 238, 203, 159, 126, 142,
-                 186, 245, 219, 227, 111, 155, 174, 146, 218, 244, 80, 229, 12,
-                 188, 247, 241, 210, 142, 249, 180, 33, 81, 232, 186, 216, 253,
-                 95, 156, 244, 114, 97, 252, 221, 24, 50, 11, 72, 98, 204, 166,
-                 54, 221, 206, 31, 67];
+var SIGNATURE = [52, 114, 133, 230, 72, 22, 152, 247, 183, 56, 78, 4, 20, 137,
+                 153, 65, 124, 90, 164, 119, 52, 183, 234, 1, 196, 163, 39, 5,
+                 70, 244, 157, 54, 30, 193, 84, 9, 16, 165, 53, 111, 231, 236,
+                 130, 19, 53, 148, 38, 52, 165, 206, 108, 137, 52, 75, 119, 11,
+                 200, 125, 29, 107, 163, 100, 241, 137, 35, 155, 191, 61, 176,
+                 97, 254, 91, 66, 253, 37, 245, 124, 5, 71, 145, 14, 237, 116,
+                 31, 212, 168, 86, 219, 14, 25, 186, 68, 93, 17, 229, 86, 1, 2,
+                 66, 177, 204, 148, 179, 153, 246, 39, 31, 92, 51, 95, 235,
+                 132, 211, 64, 34, 89, 172, 155, 147, 90, 174, 197, 170, 104,
+                 119, 178, 71, 26, 50, 155, 98, 29, 105, 4, 94, 176, 218, 181,
+                 86, 76, 124, 9, 208, 2, 185, 29, 51, 79, 216, 251, 132, 36, 7,
+                 204, 110, 39, 227, 117, 139, 253, 187, 39, 219, 224, 196, 103,
+                 139, 43, 125, 62, 208, 235, 102, 61, 24, 58, 236, 210, 185,
+                 18, 156, 124, 113, 222, 62, 103, 78, 73, 6, 125, 186, 228, 56,
+                 158, 207, 215, 20, 19, 30, 58, 76, 106, 42, 97, 213, 133, 43,
+                 117, 126, 29, 198, 9, 50, 59, 185, 165, 118, 85, 0, 65, 205,
+                 87, 73, 70, 46, 252, 91, 139, 91, 160, 208, 181, 152, 96, 109,
+                 145, 216, 241, 96, 130, 6, 249, 190, 38, 109, 136, 29, 238,
+                 207, 141, 164, 113, 183, 94, 218, 211];
+SIGNATURE = djbec._bytes2string(SIGNATURE);
 
 // // Generate with
 // // openssl genrsa -out key.pem 2048
@@ -289,8 +289,8 @@ describe("SignatureKeyExchangeMember class", function() {
     });
     
     describe('#_verifySessionSig() method', function() {
-        it('verify a signature', function() {
-            var participant = new ns.SignatureKeyExchangeMember('1');
+        it('verification fail on invalid member', function() {
+            var participant = new ns.SignatureKeyExchangeMember('3');
             participant.members = ['1', '2', '3', '4', '5'];
             participant.staticPrivKey = RSA_PRIV_KEY;
             participant.sessionId = [182, 103, 240, 172, 49, 9, 66, 173,
@@ -301,11 +301,53 @@ describe("SignatureKeyExchangeMember class", function() {
             for (var i = 0; i < 5; i++) {
                 participant.ephemeralPubKeys.push(ED25519_PRIV_KEY);
             }
-            participant.staticPubKeyDir['3'] = RSA_PUB_KEY;
-            assert.strictEqual(participant._verifySessionSig('3', djbec._bytes2string(SIGNATURE)),
+            participant.staticPubKeyDir['1'] = RSA_PUB_KEY;
+            assert.throws(function() { participant._verifySessionSig('6', SIGNATURE); },
+                          'Member not in participants list.');
+        });
+        
+        it('verification fail on missing SID', function() {
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = ['1', '2', '3', '4', '5'];
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            participant.ephemeralPubKeys = [];
+            for (var i = 0; i < 5; i++) {
+                participant.ephemeralPubKeys.push(ED25519_PRIV_KEY);
+            }
+            participant.staticPubKeyDir['1'] = RSA_PUB_KEY;
+            assert.throws(function() { participant._verifySessionSig('1', SIGNATURE); },
+                          'Session ID not available.');
+        });
+        
+        it('verification fail on missing ephemeral key', function() {
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = ['1', '2', '3', '4', '5'];
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            participant.sessionId = [182, 103, 240, 172, 49, 9, 66, 173,
+                                     157, 25, 191, 178, 191, 83, 149, 11,
+                                     164, 136, 60, 231, 106, 104, 76, 35,
+                                     187, 82, 125, 251, 225, 191, 124, 159];
+            participant.ephemeralPubKeys = [];
+            participant.staticPubKeyDir['1'] = RSA_PUB_KEY;
+            assert.throws(function() { participant._verifySessionSig('1', SIGNATURE); },
+                          "Member's ephemeral pub key missing.");
+        });
+        
+        it('verify a signature', function() {
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = ['1', '2', '3', '4', '5'];
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            participant.sessionId = [182, 103, 240, 172, 49, 9, 66, 173,
+                                     157, 25, 191, 178, 191, 83, 149, 11,
+                                     164, 136, 60, 231, 106, 104, 76, 35,
+                                     187, 82, 125, 251, 225, 191, 124, 159];
+            participant.ephemeralPubKeys = [];
+            for (var i = 0; i < 5; i++) {
+                participant.ephemeralPubKeys.push(ED25519_PRIV_KEY);
+            }
+            participant.staticPubKeyDir['1'] = RSA_PUB_KEY;
+            assert.strictEqual(participant._verifySessionSig('1', SIGNATURE),
                                true);
-            
-            // TODO: check for asserts in _verifySessionSig code.
         });
     });
     

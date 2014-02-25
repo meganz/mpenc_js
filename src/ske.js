@@ -226,7 +226,9 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
     assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
     var sidString = djbec._bytes2string(this.sessionId);
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKey);
-    return mpenc.ske.smallrsasign(this.id + ePubKeyString + sidString,
+    var sessionAck = this.id + ePubKeyString + sidString;
+    var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
+    return mpenc.ske.smallrsasign(djbec._bytes2string(hashValue),
                                   this.staticPrivKey);
 };
 
@@ -246,13 +248,17 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
 mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memberId, signature) {
     assert(this.sessionId, 'Session ID not available.');
     var memberPos = this.members.indexOf(memberId);
-    assert(memberPos >= 0, 'Member not in participants list.')
-    assert(this.ephemeralPubKeys[memberPos], 'No ephemeral key pair available.');
+    assert(memberPos >= 0, 'Member not in participants list.');
+    assert(this.ephemeralPubKeys[memberPos],
+           "Member's ephemeral pub key missing.");
     var sidString = djbec._bytes2string(this.sessionId);
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKeys[memberPos]);
     var decrypted = mpenc.ske.smallrsaverify(signature,
                                              this.staticPubKeyDir[memberId]);
-    return (decrypted === this.id + ePubKeyString + sidString);
+    var sessionAck = memberId + ePubKeyString + sidString;
+    var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
+    hashValue = djbec._bytes2string(hashValue);
+    return (decrypted === hashValue);
 };
 
 
