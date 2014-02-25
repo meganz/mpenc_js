@@ -251,6 +251,8 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
     assert(memberPos >= 0, 'Member not in participants list.');
     assert(this.ephemeralPubKeys[memberPos],
            "Member's ephemeral pub key missing.");
+    assert(this.staticPubKeyDir[memberId],
+           "Member's static pub key missing.");
     var sidString = djbec._bytes2string(this.sessionId);
     var ePubKeyString = djbec._bytes2string(this.ephemeralPubKeys[memberPos]);
     var decrypted = mpenc.ske.smallrsaverify(signature,
@@ -280,30 +282,40 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
     // Generate session ID for received information.
     var sid = mpenc.ske._computeSid(message.members, message.nonces);
     
+    // Is this a broadcast for a new session?
+    var newSession = false;
     if (this.sessionId !== sid) {
+        newSession = true;
         this.members = message.members.map(mpenc.utils._arrayCopy);
         this.nonces = message.nonces.map(mpenc.utils._arrayCopy);
         this.ephemeralPubKeys = message.pubKeys.map(mpenc.utils._arrayCopy);
         this.sessionId = sid;
-        
+    }
+    
+    // Verify the session authentication from sender.
+    var isValid = this._verifySessionSig(message.source,
+                                         message.sessionSignature);
+    assert(isValid, 'Authentication of member failed: ' + message.source);
+    var senderPos = message.members.indexOf(message.source);
+    
+    if (newSession) {
         // Authenticate myself.
         this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;
         
-        // Verify the session authentication from sender.
-        var verifies = this._verifySessionSig(message.source);
-        assert(verifies, 'Authentication of member failed: ' + message.source);
-        var senderPos = message.members.indexOf(message.source);
-        this.authenticatedMembers[senderPos] = true;
-        
         // We haven't acknowledged, yet, so pass on the message.
         message.source = this.id;
         message.sessionSignature = this._computeSessionSig();
-        return message;
-    } 
+    } else {
+        // We've acknowledged already, so no more broadcasts from us.
+        message = null;
+    }
+    
+    // Note the session authentication from sender.
+    this.authenticatedMembers[senderPos] = true;
     
     // We've acknowledged already, so no more broadcasts from us.
-    return null;
+    return message;
 };
 
 
