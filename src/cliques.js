@@ -279,6 +279,9 @@ mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
     // Renew all keys.
     var result = this._renewPrivKey();
     var myPos = this.members.indexOf(this.id);
+    
+    // Clone message.
+    message = mpenc.utils.clone(message);
     if (myPos === this.members.length - 1) {
         // I'm the last in the chain:
         // Cardinal is secret key.
@@ -392,8 +395,8 @@ mpenc.cliques.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
     }
     // New objects for intermediate keys.
     var myPos = this.members.indexOf(this.id);
-    this.intKeys = intKeys.map(mpenc.utils._arrayCopy);
-    this._debugIntKeys = debugKeys.map(mpenc.utils._arrayCopy);
+    this.intKeys = mpenc.utils.clone(intKeys);
+    this._debugIntKeys = mpenc.utils.clone(debugKeys);
     this.groupKey = mpenc.cliques._scalarMultiply(this.privKey,
                                                   this.intKeys[myPos]);
     this._debugGroupKey = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,

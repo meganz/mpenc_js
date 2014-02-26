@@ -162,20 +162,6 @@ mpenc.utils._clearmem = function(key) {
 
 
 /**
- * Dumb array copy helper.
- * 
- * @param item
- *     The item for iterator.
- * @returns
- *     The item itself.
- * @private
- */
-mpenc.utils._arrayCopy = function(item) {
-    return item;
-};
-
-
-/**
  * Dumb array maker/initialiser helper.
  * 
  * @param size
@@ -318,3 +304,48 @@ mpenc.utils.bytearray2hex = function(arr) {
     return result;
 };
 
+/**
+ * (Deep) clones a JavaScript object.
+ * 
+ * Note: May not work with some objects.
+ * 
+ * See: http://stackoverflow.com/questions/728360/most-elegant-way-to-clone-a-javascript-object
+ * 
+ * @param obj
+ *     The object to be cloned.
+ * @returns
+ *     A deep copy of the original object.
+ */
+mpenc.utils.clone = function(obj) {
+    // Handle the 3 simple types, and null or undefined.
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle date.
+    if (obj instanceof Date) {
+        var copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
+    }
+
+    // Handle array.
+    if (obj instanceof Array) {
+        var copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = mpenc.utils.clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle object.
+    if (obj instanceof Object) {
+        var copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) {
+                copy[attr] = mpenc.utils.clone(obj[attr]);
+            }
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+};

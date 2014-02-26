@@ -257,7 +257,7 @@ describe('CliquesMember class', function() {
             broadcastMessage.flow = 'downflow';
             broadcastMessage.members = members;
             broadcastMessage.keys = messageKeys;
-            broadcastMessage.debugKeys = members.map(mpenc.utils._arrayCopy);
+            broadcastMessage.debugKeys = mpenc.utils.clone(members);
             participant.downflow(broadcastMessage);
             assert.deepEqual(participant.intKeys, messageKeys);
             assert.strictEqual(keyBits(participant.groupKey, 16), 256);
@@ -532,5 +532,5 @@ describe('CliquesMember class', function() {
  * @returns Array of words.
  */
 function _PRIV_KEY() {
-    return PRIV_KEY.map(mpenc.utils._arrayCopy);
+    return mpenc.utils.clone(PRIV_KEY);
 }

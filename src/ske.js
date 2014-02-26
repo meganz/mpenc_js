@@ -179,16 +179,19 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
     var myPos = message.members.indexOf(this.id);
     assert(myPos >= 0, 'Not member of this key exchange!');
 
-    this.members = message.members.map(mpenc.utils._arrayCopy);
-    this.nonces = message.nonces.map(mpenc.utils._arrayCopy);
-    this.ephemeralPubKeys = message.pubKeys.map(mpenc.utils._arrayCopy);
+    this.members = mpenc.utils.clone(message.members);
+    this.nonces = mpenc.utils.clone(message.nonces);
+    this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
     
     // Make new nonce and ephemeral signing key pair.
-    this.nonce = mpenc.utils._newKey08(256);
+    this.nonce = djbec._bytes2string(mpenc.utils._newKey08(256));
     this.nonces.push(this.nonce);
     this.ephemeralPrivKey = mpenc.utils._newKey08(512);
-    this.ephemeralPubKey = djbec.publickey(this.ephemeralPrivKey);
+    this.ephemeralPubKey = djbec._bytes2string(djbec.publickey(this.ephemeralPrivKey));
     this.ephemeralPubKeys.push(this.ephemeralPubKey);
+    
+    // Clone message.
+    message = mpenc.utils.clone(message);
     
     // Pass on a message.
     if (myPos === this.members.length - 1) {
@@ -207,8 +210,8 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
         message.source = this.id;
         message.dest = this.members[myPos + 1];
     }
-    message.nonces = this.nonces;
-    message.pubKeys = this.ephemeralPubKeys;
+    message.nonces = mpenc.utils.clone(this.nonces);
+    message.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
     return message;
 };
 
@@ -224,12 +227,10 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
 mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
     assert(this.sessionId, 'Session ID not available.');
     assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
-    var ePubKeyString = djbec._bytes2string(this.ephemeralPubKey);
-    var sessionAck = this.id + ePubKeyString + this.sessionId;
+    var sessionAck = this.id + this.ephemeralPubKey + this.sessionId;
     var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-    var sidBytes = mpenc.ske.smallrsasign(djbec._bytes2string(hashValue),
-                                          this.staticPrivKey);
-    return djbec._bytes2string(sidBytes);
+    return mpenc.ske._smallrsasign(djbec._bytes2string(hashValue),
+                                           this.staticPrivKey);
 };
 
 
@@ -253,12 +254,10 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
            "Member's ephemeral pub key missing.");
     assert(this.staticPubKeyDir[memberId],
            "Member's static pub key missing.");
-    var ePubKeyString = djbec._bytes2string(this.ephemeralPubKeys[memberPos]);
-    var decrypted = mpenc.ske.smallrsaverify(signature,
-                                             this.staticPubKeyDir[memberId]);
-    var sessionAck = memberId + ePubKeyString + this.sessionId;
+    var decrypted = mpenc.ske._smallrsaverify(signature,
+                                              this.staticPubKeyDir[memberId]);
+    var sessionAck = memberId + this.ephemeralPubKeys[memberPos] + this.sessionId;
     var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-    dump(memberId, hashValueBytes, djbec._string2bytes(decrypted));
     return (decrypted === djbec._bytes2string(hashValueBytes));
 };
 
@@ -285,9 +284,9 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
     var newSession = false;
     if (this.sessionId !== sid) {
         newSession = true;
-        this.members = message.members.map(mpenc.utils._arrayCopy);
-        this.nonces = message.nonces.map(mpenc.utils._arrayCopy);
-        this.ephemeralPubKeys = message.pubKeys.map(mpenc.utils._arrayCopy);
+        this.members = mpenc.utils.clone(message.members);
+        this.nonces = mpenc.utils.clone(message.nonces);
+        this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
         this.sessionId = sid;
     }
     
@@ -302,6 +301,8 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
         this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;
         
+        // Clone message.
+        message = mpenc.utils.clone(message);
         // We haven't acknowledged, yet, so pass on the message.
         message.source = this.id;
         message.sessionSignature = this._computeSessionSig();
@@ -416,7 +417,7 @@ mpenc.ske._pkcs1v15_decode = function(message) {
  * @returns
  *     Ciphertext encoded as binary string.
  */
-mpenc.ske.smallrsaencrypt = function(cleartext, pubkey) {
+mpenc.ske._smallrsaencrypt = function(cleartext, pubkey) {
     // pubkey[2] is length of key in bits.
     var keyLength = pubkey[2] >> 3;
     
@@ -438,7 +439,7 @@ mpenc.ske.smallrsaencrypt = function(cleartext, pubkey) {
  * @returns
  *     Cleartext encoded as binary string.
  */
-mpenc.ske.smallrsadecrypt = function(ciphertext, privkey) {
+mpenc.ske._smallrsadecrypt = function(ciphertext, privkey) {
     var cleartext = RSAdecrypt(mpenc.ske._binstring2mpi(ciphertext),
                                privkey[2], privkey[0], privkey[1], privkey[3]);
     var data = mpenc.ske._mpi2binstring(cleartext);
@@ -460,7 +461,7 @@ mpenc.ske.smallrsadecrypt = function(ciphertext, privkey) {
  * @returns
  *     Encrypted message encoded as binary string.
  */
-mpenc.ske.smallrsasign = function(cleartext, privkey) {
+mpenc.ske._smallrsasign = function(cleartext, privkey) {
     var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
         
     // Convert to MPI format and return cipher as binary string.
@@ -483,7 +484,7 @@ mpenc.ske.smallrsasign = function(cleartext, privkey) {
  * @returns
  *     Cleartext encoded as binary string.
  */
-mpenc.ske.smallrsaverify = function(ciphertext, pubkey) {
+mpenc.ske._smallrsaverify = function(ciphertext, pubkey) {
     // Convert to MPI format and return cleartext as binary string.
     var data = mpenc.ske._binstring2mpi(ciphertext);
     var cleartext = mpenc.ske._mpi2binstring(RSAencrypt(data, pubkey[1], pubkey[0]));
