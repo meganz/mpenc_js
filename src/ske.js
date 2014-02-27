@@ -170,7 +170,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
  * 
  * @param message
  *     Received upflow message. See {@link SignatureKeyExchangeMessage}.
- * @returns {CSignatureKeyExchangeMessage}
+ * @returns {SignatureKeyExchangeMessage}
  * @method
  */
 mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
@@ -269,7 +269,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
  * 
  * @param message
  *     Received downflow message. See {@link SignatureKeyExchangeMessage}.
- * @returns {CSignatureKeyExchangeMessage} or null.
+ * @returns {SignatureKeyExchangeMessage} or null.
  * @method
  */
 mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
@@ -328,6 +328,33 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
  */
 mpenc.ske.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
     return this.authenticatedMembers.every(function(item) { return item; });
+};
+
+
+/**
+ * Start a new upflow for joining new members.
+ * 
+ * @param newMembers
+ *     Iterable of new members to join the group.
+ * @returns {SignatureKeyExchangeMessage}
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype.join = function(newMembers) {
+    _assert(newMembers.length !== 0, 'No members to add.');
+    var allMembers = this.members.concat(newMembers);
+    _assert(mpenc.utils._noDuplicatesInList(allMembers),
+            'Duplicates in member list detected!');
+    this.members = allMembers;
+    
+    // Pass a message on to the first new member to join.
+    var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+                                                                 '', 'upflow');
+    startMessage.dest = newMembers[0];
+    startMessage.members = mpenc.utils.clone(allMembers);
+    startMessage.nonces = mpenc.utils.clone(this.nonces);
+    startMessage.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
+    
+    return startMessage;
 };
 
 

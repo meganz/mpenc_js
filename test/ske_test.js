@@ -437,7 +437,6 @@ describe("SignatureKeyExchangeMember class", function() {
             participants[lastid].staticPrivKey = RSA_PRIV_KEY;
             message = participants[lastid].upflow(message);
             assert.deepEqual(participants[lastid].members, members);
-            assert.deepEqual(participants[lastid].members, members);
             assert.strictEqual(keyBits(participants[lastid].ephemeralPrivKey, 8), 512);
             assert.strictEqual(keyBits(participants[lastid].ephemeralPubKey, 8), 256);
             assert.deepEqual(participants[lastid].authenticatedMembers,
@@ -450,6 +449,41 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.strictEqual(message.source, members[lastid]);
             assert.strictEqual(message.dest, '');
             assert.strictEqual(keyBits(participants[lastid].sessionId, 8), 256);
+            assert.ok(keyBits(message.sessionSignature, 8) >= 2040);
+            assert.ok(keyBits(message.sessionSignature, 8) <= 2048);
+        });
+        
+        it('upflow after a join', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var startMessage = new mpenc.ske.SignatureKeyExchangeMessage('3', '',
+                                                                         'upflow');
+            startMessage.dest = '6';
+            startMessage.members = members.concat('6');
+            startMessage.nonces = [];
+            startMessage.pubKeys = [];
+            for (var i = 0; i < members.length; i++) {
+                // Nonces have the same format as the pub key.
+                startMessage.nonces.push(ED25519_PUB_KEY);
+                startMessage.pubKeys.push(ED25519_PUB_KEY);
+            }
+            
+            var participant = new ns.SignatureKeyExchangeMember('6');
+            participant.members = mpenc.utils.clone(members);
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            var message = participant.upflow(startMessage);
+            assert.deepEqual(participant.members, message.members);
+            assert.strictEqual(keyBits(participant.ephemeralPrivKey, 8), 512);
+            assert.strictEqual(keyBits(participant.ephemeralPubKey, 8), 256);
+            assert.deepEqual(participant.authenticatedMembers,
+                             [false, false, false, false, false, true]);
+            assert.strictEqual(message.source, participant.id);
+            assert.strictEqual(message.dest, '');
+            assert.strictEqual(message.flow, 'downflow');
+            assert.lengthOf(message.pubKeys, 6);
+            assert.strictEqual(keyBits(message.pubKeys[5], 8), 256);
+            assert.lengthOf(message.nonces, 6);
+            assert.strictEqual(keyBits(message.nonces[5], 8), 256);
+            assert.strictEqual(keyBits(participant.sessionId, 8), 256);
             assert.ok(keyBits(message.sessionSignature, 8) >= 2040);
             assert.ok(keyBits(message.sessionSignature, 8) <= 2048);
         });
@@ -562,8 +596,46 @@ describe("SignatureKeyExchangeMember class", function() {
         });
     });
     
+    describe('#join() method', function() {
+        it('join empty member list', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = members;
+            assert.throws(function() { participant.join([]); },
+                          'No members to add.');
+        });
+        
+        it('join duplicate member list', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = members;
+            assert.throws(function() { participant.join(['2']); },
+                          'Duplicates in member list detected!');
+        });
+        
+        it('join a member', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = mpenc.utils.clone(members);
+            participant.nonces = [];
+            participant.ephemeralPubKeys = [];
+            for (var i = 0; i < members.length; i++) {
+                // Nonces have the same format as the pub key.
+                participant.nonces.push(ED25519_PUB_KEY);
+                participant.ephemeralPubKeys.push(ED25519_PUB_KEY);
+            }
+            var message = participant.join(['6']);
+            assert.deepEqual(message.members, ['1', '2', '3', '4', '5', '6']);
+            assert.strictEqual(message.source, '3');
+            assert.strictEqual(message.dest, '6');
+            assert.strictEqual(message.flow, 'upflow');
+            assert.lengthOf(message.nonces, 5);
+            assert.lengthOf(message.pubKeys, 5);
+        });
+    });
+    
     describe('whole ASKE', function() {
-        it('whole flow for 5 members', function() {
+        it('whole flow for 5 members, 2 joining', function() {
             var numMembers = 5;
             var initiator = 0;
             var members = [];
@@ -600,6 +672,54 @@ describe("SignatureKeyExchangeMember class", function() {
             var nextMessages = []; 
             while (message !== undefined) {
                 for (var i = 0; i < numMembers; i++) {
+                    var participant = participants[i];
+                    var nextMessage = participant.downflow(message);
+                    if (nextMessage !== null) {
+                        nextMessages.push(nextMessage);
+                    }
+                    assert.strictEqual(participant.id, members[i]);
+                    assert.deepEqual(participant.members, members);
+                    if (!sid) {
+                        sid = participant.sessionId;
+                    } else {
+                        assert.strictEqual(participant.sessionId, sid);
+                    }
+                }
+                message = nextMessages.shift();
+            }
+            for (var i = 0; i < numMembers; i++) {
+                assert.ok(participants[i].isSessionAcknowledged());
+            }
+            
+            // Join two new guys.
+            var newMembers = ['6', '7'];
+            members = members.concat(newMembers);
+            for (var i = 0; i < newMembers.length; i++) {
+                var newMember = new ns.SignatureKeyExchangeMember(newMembers[i]);
+                staticPubKeyDir[newMembers[i]] = RSA_PUB_KEY;
+                newMember.staticPubKeyDir = staticPubKeyDir;
+                newMember.staticPrivKey = RSA_PRIV_KEY;
+                participants.push(newMember);
+            }
+            
+            // '4' starts AKA for join.
+            message = participants[3].join(newMembers);
+            // Upflow for join.
+            while (message.flow === 'upflow') {
+                if (message.dest !== '') {
+                    var nextId = message.members.indexOf(message.dest);
+                    message = participants[nextId].upflow(message);
+                } else {
+                    assert.ok(false,
+                              "This shouldn't happen, something's seriously dodgy!");
+                }
+            }
+            
+            // Downflow for join.
+            var sid = null;
+            var nextMessages = []; 
+            while (message !== undefined) {
+                for (var i = 0; i < message.members.length; i++) {
                     var participant = participants[i];
                     var nextMessage = participant.downflow(message);
                     if (nextMessage !== null) {
