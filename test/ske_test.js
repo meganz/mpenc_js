@@ -545,7 +545,8 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.deepEqual(participant.authenticatedMembers,
                              [true, false, true, false, false]);
             assert.ok(newMessage !== null);
-            assert.strictEqual(keyBits(newMessage.sessionSignature, 8), 2048);
+            assert.ok(keyBits(newMessage.sessionSignature, 8) <= 2048);
+            assert.ok(keyBits(newMessage.sessionSignature, 8) >= 2040);
         });
         
         it('downflow, already acknowledged', function() {
@@ -633,9 +634,71 @@ describe("SignatureKeyExchangeMember class", function() {
             assert.lengthOf(message.pubKeys, 5);
         });
     });
+
+    describe('#exclude() method', function() {
+        it('exclude empty member list', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = members;
+            assert.throws(function() { participant.exclude([]); },
+                          'No members to exclude.');
+        });
+        
+        it('exclude non existing member', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = members;
+            assert.throws(function() { participant.exclude(['1', '7']); },
+                          'Members list to exclude is not a sub-set of previous members!');
+        });
+        
+        it('exclude self', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = members;
+            assert.throws(function() { participant.exclude(['3', '5']); },
+                          'Cannot exclude mysefl.');
+        });
+        
+        it('exclude members', function() {
+            var members = ['1', '2', '3', '4', '5'];
+            var participant = new ns.SignatureKeyExchangeMember('3');
+            participant.members = mpenc.utils.clone(members);
+            participant.nonces = [];
+            participant.ephemeralPrivKey = ED25519_PRIV_KEY;
+            participant.ephemeralPubKey = ED25519_PUB_KEY;
+            participant.staticPrivKey = RSA_PRIV_KEY;
+            participant.ephemeralPubKeys = [];
+            participant.authenticatedMembers = [];
+            for (var i = 0; i < members.length; i++) {
+                // Nonces have the same format as the pub key.
+                participant.nonces.push(ED25519_PUB_KEY);
+                participant.ephemeralPubKeys.push(ED25519_PUB_KEY);
+                participant.authenticatedMembers.push(true);
+            }
+            var message = participant.exclude(['1', '4']);
+            assert.deepEqual(participant.members, ['2', '3', '5']);
+            assert.lengthOf(participant.nonces, 3);
+            assert.lengthOf(participant.ephemeralPubKeys, 3);
+            assert.lengthOf(participant.nonces , 3);
+            assert.lengthOf(participant.authenticatedMembers , 3);
+            assert.deepEqual(participant.oldEphemeralKeys['1'].pub, ED25519_PUB_KEY);
+            assert.deepEqual(participant.oldEphemeralKeys['1'].authenticated, true);
+            assert.deepEqual(participant.oldEphemeralKeys['4'].pub, ED25519_PUB_KEY);
+            assert.deepEqual(participant.oldEphemeralKeys['4'].authenticated, true);
+            assert.deepEqual(message.members, ['2', '3', '5']);
+            assert.strictEqual(message.source, '3');
+            assert.strictEqual(message.dest, '');
+            assert.strictEqual(message.flow, 'downflow');
+            assert.lengthOf(message.nonces, 3);
+            assert.lengthOf(message.pubKeys, 3);
+            assert.ok(keyBits(message.sessionSignature, 8) >= 2040);
+            assert.ok(keyBits(message.sessionSignature, 8) <= 2048);
+        });
+    });
     
     describe('whole ASKE', function() {
-        it('whole flow for 5 members, 2 joining', function() {
+        it('whole flow for 5 members, 2 joining, 2 others leaving', function() {
             var numMembers = 5;
             var initiator = 0;
             var members = [];
@@ -687,7 +750,7 @@ describe("SignatureKeyExchangeMember class", function() {
                 }
                 message = nextMessages.shift();
             }
-            for (var i = 0; i < numMembers; i++) {
+            for (var i = 0; i < participants.length; i++) {
                 assert.ok(participants[i].isSessionAcknowledged());
             }
             
@@ -702,7 +765,7 @@ describe("SignatureKeyExchangeMember class", function() {
                 participants.push(newMember);
             }
             
-            // '4' starts AKA for join.
+            // '4' starts upflow for join.
             message = participants[3].join(newMembers);
             // Upflow for join.
             while (message.flow === 'upflow') {
@@ -716,10 +779,10 @@ describe("SignatureKeyExchangeMember class", function() {
             }
             
             // Downflow for join.
-            var sid = null;
-            var nextMessages = []; 
+            sid = null;
+            nextMessages = []; 
             while (message !== undefined) {
-                for (var i = 0; i < message.members.length; i++) {
+                for (var i = 0; i < members.length; i++) {
                     var participant = participants[i];
                     var nextMessage = participant.downflow(message);
                     if (nextMessage !== null) {
@@ -735,8 +798,44 @@ describe("SignatureKeyExchangeMember class", function() {
                 }
                 message = nextMessages.shift();
             }
-            for (var i = 0; i < numMembers; i++) {
+            for (var i = 0; i < participants.length; i++) {
                 assert.ok(participants[i].isSessionAcknowledged());
+            }
+            
+            // '3' excludes two members.
+            var toExclude = ['1', '4'];
+            members.splice(members.indexOf('1'), 1);
+            members.splice(members.indexOf('4'), 1);
+            message = participants[2].exclude(toExclude);
+            
+            // Downflow for exclude.
+            sid = null;
+            nextMessages = []; 
+            while (message !== undefined) {
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    var nextMessage = participant.downflow(message);
+                    if (nextMessage !== null) {
+                        nextMessages.push(nextMessage);
+                    }
+                    assert.deepEqual(participant.members, members);
+                    if (!sid) {
+                        sid = participant.sessionId;
+                    } else {
+                        assert.strictEqual(participant.sessionId, sid);
+                    }
+                }
+                message = nextMessages.shift();
+            }
+            for (var i = 0; i < participants.length; i++) {
+                var participant = participants[i];
+                if (members.indexOf(participant.id) < 0) {
+                    continue;
+                }
+                assert.ok(participant.isSessionAcknowledged());
             }
         });
     });

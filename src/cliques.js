@@ -183,7 +183,7 @@ mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
  * Start the AKA (Auxiliary Key Agreement) for excluding members.
  * 
  * @param excludeMembers
- *     Iterable of new members to join the group.
+ *     Iterable of members to exclude from the group.
  * @returns {CliquesMessage}
  * @method
  */

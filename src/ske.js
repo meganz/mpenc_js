@@ -127,6 +127,11 @@ mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, flow, members,
  *     Own static (long term) signing key.
  * @property staticPubKeyDir
  *     "Directory" of static public keys, using the participant ID as key. 
+ * @property oldEphemeralKeys
+ *     "Directory" of previous participants' ephemeral keys, using the
+ *     participant ID as key. The entries contain an object with one or more of
+ *     the members `priv`, `pub` and `authenticated` (if the key was
+ *     successfully authenticated). 
  */
 mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.id = id;
@@ -140,6 +145,7 @@ mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.sessionId = null;
     this.staticPrivKey = null;
     this.staticPubKeyDir = {};
+    this.oldEphemeralKeys = {};
     return this;
 };
 
@@ -281,13 +287,16 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
     var sid = mpenc.ske._computeSid(message.members, message.nonces);
     
     // Is this a broadcast for a new session?
-    var newSession = false;
-    if (this.sessionId !== sid) {
-        newSession = true;
+    var existingSession = (this.sessionId === sid);
+    if (!existingSession) {
         this.members = mpenc.utils.clone(message.members);
         this.nonces = mpenc.utils.clone(message.nonces);
         this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
         this.sessionId = sid;
+        
+        // New authentication list, and authenticate myself.
+        this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers[myPos] = true;
     }
     
     // Verify the session authentication from sender.
@@ -295,26 +304,19 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
                                          message.sessionSignature);
     assert(isValid, 'Authentication of member failed: ' + message.source);
     var senderPos = message.members.indexOf(message.source);
-    
-    if (newSession) {
-        // Authenticate myself.
-        this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
-        this.authenticatedMembers[myPos] = true;
-        
-        // Clone message.
-        message = mpenc.utils.clone(message);
-        // We haven't acknowledged, yet, so pass on the message.
-        message.source = this.id;
-        message.sessionSignature = this._computeSessionSig();
-    } else {
-        // We've acknowledged already, so no more broadcasts from us.
-        message = null;
-    }
-    
-    // Note the session authentication from sender.
     this.authenticatedMembers[senderPos] = true;
     
-    // We've acknowledged already, so no more broadcasts from us.
+    if (existingSession) {
+        // We've acknowledged already, so no more broadcasts from us.
+        return null;
+    }
+        
+    // Clone message.
+    message = mpenc.utils.clone(message);
+    // We haven't acknowledged, yet, so pass on the message.
+    message.source = this.id;
+    message.sessionSignature = this._computeSessionSig();
+    
     return message;
 };
 
@@ -355,6 +357,53 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.join = function(newMembers) {
     startMessage.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
     
     return startMessage;
+};
+
+
+/**
+ * Start a new downflow for excluding members.
+ * 
+ * @param excludeMembers
+ *     Iterable of members to exclude from the group.
+ * @returns {SignatureKeyExchangeMessage}
+ * @method
+ */
+mpenc.ske.SignatureKeyExchangeMember.prototype.exclude = function(excludeMembers) {
+    _assert(excludeMembers.length !== 0, 'No members to exclude.');
+    _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
+            'Members list to exclude is not a sub-set of previous members!');
+    _assert(excludeMembers.indexOf(this.id) < 0,
+            'Cannot exclude mysefl.');
+    
+    // Kick 'em.
+    for (var i = 0; i < excludeMembers.length; i++) {
+        var index = this.members.indexOf(excludeMembers[i]);
+        this.oldEphemeralKeys[excludeMembers[i]] = {
+            'pub': this.ephemeralPubKeys[index] || null,
+            'authenticated': this.authenticatedMembers[index] || false,
+        };
+        this.members.splice(index, 1);
+        this.nonces.splice(index, 1);
+        this.ephemeralPubKeys.splice(index, 1);
+    }
+    
+    // Compute my session ID.
+    this.sessionId = mpenc.ske._computeSid(this.members, this.nonces);
+    
+    // Discard old and make new group key.
+    var myPos = this.members.indexOf(this.id);
+    this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+    this.authenticatedMembers[myPos] = true;
+    
+    // Pass broadcast message on to all members.
+    var broadcastMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+                                                                     '', 'downflow');
+    broadcastMessage.members = mpenc.utils.clone(this.members);
+    broadcastMessage.nonces = mpenc.utils.clone(this.nonces);
+    broadcastMessage.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
+    broadcastMessage.sessionSignature = this._computeSessionSig();
+    
+    return broadcastMessage;
 };
 
 
