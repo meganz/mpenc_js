@@ -25,13 +25,27 @@
 
 var assert = chai.assert;
 
-describe("module level", function() {
+//describe("module level", function() {
+//    var ns = mpenc.handler;
+//    
+//    describe('xxx()', function() {
+//        it('xxx', function() {
+//            
+//        });
+//        
+////        it('yyy', function() {
+////            
+////        });
+//    });
+//});
+
+describe("ProtocolHandler class", function() {
     var ns = mpenc.handler;
     
-    describe('xxx()', function() {
-        it('xxx', function() {
-            
-        });
+    describe('constructor', function() {
+//        it('just make an instance', function() {
+//            var instance = new ns.ProtocolHandler('42', RSA_PUB_KEY);
+//        });
         
 //        it('yyy', function() {
 //            

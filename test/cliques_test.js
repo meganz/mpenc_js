@@ -25,16 +25,6 @@
 
 var assert = chai.assert;
 
-// 0x6e3b0789a77feb8dd878278b1233a8c06070506c7c93f6de8894bbeac1db06dd
-var PRIV_KEY_B32 = '3r3a6e2o77lrxmhqj4lciz2rqdaobigy7et63pirff35la5wbw5';
-var PRIV_KEY = c255lbase32decode(PRIV_KEY_B32);
-// 0x6a998a38c3f189ed5b646360512a13957c4d87df93ed34b33b5f187ea151094d
-var PUB_KEY_B32  = '2uzri4mh4mj5vnwiy3akevbhfl4jwd57e7ngsztwxyyp2qvcckn';
-var PUB_KEY = c255lbase32decode(PUB_KEY_B32);
-// 0x365c1e572ab6d6e9eeb9fe709e90207d9b2dca53203b6408ee2dae6c6fef6e28
-var COMP_KEY_B32 = 'ns4dzlsvnww5hxlt7tqt2ica7m3fxffgib3mqeo4lnonrx663ri';
-var COMP_KEY = c255lbase32decode(COMP_KEY_B32);
-
 describe("module level", function() {
     var ns = mpenc.cliques;
     
@@ -52,13 +42,14 @@ describe("module level", function() {
 
     describe('_scalarMultiply()', function() {
         it('should multiply with base point if no key given', function() {
-            var compPubKey = ns._scalarMultiply(PRIV_KEY);
-            assert.deepEqual(compPubKey, PUB_KEY);
+            var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY);
+            assert.deepEqual(compPubKey, _td.C25519_PUB_KEY);
         });
         
         it('should multiply priv key with intermediate key', function() {
-            var compPubKey = ns._scalarMultiply(PRIV_KEY, PRIV_KEY);
-            assert.deepEqual(compPubKey, COMP_KEY);
+            var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY,
+                                                _td.C25519_PRIV_KEY);
+            assert.deepEqual(compPubKey, _td.COMP_KEY);
         });
     });
 });
@@ -90,7 +81,7 @@ describe('CliquesMember class', function() {
             participant._setKeys(intKeys, debugIntKeys);
             assert.deepEqual(participant.intKeys, intKeys);
             assert.deepEqual(participant._debugIntKeys, debugIntKeys);
-            assert.notStrictEqual(participant.groupKey, PRIV_KEY);
+            assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
             assert.strictEqual(participant._debugGroupKey, '3*1*2*4*5*G');
         });
     });
@@ -109,9 +100,9 @@ describe('CliquesMember class', function() {
                 participant.intKeys.push(_PRIV_KEY());
             }
             var response = participant._renewPrivKey();
-            assert.notStrictEqual(participant.privKey, PRIV_KEY);
+            assert.notStrictEqual(participant.privKey, _td.C25519_PRIV_KEY);
             assert.strictEqual(participant._debugPrivKey, "3'");
-            assert.notDeepEqual(response.cardinalKey, PRIV_KEY);
+            assert.notDeepEqual(response.cardinalKey, _td.C25519_PRIV_KEY);
             assert.strictEqual(response.cardinalDebugKey, "3'*3*1*2*4*5*G");
             for (var i = 0; i < participant.intKeys.length; i++) {
                 if (i === 2) {
@@ -261,7 +252,7 @@ describe('CliquesMember class', function() {
             participant.downflow(broadcastMessage);
             assert.deepEqual(participant.intKeys, messageKeys);
             assert.strictEqual(keyBits(participant.groupKey, 16), 256);
-            assert.notDeepEqual(participant.groupKey, PRIV_KEY);
+            assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
         });
     });
 
@@ -306,7 +297,7 @@ describe('CliquesMember class', function() {
             assert.lengthOf(message.members, 6);
             assert.lengthOf(message.keys, 6);
             assert.strictEqual(keyBits(participant.privKey, 16), 256);
-            assert.notDeepEqual(participant.privKey, PRIV_KEY);
+            assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
             assert.strictEqual(message.agreement, 'aka');
             assert.strictEqual(message.flow, 'upflow');
             for (var i = 0; i < message.debugKeys.length; i++) {
@@ -381,8 +372,8 @@ describe('CliquesMember class', function() {
             assert.ok(participant.keyTimestamp > oldTs);
             assert.deepEqual(message.members, thenMembers);
             assert.deepEqual(participant.members, thenMembers);
-            assert.notDeepEqual(participant.privKey, PRIV_KEY);
-            assert.notDeepEqual(participant.groupKey, PRIV_KEY);
+            assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
+            assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
         });
     });
     
@@ -403,7 +394,7 @@ describe('CliquesMember class', function() {
             var oldTs = participant.keyTimestamp;
             var message = participant.akaRefresh();
             assert.ok(participant.keyTimestamp > oldTs);
-            assert.notDeepEqual(participant.privKey, PRIV_KEY);
+            assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
             assert.notDeepEqual(participant.groupKey, chkGroupKey);
         });
     });
@@ -532,5 +523,5 @@ describe('CliquesMember class', function() {
  * @returns Array of words.
  */
 function _PRIV_KEY() {
-    return mpenc.utils.clone(PRIV_KEY);
+    return mpenc.utils.clone(_td.C25519_PRIV_KEY);
 }
