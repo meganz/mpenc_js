@@ -24,7 +24,10 @@ Code Contributions
 * Herbert Hanewinkel/John M. Hanna
 ** http://www.hanewin.net/encrypt/rsa.js
 ** File: rsa.js
-** License GPL (v2?)
+** License: GPL (v2?)
+* Arlo Breault's JavaScript OTRv3 implementation
+** https://github.com/arlolra/otr
+** License: MPL 2.0
 
 maybe try to use the slightly slower djbec.js instead:
 http://www.flownet.com/ron/code/djbec.js

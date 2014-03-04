@@ -224,7 +224,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
 
 /**
  * Computes a session acknowledgement signature sigma(m) of a message
- * m = (pid_i, E_i, sid) using the static private key.
+ * m = (pid_i, E_i, k_i, sid) using the static private key.
  * 
  * @returns
  *     Session signature.
@@ -233,7 +233,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
 mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
     assert(this.sessionId, 'Session ID not available.');
     assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
-    var sessionAck = this.id + this.ephemeralPubKey + this.sessionId;
+    var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
     var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
     return mpenc.ske._smallrsasign(djbec._bytes2string(hashValue),
                                            this.staticPrivKey);
@@ -242,7 +242,7 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
 
 /**
  * Verifies a session acknowledgement signature sigma(m) of a message
- * m = (pid_i, E_i, sid) using the static public key.
+ * m = (pid_i, E_i, k_i, sid) using the static public key.
  * 
  * @param memberId
  *     Participant ID of the member to verify the signature against.
@@ -262,7 +262,8 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
            "Member's static pub key missing.");
     var decrypted = mpenc.ske._smallrsaverify(signature,
                                               this.staticPubKeyDir[memberId]);
-    var sessionAck = memberId + this.ephemeralPubKeys[memberPos] + this.sessionId;
+    var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
+                   + this.nonces[memberPos] + this.sessionId;
     var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
     return (decrypted === djbec._bytes2string(hashValueBytes));
 };

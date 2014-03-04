@@ -41,6 +41,7 @@
     "karma-coverage": "~0.1.5",
     "istanbul": "~0.2.4",
     "ibrik": "~1.0.1",
-    "dateformat": "~1.0.7-1.2.3"
+    "dateformat": "~1.0.7-1.2.3",
+    "otr": "~0.2.10"
   }
 }
