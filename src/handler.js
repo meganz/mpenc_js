@@ -41,4 +41,28 @@ mpenc.handler = {};
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
+/**
+ * Implementation of a protocol handler with its state machine.
+ * 
+ * @constructor
+ * @param id {string}
+ *     Member's identifier string.
+ * @param privKey
+ *     This participant's static/long term private key.
+ * @param pubKey
+ *     This participant's static/long term public key.
+ * @returns {ProtocolHandler}
+ * 
+ * @property id {string}
+ *     Member's identifier string.
+ * @property privKey
+ *     This participant's static/long term private key.
+ * @property pubKey
+ *     This participant's static/long term public key.
+ */
+mpenc.handler.ProtocolHandler = function(id, privKey, pubKey) {
+    this.id = id || '';
+    this.privKey = privKey || null;
+    this.pubKey = pubKey || null;
+    return this;
+};

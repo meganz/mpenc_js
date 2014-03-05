@@ -154,3 +154,7 @@ _td.SESSION_ID = djbec._bytes2string(_td.SESSION_ID);
 //...
 //7F36EC4982FD15B4409D18C954F8F6B20083BFB30BFFF8BAFB5DCFEB7495F19";
 //_td.RSA_EXPONENT = 0x10001;
+
+_td.STATIC_PUB_KEY_DIR = {
+    'get': function(key) { return _td.RSA_PUB_KEY; }
+};

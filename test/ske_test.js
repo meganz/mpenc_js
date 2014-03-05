@@ -184,7 +184,7 @@ describe("SignatureKeyExchangeMember class", function() {
             for (var i = 0; i < 5; i++) {
                 participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
             }
-            participant.staticPubKeyDir['1'] = _td.RSA_PUB_KEY;
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             assert.throws(function() { participant._verifySessionSig('6', _td.SIGNATURE); },
                           'Member not in participants list.');
         });
@@ -198,7 +198,7 @@ describe("SignatureKeyExchangeMember class", function() {
             for (var i = 0; i < 5; i++) {
                 participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
             }
-            participant.staticPubKeyDir['1'] = _td.RSA_PUB_KEY;
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                           'Session ID not available.');
         });
@@ -210,7 +210,7 @@ describe("SignatureKeyExchangeMember class", function() {
             participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
             participant.sessionId = _td.SESSION_ID;
             participant.ephemeralPubKeys = [];
-            participant.staticPubKeyDir['1'] = _td.RSA_PUB_KEY;
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                           "Member's ephemeral pub key missing.");
         });
@@ -225,7 +225,7 @@ describe("SignatureKeyExchangeMember class", function() {
             for (var i = 0; i < 5; i++) {
                 participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
             }
-            participant.staticPubKeyDir = {};
+            participant.staticPubKeyDir = { 'get': function() { return undefined; }};
             assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                           "Member's static pub key missing.");
         });
@@ -242,7 +242,7 @@ describe("SignatureKeyExchangeMember class", function() {
                 participant.nonces.push(_td.ED25519_PUB_KEY); // Same form as nonce.
                 
             }
-            participant.staticPubKeyDir['1'] = _td.RSA_PUB_KEY;
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             assert.strictEqual(participant._verifySessionSig('1', _td.SIGNATURE),
                                true);
         });
@@ -263,7 +263,7 @@ describe("SignatureKeyExchangeMember class", function() {
                 participant3.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
                 participant3.nonces.push(_td.ED25519_PUB_KEY);
             }
-            participant3.staticPubKeyDir['1'] = _td.RSA_PUB_KEY;
+            participant3.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             assert.strictEqual(participant3._verifySessionSig('1', signature),
                                true);
         });
@@ -400,7 +400,7 @@ describe("SignatureKeyExchangeMember class", function() {
             participant.staticPrivKey = _td.RSA_PRIV_KEY;
             participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
             participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
-            participant.staticPubKeyDir = {'1': _td.RSA_PUB_KEY};
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                              'downflow',
                                                              members);
@@ -424,7 +424,7 @@ describe("SignatureKeyExchangeMember class", function() {
             participant.staticPrivKey = _td.RSA_PRIV_KEY;
             participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
             participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
-            participant.staticPubKeyDir = {'1': _td.RSA_PUB_KEY};
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                              'downflow',
                                                              members);
@@ -450,7 +450,7 @@ describe("SignatureKeyExchangeMember class", function() {
             participant.staticPrivKey = _td.RSA_PRIV_KEY;
             participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
             participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
-            participant.staticPubKeyDir = {'1': _td.RSA_PUB_KEY};
+            participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
             var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                              'downflow',
                                                              members);
@@ -598,13 +598,11 @@ describe("SignatureKeyExchangeMember class", function() {
             var initiator = 0;
             var members = [];
             var participants = [];
-            var staticPubKeyDir = {};
             for (var i = 1; i <= numMembers; i++) {
                 members.push(i.toString());
-                staticPubKeyDir[i.toString()] = _td.RSA_PUB_KEY;
                 var newMember = new ns.SignatureKeyExchangeMember(i.toString());
-                newMember.staticPubKeyDir = staticPubKeyDir;
                 newMember.staticPrivKey = _td.RSA_PRIV_KEY;
+                newMember.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 participants.push(newMember);
             }
             var otherMembers = [];
@@ -654,8 +652,7 @@ describe("SignatureKeyExchangeMember class", function() {
             members = members.concat(newMembers);
             for (var i = 0; i < newMembers.length; i++) {
                 var newMember = new ns.SignatureKeyExchangeMember(newMembers[i]);
-                staticPubKeyDir[newMembers[i]] = _td.RSA_PUB_KEY;
-                newMember.staticPubKeyDir = staticPubKeyDir;
+                newMember.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 newMember.staticPrivKey = _td.RSA_PRIV_KEY;
                 participants.push(newMember);
             }

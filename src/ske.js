@@ -144,7 +144,7 @@ mpenc.ske.SignatureKeyExchangeMember = function(id) {
     this.ephemeralPubKeys = null;
     this.sessionId = null;
     this.staticPrivKey = null;
-    this.staticPubKeyDir = {};
+    this.staticPubKeyDir = null;
     this.oldEphemeralKeys = {};
     return this;
 };
@@ -258,10 +258,10 @@ mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memb
     assert(memberPos >= 0, 'Member not in participants list.');
     assert(this.ephemeralPubKeys[memberPos],
            "Member's ephemeral pub key missing.");
-    assert(this.staticPubKeyDir[memberId],
+    assert(this.staticPubKeyDir.get(memberId),
            "Member's static pub key missing.");
     var decrypted = mpenc.ske._smallrsaverify(signature,
-                                              this.staticPubKeyDir[memberId]);
+                                              this.staticPubKeyDir.get(memberId));
     var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
                    + this.nonces[memberPos] + this.sessionId;
     var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));

@@ -43,9 +43,10 @@ describe("ProtocolHandler class", function() {
     var ns = mpenc.handler;
     
     describe('constructor', function() {
-//        it('just make an instance', function() {
-//            var instance = new ns.ProtocolHandler('42', RSA_PUB_KEY);
-//        });
+        it('just make an instance', function() {
+            var handler = new ns.ProtocolHandler('42', _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY);
+            assert.strictEqual(handler.id, '42');
+        });
         
 //        it('yyy', function() {
 //            
