@@ -168,7 +168,8 @@ describe("SignatureKeyExchangeMember class", function() {
             participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
             participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
             var signature = participant._computeSessionSig();
-            assert.strictEqual(keyBits(signature, 8), 2048);
+            assert.ok(keyBits(signature, 8) <= 2048);
+            assert.ok(keyBits(signature, 8) >= 2040);
             assert.strictEqual(keyBits(ns._smallrsaverify(signature, _td.RSA_PUB_KEY), 8), 256);
         });
     });

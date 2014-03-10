@@ -250,6 +250,8 @@ mpenc.utils._arrayIsSubSet = function(subset, superset) {
  * Determines whether the list contains duplicates while excluding removed
  * elements (null).
  * 
+ * @param aList
+ *     The list to check for duplicates.
  * @returns
  *     True for no duplicates in list.
  * @private

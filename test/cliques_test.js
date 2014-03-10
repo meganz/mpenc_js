@@ -149,9 +149,9 @@ describe('CliquesMember class', function() {
             assert.strictEqual(keyBits(participant.privKey, 16), 256);
             assert.strictEqual(newMessage.agreement, 'ika');
             assert.strictEqual(newMessage.flow, 'upflow');
-            assert.lengthOf(newMessage.keys, 2);
-            assert.strictEqual(newMessage.keys[0], null);
-            assert.strictEqual(keyBits(newMessage.keys[newMessage.keys.length - 1], 16), 256);
+            assert.lengthOf(newMessage.intKeys, 2);
+            assert.strictEqual(newMessage.intKeys[0], null);
+            assert.strictEqual(keyBits(newMessage.intKeys[newMessage.intKeys.length - 1], 16), 256);
             assert.strictEqual(newMessage.source, '1');
             assert.strictEqual(newMessage.dest, '2');
         });
@@ -183,12 +183,12 @@ describe('CliquesMember class', function() {
                 assert.strictEqual(keyBits(participants[i].privKey, 16), 256);
                 assert.strictEqual(message.agreement, 'ika');
                 assert.strictEqual(message.flow, 'upflow');
-                assert.lengthOf(message.keys, i + 2);
-                assert.strictEqual(keyBits(message.keys[i + 1], 16), 256);
+                assert.lengthOf(message.intKeys, i + 2);
+                assert.strictEqual(keyBits(message.intKeys[i + 1], 16), 256);
                 if (i === 0) {
-                    assert.strictEqual(message.keys[0], null);
+                    assert.strictEqual(message.intKeys[0], null);
                 } else {
-                    assert.strictEqual(keyBits(message.keys[0], 16), 256);
+                    assert.strictEqual(keyBits(message.intKeys[0], 16), 256);
                 }
                 assert.strictEqual(message.source, members[i]);
                 assert.strictEqual(message.dest, members[i + 1]);
@@ -200,9 +200,9 @@ describe('CliquesMember class', function() {
             assert.strictEqual(keyBits(participants[i].privKey, 16), 256);
             assert.strictEqual(message.agreement, 'ika');
             assert.strictEqual(message.flow, 'downflow');
-            assert.lengthOf(message.keys, numMembers);
-            assert.strictEqual(keyBits(message.keys[0], 16), 256);
-            assert.strictEqual(keyBits(message.keys[numMembers - 1], 16), 256);
+            assert.lengthOf(message.intKeys, numMembers);
+            assert.strictEqual(keyBits(message.intKeys[0], 16), 256);
+            assert.strictEqual(keyBits(message.intKeys[numMembers - 1], 16), 256);
             // Last one goes to all.
             assert.strictEqual(message.source, members[numMembers - 1]);
             assert.strictEqual(message.dest, '');
@@ -247,7 +247,7 @@ describe('CliquesMember class', function() {
             broadcastMessage.agreement = 'ika';
             broadcastMessage.flow = 'downflow';
             broadcastMessage.members = members;
-            broadcastMessage.keys = messageKeys;
+            broadcastMessage.intKeys = messageKeys;
             broadcastMessage.debugKeys = mpenc.utils.clone(members);
             participant.downflow(broadcastMessage);
             assert.deepEqual(participant.intKeys, messageKeys);
@@ -295,7 +295,7 @@ describe('CliquesMember class', function() {
             var message = participant.akaJoin(['6']);
             assert.ok(participant.keyTimestamp > oldTs);
             assert.lengthOf(message.members, 6);
-            assert.lengthOf(message.keys, 6);
+            assert.lengthOf(message.intKeys, 6);
             assert.strictEqual(keyBits(participant.privKey, 16), 256);
             assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
             assert.strictEqual(message.agreement, 'aka');
@@ -308,8 +308,8 @@ describe('CliquesMember class', function() {
                     assert.ok(message.debugKeys[i].indexOf("3'*") >= 0);
                 }
             }
-            assert.strictEqual(keyBits(message.keys[0], 16), 256);
-            assert.strictEqual(keyBits(message.keys[5], 16), 256);
+            assert.strictEqual(keyBits(message.intKeys[0], 16), 256);
+            assert.strictEqual(keyBits(message.intKeys[5], 16), 256);
             assert.strictEqual(message.source, '3');
             assert.strictEqual(message.dest, '6');
             // Upflow for the new guy '6'.

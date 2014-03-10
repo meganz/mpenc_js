@@ -54,21 +54,36 @@ mpenc.cliques = {};
  *     Direction of message flow. "upflow" or "downflow".
  * @param members
  *     List (array) of all participating members.
- * @param keys
- *     List (array) of keys to transmit.
+ * @param intKeys
+ *     List (array) of intermediate keys to transmit.
  * @param debugKeys
  *     List (array) of keying debugging strings.
  * @returns {CliquesMessage}
  * @constructor
+ * 
+ * @property source
+ *     Message originator (from).
+ * @property dest
+ *     Message destination (to).
+ * @property agreement
+ *     Type of key agreement. "ika" or "aka".
+ * @property flow
+ *     Direction of message flow. "upflow" or "downflow".
+ * @property members
+ *     List (array) of all participating members.
+ * @property intKeys
+ *     List (array) of intermediate keys to transmit.
+ * @property debugKeys
+ *     List (array) of keying debugging strings.
  */
 mpenc.cliques.CliquesMessage = function(source, dest, agreement, flow, members,
-                                        keys, debugKeys) {
+                                        intKeys, debugKeys) {
     this.source = source || '';
     this.dest = dest || '';
     this.agreement = agreement || '';
     this.flow = flow || '';
     this.members = members || [];
-    this.keys = keys || [];
+    this.intKeys = intKeys || [];
     this.debugKeys = debugKeys || [];
     return this;
 };
@@ -172,7 +187,7 @@ mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
     startMessage.dest = newMembers[0];
     startMessage.agreement = 'aka';
     startMessage.flow = 'upflow';
-    startMessage.keys = this.intKeys;
+    startMessage.intKeys = this.intKeys;
     startMessage.debugKeys = this._debugIntKeys;
     
     return startMessage;
@@ -218,7 +233,7 @@ mpenc.cliques.CliquesMember.prototype.akaExclude = function(excludeMembers) {
     broadcastMessage.members = this.members;
     broadcastMessage.agreement = 'aka';
     broadcastMessage.flow = 'downflow';
-    broadcastMessage.keys = this.intKeys;
+    broadcastMessage.intKeys = this.intKeys;
     broadcastMessage.debugKeys = this._debugIntKeys;
     
     return broadcastMessage;
@@ -248,7 +263,7 @@ mpenc.cliques.CliquesMember.prototype.akaRefresh = function() {
     broadcastMessage.members = this.members;
     broadcastMessage.agreement = 'aka';
     broadcastMessage.flow = 'downflow';
-    broadcastMessage.keys = this.intKeys;
+    broadcastMessage.intKeys = this.intKeys;
     broadcastMessage.debugKeys = this._debugIntKeys;
     
     return broadcastMessage;
@@ -268,7 +283,7 @@ mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
             'Duplicates in member list detected!');
     
     this.members = message.members;
-    this.intKeys = message.keys;
+    this.intKeys = message.intKeys;
     this._debugIntKeys = message.debugKeys;
     if (this.intKeys.length === 0) {
         // We're the first, so let's initialise it.
@@ -300,7 +315,7 @@ mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
         message.source = this.id;
         message.dest = this.members[myPos + 1];
     }
-    message.keys = this.intKeys;
+    message.intKeys = this.intKeys;
     message.debugKeys = this._debugIntKeys;
     return message;
 };
@@ -373,7 +388,7 @@ mpenc.cliques.CliquesMember.prototype.downflow = function(message) {
             'Not in members list, must be excluded.');
     
     this.members = message.members;
-    this._setKeys(message.keys, message.debugKeys);
+    this._setKeys(message.intKeys, message.debugKeys);
 };
 
 
