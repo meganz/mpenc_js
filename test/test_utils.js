@@ -5,6 +5,8 @@
 
 "use strict";
 
+var _tu = {};
+
 /**
  * Number of bits in a key.
  * @param key
@@ -14,7 +16,7 @@
  * @returns {Number}
  *     Bits of the key.
  */
-function keyBits(key, wordSize) {
+_tu.keyBits = function(key, wordSize) {
     wordSize = wordSize || 32;
     return key.length * wordSize;
-}
+};
