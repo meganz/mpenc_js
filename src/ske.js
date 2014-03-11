@@ -162,7 +162,7 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
-        assert(otherMembers.length !== 0, 'No members to add.');
+        _assert(otherMembers.length !== 0, 'No members to add.');
         this.ephemeralPubKeys = null;
         var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
                                                                      '', 'upflow');
@@ -183,10 +183,14 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
-        assert(mpenc.utils._noDuplicatesInList(message.members),
-               'Duplicates in member list detected!');
+        _assert(mpenc.utils._noDuplicatesInList(message.members),
+                'Duplicates in member list detected!');
+        _assert(message.nonces.length <= message.members.length,
+                'Too many nonces on ASKE upflow!');
+        _assert(message.pubKeys.length <= message.members.length,
+                'Too many pub keys on ASKE upflow!');
         var myPos = message.members.indexOf(this.id);
-        assert(myPos >= 0, 'Not member of this key exchange!');
+        _assert(myPos >= 0, 'Not member of this key exchange!');
     
         this.members = mpenc.utils.clone(message.members);
         this.nonces = mpenc.utils.clone(message.nonces);
@@ -234,8 +238,8 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
-        assert(this.sessionId, 'Session ID not available.');
-        assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
+        _assert(this.sessionId, 'Session ID not available.');
+        _assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
         var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
         var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
         return mpenc.ske._smallrsasign(djbec._bytes2string(hashValue),
@@ -256,13 +260,13 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memberId, signature) {
-        assert(this.sessionId, 'Session ID not available.');
+        _assert(this.sessionId, 'Session ID not available.');
         var memberPos = this.members.indexOf(memberId);
-        assert(memberPos >= 0, 'Member not in participants list.');
-        assert(this.ephemeralPubKeys[memberPos],
-               "Member's ephemeral pub key missing.");
-        assert(this.staticPubKeyDir.get(memberId),
-               "Member's static pub key missing.");
+        _assert(memberPos >= 0, 'Member not in participants list.');
+        _assert(this.ephemeralPubKeys[memberPos],
+                "Member's ephemeral pub key missing.");
+        _assert(this.staticPubKeyDir.get(memberId),
+                "Member's static pub key missing.");
         var decrypted = mpenc.ske._smallrsaverify(signature,
                                                   this.staticPubKeyDir.get(memberId));
         var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
@@ -283,8 +287,8 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
-        assert(mpenc.utils._noDuplicatesInList(message.members),
-               'Duplicates in member list detected!');
+        _assert(mpenc.utils._noDuplicatesInList(message.members),
+                'Duplicates in member list detected!');
         var myPos = message.members.indexOf(this.id);
         
         // Generate session ID for received information.
@@ -306,7 +310,7 @@
         // Verify the session authentication from sender.
         var isValid = this._verifySessionSig(message.source,
                                              message.sessionSignature);
-        assert(isValid, 'Authentication of member failed: ' + message.source);
+        _assert(isValid, 'Authentication of member failed: ' + message.source);
         var senderPos = message.members.indexOf(message.source);
         this.authenticatedMembers[senderPos] = true;
         

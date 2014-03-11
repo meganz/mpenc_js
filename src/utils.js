@@ -351,5 +351,112 @@
         }
     
         throw new Error("Unable to copy obj! Its type isn't supported.");
+    };    
+    
+    
+    /**
+     * (Deep) compares two JavaScript arrays.
+     * 
+     * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
+     * 
+     * @param arr1
+     *     The first array to be compared against the second.
+     * @param arr2
+     *     The second array to be compared against the first.
+     * @returns
+     *     A true on equality.
+     */
+    mpenc.utils.arrayEqual = function(arr1, arr2) {
+        // If the other array is a falsy value, return.
+        if (!arr2) {
+            return false;
+        }
+        
+        // Compare lengths - can save a lot of time.
+        if (arr1.length !== arr2.length) {
+            return false;
+        }
+
+        for (var i = 0, l = arr1.length; i < l; i++) {
+            // Check if we have nested arrays.
+            if (arr1[i] instanceof Array && arr2[i] instanceof Array) {
+                // Recurse into the nested arrays.
+                if (!mpenc.utils.arrayEqual(arr1[i], arr2[i])) {
+                    return false;
+                }
+            } else if (arr1[i] !== arr2[i]) {
+                // Warning - two different object instances will never be equal: {x:20} != {x:20}
+                return false;
+            }
+        }
+        return true;
+    };
+    
+    
+    /**
+     * (Deep) compares two JavaScript objects.
+     * 
+     * Note: May not work with some objects.
+     * 
+     * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
+     * 
+     * @param obj1
+     *     The first object to be compared against the second.
+     * @param obj1
+     *     The second object to be compared against the first.
+     * @returns
+     *     A true on equality.
+     */
+    mpenc.utils.objectEqual = function(obj1, obj2) {
+        // For the first loop, we only check for types
+        for (propName in obj1) {
+            // Check for inherited methods and properties - like .equals itself
+            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty
+            // Return false if the return value is different.
+            if (obj1.hasOwnProperty(propName) != obj2.hasOwnProperty(propName)) {
+                return false;
+            }
+            // Check instance type.
+            else if (typeof obj1[propName] != typeof obj2[propName]) {
+                // Different types => not equal.
+                return false;
+            }
+        }
+        // Now a deeper check using other objects property names.
+        for(propName in obj2) {
+            // We must check instances anyway, there may be a property that only exists in obj2.
+            // I wonder, if remembering the checked values from the first loop would be faster or not .
+            if (obj1.hasOwnProperty(propName) != obj2.hasOwnProperty(propName)) {
+                return false;
+            } else if (typeof obj1[propName] != typeof obj2[propName]) {
+                return false;
+            }
+            
+            // If the property is inherited, do not check any more (it must be equal if both objects inherit it).
+            if(!obj1.hasOwnProperty(propName)) {
+                continue;
+            }
+
+            // Now the detail check and recursion.
+
+            // This returns the script back to the array comparing.
+            if (obj1[propName] instanceof Array && obj2[propName] instanceof Array) {
+                // Recurse into the nested arrays.
+                if (!mpenc.utils.arrayEqual(obj1[propName], obj2[propName])) {
+                    return false;
+                }
+            } else if (obj1[propName] instanceof Object && obj2[propName] instanceof Object) {
+                // Recurse into another objects.
+                if (!mpenc.utils.objectEqual(obj1[propName], obj2[propName])) {
+                    return false;
+                }
+            }
+            // Normal value comparison for strings and numbers.
+            else if(obj1[propName] != obj2[propName]) {
+                return false;
+            }
+        }
+        // If everything passed, let's say YES.
+        return true;
     };
 })();

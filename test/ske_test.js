@@ -303,6 +303,36 @@
                 assert.lengthOf(message.pubKeys, 1);
             });
             
+            it('upflow on completed upflow, too many nonces', function() {
+                var participant = new ns.SignatureKeyExchangeMember('1');
+                var members = ['1', '2', '3', '4', '5'];
+                var message = new ns.SignatureKeyExchangeMessage('1', '',
+                                                                 'upflow',
+                                                                 members);
+                message.nonces = ['foo1', 'foo2', 'foo3', 'foo4', 'foo5', 'foo6'];
+                message.pubKeys = [];
+                for (var i = 0; i < 5; i++) {
+                    message.pubKeys.push(_td.ED25519_PUB_KEY);
+                }
+                assert.throws(function() { participant.upflow(message); },
+                              'Too many nonces on ASKE upflow!');
+            });
+            
+            it('upflow on completed upflow, too many nonces', function() {
+                var participant = new ns.SignatureKeyExchangeMember('1');
+                var members = ['1', '2', '3', '4', '5'];
+                var message = new ns.SignatureKeyExchangeMessage('1', '',
+                                                                 'upflow',
+                                                                 members);
+                message.nonces = ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'];
+                message.pubKeys = [];
+                for (var i = 0; i < 6; i++) {
+                    message.pubKeys.push(_td.ED25519_PUB_KEY);
+                }
+                assert.throws(function() { participant.upflow(message); },
+                              'Too many pub keys on ASKE upflow!');
+            });
+            
             it('upflow, for all members', function() {
                 var numMembers = 5;
                 var members = [];

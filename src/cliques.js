@@ -284,6 +284,8 @@
     mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
         _assert(mpenc.utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
+        _assert(message.intKeys.length <= message.members.length,
+                'Too many intermediate keys on CLIQUES upflow!');
         
         this.members = message.members;
         this.intKeys = message.intKeys;
@@ -384,8 +386,8 @@
         _assert(mpenc.utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
         if (message.agreement === 'ika') {
-            _assert(this.members.toString() === message.members.toString(),
-                    'Member list mis-match in protocol');
+            _assert(mpenc.utils.arrayEqual(this.members, message.members),
+                    'Member list mis-match in CLIQUES protocol');
         }
         _assert(message.members.indexOf(this.id) >= 0,
                 'Not in members list, must be excluded.');

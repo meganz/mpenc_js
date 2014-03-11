@@ -181,11 +181,18 @@
     mpenc.handler.ProtocolHandler.prototype.processMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(message);
         var inAskeMessage = this._getAskeMessage(message);
+        var outCliquesMessage = null;
+        var outAskeMessage = null;
         
-        var outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
-        var outAaskeMessage = this.askeMember.upflow(inAskeMessage);
+        if (message.dest === '') {
+            outCliquesMessage = this.cliquesMember.downflow(inCliquesMessage);
+            outAskeMessage = this.askeMember.downflow(inAskeMessage);
+        } else {
+            outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
+            outAskeMessage = this.askeMember.upflow(inAskeMessage);
+        }
         
-        return this._mergeMessages(outCliquesMessage, outAaskeMessage);
+        return this._mergeMessages(outCliquesMessage, outAskeMessage);
     };
     
     

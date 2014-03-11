@@ -183,6 +183,86 @@
         });
         
         describe('#processMessage() method', function() {
+            it('processing for an upflow message', function() {
+                var message = { source: '1', dest: '2', agreement: 'initial',
+                                flow: 'upflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [null, []], nonces: ['foo'],
+                                pubKeys: ['foo'], sessionSignature: null };
+                var compare = { source: '2', dest: '3', agreement: 'initial',
+                                flow: 'upflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], []], nonces: ['foo', 'bar'],
+                                pubKeys: ['foo', 'bar'], sessionSignature: null };
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var output = participant.processMessage(message);
+                assert.strictEqual(output.source, compare.source);
+                assert.strictEqual(output.dest, compare.dest);
+                assert.strictEqual(output.agreement, compare.agreement);
+                assert.strictEqual(output.flow, compare.flow);
+                assert.deepEqual(output.members, compare.members);
+                assert.lengthOf(output.intKeys, compare.intKeys.length);
+                assert.lengthOf(output.nonces, compare.nonces.length);
+                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
+                assert.strictEqual(output.sessionSignature, compare.sessionSignature);
+            });
+            
+            it('processing for last upflow message', function() {
+                var message = { source: '4', dest: '5', agreement: 'initial',
+                                flow: 'upflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
+                                sessionSignature: null };
+                var compare = { source: '5', dest: '', agreement: 'initial',
+                                flow: 'downflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('5',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var output = participant.processMessage(message);
+                assert.strictEqual(output.source, compare.source);
+                assert.strictEqual(output.dest, compare.dest);
+                assert.strictEqual(output.agreement, compare.agreement);
+                assert.strictEqual(output.flow, compare.flow);
+                assert.deepEqual(output.members, compare.members);
+                assert.lengthOf(output.intKeys, compare.intKeys.length);
+                assert.lengthOf(output.nonces, compare.nonces.length);
+                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
+                assert.ok(output.sessionSignature);
+            });
+            
+//            it('processing for a downflow message', function() {
+//                var message = { source: '5', dest: '', agreement: 'initial',
+//                                flow: 'downflow', members: ['1', '2', '3', '4', '5'],
+//                                intKeys: [[], [], [], [], []],
+//                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+//                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+//                                sessionSignature: 'bar' };
+//                var compare = { source: '2', dest: '' };
+//                var participant = new ns.ProtocolHandler('2',
+//                                                         _td.RSA_PRIV_KEY,
+//                                                         _td.RSA_PUB_KEY,
+//                                                         _td.STATIC_PUB_KEY_DIR);
+//                participant.cliquesMember.members = message.members;
+//                var output = participant.processMessage(message);
+//                dump(output);
+//                assert.strictEqual(output.source, compare.source);
+//                assert.strictEqual(output.dest, compare.dest);
+////                assert.strictEqual(output.agreement, compare.agreement);
+////                assert.strictEqual(output.flow, compare.flow);
+////                assert.deepEqual(output.members, compare.members);
+////                assert.lengthOf(output.intKeys, compare.intKeys.length);
+////                assert.lengthOf(output.nonces, compare.nonces.length);
+////                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
+////                assert.ok(output.sessionSignature);
+//            });
+            
             it('whole flow for 5 members', function() {
                 var numMembers = 5;
                 var initiator = 0;
@@ -204,35 +284,36 @@
                 // Start.
                 var message = participants[initiator].start(otherMembers);
                 
-                // ASKE upflow.
+                // Upflow.
                 while (message.dest !== '') {
                     var nextId = message.members.indexOf(message.dest);
                     message = participants[nextId].processMessage(message);
                 }
                 
-    //            // ASKE downflow for all.
-    //            var sid = null;
-    //            var nextMessages = []; 
-    //            while (message !== undefined) {
-    //                for (var i = 0; i < numMembers; i++) {
-    //                    var participant = participants[i];
-    //                    var nextMessage = participant.downflow(message);
-    //                    if (nextMessage !== null) {
-    //                        nextMessages.push(nextMessage);
-    //                    }
-    //                    assert.strictEqual(participant.id, members[i]);
-    //                    assert.deepEqual(participant.members, members);
-    //                    if (!sid) {
-    //                        sid = participant.sessionId;
-    //                    } else {
-    //                        assert.strictEqual(participant.sessionId, sid);
-    //                    }
-    //                }
-    //                message = nextMessages.shift();
-    //            }
-    //            for (var i = 0; i < participants.length; i++) {
-    //                assert.ok(participants[i].isSessionAcknowledged());
-    //            }
+                // Downflow for all.
+                var nextMessages = []; 
+                while (message !== undefined) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        var nextMessage = participant.processMessage(message);
+                        if (nextMessage !== null) {
+                            nextMessages.push(nextMessage);
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                }
+//                for (var i = 0; i < participants.length; i++) {
+//                    var participant = participants[i];
+//                    if (members.indexOf(participant.id) < 0) {
+//                        continue;
+//                    }
+//                    assert.ok(participant.isSessionAcknowledged());
+//                }
             });
         });
     

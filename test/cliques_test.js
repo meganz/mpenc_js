@@ -166,7 +166,22 @@
                               'Duplicates in member list detected!');
             });
             
-            it('ika upflow, multiple calls', function() {
+            it('ika upflow on completed upflow', function() {
+                var participant = new ns.CliquesMember('1');
+                var members = ['1', '2', '3', '4', '5'];
+                var message = new ns.CliquesMessage();
+                message.members = members;
+                message.debugKeys = ['2*3*4*5*G', '1*3*4*5*G', '1*2*4*5*G',
+                                     '1*2*3*5*G', '1*2*3*4*G', 'foo'];
+                message.intKeys = [];
+                for (var i = 0; i < 6; i++) {
+                    message.intKeys.push(_PRIV_KEY());
+                }
+                assert.throws(function() { participant.upflow(message); },
+                              'Too many intermediate keys on CLIQUES upflow!');
+            });
+            
+            it('ika upflow, for all members', function() {
                 var numMembers = 5;
                 var members = [];
                 var participants = [];
@@ -229,7 +244,7 @@
                 broadcastMessage.members = members;
                 broadcastMessage.agreement = 'ika';
                 assert.throws(function() { participant.downflow(broadcastMessage); },
-                              'Member list mis-match in protocol');
+                              'Member list mis-match in CLIQUES protocol');
             });
         
             it('ika downflow message process', function() {
