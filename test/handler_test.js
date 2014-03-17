@@ -75,7 +75,7 @@
                               "Message destination mismatch, this shouldn't happen.");
             });
             
-            it('just merge the messages', function() {
+            it('merge the messages', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -94,6 +94,47 @@
                 assert.deepEqual(message.nonces, askeMessage.nonces);
                 assert.deepEqual(message.pubKeys, askeMessage.pubKeys);
                 assert.strictEqual(message.sessionSignature, askeMessage.sessionSignature);
+            });
+            
+            it('merge the messages for ASKE only', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var askeMessage = {source: '3', dest: '', flow: 'downflow',
+                                   members: ['1', '2', '3', '4', '5', '6'],
+                                   nonces: null, pubKeys: null, sessionSignature: null};
+                var message = participant._mergeMessages(null, askeMessage);
+                assert.strictEqual(message.source, '1');
+                assert.strictEqual(message.dest, askeMessage.dest);
+                assert.strictEqual(message.flow, askeMessage.flow);
+                assert.deepEqual(message.members, askeMessage.members);
+                assert.deepEqual(message.intKeys, null);
+                assert.deepEqual(message.nonces, askeMessage.nonces);
+                assert.deepEqual(message.pubKeys, askeMessage.pubKeys);
+                assert.strictEqual(message.sessionSignature, askeMessage.sessionSignature);
+            });
+            
+            it('merge the messages for CLIQUES only', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var cliquesMessage = {source: '1', dest: '', agreement: 'aka', flow: 'downflow',
+                                      members: ['1', '2', '3', '4', '5'], intKeys: null};
+                var message = participant._mergeMessages(cliquesMessage, null);
+                assert.strictEqual(message.source, '1');
+                assert.strictEqual(message.dest, cliquesMessage.dest);
+                assert.strictEqual(message.flow, cliquesMessage.flow);
+                assert.strictEqual(message.agreement, 'auxilliary');
+                assert.deepEqual(message.members, cliquesMessage.members);
+                assert.deepEqual(message.intKeys, cliquesMessage.intKeys);
+            });
+            
+            it('merge the messages for final case (no messages)', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = participant._mergeMessages(null, undefined);
+                assert.strictEqual(message, null);
             });
         });
         
@@ -157,10 +198,6 @@
             });
         });
         
-        // TODO:
-        // * protocol state machine
-        // * protocol codec
-        
         describe('#start() method', function() {
             it('start/initiate a group session', function() {
                 var participant = new ns.ProtocolHandler('1',
@@ -182,16 +219,103 @@
             });
         });
         
+        describe('#join() method', function() {
+            it('join empty member list', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                assert.throws(function() { participant.join([]); },
+                              'No members to add.');
+            });
+            
+            it('add members to group', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var cliquesSpy = sinon.spy();
+                var askeSpy = sinon.spy();
+                var mergeMessagesStub = sinon.stub().returns(null);
+                participant.cliquesMember.akaJoin = cliquesSpy;
+                participant.askeMember.join = askeSpy;
+                participant._mergeMessages = mergeMessagesStub;
+                var otherMembers = ['6', '7'];
+                var message = participant.join(otherMembers);
+                sinon.assert.calledOnce(cliquesSpy);
+                sinon.assert.calledOnce(askeSpy);
+                sinon.assert.calledOnce(mergeMessagesStub);
+                assert.strictEqual(message, null);
+            });
+        });
+        
+        describe('#exclude() method', function() {
+            it('exclude empty member list', function() {
+                var participant = new ns.ProtocolHandler('3',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                assert.throws(function() { participant.exclude([]); },
+                              'No members to exclude.');
+            });
+            
+            it('exclude self', function() {
+                var participant = new ns.ProtocolHandler('3',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                assert.throws(function() { participant.exclude(['3', '5']); },
+                              'Cannot exclude mysefl.');
+            });
+            
+            it('exclude members', function() {
+                var participant = new ns.ProtocolHandler('3',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var cliquesSpy = sinon.spy();
+                var askeSpy = sinon.spy();
+                var mergeMessagesStub = sinon.stub().returns(null);
+                participant.cliquesMember.akaExclude = cliquesSpy;
+                participant.askeMember.exclude = askeSpy;
+                participant._mergeMessages = mergeMessagesStub;
+                var message = participant.exclude(['1', '4']);
+                sinon.assert.calledOnce(cliquesSpy);
+                sinon.assert.calledOnce(askeSpy);
+                sinon.assert.calledOnce(mergeMessagesStub);
+                assert.strictEqual(message, null);
+            });
+        });
+        
+        describe('#refresh() method', function() {
+            it('refresh own private key using aka', function() {
+                var participant = new ns.ProtocolHandler('3',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var cliquesSpy = sinon.spy();
+                var mergeMessagesStub = sinon.stub().returns(null);
+                participant.cliquesMember.akaRefresh = cliquesSpy;
+                participant._mergeMessages = mergeMessagesStub;
+                var message = participant.refresh();
+                sinon.assert.calledOnce(cliquesSpy);
+                sinon.assert.calledOnce(mergeMessagesStub);
+                assert.strictEqual(message, null);
+            });
+        });
+        
         describe('#processMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2', agreement: 'initial',
                                 flow: 'upflow', members: ['1', '2', '3', '4', '5'],
-                                intKeys: [null, []], nonces: ['foo'],
-                                pubKeys: ['foo'], sessionSignature: null };
+                                intKeys: [null, []], debugKeys: [null, '1*G'],
+                                nonces: ['foo'], pubKeys: ['foo'],
+                                sessionSignature: null };
                 var compare = { source: '2', dest: '3', agreement: 'initial',
                                 flow: 'upflow', members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], []], nonces: ['foo', 'bar'],
-                                pubKeys: ['foo', 'bar'], sessionSignature: null };
+                                intKeys: [[], [], []], debugKeys: ['2*G', '1*G', '2*1*G'],
+                                nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
+                                sessionSignature: null };
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
@@ -203,6 +327,7 @@
                 assert.strictEqual(output.flow, compare.flow);
                 assert.deepEqual(output.members, compare.members);
                 assert.lengthOf(output.intKeys, compare.intKeys.length);
+                assert.deepEqual(output.debugKeys, compare.debugKeys);
                 assert.lengthOf(output.nonces, compare.nonces.length);
                 assert.lengthOf(output.pubKeys, compare.pubKeys.length);
                 assert.strictEqual(output.sessionSignature, compare.sessionSignature);
@@ -212,6 +337,7 @@
                 var message = { source: '4', dest: '5', agreement: 'initial',
                                 flow: 'upflow', members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
+                                debugKeys: ['', '', '', '', ''],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
@@ -237,33 +363,67 @@
                 assert.ok(output.sessionSignature);
             });
             
-//            it('processing for a downflow message', function() {
-//                var message = { source: '5', dest: '', agreement: 'initial',
-//                                flow: 'downflow', members: ['1', '2', '3', '4', '5'],
-//                                intKeys: [[], [], [], [], []],
-//                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
-//                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
-//                                sessionSignature: 'bar' };
-//                var compare = { source: '2', dest: '' };
-//                var participant = new ns.ProtocolHandler('2',
-//                                                         _td.RSA_PRIV_KEY,
-//                                                         _td.RSA_PUB_KEY,
-//                                                         _td.STATIC_PUB_KEY_DIR);
-//                participant.cliquesMember.members = message.members;
-//                var output = participant.processMessage(message);
-//                dump(output);
-//                assert.strictEqual(output.source, compare.source);
-//                assert.strictEqual(output.dest, compare.dest);
-////                assert.strictEqual(output.agreement, compare.agreement);
-////                assert.strictEqual(output.flow, compare.flow);
-////                assert.deepEqual(output.members, compare.members);
-////                assert.lengthOf(output.intKeys, compare.intKeys.length);
-////                assert.lengthOf(output.nonces, compare.nonces.length);
-////                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
-////                assert.ok(output.sessionSignature);
-//            });
+            it('processing for a downflow message', function() {
+                var message = { source: '5', dest: '', agreement: 'initial',
+                                flow: 'downflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
+                                            '5*3*2*1*G', '4*3*2*1*G'],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('2',
+                                                       _td.RSA_PRIV_KEY,
+                                                       _td.RSA_PUB_KEY,
+                                                       _td.STATIC_PUB_KEY_DIR);
+                var cliquesUpflowSpy = sinon.spy();
+                var cliquesDownflowSpy = sinon.spy();
+                participant.cliquesMember.upflow = cliquesUpflowSpy;
+                participant.cliquesMember.downflow = cliquesDownflowSpy;
+                var askeUpflowSpy = sinon.spy();
+                var askeDownflowSpy = sinon.spy();
+                participant.askeMember.upflow = askeUpflowSpy;
+                participant.askeMember.downflow = askeDownflowSpy;
+                var mergeMessagesSpy = sinon.spy();
+                participant._mergeMessages = mergeMessagesSpy;
+                participant.processMessage(message);
+                assert.strictEqual(cliquesUpflowSpy.callCount, 0);
+                assert.strictEqual(askeUpflowSpy.callCount, 0);
+                sinon.assert.calledOnce(cliquesDownflowSpy);
+                sinon.assert.calledOnce(askeDownflowSpy);
+                sinon.assert.calledOnce(mergeMessagesSpy);
+            });
             
-            it('whole flow for 5 members', function() {
+            it('processing for a downflow message after CLIQUES finish', function() {
+                var message = { source: '5', dest: '', agreement: 'initial',
+                                flow: 'downflow', members: ['1', '2', '3', '4', '5'],
+                                intKeys: [], debugKeys: [],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('2',
+                                                       _td.RSA_PRIV_KEY,
+                                                       _td.RSA_PUB_KEY,
+                                                       _td.STATIC_PUB_KEY_DIR);
+                var cliquesUpflowSpy = sinon.spy();
+                var cliquesDownflowSpy = sinon.spy();
+                participant.cliquesMember.upflow = cliquesUpflowSpy;
+                participant.cliquesMember.downflow = cliquesDownflowSpy;
+                var askeUpflowSpy = sinon.spy();
+                var askeDownflowSpy = sinon.spy();
+                participant.askeMember.upflow = askeUpflowSpy;
+                participant.askeMember.downflow = askeDownflowSpy;
+                var mergeMessagesSpy = sinon.spy();
+                participant._mergeMessages = mergeMessagesSpy;
+                participant.processMessage(message);
+                assert.strictEqual(cliquesUpflowSpy.callCount, 0);
+                assert.strictEqual(askeUpflowSpy.callCount, 0);
+                assert.strictEqual(cliquesDownflowSpy.callCount, 0);
+                sinon.assert.calledOnce(askeDownflowSpy);
+                sinon.assert.calledOnce(mergeMessagesSpy);
+            });
+            
+            it('whole flow for 5 members, 2 joining, 2 others leaving, refresh', function() {
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];
@@ -291,37 +451,149 @@
                 }
                 
                 // Downflow for all.
-                var nextMessages = []; 
+                var nextMessages = [];
                 while (message !== undefined) {
                     for (var i = 0; i < participants.length; i++) {
                         var participant = participants[i];
                         if (members.indexOf(participant.id) < 0) {
                             continue;
                         }
-                        var nextMessage = participant.processMessage(message);
-                        if (nextMessage !== null) {
-                            nextMessages.push(nextMessage);
+                        var tempClone = mpenc.utils.clone(message);
+                        var nextMessage = participant.processMessage(tempClone);
+                        message = tempClone;
+                        if (nextMessage) {
+                            nextMessages.push(mpenc.utils.clone(nextMessage));
                         }
                         assert.deepEqual(participant.cliquesMember.members, members);
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
                 }
-//                for (var i = 0; i < participants.length; i++) {
-//                    var participant = participants[i];
-//                    if (members.indexOf(participant.id) < 0) {
-//                        continue;
-//                    }
-//                    assert.ok(participant.isSessionAcknowledged());
-//                }
+                var keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.deepEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+                
+                // Join two new guys.
+                var newMembers = ['6', '7'];
+                members = members.concat(newMembers);
+                for (var i = 0; i < newMembers.length; i++) {
+                    var newMember = new ns.ProtocolHandler(newMembers[i],
+                                                           _td.RSA_PRIV_KEY,
+                                                           _td.RSA_PUB_KEY,
+                                                           _td.STATIC_PUB_KEY_DIR);
+                    participants.push(newMember);
+                }
+                
+                // '4' starts upflow for join.
+                message = participants[3].join(newMembers);
+                // Upflow for join.
+                while (message.dest !== '') {
+                    var nextId = message.members.indexOf(message.dest);
+                    message = participants[nextId].processMessage(message);
+                }
+                
+                // Downflow for join.
+                var nextMessages = [];
+                while (message !== undefined) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        var tempClone = mpenc.utils.clone(message);
+                        var nextMessage = participant.processMessage(tempClone);
+                        message = tempClone;
+                        if (nextMessage) {
+                            nextMessages.push(mpenc.utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                }
+                var keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.deepEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+                
+                // '3' excludes two members.
+                var toExclude = ['1', '4'];
+                members.splice(members.indexOf('1'), 1);
+                members.splice(members.indexOf('4'), 1);
+                message = participants[2].exclude(toExclude);
+                
+                // Downflow for exclude.
+                var nextMessages = [];
+                while (message !== undefined) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        var tempClone = mpenc.utils.clone(message);
+                        var nextMessage = participant.processMessage(tempClone);
+                        message = tempClone;
+                        if (nextMessage) {
+                            nextMessages.push(mpenc.utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                }
+                var keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.deepEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+                
+                // '2' initiates a key refresh.
+                var oldKey = participants[1].cliquesMember.groupKey;
+                message = participants[1].refresh();
+                
+                // Downflow for refresh.
+                keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.deepEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.notDeepEqual(participant.cliquesMember.groupKey, oldKey);
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
             });
         });
-    
-        
-    //        it('start the IKA without members', function() {
-    //            var participant = new ns.CliquesMember('1');
-    //            assert.throws(function() { participant.ika([]); },
-    //                          'No members to add.');
-    //        });
     });
 })();

@@ -409,26 +409,26 @@
      */
     mpenc.utils.objectEqual = function(obj1, obj2) {
         // For the first loop, we only check for types
-        for (propName in obj1) {
+        for (var propName in obj1) {
             // Check for inherited methods and properties - like .equals itself
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty
             // Return false if the return value is different.
-            if (obj1.hasOwnProperty(propName) != obj2.hasOwnProperty(propName)) {
+            if (obj1.hasOwnProperty(propName) !== obj2.hasOwnProperty(propName)) {
                 return false;
             }
             // Check instance type.
-            else if (typeof obj1[propName] != typeof obj2[propName]) {
+            else if (typeof obj1[propName] !== typeof obj2[propName]) {
                 // Different types => not equal.
                 return false;
             }
         }
         // Now a deeper check using other objects property names.
-        for(propName in obj2) {
+        for(var propName in obj2) {
             // We must check instances anyway, there may be a property that only exists in obj2.
             // I wonder, if remembering the checked values from the first loop would be faster or not .
-            if (obj1.hasOwnProperty(propName) != obj2.hasOwnProperty(propName)) {
+            if (obj1.hasOwnProperty(propName) !== obj2.hasOwnProperty(propName)) {
                 return false;
-            } else if (typeof obj1[propName] != typeof obj2[propName]) {
+            } else if (typeof obj1[propName] !== typeof obj2[propName]) {
                 return false;
             }
             
@@ -452,7 +452,7 @@
                 }
             }
             // Normal value comparison for strings and numbers.
-            else if(obj1[propName] != obj2[propName]) {
+            else if(obj1[propName] !== obj2[propName]) {
                 return false;
             }
         }

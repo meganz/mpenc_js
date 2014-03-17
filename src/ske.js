@@ -162,7 +162,7 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
-        _assert(otherMembers.length !== 0, 'No members to add.');
+        _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.ephemeralPubKeys = null;
         var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
                                                                      '', 'upflow');
@@ -350,7 +350,7 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.join = function(newMembers) {
-        _assert(newMembers.length !== 0, 'No members to add.');
+        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
         var allMembers = this.members.concat(newMembers);
         _assert(mpenc.utils._noDuplicatesInList(allMembers),
                 'Duplicates in member list detected!');
@@ -377,7 +377,7 @@
      * @method
      */
     mpenc.ske.SignatureKeyExchangeMember.prototype.exclude = function(excludeMembers) {
-        _assert(excludeMembers.length !== 0, 'No members to exclude.');
+        _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
                 'Members list to exclude is not a sub-set of previous members!');
         _assert(excludeMembers.indexOf(this.id) < 0,
@@ -601,8 +601,10 @@
         var nonceItems = '';
         for (var i = 0; i < sortedMembers.length; i++) {
             var pid = sortedMembers[i];
-            pidItems += pid;
-            nonceItems += mapping[pid];
+            if (pid) {
+                pidItems += pid;
+                nonceItems += mapping[pid];
+            }
         }
         var sidBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems
                                                                        + nonceItems));

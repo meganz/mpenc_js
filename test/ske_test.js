@@ -119,6 +119,24 @@
                 sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, _td.SESSION_ID);
             });
+            
+            it('compute SID (missing members)', function() {
+                var members = ['3', '1', null, '4', '5'];
+                var nonces = ['3333', '1111', '2222', '4444', '5555'];
+                
+                var echo = function(x) {
+                    return x;
+                };
+                
+                sjcl.codec.bytes.fromBits = sinon.stub(sjcl.codec.bytes, 'fromBits', echo);
+                sjcl.hash.sha256.hash = sinon.stub(sjcl.hash.sha256, 'hash', echo);
+                djbec._bytes2string = sinon.stub(djbec, '_bytes2string', echo);
+                var sid = ns._computeSid(members, nonces);
+                sjcl.codec.bytes.fromBits.restore();
+                sjcl.hash.sha256.hash.restore();
+                djbec._bytes2string.restore();
+                assert.strictEqual(sid, '13451111333344445555');
+            });
         });
     });
     

@@ -134,16 +134,17 @@
         return this;
     };
     
+    
     /**
      * Start the IKA (Initial Key Agreement) procedure for the given members.
      * 
+     * @method
      * @param otherMembers
      *     Iterable of other members for the group (excluding self).
      * @returns {CliquesMessage}
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype.ika = function(otherMembers) {
-        _assert(otherMembers.length !== 0, 'No members to add.');
+        _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.intKeys = null;
         this._debugIntKeys = null;
         if (this.privKey) {
@@ -162,13 +163,13 @@
     /**
      * Start the AKA (Auxiliary Key Agreement) for joining new members.
      * 
+     * @method
      * @param newMembers
      *     Iterable of new members to join the group.
      * @returns {CliquesMessage}
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
-        _assert(newMembers.length !== 0, 'No members to add.');
+        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
         var allMembers = this.members.concat(newMembers);
         _assert(mpenc.utils._noDuplicatesInList(allMembers),
                 'Duplicates in member list detected!');
@@ -200,13 +201,13 @@
     /**
      * Start the AKA (Auxiliary Key Agreement) for excluding members.
      * 
+     * @method
      * @param excludeMembers
      *     Iterable of members to exclude from the group.
      * @returns {CliquesMessage}
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype.akaExclude = function(excludeMembers) {
-        _assert(excludeMembers.length !== 0, 'No members to exclude.');
+        _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
                 'Members list to exclude is not a sub-set of previous members!');
         _assert(excludeMembers.indexOf(this.id) < 0,
@@ -215,9 +216,9 @@
         // Kick 'em.
         for (var i = 0; i < excludeMembers.length; i++) {
             var index = this.members.indexOf(excludeMembers[i]);
-            this.members[index] = null;
-            this.intKeys[index] = null;
-            this._debugIntKeys[index] = null;
+            this.members.splice(index, 1);
+            this.intKeys.splice(index, 1);
+            this._debugIntKeys.splice(index, 1);
         }
         
         // Renew all keys.
@@ -276,10 +277,10 @@
     /**
      * IKA/AKA upflow phase message processing.
      * 
+     * @method
      * @param message
      *     Received upflow message. See {@link CliquesMessage}.
      * @returns {CliquesMessage}
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
         _assert(mpenc.utils._noDuplicatesInList(message.members),
@@ -332,8 +333,8 @@
      * 
      * @returns
      *     Cardinal key and cardinal debug key in an object.
-     * @private
      * @method
+     * @private
      */
     mpenc.cliques.CliquesMember.prototype._renewPrivKey = function() {
         var myPos = this.members.indexOf(this.id);
@@ -378,9 +379,9 @@
     /**
      * IKA downflow phase broadcast message receive.
      * 
+     * @method
      * @param message
      *     Received downflow broadcast message.
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype.downflow = function(message) {
         _assert(mpenc.utils._noDuplicatesInList(message.members),
@@ -400,12 +401,12 @@
     /**
      * Updates local state for group and intermediate keys.
      * 
+     * @method
      * @param intKeys
      *     Intermediate keys.
      * @param debugKeys
      *     Debug "key" sequences.
      * @private
-     * @method
      */
     mpenc.cliques.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
         if ((this.intKeys) && (this.groupKey)) {
@@ -415,8 +416,8 @@
         }
         // New objects for intermediate keys.
         var myPos = this.members.indexOf(this.id);
-        this.intKeys = mpenc.utils.clone(intKeys);
-        this._debugIntKeys = mpenc.utils.clone(debugKeys);
+        this.intKeys = intKeys;
+        this._debugIntKeys = debugKeys;
         this.groupKey = mpenc.cliques._scalarMultiply(this.privKey,
                                                       this.intKeys[myPos]);
         this._debugGroupKey = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,

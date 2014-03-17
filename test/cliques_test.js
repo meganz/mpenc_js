@@ -381,7 +381,7 @@
                     participant.goupKey = _PRIV_KEY();
                 }
                 // Exclude members '1' and '4'.
-                var thenMembers = [null, '2', '3', null, '5'];
+                var thenMembers = ['2', '3', '5'];
                 participant._debugGroupKey = '1*2*3*4*5*G';
                 var oldTs = participant.keyTimestamp;
                 var message = participant.akaExclude(['1', '4']);

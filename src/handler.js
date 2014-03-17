@@ -80,6 +80,8 @@
      *     List (array) of all participating members.
      * @property intKeys
      *     List (array) of intermediate keys for group key agreement.
+     * @property debugKeys
+     *     List (array) of keying debugging strings.
      * @property nonces
      *     Nonces of members for ASKE.
      * @property pubKeys
@@ -88,13 +90,15 @@
      *     Session acknowledgement signature using sender's static key.
      */
     mpenc.handler.ProtocolMessage = function(source, dest, agreement, flow, members,
-                                             intKeys, nonces, pubKeys, sessionSignature) {
+                                             intKeys, debugKeys, nonces, pubKeys,
+                                             sessionSignature) {
         this.source = source || '';
         this.dest = dest || '';
         this.agreement = agreement || '';
         this.flow = flow || '';
         this.members = members || [];
         this.intKeys = intKeys || [];
+        this.debugKeys = debugKeys || [];
         this.nonces = nonces || [];
         this.pubKeys = pubKeys || [];
         this.sessionSignature = sessionSignature || null;
@@ -155,13 +159,13 @@
     /**
      * Start the protocol negotiation with the group participants..
      * 
+     * @method
      * @param otherMembers
      *     Iterable of other members for the group (excluding self).
      * @returns {ProtocolMessage}
-     * @method
      */
     mpenc.handler.ProtocolHandler.prototype.start = function(otherMembers) {
-        _assert(otherMembers.length !== 0, 'No members to add.');
+        _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
@@ -171,56 +175,123 @@
     
     
     /**
-     * Handles protocol execution with all participants.
+     * Start a new upflow for joining new members..
      * 
-     * @param message
-     *     Received message. See {@link ProtocolMessage}.
+     * @method
+     * @param newMembers
+     *     Iterable of new members to join the group.
+     * @returns {ProtocolMessage}
+     */
+    mpenc.handler.ProtocolHandler.prototype.join = function(newMembers) {
+        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
+        
+        var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
+        var askeMessage = this.askeMember.join(newMembers);
+        
+        return this._mergeMessages(cliquesMessage, askeMessage);
+    };
+    
+    
+    /**
+     * Start a new downflow for excluding members.
+     * 
+     * @method
+     * @param excludeMembers
+     *     Iterable of members to exclude from the group.
+     * @returns {ProtocolMessage}
+     */
+    mpenc.handler.ProtocolHandler.prototype.exclude = function(excludeMembers) {
+        _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
+        _assert(excludeMembers.indexOf(this.id) < 0,
+                'Cannot exclude mysefl.');
+        
+        var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
+        var askeMessage = this.askeMember.exclude(excludeMembers);
+        
+        return this._mergeMessages(cliquesMessage, askeMessage);
+    };
+    
+    
+    /**
+     * Refresh group key.
+     * 
      * @returns {ProtocolMessage}
      * @method
      */
+    mpenc.handler.ProtocolHandler.prototype.refresh = function() {
+        var cliquesMessage = this.cliquesMember.akaRefresh();
+        
+        return this._mergeMessages(cliquesMessage, null);
+    };
+    
+    
+    /**
+     * Handles protocol execution with all participants.
+     * 
+     * @method
+     * @param message
+     *     Received message. See {@link ProtocolMessage}.
+     * @returns {ProtocolMessage}
+     */
     mpenc.handler.ProtocolHandler.prototype.processMessage = function(message) {
-        var inCliquesMessage = this._getCliquesMessage(message);
-        var inAskeMessage = this._getAskeMessage(message);
+        var inCliquesMessage = this._getCliquesMessage(mpenc.utils.clone(message));
+        var inAskeMessage = this._getAskeMessage(mpenc.utils.clone(message));
         var outCliquesMessage = null;
         var outAskeMessage = null;
         
         if (message.dest === '') {
-            outCliquesMessage = this.cliquesMember.downflow(inCliquesMessage);
+            if (message.intKeys && message.intKeys.length > 0) {
+                this.cliquesMember.downflow(inCliquesMessage);
+            }
             outAskeMessage = this.askeMember.downflow(inAskeMessage);
+            return this._mergeMessages(null, outAskeMessage);
         } else {
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
+            return this._mergeMessages(outCliquesMessage, outAskeMessage);
         }
-        
-        return this._mergeMessages(outCliquesMessage, outAskeMessage);
     };
     
     
     /**
      * Merges the contents of the messages for ASKE and CLIQUES into one message..
      * 
+     * @method
      * @param cliquesMessage
      *     Message from CLIQUES protocol workflow.
      * @param askeMessage
      *     Message from ASKE protocol workflow.
      * @returns {ProtocolMessage}
      *     Joined message.
-     * @method
      */
     mpenc.handler.ProtocolHandler.prototype._mergeMessages = function(cliquesMessage,
                                                                       askeMessage) {
+        // Are we done already?
+        if (!cliquesMessage && !askeMessage) {
+            return null;
+        }
+        
         var newMessage = mpenc.handler.ProtocolMessage(this.id);
-        _assert(cliquesMessage.source === askeMessage.source,
-                "Message source mismatch, this shouldn't happen.");
-        _assert(cliquesMessage.dest === askeMessage.dest,
-                "Message destination mismatch, this shouldn't happen.");
-        newMessage.dest = cliquesMessage.dest;
-        newMessage.flow = cliquesMessage.flow;
-        newMessage.members = cliquesMessage.members;
-        newMessage.intKeys = cliquesMessage.intKeys;
-        newMessage.nonces = askeMessage.nonces;
-        newMessage.pubKeys = askeMessage.pubKeys;
-        newMessage.sessionSignature = askeMessage.sessionSignature;
+        
+        if (cliquesMessage && askeMessage) {
+            _assert(cliquesMessage.source === askeMessage.source,
+                    "Message source mismatch, this shouldn't happen.");
+            _assert(cliquesMessage.dest === askeMessage.dest,
+                    "Message destination mismatch, this shouldn't happen.");
+        }
+        
+        // Empty objects to simplify further logic.
+        cliquesMessage = cliquesMessage || {};
+        askeMessage = askeMessage || {};
+        
+        newMessage.dest = cliquesMessage.dest || askeMessage.dest || '';
+        newMessage.flow = cliquesMessage.flow || askeMessage.flow;
+        newMessage.members = cliquesMessage.members || askeMessage.members;
+        newMessage.intKeys = cliquesMessage.intKeys || null;
+        newMessage.debugKeys = cliquesMessage.debugKeys || null;
+        newMessage.nonces = askeMessage.nonces || null;
+        newMessage.pubKeys = askeMessage.pubKeys || null;
+        newMessage.sessionSignature = askeMessage.sessionSignature || null;
         if (cliquesMessage.agreement === 'ika') {
             newMessage.agreement = 'initial';
         } else {
@@ -234,11 +305,11 @@
     /**
      * Extracts a CLIQUES message out of the received protocol handler message.
      * 
+     * @method
      * @param message {ProtocolMessage}
      *     Message from protocol handler.
      * @returns {mpenc.cliques.CliquesMessage}
      *     Extracted message.
-     * @method
      */
     mpenc.handler.ProtocolHandler.prototype._getCliquesMessage = function(message) {
         var newMessage = mpenc.cliques.CliquesMessage(this.id);
@@ -247,6 +318,7 @@
         newMessage.flow = message.flow;
         newMessage.members = message.members;
         newMessage.intKeys = message.intKeys;
+        newMessage.debugKeys = message.debugKeys;
         if (message.agreement === 'initial') {
             newMessage.agreement = 'ika';
         } else {
@@ -260,11 +332,11 @@
     /**
      * Extracts a ASKE message out of the received protocol handler message.
      * 
+     * @method
      * @param message {ProtocolMessage}
      *     Message from protocol handler.
      * @returns {mpenc.ske.SignatureKeyExchangeMessage}
      *     Extracted message.
-     * @method
      */
     mpenc.handler.ProtocolHandler.prototype._getAskeMessage = function(message) {
         var newMessage = mpenc.ske.SignatureKeyExchangeMessage(this.id);
