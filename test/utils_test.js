@@ -89,4 +89,52 @@
             });
         });
     });
+    
+    describe("curve255 patches", function() {
+        describe('(toHex())', function() {
+            it('simple conversion test', function() {
+                var values = [[722, 18838], [123], [123, 0], []];
+                var expected = ['499602d2', '007b', '0000007b', ''];
+                for (var i = 0; i < values.length; i++) {
+                    var result = curve255.toHex(values[i]);
+                    assert.strictEqual(result, expected[i]);
+                }
+            });
+        });
+        
+        describe('(fromHex())', function() {
+            it('simple conversion test', function() {
+                var values = ['499602d2', '007b', '0000007b', '000007b', '00007b', ''];
+                var expected = [[722, 18838], [123], [123, 0], [123, 0], [123, 0], []];
+                for (var i = 0; i < values.length; i++) {
+                    var result = curve255.fromHex(values[i]);
+                    assert.deepEqual(result, expected[i]);
+                }
+            });
+        });
+        
+        describe('(toString())', function() {
+            it('simple conversion test', function() {
+                var values = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
+                              [25187, 97], []];
+                var expected = ['Slartibartfast', '\u0000abc', ''];
+                for (var i = 0; i < values.length; i++) {
+                    var result = curve255.toString(values[i]);
+                    assert.strictEqual(result, expected[i]);
+                }
+            });
+        });
+        
+        describe('(fromString())', function() {
+            it('simple conversion test', function() {
+                var values = ['Slartibartfast', '\u0000abc', 'abc', ''];
+                var expected = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
+                                [25187, 97], [25187, 97], []];
+                for (var i = 0; i < values.length; i++) {
+                    var result = curve255.fromString(values[i]);
+                    assert.deepEqual(result, expected[i]);
+                }
+            });
+        });
+    });
 })();

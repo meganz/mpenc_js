@@ -130,11 +130,11 @@
                 
                 sjcl.codec.bytes.fromBits = sinon.stub(sjcl.codec.bytes, 'fromBits', echo);
                 sjcl.hash.sha256.hash = sinon.stub(sjcl.hash.sha256, 'hash', echo);
-                djbec._bytes2string = sinon.stub(djbec, '_bytes2string', echo);
+                djbec.bytes2string = sinon.stub(djbec, 'bytes2string', echo);
                 var sid = ns._computeSid(members, nonces);
                 sjcl.codec.bytes.fromBits.restore();
                 sjcl.hash.sha256.hash.restore();
-                djbec._bytes2string.restore();
+                djbec.bytes2string.restore();
                 assert.strictEqual(sid, '13451111333344445555');
             });
         });
@@ -782,7 +782,7 @@
         });
     });
     
-    //var bytes = djbec._string2bytes(message.sessionSignature);
-    //var hex = djbec._bytes2hex(bytes);
+    //var bytes = djbec.string2bytes(message.sessionSignature);
+    //var hex = djbec.bytes2hex(bytes);
     //assert.deepEqual(bytes, mpenc.utils.hex2bytearray(hex));
 })();

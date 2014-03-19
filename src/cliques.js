@@ -441,9 +441,9 @@
      */
     mpenc.cliques._scalarMultiply = function(privKey, intKey) {
         if (intKey) {
-            return curve25519(privKey, intKey);
+            return curve255.curve25519(privKey, intKey);
         } else {
-            return curve25519(privKey);
+            return curve255.curve25519(privKey);
         }
     };
     

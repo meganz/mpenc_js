@@ -127,12 +127,12 @@
     
     
     /**
-     * Converts a key representation to an array with 16 bit chunks.
+     * Converts an 8-bit element (unsigned) array a hex string representation.
      * 
      * @param key
-     *     The key as a 32 bit word array.
+     *     The key as an 8 bit (unsigned) integer array.
      * @returns
-     *     16 bit value array of the key.
+     *     Hex string representation of key (little endian).
      * @private
      */
     mpenc.utils._key08toHex = function(key) {
@@ -140,7 +140,7 @@
         for (var i = 0; i < key.length; i++) {
             var value = key[i];
             for (var j = 0; j < 2; j++) {
-                out += c255lhexchars[value % 0x0f];
+                out += mpenc.utils._HEX_CHARS[value % 0x0f];
                 value = value >> 4;
             }
         }
@@ -458,5 +458,109 @@
         }
         // If everything passed, let's say YES.
         return true;
+    };
+    
+    
+    // Patches to curve255 namespace module.
+    // FIXME: Write tests for it!
+    
+    /**
+     * Converts an 16-bit word element (unsigned) array a hex string representation.
+     * 
+     * @param key
+     *     The key as an 8 bit (unsigned) integer array.
+     * @returns
+     *     Hex string representation of key (big endian).
+     * @private
+     */
+    curve255.toHex = function(key) {
+        var out = '';
+        for (var i = 0; i < key.length; i++) {
+            var value = key[i];
+            var remainder = 0;
+            for (var j = 0; j < 4; j++) {
+                remainder = value % 16;
+                out = mpenc.utils._HEX_CHARS[remainder % 0x0f] + out;
+                value = value >> 4;
+            }
+        }
+        return out;
+    };
+
+
+    /**
+     * Converts a hex string to a 16-bit word element (unsigned) array representation.
+     * 
+     * @param key
+     *     Hex string representation of key (big endian).
+     * @returns
+     *     The key as an 16-bit word element (unsigned) integer array.
+     * @private
+     */
+    curve255.fromHex = function(key) {
+        var out = [];
+        if (key.length % 4) {
+            var padding = 4 - key.length % 4;
+            for (var i = 0; i < padding; i++) {
+                key = '0' + key;
+            }
+        }
+        var i = 0;
+        while (i < key.length) {
+            var value = 0;
+            for (var j = 0; j < 4; j++) {
+                value = (value << 4) + mpenc.utils._HEX_CHARS.indexOf(key[i + j]);
+            }
+            out.unshift(value);
+            i += 4;
+        }
+        return out;
+    };
+
+
+    /**
+     * Converts an 16-bit word element (unsigned) array a binary string representation.
+     * 
+     * @param key
+     *     The key as an 16-bit word element (unsigned) integer array.
+     * @returns
+     *     Binary string representation of key (big endian).
+     * @private
+     */
+    curve255.toString = function(key) {
+        var out = '';
+        for (var i = 0; i < key.length; i++) {
+            var value = key[i];
+            var remainder = 0;
+            for (var j = 0; j < 2; j++) {
+                remainder = value % 256;
+                out = String.fromCharCode(remainder) + out;
+                value = value >> 8;
+            }
+        }
+        return out;
+    };
+
+
+    /**
+     * Converts a binary string to a 16-bit word element (unsigned) array representation.
+     * 
+     * @param key
+     *     Binary string representation of key (big endian).
+     * @returns
+     *     The key as an 16-bit word element (unsigned) integer array.
+     * @private
+     */
+    curve255.fromString = function(key) {
+        var out = [];
+        var i = 0;
+        if (key.length % 2) {
+            key = '\u0000' + key;
+        }
+        while (i < key.length) {
+            out.unshift(key.charCodeAt(i) * 256 + key.charCodeAt(i + 1));
+            i += 2;
+        }
+        return out;
     };
 })();

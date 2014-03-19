@@ -197,10 +197,10 @@
         this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
         
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = djbec._bytes2string(mpenc.utils._newKey08(256));
+        this.nonce = djbec.bytes2string(mpenc.utils._newKey08(256));
         this.nonces.push(this.nonce);
-        this.ephemeralPrivKey = mpenc.utils._newKey08(512);
-        this.ephemeralPubKey = djbec._bytes2string(djbec.publickey(this.ephemeralPrivKey));
+        this.ephemeralPrivKey = djbec.bytes2string(mpenc.utils._newKey08(512));
+        this.ephemeralPubKey = djbec.bytes2string(djbec.publickey(this.ephemeralPrivKey));
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
         
         // Clone message.
@@ -242,8 +242,8 @@
         _assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
         var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
         var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-        return mpenc.ske._smallrsasign(djbec._bytes2string(hashValue),
-                                               this.staticPrivKey);
+        return mpenc.ske._smallrsasign(djbec.bytes2string(hashValue),
+                                       this.staticPrivKey);
     };
     
     
@@ -272,7 +272,7 @@
         var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-        return (decrypted === djbec._bytes2string(hashValueBytes));
+        return (decrypted === djbec.bytes2string(hashValueBytes));
     };
     
     
@@ -608,6 +608,6 @@
         }
         var sidBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems
                                                                        + nonceItems));
-        return djbec._bytes2string(sidBytes);
+        return djbec.bytes2string(sidBytes);
     };
 })();

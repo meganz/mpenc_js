@@ -28,13 +28,13 @@ var _td = {};
 /* Constants mainly for the mpenc.cliques. */
 // 0x6e3b0789a77feb8dd878278b1233a8c06070506c7c93f6de8894bbeac1db06dd
 _td.C25519_PRIV_KEY_B32 = '3r3a6e2o77lrxmhqj4lciz2rqdaobigy7et63pirff35la5wbw5';
-_td.C25519_PRIV_KEY = c255lbase32decode(_td.C25519_PRIV_KEY_B32);
+_td.C25519_PRIV_KEY = curve255.base32decode(_td.C25519_PRIV_KEY_B32);
 // 0x6a998a38c3f189ed5b646360512a13957c4d87df93ed34b33b5f187ea151094d
 _td.C25519_PUB_KEY_B32  = '2uzri4mh4mj5vnwiy3akevbhfl4jwd57e7ngsztwxyyp2qvcckn';
-_td.C25519_PUB_KEY = c255lbase32decode(_td.C25519_PUB_KEY_B32);
+_td.C25519_PUB_KEY = curve255.base32decode(_td.C25519_PUB_KEY_B32);
 // 0x365c1e572ab6d6e9eeb9fe709e90207d9b2dca53203b6408ee2dae6c6fef6e28
 _td.COMP_KEY_B32 = 'ns4dzlsvnww5hxlt7tqt2ica7m3fxffgib3mqeo4lnonrx663ri';
-_td.COMP_KEY = c255lbase32decode(_td.COMP_KEY_B32);
+_td.COMP_KEY = curve255.base32decode(_td.COMP_KEY_B32);
 
 /* Constants mainly for the mpenc.ske. */
 // eabuse@nexgo.de
@@ -127,12 +127,12 @@ _td.SIGNATURE = [44, 25, 112, 88, 44, 241, 185, 43, 144, 71, 74, 42, 139, 156,
                  8, 128, 239, 32, 36, 158, 245, 249, 43, 225, 251, 220, 133,
                  188, 38, 177, 226, 198, 191, 221, 161, 128, 52, 118, 239, 166,
                  65, 206, 162, 236];
-_td.SIGNATURE = djbec._bytes2string(_td.SIGNATURE);
+_td.SIGNATURE = djbec.bytes2string(_td.SIGNATURE);
 
 _td.SESSION_ID = [182, 103, 240, 172, 49, 9, 66, 173, 157, 25, 191, 178,
                   191, 83, 149, 11, 164, 136, 60, 231, 106, 104, 76, 35,
                   187, 82, 125, 251, 225, 191, 124, 159];
-_td.SESSION_ID = djbec._bytes2string(_td.SESSION_ID);
+_td.SESSION_ID = djbec.bytes2string(_td.SESSION_ID);
 
 // // Generate with
 // // openssl genrsa -out key.pem 2048
