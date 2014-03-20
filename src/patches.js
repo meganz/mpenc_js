@@ -34,7 +34,7 @@
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
     
-    // Patches to the curve255 namespace module.
+    // Patches to the curve255.js namespace module.
     
     /**
      * Converts an 16-bit word element (unsigned) array a hex string representation.

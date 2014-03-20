@@ -21,6 +21,8 @@
     mpenc.codec = {};
     
     var _assert = mpenc.assert.assert;
+    var _ZERO_BYTE = '\u0000';
+    var _ONE_BYTE = '\u0001';
     
     /*
      * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -79,7 +81,7 @@
     /**
      * Decodes a given binary TVL string to a type and value.
      * 
-     * @param type
+     * @param tlv
      *     A binary TLV string.
      * @returns {Object}
      *     An object containing the type of string (in `type`, 16-bit unsigned
@@ -103,22 +105,119 @@
 
     
     /**
+     * Decodes a given TLV encoded protocol message into an object.
+     * 
+     * @param message
+     *     A binary message representation.
+     * @returns {mpenc.handler.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    mpenc.codec.decodeMessage = function(message) {
+        var out = new mpenc.handler.ProtocolMessage();
+        
+        // members, intKeys, nonces, pubKeys, sessionSignature
+        while (message.length > 0) {
+            var tlv = mpenc.codec.decodeTLV(message);
+            switch (tlv.type) {
+                case mpenc.codec.TLV_TYPES.SOURCE:
+                    out.source = tlv.value;
+                    break;
+                case mpenc.codec.TLV_TYPES.DEST:
+                    out.dest = tlv.value;
+                    if (out.dest === '') {
+                        out.flow = 'downflow';
+                    } else {
+                        out.flow = 'upflow';
+                    }
+                    break;
+                case mpenc.codec.TLV_TYPES.AUX_AGREEMENT:
+                    if (tlv.value === _ZERO_BYTE) {
+                        out.agreement = 'initial';
+                    } else if (tlv.value === _ONE_BYTE) {
+                        out.agreement = 'auxilliary';
+                    } else {
+                        _assert(false, 'Unexpected value for agreement TLV: ' + tlv.value + '.');
+                    }
+                    break;
+                case mpenc.codec.TLV_TYPES.MEMBER:
+                    out.members.push(tlv.value);
+                    break;
+                case mpenc.codec.TLV_TYPES.INT_KEY:
+                    out.intKeys.push(tlv.value);
+                    break;
+                case mpenc.codec.TLV_TYPES.NONCE:
+                    out.nonces.push(tlv.value);
+                    break;
+                case mpenc.codec.TLV_TYPES.PUB_KEY:
+                    out.pubKeys.push(tlv.value);
+                    break;
+                case mpenc.codec.TLV_TYPES.SESSION_SIGNATURE:
+                    out.sessionSignature = tlv.value;
+                    break;
+                default:
+                    _assert(false, 'Received unknown TLV type.');
+                    break;
+            }
+            
+            // Some sanity checks.
+            _assert(out.intKeys.length <= out.members.length,
+                    'Number of intermediate keys cannot exceed number of members.');
+            _assert(out.nonces.length <= out.members.length,
+                    'Number of nonces cannot exceed number of members.');
+            _assert(out.pubKeys.length <= out.members.length,
+                    'Number of public keys cannot exceed number of members.');
+    
+            message = tlv.rest;
+        }
+        
+        return out;
+    };
+
+    
+    /**
      * Encodes a given value to a binary TLV string of a given type.
      * 
-     * @param type
+     * @param tlvType
      *     Type of string to use (16-bit unsigned integer).
      * @param value
      *     A binary string of the pay load to carry.
      * @returns
      *     A binary TLV string.
      */
-    mpenc.codec.encodeTLV = function(type, value) {
+    mpenc.codec.encodeTLV = function(tlvType, value) {
         if (value === null) {
             value = '';
         }
-        var out = mpenc.codec._short2bin(type);
+        var out = mpenc.codec._short2bin(tlvType);
         out += mpenc.codec._short2bin(value.length);
         return out + value;
+    };
+
+    
+    /**
+     * Encodes an array of values to a binary TLV string of a given type.
+     * 
+     * @param tlvType
+     *     Type of string to use (16-bit unsigned integer).
+     * @param valueArray
+     *     The array of values.
+     * @returns
+     *     A binary TLV string.
+     */
+    mpenc.codec._encodeTlvArray = function(tlvType, valueArray) {
+        _assert((valueArray instanceof Array) || (valueArray === null),
+                'Value passed neither an array or null.');
+        
+        // Trivial case, quick exit.
+        if ((valueArray === null) || (valueArray.length === 0)) {
+            return mpenc.codec.encodeTLV(tlvType, null);
+        }
+        
+        var out = '';
+        for (var i = 0; i < valueArray.length; i++) {
+            out += mpenc.codec.encodeTLV(tlvType, valueArray[i]);
+        }
+        return out;
     };
 
     
@@ -127,17 +226,28 @@
      * of a sequence of TLV binary strings.
      * 
      * @param message {mpenc.handler.ProtocolMessage}
-     *     Type of string to use (16-bit unsigned integer).
+     *     Message as JavaScript object.
      * @returns
      *     A binary message representation.
      */
     mpenc.codec.encodeMessage = function(message) {
-//        if (value === null) {
-//            value = '';
-//        }
-//        var out = mpenc.codec._short2bin(type);
-//        out += mpenc.codec._short2bin(value.length);
-        return null;
+        // Process message attributes in this order:
+        // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
+        
+        var out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SOURCE, message.source);
+        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.DEST, message.dest);
+        if (message.agreement === 'initial') {
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.AUX_AGREEMENT, _ZERO_BYTE);
+        } else {
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.AUX_AGREEMENT, _ONE_BYTE);
+        }
+        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.MEMBER, message.members);
+        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.INT_KEY, message.intKeys);
+        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.NONCE, message.nonces);
+        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.PUB_KEY, message.pubKeys);
+        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SESSION_SIGNATURE, message.sessionSignature);
+        
+        return out;
     };
     
     

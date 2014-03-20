@@ -288,6 +288,7 @@
         return result;
     };
     
+    
     /**
      * Converts a byte array to a hex string (array of Uint8, retains endianness).
      * 
@@ -301,11 +302,12 @@
     mpenc.utils.bytearray2hex = function(arr) {
         var result = '';
         for (var i = 0; i < arr.length; i++) {
-            result += CHARS.charAt(arr[i] >> 4)
+            result += mpenc.utils._HEX_CHARS.charAt(arr[i] >> 4)
                     + mpenc.utils._HEX_CHARS.charAt(arr[i] & 15);
         }
         return result;
     };
+    
     
     /**
      * (Deep) clones a JavaScript object.

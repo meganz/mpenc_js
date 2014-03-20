@@ -27,6 +27,12 @@
     var assert = chai.assert;
     var ns = mpenc.codec;
     
+    var UPFLOW_MESSAGE = atob('AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAAEzAQMAATQ'
+                              + 'BAwABNQEDAAE2AQQAAAEEACBqmYo4w/GJ7VtkY2BRKhOV'
+                              + 'fE2H35PtNLM7Xxh+oVEJTQEFACBqmYo4w/GJ7VtkY2BRK'
+                              + 'hOVfE2H35PtNLM7Xxh+oVEJTQEGACBy9+FIdgh3VJNQmM'
+                              + 'rGKbacscnvP643kDddVolnQYWT5QEHAAA=');
+    
     describe("module level TLV stuff", function() {
         describe("_short2bin()", function() {
             it('just convert', function() {
@@ -69,6 +75,29 @@
             });
         });
         
+        describe("_encodeTlvArray()", function() {
+            it('null equivalents', function() {
+                var tests = [[], [''], [null], null];
+                for (var i = 0; i < tests.length; i++) {
+                    var result = ns._encodeTlvArray(0, tests[i]);
+                    assert.strictEqual(result, '\u0000\u0000\u0000\u0000');
+                }
+            });
+            
+            it('passed in non-array', function() {
+                assert.throws(function() { ns._encodeTlvArray(0, '42'); },
+                              'Value passed neither an array or null.');
+            });
+            
+            it('some examples', function() {
+                var result = ns._encodeTlvArray(42, ['1', '22', '333']);
+                assert.strictEqual(result,
+                                     '\u0000\u002a\u0000\u00011'
+                                   + '\u0000\u002a\u0000\u000222'
+                                   + '\u0000\u002a\u0000\u0003333');
+            });
+        });
+        
         describe("decodeTLV()", function() {
             it('null equivalent', function() {
                 var result = ns.decodeTLV('\u0000\u0000\u0000\u0000');
@@ -100,7 +129,6 @@
         });
         
         describe("encodeMessage()", function() {
-            
             it('upflow message', function() {
                 var message = {
                     source: '1',
@@ -108,14 +136,59 @@
                     agreement: 'initial',
                     flow: 'upflow',
                     members: ['1', '2', '3', '4', '5', '6'],
-                    intKeys: [null, _td.C25519_PUB_KEY],
-                    nonces: [_td.C25519_PUB_KEY],
-                    pubKeys: [_td.ED25519_PUB_KEY],
+                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                    sessionSignature: null
+                };
+                var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+                mpenc.codec.encodeTLV = encodeTlvStub;
+                var result = ns.encodeMessage(message);
+                mpenc.codec.encodeTLV.restore();
+                assert.lengthOf(result, 56);
+            });
+            
+            it('upflow message binary', function() {
+                var message = {
+                    source: '1',
+                    dest: '2',
+                    agreement: 'initial',
+                    flow: 'upflow',
+                    members: ['1', '2', '3', '4', '5', '6'],
+                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
                     sessionSignature: null
                 };
                 var result = ns.encodeMessage(message);
+                assert.strictEqual(result, UPFLOW_MESSAGE);
+            });
+        });
+        
+        describe("decodeMessage()", function() {
+            it('upflow message', function() {
+                var expected = {
+                    source: '1',
+                    dest: '2',
+                    agreement: 'initial',
+                    flow: 'upflow',
+                    members: ['1', '2', '3', '4', '5', '6'],
+                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                    sessionSignature: null
+                };
+                var result = ns.decodeMessage(UPFLOW_MESSAGE);
+                assert.strictEqual(result.source, expected.source);
+                assert.strictEqual(result.dest, expected.dest);
+                assert.strictEqual(result.agreement, expected.agreement);
+                assert.strictEqual(result.flow, expected.flow);
+                assert.deepEqual(result.members, expected.members);
+                assert.deepEqual(result.intKeys, expected.intKeys);
+                assert.deepEqual(result.nonces, expected.nonces);
+                assert.deepEqual(result.pubKeys, expected.pubKeys);
+                assert.strictEqual(result.sessionSignature, expected.sessionSignature);
             });
         });
     });
-    
 })();
