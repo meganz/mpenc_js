@@ -39,9 +39,9 @@
         agreement: 'initial',
         flow: 'upflow',
         members: ['1', '2', '3', '4', '5', '6'],
-        intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-        nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-        pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+        intKeys: [null, _td.C25519_PUB_KEY],
+        nonces: [_td.C25519_PUB_KEY],
+        pubKeys: [_td.ED25519_PUB_KEY],
         sessionSignature: null,
     };
     var UPFLOW_MESSAGE_WIRE = '?mpENCv1:AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAA'
@@ -183,9 +183,9 @@
                 agreement: 'initial',
                 flow: 'upflow',
                 members: ['1', '2', '3', '4', '5', '6'],
-                intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-                nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-                pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                intKeys: [null, _td.C25519_PUB_KEY],
+                nonces: [_td.C25519_PUB_KEY],
+                pubKeys: [_td.ED25519_PUB_KEY],
                 sessionSignature: null
             };
             var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
@@ -202,13 +202,18 @@
                 agreement: 'initial',
                 flow: 'upflow',
                 members: ['1', '2', '3', '4', '5', '6'],
-                intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-                nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-                pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                intKeys: [null, _td.C25519_PUB_KEY],
+                nonces: [_td.C25519_PUB_KEY],
+                pubKeys: [_td.ED25519_PUB_KEY],
                 sessionSignature: null
             };
             var result = ns.encodeMessage(message);
             assert.strictEqual(result, UPFLOW_MESSAGE_WIRE);
+        });
+        
+        it('null message', function() {
+            assert.strictEqual(ns.encodeMessage(null), null);
+            assert.strictEqual(ns.encodeMessage(undefined), null);
         });
     });
     
@@ -224,6 +229,11 @@
             assert.deepEqual(result.nonces, UPFLOW_MESSAGE_CONTENT.nonces);
             assert.deepEqual(result.pubKeys, UPFLOW_MESSAGE_CONTENT.pubKeys);
             assert.strictEqual(result.sessionSignature, UPFLOW_MESSAGE_CONTENT.sessionSignature);
+        });
+        
+        it('null message', function() {
+            assert.strictEqual(ns.decodeMessage(null), null);
+            assert.strictEqual(ns.decodeMessage(undefined), null);
         });
     });
 })();

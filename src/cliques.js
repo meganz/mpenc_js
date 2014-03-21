@@ -344,13 +344,11 @@
                                                                 this.intKeys[myPos]);
             this._debugIntKeys[myPos] = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,
                                                                            this._debugIntKeys[myPos]);
-            // Discard old private key.
-            mpenc.utils._clearmem(this.privKey);
             this.privKey = null;
         }
         
         // Make a new private key.
-        this.privKey = mpenc.utils._newKey16(256);
+        this.privKey = curve255.toString(mpenc.utils._newKey16(256));
         this.keyTimestamp = Math.round(Date.now() / 1000);
         if (this._debugPrivKey) {
             this._debugPrivKey = this._debugPrivKey + "'";
@@ -440,11 +438,14 @@
      * @private
      */
     mpenc.cliques._scalarMultiply = function(privKey, intKey) {
+        var value = null;
         if (intKey) {
-            return curve255.curve25519(privKey, intKey);
+            value = curve255.curve25519(curve255.fromString(privKey),
+                                        curve255.fromString(intKey));
         } else {
-            return curve255.curve25519(privKey);
+            value = curve255.curve25519(curve255.fromString(privKey));
         }
+        return curve255.toString(value);
     };
     
     

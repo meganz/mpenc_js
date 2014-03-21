@@ -79,14 +79,14 @@
         PADDING:           0x0000,
         MESSAGE:           0x0001,
         MESSAGE_SIGNATURE: 0x0002,
-        SOURCE:            0x0100,
-        DEST:              0x0101,
-        AUX_AGREEMENT:     0x0102,
-        MEMBER:            0x0103,
-        INT_KEY:           0x0104,
-        NONCE:             0x0105,
-        PUB_KEY:           0x0106,
-        SESSION_SIGNATURE: 0x0107,
+        SOURCE:            0x0100, // 256
+        DEST:              0x0101, // 257
+        AUX_AGREEMENT:     0x0102, // 258
+        MEMBER:            0x0103, // 259
+        INT_KEY:           0x0104, // 260
+        NONCE:             0x0105, // 261
+        PUB_KEY:           0x0106, // 262
+        SESSION_SIGNATURE: 0x0107, // 263
     };
     
     
@@ -195,6 +195,9 @@
      *     Message as JavaScript object.
      */
     mpenc.codec.decodeMessage = function(message) {
+        if (message === null || message === undefined) {
+            return null;
+        }
         _assert(message.substring(0, _PROTOCOL_PREFIX.length) === _PROTOCOL_PREFIX,
                 'Not an understood protocol/version.');
         message = message.substring(_PROTOCOL_PREFIX.length);
@@ -202,7 +205,7 @@
                 'Incomprehensible protocol indication.');
         _assert(message[message.length - 1] === '.',
                 'Invalid protocol message format.');
-        var payload = atob(message.substring(1, message.length - 2));
+        var payload = atob(message.substring(1, message.length - 1));
         
         return mpenc.codec.decodeMessageContent(payload);
     };
@@ -295,8 +298,10 @@
      *     A wire ready message representation.
      */
     mpenc.codec.encodeMessage = function(message) {
+        if (message === null || message === undefined) {
+            return null;
+        }
         var content = mpenc.codec.encodeMessageContent(message);
-        
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
     

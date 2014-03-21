@@ -170,7 +170,7 @@
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
         
-        return this._mergeMessages(cliquesMessage, askeMessage);
+        return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
     
     
@@ -188,7 +188,7 @@
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
         
-        return this._mergeMessages(cliquesMessage, askeMessage);
+        return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
     
     
@@ -208,7 +208,7 @@
         var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
         var askeMessage = this.askeMember.exclude(excludeMembers);
         
-        return this._mergeMessages(cliquesMessage, askeMessage);
+        return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
     
     
@@ -221,7 +221,7 @@
     mpenc.handler.ProtocolHandler.prototype.refresh = function() {
         var cliquesMessage = this.cliquesMember.akaRefresh();
         
-        return this._mergeMessages(cliquesMessage, null);
+        return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, null));
     };
     
     
@@ -234,21 +234,23 @@
      * @returns {ProtocolMessage}
      */
     mpenc.handler.ProtocolHandler.prototype.processMessage = function(message) {
+        message = mpenc.codec.decodeMessage(message);
         var inCliquesMessage = this._getCliquesMessage(mpenc.utils.clone(message));
         var inAskeMessage = this._getAskeMessage(mpenc.utils.clone(message));
         var outCliquesMessage = null;
         var outAskeMessage = null;
         
-        if (message.dest === '') {
+        if (message.dest === null || message.dest === '') {
             if (message.intKeys && message.intKeys.length > 0) {
+                dump('!', this.cliquesMember.id);
                 this.cliquesMember.downflow(inCliquesMessage);
             }
             outAskeMessage = this.askeMember.downflow(inAskeMessage);
-            return this._mergeMessages(null, outAskeMessage);
+            return mpenc.codec.encodeMessage(this._mergeMessages(null, outAskeMessage));
         } else {
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
-            return this._mergeMessages(outCliquesMessage, outAskeMessage);
+            return mpenc.codec.encodeMessage(this._mergeMessages(outCliquesMessage, outAskeMessage));
         }
     };
     

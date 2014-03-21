@@ -44,13 +44,13 @@
         describe('_scalarMultiply()', function() {
             it('should multiply with base point if no key given', function() {
                 var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY);
-                assert.deepEqual(compPubKey, _td.C25519_PUB_KEY);
+                assert.strictEqual(compPubKey, _td.C25519_PUB_KEY);
             });
             
             it('should multiply priv key with intermediate key', function() {
                 var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY,
                                                     _td.C25519_PRIV_KEY);
-                assert.deepEqual(compPubKey, _td.COMP_KEY);
+                assert.strictEqual(compPubKey, _td.COMP_KEY);
             });
         });
     });
@@ -147,12 +147,12 @@
                 assert.ok(participant.keyTimestamp > oldTs);
                 assert.deepEqual(participant.members, members);
                 assert.deepEqual(newMessage.members, members);
-                assert.strictEqual(_tu.keyBits(participant.privKey, 16), 256);
+                assert.strictEqual(_tu.keyBits(participant.privKey, 8), 256);
                 assert.strictEqual(newMessage.agreement, 'ika');
                 assert.strictEqual(newMessage.flow, 'upflow');
                 assert.lengthOf(newMessage.intKeys, 2);
                 assert.strictEqual(newMessage.intKeys[0], null);
-                assert.strictEqual(_tu.keyBits(newMessage.intKeys[newMessage.intKeys.length - 1], 16), 256);
+                assert.strictEqual(_tu.keyBits(newMessage.intKeys[newMessage.intKeys.length - 1], 8), 256);
                 assert.strictEqual(newMessage.source, '1');
                 assert.strictEqual(newMessage.dest, '2');
             });
@@ -196,15 +196,15 @@
                 for (var i = 0; i < numMembers - 1; i++) {
                     message = participants[i].upflow(message);
                     assert.deepEqual(participants[i].members, members);
-                    assert.strictEqual(_tu.keyBits(participants[i].privKey, 16), 256);
+                    assert.strictEqual(_tu.keyBits(participants[i].privKey, 8), 256);
                     assert.strictEqual(message.agreement, 'ika');
                     assert.strictEqual(message.flow, 'upflow');
                     assert.lengthOf(message.intKeys, i + 2);
-                    assert.strictEqual(_tu.keyBits(message.intKeys[i + 1], 16), 256);
+                    assert.strictEqual(_tu.keyBits(message.intKeys[i + 1], 8), 256);
                     if (i === 0) {
                         assert.strictEqual(message.intKeys[0], null);
                     } else {
-                        assert.strictEqual(_tu.keyBits(message.intKeys[0], 16), 256);
+                        assert.strictEqual(_tu.keyBits(message.intKeys[0], 8), 256);
                     }
                     assert.strictEqual(message.source, members[i]);
                     assert.strictEqual(message.dest, members[i + 1]);
@@ -213,12 +213,12 @@
                 // The last member behaves differently.
                 message = participants[numMembers - 1].upflow(message);
                 assert.deepEqual(participants[i].members, members);
-                assert.strictEqual(_tu.keyBits(participants[i].privKey, 16), 256);
+                assert.strictEqual(_tu.keyBits(participants[i].privKey, 8), 256);
                 assert.strictEqual(message.agreement, 'ika');
                 assert.strictEqual(message.flow, 'downflow');
                 assert.lengthOf(message.intKeys, numMembers);
-                assert.strictEqual(_tu.keyBits(message.intKeys[0], 16), 256);
-                assert.strictEqual(_tu.keyBits(message.intKeys[numMembers - 1], 16), 256);
+                assert.strictEqual(_tu.keyBits(message.intKeys[0], 8), 256);
+                assert.strictEqual(_tu.keyBits(message.intKeys[numMembers - 1], 8), 256);
                 // Last one goes to all.
                 assert.strictEqual(message.source, members[numMembers - 1]);
                 assert.strictEqual(message.dest, '');
@@ -267,7 +267,7 @@
                 broadcastMessage.debugKeys = mpenc.utils.clone(members);
                 participant.downflow(broadcastMessage);
                 assert.deepEqual(participant.intKeys, messageKeys);
-                assert.strictEqual(_tu.keyBits(participant.groupKey, 16), 256);
+                assert.strictEqual(_tu.keyBits(participant.groupKey, 8), 256);
                 assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
             });
         });
@@ -312,7 +312,7 @@
                 assert.ok(participant.keyTimestamp > oldTs);
                 assert.lengthOf(message.members, 6);
                 assert.lengthOf(message.intKeys, 6);
-                assert.strictEqual(_tu.keyBits(participant.privKey, 16), 256);
+                assert.strictEqual(_tu.keyBits(participant.privKey, 8), 256);
                 assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
                 assert.strictEqual(message.agreement, 'aka');
                 assert.strictEqual(message.flow, 'upflow');
@@ -324,8 +324,8 @@
                         assert.ok(message.debugKeys[i].indexOf("3'*") >= 0);
                     }
                 }
-                assert.strictEqual(_tu.keyBits(message.intKeys[0], 16), 256);
-                assert.strictEqual(_tu.keyBits(message.intKeys[5], 16), 256);
+                assert.strictEqual(_tu.keyBits(message.intKeys[0], 8), 256);
+                assert.strictEqual(_tu.keyBits(message.intKeys[5], 8), 256);
                 assert.strictEqual(message.source, '3');
                 assert.strictEqual(message.dest, '6');
                 // Upflow for the new guy '6'.
@@ -453,7 +453,7 @@
                     if (!keyCheck) {
                         keyCheck = participant.groupKey;
                     } else {
-                        assert.deepEqual(participant.groupKey, keyCheck);
+                        assert.strictEqual(participant.groupKey, keyCheck);
                     }
                 }
                 
