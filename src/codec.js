@@ -23,6 +23,8 @@
     var _assert = mpenc.assert.assert;
     var _ZERO_BYTE = '\u0000';
     var _ONE_BYTE = '\u0001';
+    var _PROTOCOL_INDICATOR = 'mpENC';
+    var _PROTOCOL_PREFIX = '?' + _PROTOCOL_INDICATOR + 'v' + mpenc.VERSION;
     
     /*
      * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -46,6 +48,13 @@
     /**
      * "Enumeration" for TLV types.
      * 
+     * @property PADDING
+     *     Can be used for arbitrary length of padding byte sequences.
+     * @property MESSAGE
+     *     A message.
+     * @property MESSAGE_SIGNATURE
+     *     The signature of the complete message (including protocol indicator 
+     *     and all other content).
      * @property SOURCE
      *     Message originator (from, should be only one).
      * @property DEST
@@ -67,6 +76,9 @@
      *     Session acknowledgement signature using sender's static key.
      */
     mpenc.codec.TLV_TYPES = {
+        PADDING:           0x0000,
+        MESSAGE:           0x0001,
+        MESSAGE_SIGNATURE: 0x0002,
         SOURCE:            0x0100,
         DEST:              0x0101,
         AUX_AGREEMENT:     0x0102,
@@ -74,7 +86,7 @@
         INT_KEY:           0x0104,
         NONCE:             0x0105,
         PUB_KEY:           0x0106,
-        SESSION_SIGNATURE: 0x0107
+        SESSION_SIGNATURE: 0x0107,
     };
     
     
@@ -105,14 +117,14 @@
 
     
     /**
-     * Decodes a given TLV encoded protocol message into an object.
+     * Decodes a given TLV encoded protocol message content into an object.
      * 
      * @param message
      *     A binary message representation.
      * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      */
-    mpenc.codec.decodeMessage = function(message) {
+    mpenc.codec.decodeMessageContent = function(message) {
         var out = new mpenc.handler.ProtocolMessage();
         
         // members, intKeys, nonces, pubKeys, sessionSignature
@@ -175,6 +187,28 @@
 
     
     /**
+     * Decodes a given wire protocol message content into an object.
+     * 
+     * @param message
+     *     A wire protocol message representation.
+     * @returns {mpenc.handler.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    mpenc.codec.decodeMessage = function(message) {
+        _assert(message.substring(0, _PROTOCOL_PREFIX.length) === _PROTOCOL_PREFIX,
+                'Not an understood protocol/version.');
+        message = message.substring(_PROTOCOL_PREFIX.length);
+        _assert(message[0] === ':',
+                'Incomprehensible protocol indication.');
+        _assert(message[message.length - 1] === '.',
+                'Invalid protocol message format.');
+        var payload = atob(message.substring(1, message.length - 2));
+        
+        return mpenc.codec.decodeMessageContent(payload);
+    };
+
+    
+    /**
      * Encodes a given value to a binary TLV string of a given type.
      * 
      * @param tlvType
@@ -222,15 +256,15 @@
 
     
     /**
-     * Encodes a given protocol message into a binary string message consisting
-     * of a sequence of TLV binary strings.
+     * Encodes a given protocol message content into a binary string message
+     * consisting of a sequence of TLV binary strings.
      * 
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      * @returns
      *     A binary message representation.
      */
-    mpenc.codec.encodeMessage = function(message) {
+    mpenc.codec.encodeMessageContent = function(message) {
         // Process message attributes in this order:
         // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
         
@@ -248,6 +282,22 @@
         out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SESSION_SIGNATURE, message.sessionSignature);
         
         return out;
+    };
+
+    
+    /**
+     * Encodes a given protocol message ready to be put onto the wire, using
+     * base64 encoding for the binary message pay load.
+     * 
+     * @param message {mpenc.handler.ProtocolMessage}
+     *     Message as JavaScript object.
+     * @returns
+     *     A wire ready message representation.
+     */
+    mpenc.codec.encodeMessage = function(message) {
+        var content = mpenc.codec.encodeMessageContent(message);
+        
+        return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
     
     
@@ -275,4 +325,9 @@
     mpenc.codec._bin2short= function(value) {
         return (value.charCodeAt(0) << 8) + value.charCodeAt(1);
     };
+    
+    // TODO: message wrapping like OTR:
+    // * message message: "?mpENC:{content}."
+    // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
+    
 })();

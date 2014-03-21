@@ -32,6 +32,9 @@
  */
 var mpenc = {};
 
+/** Protocol version indicator. */
+mpenc.VERSION = '1';
+
 if(typeof module !== 'undefined' && module.exports){
   module.exports = mpenc;
 }

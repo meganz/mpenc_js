@@ -23,6 +23,7 @@ module.exports = function(config) {
       //{pattern: 'lib/*.js', included: true},
       'src/mpenc.js',
       {pattern: 'src/*.js', included: true},
+      'test/test_data.js',
       {pattern: 'test/*.js', included: true}
     ],
 

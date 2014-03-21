@@ -27,11 +27,27 @@
     var assert = chai.assert;
     var ns = mpenc.codec;
     
-    var UPFLOW_MESSAGE = atob('AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAAEzAQMAATQ'
-                              + 'BAwABNQEDAAE2AQQAAAEEACBqmYo4w/GJ7VtkY2BRKhOV'
-                              + 'fE2H35PtNLM7Xxh+oVEJTQEFACBqmYo4w/GJ7VtkY2BRK'
-                              + 'hOVfE2H35PtNLM7Xxh+oVEJTQEGACBy9+FIdgh3VJNQmM'
-                              + 'rGKbacscnvP643kDddVolnQYWT5QEHAAA=');
+    var UPFLOW_MESSAGE_STRING = atob('AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAAEz'
+                                      + 'AQMAATQBAwABNQEDAAE2AQQAAAEEACBqmYo4w'
+                                      + '/GJ7VtkY2BRKhOVfE2H35PtNLM7Xxh+oVEJTQ'
+                                      + 'EFACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM'
+                                      + '7Xxh+oVEJTQEGACBy9+FIdgh3VJNQmMrGKbac'
+                                      + 'scnvP643kDddVolnQYWT5QEHAAA=');
+    var UPFLOW_MESSAGE_CONTENT = {
+        source: '1',
+        dest: '2',
+        agreement: 'initial',
+        flow: 'upflow',
+        members: ['1', '2', '3', '4', '5', '6'],
+        intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+        nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+        pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+        sessionSignature: null,
+    };
+    var UPFLOW_MESSAGE_WIRE = '?mpENCv1:AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAA'
+        + 'EzAQMAATQBAwABNQEDAAE2AQQAAAEEACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM7X'
+        + 'xh+oVEJTQEFACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM7Xxh+oVEJTQEGACBy9+FI'
+        + 'dgh3VJNQmMrGKbacscnvP643kDddVolnQYWT5QEHAAA=.';
     
     describe("module level TLV stuff", function() {
         describe("_short2bin()", function() {
@@ -128,67 +144,86 @@
             });
         });
         
-        describe("encodeMessage()", function() {
+        describe("encodeMessageContent()", function() {
             it('upflow message', function() {
-                var message = {
-                    source: '1',
-                    dest: '2',
-                    agreement: 'initial',
-                    flow: 'upflow',
-                    members: ['1', '2', '3', '4', '5', '6'],
-                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
-                    sessionSignature: null
-                };
                 var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 mpenc.codec.encodeTLV = encodeTlvStub;
-                var result = ns.encodeMessage(message);
+                var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
                 mpenc.codec.encodeTLV.restore();
                 assert.lengthOf(result, 56);
             });
             
             it('upflow message binary', function() {
-                var message = {
-                    source: '1',
-                    dest: '2',
-                    agreement: 'initial',
-                    flow: 'upflow',
-                    members: ['1', '2', '3', '4', '5', '6'],
-                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
-                    sessionSignature: null
-                };
-                var result = ns.encodeMessage(message);
-                assert.strictEqual(result, UPFLOW_MESSAGE);
+                var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
+                assert.strictEqual(result, UPFLOW_MESSAGE_STRING);
             });
         });
         
-        describe("decodeMessage()", function() {
+        describe("decodeMessageContent()", function() {
             it('upflow message', function() {
-                var expected = {
-                    source: '1',
-                    dest: '2',
-                    agreement: 'initial',
-                    flow: 'upflow',
-                    members: ['1', '2', '3', '4', '5', '6'],
-                    intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
-                    nonces: [curve255.toString(_td.C25519_PUB_KEY)],
-                    pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
-                    sessionSignature: null
-                };
-                var result = ns.decodeMessage(UPFLOW_MESSAGE);
-                assert.strictEqual(result.source, expected.source);
-                assert.strictEqual(result.dest, expected.dest);
-                assert.strictEqual(result.agreement, expected.agreement);
-                assert.strictEqual(result.flow, expected.flow);
-                assert.deepEqual(result.members, expected.members);
-                assert.deepEqual(result.intKeys, expected.intKeys);
-                assert.deepEqual(result.nonces, expected.nonces);
-                assert.deepEqual(result.pubKeys, expected.pubKeys);
-                assert.strictEqual(result.sessionSignature, expected.sessionSignature);
+                var result = ns.decodeMessageContent(UPFLOW_MESSAGE_STRING);
+                assert.strictEqual(result.source, UPFLOW_MESSAGE_CONTENT.source);
+                assert.strictEqual(result.dest, UPFLOW_MESSAGE_CONTENT.dest);
+                assert.strictEqual(result.agreement, UPFLOW_MESSAGE_CONTENT.agreement);
+                assert.strictEqual(result.flow, UPFLOW_MESSAGE_CONTENT.flow);
+                assert.deepEqual(result.members, UPFLOW_MESSAGE_CONTENT.members);
+                assert.deepEqual(result.intKeys, UPFLOW_MESSAGE_CONTENT.intKeys);
+                assert.deepEqual(result.nonces, UPFLOW_MESSAGE_CONTENT.nonces);
+                assert.deepEqual(result.pubKeys, UPFLOW_MESSAGE_CONTENT.pubKeys);
+                assert.strictEqual(result.sessionSignature, UPFLOW_MESSAGE_CONTENT.sessionSignature);
             });
+        });
+    });
+    
+    describe("encodeMessage()", function() {
+        it('upflow message', function() {
+            var message = {
+                source: '1',
+                dest: '2',
+                agreement: 'initial',
+                flow: 'upflow',
+                members: ['1', '2', '3', '4', '5', '6'],
+                intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+                nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+                pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                sessionSignature: null
+            };
+            var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+            mpenc.codec.encodeTLV = encodeTlvStub;
+            var result = ns.encodeMessage(message);
+            mpenc.codec.encodeTLV.restore();
+            assert.strictEqual(result, '?mpENCv1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
+        });
+        
+        it('upflow message binary', function() {
+            var message = {
+                source: '1',
+                dest: '2',
+                agreement: 'initial',
+                flow: 'upflow',
+                members: ['1', '2', '3', '4', '5', '6'],
+                intKeys: [null, curve255.toString(_td.C25519_PUB_KEY)],
+                nonces: [curve255.toString(_td.C25519_PUB_KEY)],
+                pubKeys: [djbec.bytes2string(_td.ED25519_PUB_KEY)],
+                sessionSignature: null
+            };
+            var result = ns.encodeMessage(message);
+            assert.strictEqual(result, UPFLOW_MESSAGE_WIRE);
+        });
+    });
+    
+    describe("decodeMessage()", function() {
+        it('upflow message', function() {
+            var result = ns.decodeMessage(UPFLOW_MESSAGE_WIRE);
+            assert.strictEqual(result.source, UPFLOW_MESSAGE_CONTENT.source);
+            assert.strictEqual(result.dest, UPFLOW_MESSAGE_CONTENT.dest);
+            assert.strictEqual(result.agreement, UPFLOW_MESSAGE_CONTENT.agreement);
+            assert.strictEqual(result.flow, UPFLOW_MESSAGE_CONTENT.flow);
+            assert.deepEqual(result.members, UPFLOW_MESSAGE_CONTENT.members);
+            assert.deepEqual(result.intKeys, UPFLOW_MESSAGE_CONTENT.intKeys);
+            assert.deepEqual(result.nonces, UPFLOW_MESSAGE_CONTENT.nonces);
+            assert.deepEqual(result.pubKeys, UPFLOW_MESSAGE_CONTENT.pubKeys);
+            assert.strictEqual(result.sessionSignature, UPFLOW_MESSAGE_CONTENT.sessionSignature);
         });
     });
 })();
