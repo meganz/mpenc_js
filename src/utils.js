@@ -308,6 +308,19 @@
         return result;
     };
     
+
+    /**
+     * Returns a binary string representation of the SHA-256 hash function.
+     * 
+     * @param data
+     *     Data to hash.
+     * @returns
+     *     Binary string.
+     */
+    mpenc.utils.sha256 = function(data) {
+        return djbec.bytes2string(asmCrypto.SHA256.bytes(data));
+    };
+    
     
     /**
      * (Deep) clones a JavaScript object.

@@ -76,6 +76,21 @@
             });
         });
         
+        describe('sha256()', function() {
+            it('hash some values', function() {
+                var values = ['42', "Don't panic!", 'Flying Spaghetti Monster',
+                              "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
+                var expected = ['c0dctApWjo2ooEXO0RATfhWfiQrE2og7axfcZRs6gEk=',
+                                'TmLsTicvHVMesbDSYdkglep+nRe3N4zjd/9M9hzt4K8=',
+                                '7yxZ7NbTWc3tm0ls0sEFmuzoE+r0rLmVvnIwI7obFdo=',
+                                'O19HQMj+HOz9y3uUBDS4uG8GPXYmZmAUj8ZLVQEFxzY='];
+                for (var i = 0; i < values.length; i++) {
+                    var result = ns.sha256(values[i]);
+                    assert.strictEqual(result, atob(expected[i]));
+                }
+            });
+        });
+        
         describe('hex2bytearray()', function() {
             it('simple conversion test', function() {
                 var values = ['477579', '61339391d56552dad72495a71a47b0f11ba3ebaf'];

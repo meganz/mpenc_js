@@ -26,15 +26,12 @@
 var _td = {};
 
 /* Constants mainly for the mpenc.cliques. */
-// 0x6e3b0789a77feb8dd878278b1233a8c06070506c7c93f6de8894bbeac1db06dd
-_td.C25519_PRIV_KEY_B32 = '3r3a6e2o77lrxmhqj4lciz2rqdaobigy7et63pirff35la5wbw5';
-_td.C25519_PRIV_KEY = curve255.toString(curve255.base32decode(_td.C25519_PRIV_KEY_B32));
-// 0x6a998a38c3f189ed5b646360512a13957c4d87df93ed34b33b5f187ea151094d
-_td.C25519_PUB_KEY_B32  = '2uzri4mh4mj5vnwiy3akevbhfl4jwd57e7ngsztwxyyp2qvcckn';
-_td.C25519_PUB_KEY = curve255.toString(curve255.base32decode(_td.C25519_PUB_KEY_B32));
-// 0x365c1e572ab6d6e9eeb9fe709e90207d9b2dca53203b6408ee2dae6c6fef6e28
-_td.COMP_KEY_B32 = 'ydilknpg4hc6yrzsto2hyitbhhtk2m7qure7ub5s5wu45daadyl';
-_td.COMP_KEY = curve255.toString(curve255.base32decode(_td.COMP_KEY_B32));
+_td.C25519_PRIV_KEY = 'bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=';
+_td.C25519_PRIV_KEY = atob(_td.C25519_PRIV_KEY);
+_td.C25519_PUB_KEY  = 'apmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqFRCU0=';
+_td.C25519_PUB_KEY = atob(_td.C25519_PUB_KEY);
+_td.COMP_KEY = 'YGhamvNw4vYjmU3aPhEwnPNWmfhSJP0D2XbU50YADws=';
+_td.COMP_KEY = atob(_td.COMP_KEY);
 
 /* Constants mainly for the mpenc.ske. */
 // eabuse@nexgo.de
@@ -97,54 +94,15 @@ _td.RSA_PUB_KEY = [[230365881, 209576468, 15544222, 146241808, 252079570,
                    [17], // e
                    2047]; // size
 
-_td.ED25519_PRIV_KEY = [108, 48, 210, 170, 135, 57, 232, 215, 218, 120, 133,
-                        140, 227, 185, 49, 197, 178, 42, 136, 235, 87, 167,
-                        187, 255, 3, 5, 111, 116, 151, 226, 89, 106, 204, 129,
-                        223, 209, 50, 129, 251, 137, 228, 208, 36, 219, 223,
-                        209, 26, 236, 181, 121, 189, 202, 223, 71, 5, 56, 226,
-                        247, 47, 227, 156, 140, 153, 221];
-_td.ED25519_PRIV_KEY = djbec.bytes2string(_td.ED25519_PRIV_KEY);
-_td.ED25519_PUB_KEY = [114, 247, 225, 72, 118, 8, 119, 84, 147, 80, 152, 202,
-                       198, 41, 182, 156, 177, 201, 239, 63, 174, 55, 144, 55,
-                       93, 86, 137, 103, 65, 133, 147, 229];
-_td.ED25519_PUB_KEY = djbec.bytes2string(_td.ED25519_PUB_KEY);
-
-_td.SIGNATURE = [18, 38, 161, 198, 183, 248, 155, 201, 33, 133, 181, 3, 183,
-                 155, 210, 224, 35, 63, 85, 92, 83, 30, 61, 75, 85, 97, 126,
-                 134, 27, 215, 76, 112, 103, 2, 116, 175, 56, 47, 40, 119, 95,
-                 57, 226, 144, 243, 214, 254, 91, 4, 84, 183, 124, 202, 216,
-                 119, 144, 196, 26, 206, 225, 74, 67, 138, 15, 221, 62, 202,
-                 79, 107, 125, 160, 253, 140, 147, 31, 10, 245, 158, 217, 111,
-                 209, 255, 58, 180, 205, 63, 186, 221, 55, 179, 167, 140, 98,
-                 51, 153, 48, 91, 100, 217, 169, 150, 26, 144, 160, 123, 138,
-                 170, 247, 255, 90, 181, 216, 106, 70, 98, 185, 2, 19, 51, 18,
-                 155, 173, 102, 104, 117, 55, 36, 188, 22, 48, 118, 187, 224,
-                 78, 88, 202, 26, 148, 62, 180, 13, 153, 163, 236, 126, 93,
-                 112, 185, 204, 60, 215, 185, 69, 204, 43, 189, 8, 244, 72,
-                 155, 204, 99, 45, 49, 214, 5, 171, 36, 83, 111, 136, 6, 155,
-                 126, 40, 195, 221, 61, 115, 9, 93, 142, 216, 240, 88, 252,
-                 181, 44, 228, 212, 115, 37, 17, 133, 197, 228, 197, 103, 33,
-                 196, 216, 204, 213, 51, 118, 40, 80, 99, 165, 226, 233, 9,
-                 113, 242, 188, 44, 163, 96, 105, 180, 78, 201, 181, 45, 56,
-                 168, 147, 211, 171, 6, 91, 189, 246, 243, 227, 130, 167, 254,
-                 231, 97, 169, 206, 91, 171, 119, 147, 84, 33, 143, 217, 68,
-                 253, 103, 71, 67, 209];
-_td.SIGNATURE = djbec.bytes2string(_td.SIGNATURE);
-
-_td.SESSION_ID = [182, 103, 240, 172, 49, 9, 66, 173, 157, 25, 191, 178,
-                  191, 83, 149, 11, 164, 136, 60, 231, 106, 104, 76, 35,
-                  187, 82, 125, 251, 225, 191, 124, 159];
-_td.SESSION_ID = djbec.bytes2string(_td.SESSION_ID);
-
-// // Generate with
-// // openssl genrsa -out key.pem 2048
-// _td.RSA_PRIV_KEY = "-----BEGIN RSA PRIVATE KEY----- \n\
-// MIIEpAIBAAKCAQEA8XZXByd+rLMjFAWLL26sLhlipEZc7Q0/tiSjPgqIM2GBR/Jr \n\
+//// Generate RSA keys with openssl like this:
+//// openssl genrsa -out key.pem 2048
+//_td.RSA_PRIV_KEY = "-----BEGIN RSA PRIVATE KEY----- \n\
+//MIIEpAIBAAKCAQEA8XZXByd+rLMjFAWLL26sLhlipEZc7Q0/tiSjPgqIM2GBR/Jr \n\
 //...
 //rnqoAEd+1qb436CoRW/wkrqb0ITrxGhutjIM3eeseKROYLjMVBA1hA== \n\
 //-----END RSA PRIVATE KEY-----";
-//// Generate with
-//// openssl req -new -x509 -days 3650 -key key.pem -out foo.pem -subj "/"
+////Generate with
+////openssl req -new -x509 -days 3650 -key key.pem -out foo.pem -subj "/"
 //_td.RSA_CERT = "-----BEGIN CERTIFICATE----- \n\
 //MIIC0zCCAbugAwIBAgIJALuqKJZVQaMPMA0GCSqGSIb3DQEBBQUAMAAwHhcNMTQw \n\
 //...
@@ -155,6 +113,27 @@ _td.SESSION_ID = djbec.bytes2string(_td.SESSION_ID);
 //...
 //7F36EC4982FD15B4409D18C954F8F6B20083BFB30BFFF8BAFB5DCFEB7495F19";
 //_td.RSA_EXPONENT = 0x10001;
+
+_td.ED25519_PRIV_KEY = 'MTA4LDQ4LDIxMCwxNzAsMTM1LDU3LDIzMiwyMTUsMjE4LDEyMCwxMz'
+                     + 'MsMTQwLDIyNywxODUsNDksMTk3LDE3OCw0MiwxMzYsMjM1LDg3LDE2'
+                     + 'NywxODcsMjU1LDMsNSwxMTEsMTE2LDE1MSwyMjYsODksMTA2LDIwNC'
+                     + 'wxMjksMjIzLDIwOSw1MCwxMjksMjUxLDEzNywyMjgsMjA4LDM2LDIx'
+                     + 'OSwyMjMsMjA5LDI2LDIzNiwxODEsMTIxLDE4OSwyMDIsMjIzLDcxLD'
+                     + 'UsNTYsMjI2LDI0Nyw0NywyMjcsMTU2LDE0MCwxNTMsMjIx';
+_td.ED25519_PRIV_KEY = atob(_td.ED25519_PRIV_KEY);
+_td.ED25519_PUB_KEY = 'cvfhSHYId1STUJjKxim2nLHJ7z+uN5A3XVaJZ0GFk+U=';
+_td.ED25519_PUB_KEY = atob(_td.ED25519_PUB_KEY);
+
+_td.SIGNATURE = 'RRAVBtUYWUFwUFghx8DLHQmJy1f9GEpFI22a7fgzjnC9QjTdebwdTewXWdatt'
+              + 'FmYtvZ7k6lO1YGQ3Zw1YRyNVt2f74pLXRIfKYOv7s7WoGnTFU5AAbJywAE5v0'
+              + 'ObthJCcwEpapP4GpTYwL8LYJr4e/FN0IUi5xzowQLEY1cmK41HhcUVwbuvoro'
+              + 'ckPUz+GUb5RpJB9qOCst9d/rbEkxFSke77ETjwsB+13OYETHOgG9Kt2YrgXfY'
+              + 'r6icwJ15rHByqdRDqfM4p5riH6bacjxpv+UY8IiM3+UECZsSgca9Uo/c0T0KU'
+              + 'GdudB9RlMEc2PK/SpeRiZfgEOZ52FT6T7DnCg==';
+_td.SIGNATURE = atob(_td.SIGNATURE);
+
+_td.SESSION_ID = 'tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=';
+_td.SESSION_ID = atob(_td.SESSION_ID);
 
 _td.STATIC_PUB_KEY_DIR = {
     'get': function(key) { return _td.RSA_PUB_KEY; }

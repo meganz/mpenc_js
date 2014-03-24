@@ -138,8 +138,7 @@
                     return x;
                 };
                 
-                sandbox.stub(sjcl.codec.bytes, 'fromBits', echo);
-                sandbox.stub(sjcl.hash.sha256, 'hash', echo);
+                sandbox.stub(mpenc.utils, 'sha256', echo);
                 sandbox.stub(djbec, 'bytes2string', echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');

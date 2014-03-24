@@ -24,7 +24,7 @@
     var _ZERO_BYTE = '\u0000';
     var _ONE_BYTE = '\u0001';
     var _PROTOCOL_INDICATOR = 'mpENC';
-    var _PROTOCOL_PREFIX = '?' + _PROTOCOL_INDICATOR + 'v' + mpenc.VERSION;
+    var _PROTOCOL_PREFIX = '?' + _PROTOCOL_INDICATOR;
     
     /*
      * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -50,11 +50,10 @@
      * 
      * @property PADDING
      *     Can be used for arbitrary length of padding byte sequences.
-     * @property MESSAGE
-     *     A message.
-     * @property MESSAGE_SIGNATURE
-     *     The signature of the complete message (including protocol indicator 
-     *     and all other content).
+     * @property PROTOCOL_VERSION
+     *     Indicates the protocol version to be used as a 16-bit unsigned integer.
+     * @property MESSAGE_TYPE
+     *     A single byte indicating the type of message transmitted.
      * @property SOURCE
      *     Message originator (from, should be only one).
      * @property DEST
@@ -77,8 +76,9 @@
      */
     mpenc.codec.TLV_TYPES = {
         PADDING:           0x0000,
-        MESSAGE:           0x0001,
-        MESSAGE_SIGNATURE: 0x0002,
+        PROTOCOL_VERSION:  0x0001,
+        MESSAGE_TYPE:      0x0002,
+//        MESSAGE_SIGNATURE: 0x0002,
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
         AUX_AGREEMENT:     0x0102, // 258
@@ -87,6 +87,22 @@
         NONCE:             0x0105, // 261
         PUB_KEY:           0x0106, // 262
         SESSION_SIGNATURE: 0x0107, // 263
+    };
+    
+    
+    /**
+     * "Enumeration" message types.
+     * 
+     * FIXME: This needs some serious work.
+     * 
+     * @property DATA
+     *     Used to transmit a private message.
+     */
+    mpenc.codec.MESSAGE_TYPES = {
+        DATA:              0x03,
+        KEY_AGREEMENT:     0x0a,
+        REVEAL_SIGNATURE:  0x11,
+        SIGNATURE:         0x12,
     };
     
     

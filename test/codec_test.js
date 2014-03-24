@@ -55,7 +55,7 @@
         pubKeys: [_td.ED25519_PUB_KEY],
         sessionSignature: null,
     };
-    var UPFLOW_MESSAGE_WIRE = '?mpENCv1:AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAA'
+    var UPFLOW_MESSAGE_WIRE = '?mpENC:AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAA'
         + 'EzAQMAATQBAwABNQEDAAE2AQQAAAEEACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM7X'
         + 'xh+oVEJTQEFACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM7Xxh+oVEJTQEGACBy9+FI'
         + 'dgh3VJNQmMrGKbacscnvP643kDddVolnQYWT5QEHAAA=.';
@@ -207,7 +207,7 @@
             };
             sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
             var result = ns.encodeMessage(message);
-            assert.strictEqual(result, '?mpENCv1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
+            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
         });
         
         it('upflow message binary', function() {

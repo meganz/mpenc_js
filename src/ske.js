@@ -241,9 +241,8 @@
         _assert(this.sessionId, 'Session ID not available.');
         _assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
         var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
-        var hashValue = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-        return mpenc.ske._smallrsasign(djbec.bytes2string(hashValue),
-                                       this.staticPrivKey);
+        var hashValue = mpenc.utils.sha256(sessionAck);
+        return mpenc.ske._smallrsasign(hashValue, this.staticPrivKey);
     };
     
     
@@ -271,8 +270,8 @@
                                                   this.staticPubKeyDir.get(memberId));
         var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
-        var hashValueBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(sessionAck));
-        return (decrypted === djbec.bytes2string(hashValueBytes));
+        var hashValue = mpenc.utils.sha256(sessionAck);
+        return (decrypted === hashValue);
     };
     
     
@@ -606,8 +605,6 @@
                 nonceItems += mapping[pid];
             }
         }
-        var sidBytes = sjcl.codec.bytes.fromBits(sjcl.hash.sha256.hash(pidItems
-                                                                       + nonceItems));
-        return djbec.bytes2string(sidBytes);
+        return mpenc.utils.sha256(pidItems + nonceItems);
     };
 })();

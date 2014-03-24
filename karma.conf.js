@@ -19,6 +19,7 @@ module.exports = function(config) {
       'lib/sha512.js',
       'lib/djbec.js',
       'lib/rsa.js',
+      'lib/asmcrypto.js',
       
       //{pattern: 'lib/*.js', included: true},
       'src/mpenc.js',

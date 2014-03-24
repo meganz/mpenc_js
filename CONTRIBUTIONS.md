@@ -28,6 +28,10 @@ Code Contributions
 * Arlo Breault's JavaScript OTRv3 implementation
 ** https://github.com/arlolra/otr
 ** License: MPL 2.0
+* Artem Vybornov's asmCrypto.js
+** https://github.com/vibornoff/asmcrypto.js
+** License: MIT
+
 
 maybe try to use the slightly slower djbec.js instead:
 http://www.flownet.com/ron/code/djbec.js
