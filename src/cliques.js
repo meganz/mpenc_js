@@ -390,7 +390,8 @@
         }
         _assert(message.members.indexOf(this.id) >= 0,
                 'Not in members list, must be excluded.');
-        
+        _assert(message.members.length === message.intKeys.length,
+                'Mis-match intermediate key number for CLIQUES downflow.');
         this.members = message.members;
         this._setKeys(message.intKeys, message.debugKeys);
     };

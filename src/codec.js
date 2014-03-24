@@ -136,7 +136,7 @@
                     break;
                 case mpenc.codec.TLV_TYPES.DEST:
                     out.dest = tlv.value;
-                    if (out.dest === '') {
+                    if ((out.dest === '') || (out.dest === null)) {
                         out.flow = 'downflow';
                     } else {
                         out.flow = 'upflow';
@@ -247,7 +247,7 @@
         
         // Trivial case, quick exit.
         if ((valueArray === null) || (valueArray.length === 0)) {
-            return mpenc.codec.encodeTLV(tlvType, null);
+            return '';
         }
         
         var out = '';

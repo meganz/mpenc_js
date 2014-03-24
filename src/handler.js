@@ -239,19 +239,22 @@
         var inAskeMessage = this._getAskeMessage(mpenc.utils.clone(message));
         var outCliquesMessage = null;
         var outAskeMessage = null;
+        var outMessage = null;
         
         if (message.dest === null || message.dest === '') {
-            if (message.intKeys && message.intKeys.length > 0) {
-                dump('!', this.cliquesMember.id);
+            if (message.intKeys && (message.intKeys.length === message.members.length)) {
                 this.cliquesMember.downflow(inCliquesMessage);
             }
-            outAskeMessage = this.askeMember.downflow(inAskeMessage);
-            return mpenc.codec.encodeMessage(this._mergeMessages(null, outAskeMessage));
+            if (message.nonces && (message.nonces.length === message.members.length)) {
+                outAskeMessage = this.askeMember.downflow(inAskeMessage);
+            }
+            outMessage = this._mergeMessages(null, outAskeMessage);
         } else {
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
-            return mpenc.codec.encodeMessage(this._mergeMessages(outCliquesMessage, outAskeMessage));
+            outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);;
         }
+        return mpenc.codec.encodeMessage(outMessage);
     };
     
     

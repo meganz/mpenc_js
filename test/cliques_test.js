@@ -246,6 +246,26 @@
                 assert.throws(function() { participant.downflow(broadcastMessage); },
                               'Member list mis-match in CLIQUES protocol');
             });
+            
+            it('ika downflow intKey list number mismatch', function() {
+                var members = ['1', '2', '3', '4', '5'];
+                var messageKeys = [];
+                for (var i = 1; i <= 4; i++) {
+                    messageKeys.push(_PRIV_KEY());
+                }
+                var participant = new ns.CliquesMember('3');
+                participant.members = members;
+                participant.privKey = _PRIV_KEY();
+                var broadcastMessage = new ns.CliquesMessage();
+                broadcastMessage.source = '5';
+                broadcastMessage.agreement = 'ika';
+                broadcastMessage.flow = 'downflow';
+                broadcastMessage.members = members;
+                broadcastMessage.intKeys = messageKeys;
+                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                assert.throws(function() { participant.downflow(broadcastMessage); },
+                              'Mis-match intermediate key number for CLIQUES downflow.');
+            });
         
             it('ika downflow message process', function() {
                 var numMembers = 5;
@@ -266,9 +286,33 @@
                 broadcastMessage.intKeys = messageKeys;
                 broadcastMessage.debugKeys = mpenc.utils.clone(members);
                 participant.downflow(broadcastMessage);
-                assert.deepEqual(participant.intKeys, messageKeys);
+                assert.strictEqual(participant.intKeys, messageKeys);
                 assert.strictEqual(_tu.keyBits(participant.groupKey, 8), 256);
-                assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+            });
+        
+            it('ika duplicate downflow message process', function() {
+                var numMembers = 5;
+                var members = [];
+                var messageKeys = [];
+                for (var i = 1; i <= numMembers; i++) {
+                    members.push(i.toString());
+                    messageKeys.push(_PRIV_KEY());
+                }
+                var participant = new ns.CliquesMember('3');
+                participant.members = members;
+                participant.privKey = _PRIV_KEY();
+                var broadcastMessage = new ns.CliquesMessage();
+                broadcastMessage.source = '5';
+                broadcastMessage.agreement = 'ika';
+                broadcastMessage.flow = 'downflow';
+                broadcastMessage.members = members;
+                broadcastMessage.intKeys = messageKeys;
+                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                participant.downflow(broadcastMessage);
+                var prevGroupKey = participant.groupKey;
+                participant.downflow(broadcastMessage);
+                assert.strictEqual(participant.groupKey, prevGroupKey);
             });
         });
     

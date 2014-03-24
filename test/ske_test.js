@@ -24,6 +24,16 @@
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
     
+    // Create/restore Sinon stub/spy/mock sandboxes.
+    var sandbox = null;
+    
+    beforeEach(function() {
+        sandbox = sinon.sandbox.create();
+    });
+    
+    afterEach(function() {
+        sandbox.restore();
+    });
     
     describe("module level", function() {
         var ns = mpenc.ske;
@@ -128,13 +138,10 @@
                     return x;
                 };
                 
-                sjcl.codec.bytes.fromBits = sinon.stub(sjcl.codec.bytes, 'fromBits', echo);
-                sjcl.hash.sha256.hash = sinon.stub(sjcl.hash.sha256, 'hash', echo);
-                djbec.bytes2string = sinon.stub(djbec, 'bytes2string', echo);
+                sandbox.stub(sjcl.codec.bytes, 'fromBits', echo);
+                sandbox.stub(sjcl.hash.sha256, 'hash', echo);
+                sandbox.stub(djbec, 'bytes2string', echo);
                 var sid = ns._computeSid(members, nonces);
-                sjcl.codec.bytes.fromBits.restore();
-                sjcl.hash.sha256.hash.restore();
-                djbec.bytes2string.restore();
                 assert.strictEqual(sid, '13451111333344445555');
             });
         });
@@ -459,12 +466,11 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                var stub = sinon.stub(mpenc.ske, '_computeSid').returns(
+                sandbox.stub(mpenc.ske, '_computeSid').returns(
                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
                 assert.throws(function() { participant.downflow(message); },
                               'Authentication of member failed: 1');
-                stub.restore();
             });
             
             it('downflow, still unacknowledged', function() {
@@ -483,9 +489,8 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                var stub = sinon.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
-                stub.restore();
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, false]);
                 assert.ok(newMessage !== null);
@@ -515,9 +520,8 @@
                 participant.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
                 participant.sessionId = _td.SESSION_ID.concat();
                 message.sessionSignature = _td.SIGNATURE;
-                var stub = sinon.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
-                stub.restore();
                 assert.ok(newMessage === null);
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, true]);

@@ -27,6 +27,17 @@
     var assert = chai.assert;
     var ns = mpenc.codec;
     
+    // Create/restore Sinon stub/spy/mock sandboxes.
+    var sandbox = null;
+    
+    beforeEach(function() {
+        sandbox = sinon.sandbox.create();
+    });
+    
+    afterEach(function() {
+        sandbox.restore();
+    });
+    
     var UPFLOW_MESSAGE_STRING = atob('AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAAEz'
                                       + 'AQMAATQBAwABNQEDAAE2AQQAAAEEACBqmYo4w'
                                       + '/GJ7VtkY2BRKhOVfE2H35PtNLM7Xxh+oVEJTQ'
@@ -92,11 +103,19 @@
         });
         
         describe("_encodeTlvArray()", function() {
-            it('null equivalents', function() {
-                var tests = [[], [''], [null], null];
+            it('null content equivalents', function() {
+                var tests = [[''], [null]];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns._encodeTlvArray(0, tests[i]);
                     assert.strictEqual(result, '\u0000\u0000\u0000\u0000');
+                }
+            });
+            
+            it('null equivalents', function() {
+                var tests = [[], null];
+                for (var i = 0; i < tests.length; i++) {
+                    var result = ns._encodeTlvArray(0, tests[i]);
+                    assert.strictEqual(result, '');
                 }
             });
             
@@ -146,10 +165,8 @@
         
         describe("encodeMessageContent()", function() {
             it('upflow message', function() {
-                var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                mpenc.codec.encodeTLV = encodeTlvStub;
+                sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
-                mpenc.codec.encodeTLV.restore();
                 assert.lengthOf(result, 56);
             });
             
@@ -188,10 +205,8 @@
                 pubKeys: [_td.ED25519_PUB_KEY],
                 sessionSignature: null
             };
-            var encodeTlvStub = sinon.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            mpenc.codec.encodeTLV = encodeTlvStub;
+            sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
             var result = ns.encodeMessage(message);
-            mpenc.codec.encodeTLV.restore();
             assert.strictEqual(result, '?mpENCv1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
         });
         
