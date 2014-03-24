@@ -113,6 +113,8 @@
      *     participant's one.
      * @property privKey
      *     This participant's private key.
+     * @property privKeyId
+     *     The ID of the private key (incrementing integer, starting from 0).
      * @property keyTimestamp
      *     Time stamp indicator when `privKey` was created/refreshed.
      *     Some monotonously increasing counter.
@@ -124,6 +126,7 @@
         this.members = [];
         this.intKeys = null;
         this.privKey = null;
+        this.privKeyId = 0;
         this.keyTimestamp = null;
         this.groupKey = null;
         // For debugging: Chain of all scalar multiplication keys.
@@ -349,6 +352,7 @@
         
         // Make a new private key.
         this.privKey = curve255.toString(mpenc.utils._newKey16(256));
+        this.privKeyId++;
         this.keyTimestamp = Math.round(Date.now() / 1000);
         if (this._debugPrivKey) {
             this._debugPrivKey = this._debugPrivKey + "'";

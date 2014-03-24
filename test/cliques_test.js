@@ -62,6 +62,7 @@
             it('simple CliquesMember constructor', function() {
                 var participant = new ns.CliquesMember('4');
                 assert.strictEqual(participant.id, '4');
+                assert.strictEqual(participant.privKeyId, 0);
             });
         });
     
@@ -102,6 +103,7 @@
                 }
                 var response = participant._renewPrivKey();
                 assert.notStrictEqual(participant.privKey, _td.C25519_PRIV_KEY);
+                assert.strictEqual(participant.privKeyId, 1);
                 assert.strictEqual(participant._debugPrivKey, "3'");
                 assert.notDeepEqual(response.cardinalKey, _td.C25519_PRIV_KEY);
                 assert.strictEqual(response.cardinalDebugKey, "3'*3*1*2*4*5*G");
@@ -454,8 +456,9 @@
                 var oldTs = participant.keyTimestamp;
                 var message = participant.akaRefresh();
                 assert.ok(participant.keyTimestamp > oldTs);
-                assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(participant.groupKey, chkGroupKey);
+                assert.notStrictEqual(participant.privKey, _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.groupKey, chkGroupKey);
+                assert.strictEqual(participant.privKeyId, 1);
             });
         });
         
