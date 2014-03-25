@@ -77,8 +77,9 @@
     mpenc.codec.TLV_TYPES = {
         PADDING:           0x0000,
         PROTOCOL_VERSION:  0x0001,
-        MESSAGE_TYPE:      0x0002,
-//        MESSAGE_SIGNATURE: 0x0002,
+        DATA_MESSAGE:      0x0002,
+        MESSAGE_SIGNATURE: 0x0003,
+        MESSAGE_IV:        0x0004,
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
         AUX_AGREEMENT:     0x0102, // 258
@@ -345,6 +346,111 @@
      */
     mpenc.codec._bin2short= function(value) {
         return (value.charCodeAt(0) << 8) + value.charCodeAt(1);
+    };
+
+    
+    /**
+     * Encrypts a given data message.
+     * 
+     * The data message is encrypted using AES-128-CBC, and a new random IV is
+     * generated and returned.
+     * 
+     * @param data {string}
+     *     Binary string data message.
+     * @param key {string}
+     *     Binary string representation of 128-bit encryption key.
+     * @returns {Object}
+     *     An object containing the message (in `data`, binary string) and
+     *     the IV used (in `iv`, binary string).
+     */
+    mpenc.codec.encryptDataMessage = function(data, key) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        var clearBytes = new Uint8Array(djbec.string2bytes(data));
+        var keyBytes = new Uint8Array(djbec.string2bytes(key));
+        var ivBytes = new Uint8Array(mpenc.utils._newKey08(128));
+        var cipherBytes = asmCrypto.AES_CBC.encrypt(clearBytes, keyBytes, true, ivBytes);
+        return { data: djbec.bytes2string(cipherBytes),
+                 iv: djbec.bytes2string(ivBytes) };
+    };
+
+    
+    /**
+     * Decrypts a given data message.
+     * 
+     * The data message is decrypted using AES-128-CBC.
+     * 
+     * @param data {string}
+     *     Binary string data message.
+     * @param key {string}
+     *     Binary string representation of 128-bit encryption key.
+     * @param iv {string}
+     *     Binary string representation of 128-bit IV (initialisation vector).
+     * @returns {string}
+     *     The clear text message as a binary string.
+     */
+    mpenc.codec.decryptDataMessage = function(data, key, iv) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        var cipherBytes = new Uint8Array(djbec.string2bytes(data));
+        var keyBytes = new Uint8Array(djbec.string2bytes(key));
+        var ivBytes = new Uint8Array(djbec.string2bytes(iv));
+        var clearBytes = asmCrypto.AES_CBC.decrypt(cipherBytes, keyBytes, true, ivBytes);
+        return djbec.bytes2string(clearBytes);
+    };
+
+    
+    /**
+     * Signs a given data message with the ephemeral private key.
+     * 
+     * This implementation is using the Edwards25519 for an ECDSA signature
+     * mechanism to complement the Curve25519-based group key agreement.
+     * 
+     * @param data {string}
+     *     Binary string data message.
+     * @param privKey {string}
+     *     Binary string representation of the ephemeral private key.
+     * @param pubKey {string}
+     *     Binary string representation of the ephemeral public key.
+     * @returns {string}
+     *     Binary string representation of the signature.
+     */
+    mpenc.codec.signDataMessage = function(data, privKey, pubKey) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        
+        var pubKeyBytes = djbec.string2bytes(pubKey);
+        var signatureBytes = djbec.signature(data, privKey, pubKeyBytes);
+        return djbec.bytes2string(signatureBytes);
+    };
+
+    
+    /**
+     * Checks the signature of a given data message with the ephemeral public key.
+     * 
+     * This implementation is using the Edwards25519 for an ECDSA signature
+     * mechanism to complement the Curve25519-based group key agreement.
+     * 
+     * @param data {string}
+     *     Binary string data message.
+     * @param signature {string}
+     *     Binary string representation of the signature.
+     * @param pubKey {string}
+     *     Binary string representation of the ephemeral public key.
+     * @returns {bool}
+     *     True if the signature verifies, false otherwise.
+     */
+    mpenc.codec.verifyDataMessage = function(data, signature, pubKey) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        
+        var pubKeyBytes = djbec.string2bytes(pubKey);
+        var signatureBytes = djbec.string2bytes(signature);
+        return signatureBytes = djbec.checksig(signatureBytes, data, pubKeyBytes);
     };
     
     // TODO: message wrapping like OTR:

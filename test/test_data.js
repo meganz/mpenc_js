@@ -25,6 +25,9 @@
 
 var _td = {};
 
+// Attempt to patch the problem with running the code in PhantomJS.
+//Uint8Array = Array;
+
 /* Constants mainly for the mpenc.cliques. */
 _td.C25519_PRIV_KEY = 'bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=';
 _td.C25519_PRIV_KEY = atob(_td.C25519_PRIV_KEY);
@@ -121,15 +124,15 @@ _td.ED25519_PRIV_KEY = 'MTA4LDQ4LDIxMCwxNzAsMTM1LDU3LDIzMiwyMTUsMjE4LDEyMCwxMz'
                      + 'OSwyMjMsMjA5LDI2LDIzNiwxODEsMTIxLDE4OSwyMDIsMjIzLDcxLD'
                      + 'UsNTYsMjI2LDI0Nyw0NywyMjcsMTU2LDE0MCwxNTMsMjIx';
 _td.ED25519_PRIV_KEY = atob(_td.ED25519_PRIV_KEY);
-_td.ED25519_PUB_KEY = 'cvfhSHYId1STUJjKxim2nLHJ7z+uN5A3XVaJZ0GFk+U=';
+_td.ED25519_PUB_KEY = 'VibpIVuhf+DPI/XGjpfpYu3XDsmQW3U9qwV5We+GBxI=';
 _td.ED25519_PUB_KEY = atob(_td.ED25519_PUB_KEY);
 
-_td.SIGNATURE = 'RRAVBtUYWUFwUFghx8DLHQmJy1f9GEpFI22a7fgzjnC9QjTdebwdTewXWdatt'
-              + 'FmYtvZ7k6lO1YGQ3Zw1YRyNVt2f74pLXRIfKYOv7s7WoGnTFU5AAbJywAE5v0'
-              + 'ObthJCcwEpapP4GpTYwL8LYJr4e/FN0IUi5xzowQLEY1cmK41HhcUVwbuvoro'
-              + 'ckPUz+GUb5RpJB9qOCst9d/rbEkxFSke77ETjwsB+13OYETHOgG9Kt2YrgXfY'
-              + 'r6icwJ15rHByqdRDqfM4p5riH6bacjxpv+UY8IiM3+UECZsSgca9Uo/c0T0KU'
-              + 'GdudB9RlMEc2PK/SpeRiZfgEOZ52FT6T7DnCg==';
+_td.SIGNATURE = 'If+p7BIlEdrVV85fyRYY60zkHOvVD3Qv0Ja/vq2r++cOFKayj3tEIarWGFuWL'
+              + '88eIUOBfGmjlqfD9wwXfkJox64/Vl75pRSaTj37zNVNVItYoOYe0o1TdogJNA'
+              + 'yl4hCsBR78wMfMSi+kMFTEKAdA2ND1wxIV8VxcIz3qdYQ/s2jtEr+KM/xGryS'
+              + 'bhlONCGNRXthmG1EyqEtdwvV8KWasrg3jRZov7H7+Y7jtnrUTPQ0xqxFCKygg'
+              + 'mWmqsQUIQojje8OioQStT19Dtt3tyHF2OrHAbxxfvt8/Bh17oq3hvQMQQ6ITk'
+              + 'v4ajUvnu7G81Uvloq5BUUhLp2NSmB18ExXhSg==';
 _td.SIGNATURE = atob(_td.SIGNATURE);
 
 _td.SESSION_ID = 'tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=';
