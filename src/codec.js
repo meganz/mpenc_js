@@ -143,11 +143,15 @@
      */
     mpenc.codec.decodeMessageContent = function(message) {
         var out = new mpenc.handler.ProtocolMessage();
+        var protocol = null;
         
         // members, intKeys, nonces, pubKeys, sessionSignature
         while (message.length > 0) {
             var tlv = mpenc.codec.decodeTLV(message);
             switch (tlv.type) {
+                case mpenc.codec.TLV_TYPES.PROTOCOL_VERSION:
+                    protocol = tlv.value;
+                    break;
                 case mpenc.codec.TLV_TYPES.SOURCE:
                     out.source = tlv.value;
                     break;
@@ -184,7 +188,7 @@
                     out.sessionSignature = tlv.value;
                     break;
                 default:
-                    _assert(false, 'Received unknown TLV type.');
+                    _assert(false, 'Received unknown TLV type: ' + tlv.type);
                     break;
             }
             
@@ -198,6 +202,8 @@
     
             message = tlv.rest;
         }
+        _assert(protocol === mpenc.VERSION,
+                'Received wrong protocol version.');
         
         return out;
     };
@@ -234,12 +240,13 @@
      * @param tlvType
      *     Type of string to use (16-bit unsigned integer).
      * @param value
-     *     A binary string of the pay load to carry.
+     *     A binary string of the pay load to carry. If omitted, no value
+     *     (null) is used.
      * @returns
      *     A binary TLV string.
      */
     mpenc.codec.encodeTLV = function(tlvType, value) {
-        if (value === null) {
+        if ((value === null) || (value === undefined)) {
             value = '';
         }
         var out = mpenc.codec._short2bin(tlvType);
@@ -288,7 +295,8 @@
         // Process message attributes in this order:
         // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
         
-        var out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SOURCE, message.source);
+        var out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.PROTOCOL_VERSION, mpenc.VERSION);
+        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SOURCE, message.source);
         out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.DEST, message.dest);
         if (message.agreement === 'initial') {
             out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.AUX_AGREEMENT, _ZERO_BYTE);

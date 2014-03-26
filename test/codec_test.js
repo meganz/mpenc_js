@@ -38,12 +38,12 @@
         sandbox.restore();
     });
     
-    var UPFLOW_MESSAGE_STRING = atob('AQAAATEBAQABMgECAAEAAQMAATEBAwABMgEDAAEz'
-                                     + 'AQMAATQBAwABNQEDAAE2AQQAAAEEACBqmYo4w/'
-                                     + 'GJ7VtkY2BRKhOVfE2H35PtNLM7Xxh+oVEJTQEF'
-                                     + 'ACBqmYo4w/GJ7VtkY2BRKhOVfE2H35PtNLM7Xx'
-                                     + 'h+oVEJTQEGACBWJukhW6F/4M8j9caOl+li7dcO'
-                                     + 'yZBbdT2rBXlZ74YHEgEHAAA=');
+    var UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEy'
+                                     + 'AQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIG'
+                                     + 'qZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6h'
+                                     + 'UQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+'
+                                     + '00sztfGH6hUQlNAQYAIFYm6SFboX/gzyP1xo6X'
+                                     + '6WLt1w7JkFt1PasFeVnvhgcSAQcAAA==');
     var UPFLOW_MESSAGE_CONTENT = {
         source: '1',
         dest: '2',
@@ -80,18 +80,25 @@
         
         describe("encodeTLV()", function() {
             it('null equivalent', function() {
-                assert.strictEqual(ns.encodeTLV(0, ''), '\u0000\u0000\u0000\u0000');
+                var tests = ['', null, undefined];
+                for (var i = 0; i < tests.length; i++) {
+                    var result = ns.encodeTLV(0, tests[i]);
+                    assert.strictEqual(result, '\u0000\u0000\u0000\u0000');
+                }
+                assert.strictEqual(ns.encodeTLV(0), '\u0000\u0000\u0000\u0000');
             });
             
             it('some examples', function() {
                 var tests = [[0, 'hello'],
                              [42, "Don't panic!"],
                              [21356, _td.SESSION_ID],
-                             [14, null]];
+                             [14, null],
+                             [1, '\u0001']];
                 var expected = ['\u0000\u0000\u0000\u0005hello',
                                 "\u0000\u002a\u0000\u000cDon't panic!",
                                 'Sl\u0000\u0020' + _td.SESSION_ID,
-                                '\u0000\u000e\u0000\u0000'];
+                                '\u0000\u000e\u0000\u0000',
+                                '\u0000\u0001\u0000\u0001\u0001'];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.encodeTLV(tests[i][0], tests[i][1]);
                     assert.strictEqual(result, expected[i]);
@@ -164,7 +171,7 @@
             it('upflow message', function() {
                 sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
-                assert.lengthOf(result, 56);
+                assert.lengthOf(result, 60);
             });
             
             it('upflow message binary', function() {
@@ -204,7 +211,7 @@
             };
             sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
             var result = ns.encodeMessage(message);
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
+            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
         
         it('upflow message binary', function() {
@@ -305,7 +312,7 @@
     });
     
     describe("encryptDataMessage()/decryptDataMessage()", function() {
-        it('10 round trips', function() {
+        it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var key = djbec.bytes2string(mpenc.utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
@@ -378,7 +385,7 @@
     });
     
     describe("signDataMessage()/verifyDataMessage()", function() {
-        it('10 round trips', function() {
+        it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var privKey = djbec.bytes2string(mpenc.utils._newKey08(512));
                 var pubKey = djbec.bytes2string(djbec.publickey(privKey));

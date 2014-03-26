@@ -33,7 +33,7 @@
 var mpenc = {};
 
 /** Protocol version indicator. */
-mpenc.VERSION = 0x0001;
+mpenc.VERSION = String.fromCharCode(0x01);
 
 if(typeof module !== 'undefined' && module.exports){
   module.exports = mpenc;
