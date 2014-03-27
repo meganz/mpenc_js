@@ -38,25 +38,6 @@
         sandbox.restore();
     });
     
-    var UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEy'
-                                     + 'AQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIG'
-                                     + 'qZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6h'
-                                     + 'UQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+'
-                                     + '00sztfGH6hUQlNAQYAIFYm6SFboX/gzyP1xo6X'
-                                     + '6WLt1w7JkFt1PasFeVnvhgcSAQcAAA==');
-    var UPFLOW_MESSAGE_CONTENT = {
-        source: '1',
-        dest: '2',
-        agreement: 'initial',
-        flow: 'upflow',
-        members: ['1', '2', '3', '4', '5', '6'],
-        intKeys: [null, _td.C25519_PUB_KEY],
-        nonces: [_td.C25519_PUB_KEY],
-        pubKeys: [_td.ED25519_PUB_KEY],
-        sessionSignature: null,
-    };
-    var UPFLOW_MESSAGE_WIRE = '?mpENC:' + btoa(UPFLOW_MESSAGE_STRING) + '.';
-    
     describe("module level TLV stuff", function() {
         describe("_short2bin()", function() {
             it('just convert', function() {
@@ -167,31 +148,104 @@
             });
         });
         
+        describe("categoriseMessage()", function() {
+            it('normal categories', function() {
+                var tests = ['Klaatu barada nikto.',
+                             '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                             '?mpENC:Zm9v.',
+                             '?mpENC Error:foo.'];
+                var expected = [[ns.MESSAGE_CATEGORY.PLAIN, 'Klaatu barada nikto.'],
+                                [ns.MESSAGE_CATEGORY.MPENC_QUERY, mpenc.VERSION],
+                                [ns.MESSAGE_CATEGORY.MPENC_MESSAGE, 'foo'],
+                                [ns.MESSAGE_CATEGORY.MPENC_ERROR, 'foo.']];
+                for (var i = 0; i < tests.length; i++) {
+                    var result = ns.categoriseMessage(tests[i]);
+                    assert.strictEqual(result.category, expected[i][0]);
+                    assert.strictEqual(result.content, expected[i][1]);
+                }
+            });
+            
+            it('unknown message', function() {
+                assert.throws(function() { ns.categoriseMessage('?mpENC...blah.'); },
+                              'Unknown mpEnc message.');
+            });
+            
+            it('null message', function() {
+                var tests = [null, undefined, ''];
+                for (var i = 0; i < tests.length; i++) {
+                    assert.strictEqual(ns.categoriseMessage(tests[i]), null);
+                }
+            });
+        });
+        
         describe("encodeMessageContent()", function() {
             it('upflow message', function() {
                 sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
+                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
                 assert.lengthOf(result, 60);
             });
             
             it('upflow message binary', function() {
-                var result = ns.encodeMessageContent(UPFLOW_MESSAGE_CONTENT);
-                assert.strictEqual(result, UPFLOW_MESSAGE_STRING);
+                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
+                assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
+            });
+            
+            it('data message', function() {
+                var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
+                                                     _td.ED25519_PRIV_KEY,
+                                                     _td.ED25519_PUB_KEY);
+                // 4 TLVs with 113 bytes:
+                // signature (4 + 64), protocol v (4 + 1), IV (4 + 16), encr. message (4 + 16)
+                assert.lengthOf(result, 113);
             });
         });
         
         describe("decodeMessageContent()", function() {
             it('upflow message', function() {
-                var result = ns.decodeMessageContent(UPFLOW_MESSAGE_STRING);
-                assert.strictEqual(result.source, UPFLOW_MESSAGE_CONTENT.source);
-                assert.strictEqual(result.dest, UPFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.agreement, UPFLOW_MESSAGE_CONTENT.agreement);
-                assert.strictEqual(result.flow, UPFLOW_MESSAGE_CONTENT.flow);
-                assert.deepEqual(result.members, UPFLOW_MESSAGE_CONTENT.members);
-                assert.deepEqual(result.intKeys, UPFLOW_MESSAGE_CONTENT.intKeys);
-                assert.deepEqual(result.nonces, UPFLOW_MESSAGE_CONTENT.nonces);
-                assert.deepEqual(result.pubKeys, UPFLOW_MESSAGE_CONTENT.pubKeys);
-                assert.strictEqual(result.sessionSignature, UPFLOW_MESSAGE_CONTENT.sessionSignature);
+                var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING);
+                assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
+                assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
+                assert.strictEqual(result.agreement, _td.UPFLOW_MESSAGE_CONTENT.agreement);
+                assert.strictEqual(result.flow, _td.UPFLOW_MESSAGE_CONTENT.flow);
+                assert.deepEqual(result.members, _td.UPFLOW_MESSAGE_CONTENT.members);
+                assert.deepEqual(result.intKeys, _td.UPFLOW_MESSAGE_CONTENT.intKeys);
+                assert.deepEqual(result.nonces, _td.UPFLOW_MESSAGE_CONTENT.nonces);
+                assert.deepEqual(result.pubKeys, _td.UPFLOW_MESSAGE_CONTENT.pubKeys);
+                assert.strictEqual(result.sessionSignature, _td.UPFLOW_MESSAGE_CONTENT.sessionSignature);
+            });
+            
+            it('wrong protocol version', function() {
+                var message = _td.UPFLOW_MESSAGE_STRING.substring(0, 4)
+                            + String.fromCharCode(77)
+                            + _td.UPFLOW_MESSAGE_STRING.substring(5);
+                assert.throws(function() { ns.decodeMessageContent(message); },
+                              'Received wrong protocol version: 77');
+            });
+            
+            it('data message', function() {
+                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
+                                                     _td.GROUP_KEY,
+                                                     _td.ED25519_PUB_KEY);
+                assert.lengthOf(result.signature, 64);
+                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
+                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
+                assert.lengthOf(result.iv, 16);
+                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
+            });
+            
+            it('data message, invalid signature', function() {
+                // Change a single byte.
+                var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
+                            + String.fromCharCode(77)
+                            + _td.DATA_MESSAGE_STRING.substring(11);
+                var result = ns.decodeMessageContent(message,
+                                                     _td.GROUP_KEY,
+                                                     _td.ED25519_PUB_KEY);
+                assert.lengthOf(result.signature, 64);
+                assert.strictEqual(result.signatureOk, false);
+                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
+                assert.lengthOf(result.iv, 16);
+                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
             });
         });
     });
@@ -227,32 +281,12 @@
                 sessionSignature: null
             };
             var result = ns.encodeMessage(message);
-            assert.strictEqual(result, UPFLOW_MESSAGE_WIRE);
+            assert.strictEqual(result, _td.UPFLOW_MESSAGE_WIRE);
         });
         
         it('null message', function() {
             assert.strictEqual(ns.encodeMessage(null), null);
             assert.strictEqual(ns.encodeMessage(undefined), null);
-        });
-    });
-    
-    describe("decodeMessage()", function() {
-        it('upflow message', function() {
-            var result = ns.decodeMessage(UPFLOW_MESSAGE_WIRE);
-            assert.strictEqual(result.source, UPFLOW_MESSAGE_CONTENT.source);
-            assert.strictEqual(result.dest, UPFLOW_MESSAGE_CONTENT.dest);
-            assert.strictEqual(result.agreement, UPFLOW_MESSAGE_CONTENT.agreement);
-            assert.strictEqual(result.flow, UPFLOW_MESSAGE_CONTENT.flow);
-            assert.deepEqual(result.members, UPFLOW_MESSAGE_CONTENT.members);
-            assert.deepEqual(result.intKeys, UPFLOW_MESSAGE_CONTENT.intKeys);
-            assert.deepEqual(result.nonces, UPFLOW_MESSAGE_CONTENT.nonces);
-            assert.deepEqual(result.pubKeys, UPFLOW_MESSAGE_CONTENT.pubKeys);
-            assert.strictEqual(result.sessionSignature, UPFLOW_MESSAGE_CONTENT.sessionSignature);
-        });
-        
-        it('null message', function() {
-            assert.strictEqual(ns.decodeMessage(null), null);
-            assert.strictEqual(ns.decodeMessage(undefined), null);
         });
     });
     

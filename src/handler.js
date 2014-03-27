@@ -131,6 +131,15 @@
      * @property staticPubKeyDir
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
+     * @property protocolOutQueue
+     *     Queue for outgoing protocol related (non-user) messages, prioritised
+     *     in processing over user messages. 
+     * @property messageOutQueue
+     *     Queue for outgoing user content messages. 
+     * @property uiQueue
+     *     Queue for messages to display in the UI. Contains objects with
+     *     attributes `type` (can be strings 'message', 'info', 'warn' and
+     *     'error') and `message`. 
      * @property askeMember
      *     A {SignatureKeyExchangeMember} object with the same participant ID.
      * @property cliquesMember
@@ -141,6 +150,9 @@
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
+        this.protocolOutQueue = [];
+        this.messageOutQueue = [];
+        this.uiQueue = [];
         
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
@@ -162,7 +174,8 @@
      * @method
      * @param otherMembers
      *     Iterable of other members for the group (excluding self).
-     * @returns {ProtocolMessage}
+     * @returns
+     *     Wire encoded {ProtocolMessage} content.
      */
     mpenc.handler.ProtocolHandler.prototype.start = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
@@ -180,7 +193,8 @@
      * @method
      * @param newMembers
      *     Iterable of new members to join the group.
-     * @returns {ProtocolMessage}
+     * @returns
+     *     Wire encoded {ProtocolMessage} content.
      */
     mpenc.handler.ProtocolHandler.prototype.join = function(newMembers) {
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
@@ -198,7 +212,8 @@
      * @method
      * @param excludeMembers
      *     Iterable of members to exclude from the group.
-     * @returns {ProtocolMessage}
+     * @returns 
+     *     Wire encoded {ProtocolMessage} content.
      */
     mpenc.handler.ProtocolHandler.prototype.exclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
@@ -215,7 +230,8 @@
     /**
      * Refresh group key.
      * 
-     * @returns {ProtocolMessage}
+     * @returns
+     *     Wire encoded {ProtocolMessage} content.
      * @method
      */
     mpenc.handler.ProtocolHandler.prototype.refresh = function() {
@@ -226,15 +242,87 @@
     
     
     /**
-     * Handles protocol execution with all participants.
+     * Handles mpEnc protocol message processing.
+     * 
+     * @method
+     * @param wireMessage
+     *     Received message (wire encoded). See {@link ProtocolMessage}.
+     */
+    mpenc.handler.ProtocolHandler.prototype.processMessage = function(wireMessage) {
+        // FIXME: Rework in a way to fit the Karere filter model, as e. g. in
+        // https://code.developers.mega.co.nz/messenger/karere/blob/feature-karere/js/chat/capslockFilterDemo.js#L32
+        // https://code.developers.mega.co.nz/messenger/karere/blob/feature-karere/js/chat/emoticonsFilter.js#L45
+        // * Use message meta-data (eventData.from) to identify sender.
+        // * Access content from eventData.messageHtml and/or eventData.message
+        var classify = mpenc.codec.categoriseMessage(wireMessage);
+        
+        if (!classify) {
+            return;
+        }
+        
+        switch (classify.category) {
+            case mpenc.codec.MESSAGE_CATEGORY.MPENC_ERROR:
+                this.uiQueue.push({
+                        type: 'error',
+                        message: 'Error in mpEnc protocol: ' + classify.content
+                    });
+                break;
+            case mpenc.codec.MESSAGE_CATEGORY.PLAIN:
+                this.protocolOutQueue.push(mpenc.codec.getQueryMessage(
+                    "We're not dealing with plaintext messages. Let's negotiate mpENC communication."));
+                this.uiQueue.push({
+                        type: 'info',
+                        message: 'Received unencrypted message, requesting encryption.'
+                    });
+                break;
+            case mpenc.codec.MESSAGE_CATEGORY.MPENC_QUERY:
+                // TODO: Start process:
+                // * Find sender (use eventData.from)
+                // * call this.start(otherMembers);
+                // * enqueue message returned from start()
+                dump('*** Starting mpEnc keying with other members. ***');
+                break;
+            case mpenc.codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
+                var decodedMessage = mpenc.codec.decodeMessageContent(classify.content);
+                if (decodedMessage.data !== undefined) {
+                    // This is a normal communication message.
+                    if (decodedMessage.signatureOk === false) {
+                        // Signature failed, abort!
+                        this.uiQueue.push({
+                            type: 'error',
+                            message: 'Signature of received message invalid.'
+                        });
+                    } else {
+                        this.uiQueue.push({
+                            type: 'message',
+                            message: decodedMessage.data
+                        });
+                    }
+                } else {
+                    // This is a keying message.
+                    var outMessage = this.processKeyingMessage(decodedMessage);
+                    if (outMessage) {
+                        this.protocolOutQueue.push(mpenc.codec.encodeMessage(outMessage));
+                    }
+                }
+                break;
+            default:
+                _assert(false, 'Received unknown message category: ' + classify.category);
+                break;
+        }
+    };
+    
+    
+    /**
+     * Handles keying protocol execution with all participants.
      * 
      * @method
      * @param message
-     *     Received message. See {@link ProtocolMessage}.
+     *     Received message (decoded). See {@link ProtocolMessage}.
      * @returns {ProtocolMessage}
+     *     Un-encoded message content.
      */
-    mpenc.handler.ProtocolHandler.prototype.processMessage = function(message) {
-        message = mpenc.codec.decodeMessage(message);
+    mpenc.handler.ProtocolHandler.prototype.processKeyingMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(mpenc.utils.clone(message));
         var inAskeMessage = this._getAskeMessage(mpenc.utils.clone(message));
         var outCliquesMessage = null;
@@ -254,7 +342,7 @@
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
             outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);;
         }
-        return mpenc.codec.encodeMessage(outMessage);
+        return outMessage;
     };
     
     
@@ -267,7 +355,7 @@
      * @param askeMessage
      *     Message from ASKE protocol workflow.
      * @returns {ProtocolMessage}
-     *     Joined message.
+     *     Joined message (not wire encoded).
      */
     mpenc.handler.ProtocolHandler.prototype._mergeMessages = function(cliquesMessage,
                                                                       askeMessage) {

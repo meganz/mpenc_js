@@ -29,6 +29,7 @@ var _td = {};
 //Uint8Array = Array;
 
 /* Constants mainly for the mpenc.cliques. */
+
 _td.C25519_PRIV_KEY = 'bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=';
 _td.C25519_PRIV_KEY = atob(_td.C25519_PRIV_KEY);
 _td.C25519_PUB_KEY  = 'apmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqFRCU0=';
@@ -37,6 +38,7 @@ _td.COMP_KEY = 'YGhamvNw4vYjmU3aPhEwnPNWmfhSJP0D2XbU50YADws=';
 _td.COMP_KEY = atob(_td.COMP_KEY);
 
 /* Constants mainly for the mpenc.ske. */
+
 // eabuse@nexgo.de
 _td.RSA_PRIV_KEY = [[75021949, 120245708, 82706226, 16596609, 37674797,
                      261009791, 126581637, 200709099, 258471049, 113825880,
@@ -140,4 +142,39 @@ _td.SESSION_ID = atob(_td.SESSION_ID);
 
 _td.STATIC_PUB_KEY_DIR = {
     'get': function(key) { return _td.RSA_PUB_KEY; }
+};
+
+/* Constants mainly for the mpenc.codec and mpenc.handler. */
+
+_td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
+_td.UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEy'
+                                 + 'AQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIG'
+                                 + 'qZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6h'
+                                 + 'UQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+'
+                                 + '00sztfGH6hUQlNAQYAIFYm6SFboX/gzyP1xo6X'
+                                 + '6WLt1w7JkFt1PasFeVnvhgcSAQcAAA==');
+_td.UPFLOW_MESSAGE_CONTENT = {
+    source: '1',
+    dest: '2',
+    agreement: 'initial',
+    flow: 'upflow',
+    members: ['1', '2', '3', '4', '5', '6'],
+    intKeys: [null, _td.C25519_PUB_KEY],
+    nonces: [_td.C25519_PUB_KEY],
+    pubKeys: [_td.ED25519_PUB_KEY],
+    sessionSignature: null,
+};
+_td.UPFLOW_MESSAGE_WIRE = '?mpENC:' + btoa(_td.UPFLOW_MESSAGE_STRING) + '.';
+
+_td.DATA_MESSAGE_STRING = atob('AAMAQBgeUZZlXeV7seFV0nrJ7y6xsp0XXVg/4DyIYn'
+                               + 'p7h38Zpzzq6PMvNV/qXOl90U4/an2qu1sA2ZIR9Q'
+                               + 'vAuwbjpggAAQABAQAEABCp6DcgfRj0yUpCHA7Nrr'
+                               + 'Y8AAIAEJzvDvtbuEHIcICY5n3QEqI=');
+_td.DATA_MESSAGE_WIRE = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
+_td.DATA_MESSAGE_CONTENT = {
+    signature: 'xxx',
+    signatureOk: true,
+    protocol: mpenc.VERSION,
+    iv: 'xxx',
+    data: 'foo',
 };

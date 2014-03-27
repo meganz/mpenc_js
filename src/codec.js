@@ -43,6 +43,20 @@
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
+    
+    
+    /**
+     * "Enumeration" protocol message category types.
+     * 
+     * @property DATA
+     *     Used to transmit a private message.
+     */
+    mpenc.codec.MESSAGE_CATEGORY = {
+        PLAIN:             0x00,
+        MPENC_QUERY:       0x01,
+        MPENC_MESSAGE:     0x02,
+        MPENC_ERROR:       0x03,
+    };
 
     
     /**
@@ -74,7 +88,7 @@
      * @property SESSION_SIGNATURE
      *     Session acknowledgement signature using sender's static key.
      */
-    mpenc.codec.TLV_TYPES = {
+    mpenc.codec.TLV_TYPE = {
         PADDING:           0x0000,
         PROTOCOL_VERSION:  0x0001,
         DATA_MESSAGE:      0x0002,
@@ -99,7 +113,7 @@
      * @property DATA
      *     Used to transmit a private message.
      */
-    mpenc.codec.MESSAGE_TYPES = {
+    mpenc.codec.MESSAGE_TYPE = {
         DATA:              0x03,
         KEY_AGREEMENT:     0x0a,
         REVEAL_SIGNATURE:  0x11,
@@ -118,6 +132,7 @@
      *     left over bytes from the input are returned in `rest`.
      */
     mpenc.codec.decodeTLV = function(tlv) {
+        var type = mpenc.codec._bin2short(tlv.substring(0, 2));
         var length = mpenc.codec._bin2short(tlv.substring(2, 4));
         var value = tlv.substring(4, 4 + length);
         _assert(length === value.length,
@@ -126,7 +141,7 @@
             value = null;
         }
         return {
-            type: mpenc.codec._bin2short(tlv.substring(0, 2)),
+            type: type,
             value: value,
             rest: tlv.substring(length + 4)
         };
@@ -138,24 +153,37 @@
      * 
      * @param message
      *     A binary message representation.
+     * @param groupKey
+     *     Symmetric group encryption key to encrypt message.
+     * @param pubKey
+     *     Sender's (ephemeral) public signing key.
      * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      */
-    mpenc.codec.decodeMessageContent = function(message) {
-        var out = new mpenc.handler.ProtocolMessage();
+    mpenc.codec.decodeMessageContent = function(message, groupKey, pubKey) {
+        if (!message) {
+            return null;
+        }
+        
+        var out = null;
         var protocol = null;
         
         // members, intKeys, nonces, pubKeys, sessionSignature
         while (message.length > 0) {
             var tlv = mpenc.codec.decodeTLV(message);
             switch (tlv.type) {
-                case mpenc.codec.TLV_TYPES.PROTOCOL_VERSION:
+                case mpenc.codec.TLV_TYPE.PROTOCOL_VERSION:
+                    // This is the first TLV in a protocol message.
+                    // Let's make a new message object if we don't have one, yet.
+                    if (!out) {
+                        out = new mpenc.handler.ProtocolMessage();
+                    }
                     protocol = tlv.value;
                     break;
-                case mpenc.codec.TLV_TYPES.SOURCE:
+                case mpenc.codec.TLV_TYPE.SOURCE:
                     out.source = tlv.value;
                     break;
-                case mpenc.codec.TLV_TYPES.DEST:
+                case mpenc.codec.TLV_TYPE.DEST:
                     out.dest = tlv.value;
                     if ((out.dest === '') || (out.dest === null)) {
                         out.flow = 'downflow';
@@ -163,77 +191,122 @@
                         out.flow = 'upflow';
                     }
                     break;
-                case mpenc.codec.TLV_TYPES.AUX_AGREEMENT:
+                case mpenc.codec.TLV_TYPE.AUX_AGREEMENT:
                     if (tlv.value === _ZERO_BYTE) {
                         out.agreement = 'initial';
                     } else if (tlv.value === _ONE_BYTE) {
                         out.agreement = 'auxilliary';
                     } else {
-                        _assert(false, 'Unexpected value for agreement TLV: ' + tlv.value + '.');
+                        _assert(false,
+                                'Unexpected value for agreement TLV: '
+                                + tlv.value.charCodeAt(0) + '.');
                     }
                     break;
-                case mpenc.codec.TLV_TYPES.MEMBER:
+                case mpenc.codec.TLV_TYPE.MEMBER:
                     out.members.push(tlv.value);
                     break;
-                case mpenc.codec.TLV_TYPES.INT_KEY:
+                case mpenc.codec.TLV_TYPE.INT_KEY:
                     out.intKeys.push(tlv.value);
                     break;
-                case mpenc.codec.TLV_TYPES.NONCE:
+                case mpenc.codec.TLV_TYPE.NONCE:
                     out.nonces.push(tlv.value);
                     break;
-                case mpenc.codec.TLV_TYPES.PUB_KEY:
+                case mpenc.codec.TLV_TYPE.PUB_KEY:
                     out.pubKeys.push(tlv.value);
                     break;
-                case mpenc.codec.TLV_TYPES.SESSION_SIGNATURE:
+                case mpenc.codec.TLV_TYPE.SESSION_SIGNATURE:
                     out.sessionSignature = tlv.value;
+                    break;
+                case mpenc.codec.TLV_TYPE.MESSAGE_SIGNATURE:
+                    // This is the first TLV in a data message.
+                    // Let's make a new message object if we don't have one, yet.
+                    if (!out) {
+                        out = {};
+                    }
+                    out.signature = tlv.value;
+                    out.signatureOk = mpenc.codec.verifyDataMessage(tlv.rest,
+                                                                    out.signature,
+                                                                    pubKey);
+                    break;
+                case mpenc.codec.TLV_TYPE.MESSAGE_IV:
+                    out.iv = tlv.value;
+                    break;
+                case mpenc.codec.TLV_TYPE.DATA_MESSAGE:
+                    out.data = tlv.value;
                     break;
                 default:
                     _assert(false, 'Received unknown TLV type: ' + tlv.type);
                     break;
             }
             
-            // Some sanity checks.
+            message = tlv.rest;
+        }
+        // Some specifics depending on the type of mpENC message.
+
+        if (out.data === undefined) {
+            // Some sanity checks for keying messages.
             _assert(out.intKeys.length <= out.members.length,
                     'Number of intermediate keys cannot exceed number of members.');
             _assert(out.nonces.length <= out.members.length,
                     'Number of nonces cannot exceed number of members.');
             _assert(out.pubKeys.length <= out.members.length,
                     'Number of public keys cannot exceed number of members.');
-    
-            message = tlv.rest;
+        } else {
+            // Some further crypto processing on data messages.
+            out.protocol = protocol;
+            out.data = mpenc.codec.decryptDataMessage(out.data, groupKey, out.iv);
         }
         _assert(protocol === mpenc.VERSION,
-                'Received wrong protocol version.');
+                'Received wrong protocol version: ' + protocol.charCodeAt(0) + '.');
         
         return out;
     };
 
     
     /**
-     * Decodes a given wire protocol message content into an object.
+     * Detects the category of a given message.
      * 
      * @param message
      *     A wire protocol message representation.
-     * @returns {mpenc.handler.ProtocolMessage}
-     *     Message as JavaScript object.
+     * @returns {mpenc.codec.MESSAGE_CATEGORY}
+     *     Message category indicator.
      */
-    mpenc.codec.decodeMessage = function(message) {
-        if (message === null || message === undefined) {
+    mpenc.codec.categoriseMessage = function(message) {
+        if (!message) {
             return null;
         }
-        _assert(message.substring(0, _PROTOCOL_PREFIX.length) === _PROTOCOL_PREFIX,
-                'Not an understood protocol/version.');
-        message = message.substring(_PROTOCOL_PREFIX.length);
-        _assert(message[0] === ':',
-                'Incomprehensible protocol indication.');
-        _assert(message[message.length - 1] === '.',
-                'Invalid protocol message format.');
-        var payload = atob(message.substring(1, message.length - 1));
         
-        return mpenc.codec.decodeMessageContent(payload);
+        // Check for plain text or "other".
+        if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
+            return { category: mpenc.codec.MESSAGE_CATEGORY.PLAIN,
+                     content: message };
+        }
+        message = message.substring(_PROTOCOL_PREFIX.length);
+        
+        // Check for error.
+        var _ERROR_PREFIX = ' Error:';
+        if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
+            return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                     content: message.substring(_PROTOCOL_PREFIX.length + 1) };
+        }
+        
+        // Check for message.
+        if ((message[0] === ':') && (message[message.length - 1] === '.')) {
+            return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_MESSAGE,
+                     content: atob(message.substring(1, message.length - 1)) };
+        }
+        
+        // Check for query.
+        var version = /v(\d+)\?/.exec(message);
+        if (version && (version[1] === '' + mpenc.VERSION.charCodeAt(0))) {
+            return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_QUERY,
+                     content: String.fromCharCode(version[1]) };
+        }
+        
+        _assert(false, 'Unknown mpEnc message.');
     };
 
-    
+
     /**
      * Encodes a given value to a binary TLV string of a given type.
      * 
@@ -288,26 +361,49 @@
      * 
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
+     * @param groupKey
+     *     Symmetric group encryption key to encrypt message.
+     * @param privKey
+     *     Sender's (ephemeral) private signing key.
+     * @param pubKey
+     *     Sender's (ephemeral) public signing key.
      * @returns
      *     A binary message representation.
      */
-    mpenc.codec.encodeMessageContent = function(message) {
-        // Process message attributes in this order:
-        // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
-        
-        var out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.PROTOCOL_VERSION, mpenc.VERSION);
-        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SOURCE, message.source);
-        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.DEST, message.dest);
-        if (message.agreement === 'initial') {
-            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.AUX_AGREEMENT, _ZERO_BYTE);
+    mpenc.codec.encodeMessageContent = function(message, groupKey, privKey, pubKey) {
+        var out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.PROTOCOL_VERSION, mpenc.VERSION);
+        if (typeof(message) === 'string' || message instanceof String) {
+            // We're dealing with a message containing user content.
+            var encrypted = mpenc.codec.encryptDataMessage(message, groupKey);
+            
+            // We want message attributes in this order:
+            // signature, protocol version, iv, message data
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.MESSAGE_IV,
+                                         encrypted.iv);
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.DATA_MESSAGE,
+                                         encrypted.data);
+            // Sign `out` and prepend signature.
+            var signature = mpenc.codec.signDataMessage(out, privKey, pubKey);
+            out = mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.MESSAGE_SIGNATURE,
+                                        signature)
+                + out;
         } else {
-            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.AUX_AGREEMENT, _ONE_BYTE);
+            // Process message attributes in this order:
+            // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
+            
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.SOURCE, message.source);
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.DEST, message.dest);
+            if (message.agreement === 'initial') {
+                out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.AUX_AGREEMENT, _ZERO_BYTE);
+            } else {
+                out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.AUX_AGREEMENT, _ONE_BYTE);
+            }
+            out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPE.MEMBER, message.members);
+            out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPE.INT_KEY, message.intKeys);
+            out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPE.NONCE, message.nonces);
+            out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPE.PUB_KEY, message.pubKeys);
+            out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
         }
-        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.MEMBER, message.members);
-        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.INT_KEY, message.intKeys);
-        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.NONCE, message.nonces);
-        out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPES.PUB_KEY, message.pubKeys);
-        out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPES.SESSION_SIGNATURE, message.sessionSignature);
         
         return out;
     };
@@ -319,10 +415,16 @@
      * 
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
+     * @param groupKey
+     *     Symmetric group encryption key to encrypt message.
+     * @param privKey
+     *     Sender's (ephemeral) private signing key.
+     * @param pubKey
+     *     Sender's (ephemeral) public signing key.
      * @returns
      *     A wire ready message representation.
      */
-    mpenc.codec.encodeMessage = function(message) {
+    mpenc.codec.encodeMessage = function(message, groupKey, privKey, pubKey) {
         if (message === null || message === undefined) {
             return null;
         }
@@ -340,7 +442,7 @@
      *     A two character binary string.
      */
     mpenc.codec._short2bin = function(value) {
-        return String.fromCharCode(value >> 8) + String.fromCharCode(value % 256);
+        return String.fromCharCode(value >> 8) + String.fromCharCode(value & 0xff);
     };
     
     
@@ -375,10 +477,9 @@
         if (data === null || data === undefined) {
             return null;
         }
-        var clearBytes = new Uint8Array(djbec.string2bytes(data));
         var keyBytes = new Uint8Array(djbec.string2bytes(key));
         var ivBytes = new Uint8Array(mpenc.utils._newKey08(128));
-        var cipherBytes = asmCrypto.AES_CBC.encrypt(clearBytes, keyBytes, true, ivBytes);
+        var cipherBytes = asmCrypto.AES_CBC.encrypt(data, keyBytes, true, ivBytes);
         return { data: djbec.bytes2string(cipherBytes),
                  iv: djbec.bytes2string(ivBytes) };
     };
@@ -402,10 +503,9 @@
         if (data === null || data === undefined) {
             return null;
         }
-        var cipherBytes = new Uint8Array(djbec.string2bytes(data));
         var keyBytes = new Uint8Array(djbec.string2bytes(key));
         var ivBytes = new Uint8Array(djbec.string2bytes(iv));
-        var clearBytes = asmCrypto.AES_CBC.decrypt(cipherBytes, keyBytes, true, ivBytes);
+        var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
         return djbec.bytes2string(clearBytes);
     };
 
@@ -461,8 +561,20 @@
         return signatureBytes = djbec.checksig(signatureBytes, data, pubKeyBytes);
     };
     
+    
+    /**
+     * Returns an mpENC protocol query message ready to be put onto the wire,
+     * including.the given message.
+     * 
+     * @param text {string}
+     *     Text message to accompany the mpENC protocol query message.
+     * @returns
+     *     A wire ready message representation.
+     */
+    mpenc.codec.getQueryMessage = function(text) {
+        return _PROTOCOL_PREFIX + 'v' + mpenc.VERSION.charCodeAt(0) + '?' + text;
+    };
     // TODO: message wrapping like OTR:
-    // * message message: "?mpENC:{content}."
     // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
     
 })();
