@@ -7,7 +7,7 @@ define([], function() {
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/util/assert
      * Assertion helper module.
      *
      * @description

@@ -1,14 +1,14 @@
 KARMA=./node_modules/.bin/karma
-JSDOC=jsdoc
+JSDOC=./node_modules/.bin/jsdoc
 
 
 test:
 	@$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
 
 api-doc:
-	$(JSDOC) --directory=doc/api/ --allfunctions -D="title:mpEnc Library" \
-		--template=doc/template \
-		-D="noGlobal:true" -D="index:files" \
-		src/
+	$(JSDOC) --destination doc/api/ -r src
+
+clean:
+	rm -rf doc/api/
 
 .PHONY: test

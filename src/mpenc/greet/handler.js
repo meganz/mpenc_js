@@ -14,7 +14,7 @@ define([
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/greet/handler
      * Implementation of a protocol handler with its state machine.
      *
      * @description

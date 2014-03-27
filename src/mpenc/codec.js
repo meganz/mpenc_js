@@ -14,7 +14,7 @@ define([
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/codec
      * Implementation of a protocol encoder/decoder.
      *
      * @description

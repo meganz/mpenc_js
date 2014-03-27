@@ -12,7 +12,7 @@ define([
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/greet/cliques
      * Implementation of group key agreement based on ns.
      *
      * @description

@@ -20,20 +20,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-"use strict";
-
-/**
- * @namespace
- * The multi-party encrypted chat protocol, top-level namespace.
- *
- * @description
- * This is eventually to be extended towards the mpOTR standard, currently
- * under development.
- */
 define([
     "exports",
 ], function(exports) {
+    "use strict";
 
+    /**
+     * @exports mpenc
+     * The multi-party encrypted chat protocol, top-level namespace.
+     *
+     * @description
+     * This is eventually to be extended towards the mpOTR standard, currently
+     * under development.
+     */
     var mpenc = {};
 
     /** Protocol version indicator. */

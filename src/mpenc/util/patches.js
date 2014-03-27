@@ -10,7 +10,7 @@ define([
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/util/patches
      * Some patches/enhancements to third party library modules.
      *
      * @description

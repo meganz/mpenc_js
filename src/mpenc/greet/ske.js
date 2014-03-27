@@ -11,7 +11,7 @@ define([
     "use strict";
 
     /**
-     * @namespace
+     * @exports mpenc/greet/ske
      * Implementation of an authenticated Signature Key Exchange scheme.
      *
      * @description
