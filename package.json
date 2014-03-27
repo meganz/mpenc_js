@@ -37,7 +37,7 @@
     "mocha": "~1.17.1",
     "karma-mocha": "~0.1.1",
     "karma-chai": "0.0.2",
-    "karma-chai-plugins": "0.2.0", // for requirejs support
+    "karma-chai-plugins": "0.2.0",
     "karma-sinon": "~1.0.0",
     "karma-coverage": "~0.1.5",
     "istanbul": "~0.2.4",
