@@ -7,7 +7,7 @@ test:
 
 api-doc:
 	$(JSDOC) --directory=doc/api/ --allfunctions -D="title:mpEnc Library" \
-		--template=/usr/local/share/jsdoc-toolkit/templates/codeview/ \
+		--template=doc/template \
 		-D="noGlobal:true" -D="index:files" \
 		src/
 
