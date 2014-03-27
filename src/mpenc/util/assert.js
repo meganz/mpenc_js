@@ -9,12 +9,12 @@
     /**
      * @namespace
      * Assertion helper module.
-     * 
+     *
      * @description
      * <p>Assertion helper module.</p>
-     * 
+     *
      * <p>Example usage:</p>
-     * 
+     *
      * <pre>
      * function lastElement(array) {
      *     _assert(array.length > 0, "empty array in lastElement");
@@ -23,7 +23,7 @@
      * </pre>
      */
     mpenc.assert = {};
-    
+
     /**
      * Assertion exception.
      * @param message
@@ -35,13 +35,13 @@
     };
     mpenc.assert.AssertionFailed.prototype = Object.create(Error.prototype);
     mpenc.assert.AssertionFailed.prototype.name = 'AssertionFailed';
-    
-    
+
+
     /**
      * Assert a given test condition.
-     * 
+     *
      * Throws an `AssertionFailed` exception with the given `message` on failure.
-     * 
+     *
      * @param test
      *     Test statement.
      * @param message

@@ -9,12 +9,12 @@
     /**
      * @namespace
      * Some utilities.
-     * 
+     *
      * @description
      * Some utilities.
      */
     mpenc.utils = {};
-    
+
     /*
      * Created: 7 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
      *
@@ -27,17 +27,17 @@
      * it under the terms of the GNU Affero General Public License version 3
      * as published by the Free Software Foundation. See the accompanying
      * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     * 
+     *
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-    
+
     mpenc.utils._HEX_CHARS = '0123456789abcdef';
-    
+
     /**
      * Generates a new random key as an array of 32 bit words.
-     * 
+     *
      * @param bits
      *     Number of bits of key strength (must be a multiple of 32).
      * @returns
@@ -50,12 +50,12 @@
         var paranoia = [0,48,64,96,128,192,256,384,512,768,1024].indexOf(bits);
         return sjcl.random.randomWords(Math.floor(bits / 32), paranoia);
     };
-    
-    
+
+
     /**
      * Generates a new random key, and converts it into a format that
      * the Curve25519 implementation understands.
-     * 
+     *
      * @param bits
      *     Number of bits of key strength (must be a multiple of 32).
      * @returns
@@ -65,12 +65,12 @@
     mpenc.utils._newKey16 = function(bits) {
         return mpenc.utils._key32to16(mpenc.utils._newKey32(bits));
     };
-    
-    
+
+
     /**
      * Generates a new random key, and converts it into a format that
      * the Ed25519 implementation understands.
-     * 
+     *
      * @param bits
      *     Number of bits of key strength (must be a multiple of 32).
      * @returns
@@ -80,11 +80,11 @@
     mpenc.utils._newKey08 = function(bits) {
         return mpenc.utils._key32to08(mpenc.utils._newKey32(bits));
     };
-    
-    
+
+
     /**
      * Converts a key representation to an array with 8 bit chunks.
-     * 
+     *
      * @param key
      *     The key as a 32 bit word array.
      * @returns
@@ -102,11 +102,11 @@
         }
         return keyOut;
     };
-    
-    
+
+
     /**
      * Converts a key representation to an array with 16 bit chunks.
-     * 
+     *
      * @param key
      *     The key as a 32 bit word array.
      * @returns
@@ -124,11 +124,11 @@
         }
         return keyOut;
     };
-    
-    
+
+
     /**
      * Converts an 8-bit element (unsigned) array a hex string representation.
-     * 
+     *
      * @param key
      *     The key as an 8 bit (unsigned) integer array.
      * @returns
@@ -146,11 +146,11 @@
         }
         return out;
     };
-    
-    
+
+
     /**
      * Clears the memory of a secret key array.
-     * 
+     *
      * @param key
      *     The key to clear.
      * @private
@@ -160,11 +160,11 @@
             key[i] = 0;
         }
     };
-    
-    
+
+
     /**
      * Dumb array maker/initialiser helper.
-     * 
+     *
      * @param size
      *     Size of new array.
      * @param template
@@ -180,14 +180,14 @@
         }
         return arr;
     };
-    
-    
+
+
     /**
      * Checks for unique occurrence of all elements within the array.
-     * 
+     *
      * Note: Array members must be directly comparable for equality
      * (g. g. numbers or strings).
-     * 
+     *
      * @param theArray
      *     Array under scrutiny.
      * @returns
@@ -209,14 +209,14 @@
         }
         return true;
     };
-    
-    
+
+
     /**
      * Checks whether one array's elements are a subset of another.
-     * 
+     *
      * Note: Array members must be directly comparable for equality
      * (g. g. numbers or strings).
-     * 
+     *
      * @param subset
      *     Array to be checked for being a subset.
      * @param superset
@@ -245,12 +245,12 @@
         }
         return true;
     };
-    
-    
+
+
     /**
      * Determines whether the list contains duplicates while excluding removed
      * elements (null).
-     * 
+     *
      * @param aList
      *     The list to check for duplicates.
      * @returns
@@ -266,13 +266,13 @@
         }
         return mpenc.utils._arrayIsSet(listCheck);
     };
-    
-    
+
+
     /**
      * Converts a hex string to a a byte array (array of Uint8, retains endianness).
-     * 
+     *
      * Note: No sanity or error checks are performed.
-     * 
+     *
      * @param hexstring
      *     Hexadecimal string.
      * @returns
@@ -287,13 +287,13 @@
         }
         return result;
     };
-    
-    
+
+
     /**
      * Converts a byte array to a hex string (array of Uint8, retains endianness).
-     * 
+     *
      * Note: No sanity or error checks are performed.
-     * 
+     *
      * @param arr
      *     Array of byte values (unsigned integers).
      * @returns
@@ -307,11 +307,11 @@
         }
         return result;
     };
-    
+
 
     /**
      * Returns a binary string representation of the SHA-256 hash function.
-     * 
+     *
      * @param data
      *     Data to hash.
      * @returns
@@ -320,15 +320,15 @@
     mpenc.utils.sha256 = function(data) {
         return djbec.bytes2string(asmCrypto.SHA256.bytes(data));
     };
-    
-    
+
+
     /**
      * (Deep) clones a JavaScript object.
-     * 
+     *
      * Note: May not work with some objects.
-     * 
+     *
      * See: http://stackoverflow.com/questions/728360/most-elegant-way-to-clone-a-javascript-object
-     * 
+     *
      * @param obj
      *     The object to be cloned.
      * @returns
@@ -337,14 +337,14 @@
     mpenc.utils.clone = function(obj) {
         // Handle the 3 simple types, and null or undefined.
         if (null == obj || "object" != typeof obj) return obj;
-    
+
         // Handle date.
         if (obj instanceof Date) {
             var copy = new Date();
             copy.setTime(obj.getTime());
             return copy;
         }
-    
+
         // Handle array.
         if (obj instanceof Array) {
             var copy = [];
@@ -353,7 +353,7 @@
             }
             return copy;
         }
-    
+
         // Handle object.
         if (obj instanceof Object) {
             var copy = {};
@@ -364,16 +364,16 @@
             }
             return copy;
         }
-    
+
         throw new Error("Unable to copy obj! Its type isn't supported.");
-    };    
-    
-    
+    };
+
+
     /**
      * (Deep) compares two JavaScript arrays.
-     * 
+     *
      * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
-     * 
+     *
      * @param arr1
      *     The first array to be compared against the second.
      * @param arr2
@@ -386,7 +386,7 @@
         if (!arr2) {
             return false;
         }
-        
+
         // Compare lengths - can save a lot of time.
         if (arr1.length !== arr2.length) {
             return false;
@@ -406,15 +406,15 @@
         }
         return true;
     };
-    
-    
+
+
     /**
      * (Deep) compares two JavaScript objects.
-     * 
+     *
      * Note: May not work with some objects.
-     * 
+     *
      * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
-     * 
+     *
      * @param obj1
      *     The first object to be compared against the second.
      * @param obj1
@@ -446,7 +446,7 @@
             } else if (typeof obj1[propName] !== typeof obj2[propName]) {
                 return false;
             }
-            
+
             // If the property is inherited, do not check any more (it must be equal if both objects inherit it).
             if(!obj1.hasOwnProperty(propName)) {
                 continue;

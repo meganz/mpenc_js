@@ -1,4 +1,4 @@
-/**
+ /**
  * @fileOverview
  * Implementation of a protocol encoder/decoder.
  */
@@ -9,23 +9,23 @@
     /**
      * @namespace
      * Implementation of a protocol encoder/decoder.
-     * 
+     *
      * @description
      * <p>Implementation of a protocol encoder/decoder.</p>
-     * 
+     *
      * <p>
      * The implementation is finally aiming to mock the binary encoding scheme
      * as used by OTR. But initially it will use a somewhat JSON-like
      * intermediate.</p>
      */
     mpenc.codec = {};
-    
+
     var _assert = mpenc.assert.assert;
     var _ZERO_BYTE = '\u0000';
     var _ONE_BYTE = '\u0001';
     var _PROTOCOL_INDICATOR = 'mpENC';
     var _PROTOCOL_PREFIX = '?' + _PROTOCOL_INDICATOR;
-    
+
     /*
      * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
      *
@@ -38,16 +38,16 @@
      * it under the terms of the GNU Affero General Public License version 3
      * as published by the Free Software Foundation. See the accompanying
      * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     * 
+     *
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-    
-    
+
+
     /**
      * "Enumeration" protocol message category types.
-     * 
+     *
      * @property DATA
      *     Used to transmit a private message.
      */
@@ -58,10 +58,10 @@
         MPENC_ERROR:       0x03,
     };
 
-    
+
     /**
      * "Enumeration" for TLV types.
-     * 
+     *
      * @property PADDING
      *     Can be used for arbitrary length of padding byte sequences.
      * @property PROTOCOL_VERSION
@@ -77,13 +77,13 @@
      * @property MEMBER
      *     A participating member ID.
      * @property INT_KEY
-     *     An intermediate key for the group key agreement (max occurrence is 
+     *     An intermediate key for the group key agreement (max occurrence is
      *     the number of members present).
      * @property NONCE
-     *     A nonce of a member for ASKE (max occurrence is the number of 
+     *     A nonce of a member for ASKE (max occurrence is the number of
      *     members present).
      * @property PUB_KEY
-     *     Ephemeral public signing key of a member (max occurrence is the 
+     *     Ephemeral public signing key of a member (max occurrence is the
      *     number of members present).
      * @property SESSION_SIGNATURE
      *     Session acknowledgement signature using sender's static key.
@@ -103,13 +103,13 @@
         PUB_KEY:           0x0106, // 262
         SESSION_SIGNATURE: 0x0107, // 263
     };
-    
-    
+
+
     /**
      * "Enumeration" message types.
-     * 
+     *
      * FIXME: This needs some serious work.
-     * 
+     *
      * @property DATA
      *     Used to transmit a private message.
      */
@@ -119,11 +119,11 @@
         REVEAL_SIGNATURE:  0x11,
         SIGNATURE:         0x12,
     };
-    
-    
+
+
     /**
      * Decodes a given binary TVL string to a type and value.
-     * 
+     *
      * @param tlv
      *     A binary TLV string.
      * @returns {Object}
@@ -147,10 +147,10 @@
         };
     };
 
-    
+
     /**
      * Decodes a given TLV encoded protocol message content into an object.
-     * 
+     *
      * @param message
      *     A binary message representation.
      * @param groupKey
@@ -164,10 +164,10 @@
         if (!message) {
             return null;
         }
-        
+
         var out = null;
         var protocol = null;
-        
+
         // members, intKeys, nonces, pubKeys, sessionSignature
         while (message.length > 0) {
             var tlv = mpenc.codec.decodeTLV(message);
@@ -238,7 +238,7 @@
                     _assert(false, 'Received unknown TLV type: ' + tlv.type);
                     break;
             }
-            
+
             message = tlv.rest;
         }
         // Some specifics depending on the type of mpENC message.
@@ -258,14 +258,14 @@
         }
         _assert(protocol === mpenc.VERSION,
                 'Received wrong protocol version: ' + protocol.charCodeAt(0) + '.');
-        
+
         return out;
     };
 
-    
+
     /**
      * Detects the category of a given message.
-     * 
+     *
      * @param message
      *     A wire protocol message representation.
      * @returns {mpenc.codec.MESSAGE_CATEGORY}
@@ -275,41 +275,41 @@
         if (!message) {
             return null;
         }
-        
+
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
             return { category: mpenc.codec.MESSAGE_CATEGORY.PLAIN,
                      content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
-        
+
         // Check for error.
         var _ERROR_PREFIX = ' Error:';
         if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
             return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_ERROR,
                      content: message.substring(_PROTOCOL_PREFIX.length + 1) };
         }
-        
+
         // Check for message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_MESSAGE,
                      content: atob(message.substring(1, message.length - 1)) };
         }
-        
+
         // Check for query.
         var version = /v(\d+)\?/.exec(message);
         if (version && (version[1] === '' + mpenc.VERSION.charCodeAt(0))) {
             return { category: mpenc.codec.MESSAGE_CATEGORY.MPENC_QUERY,
                      content: String.fromCharCode(version[1]) };
         }
-        
+
         _assert(false, 'Unknown mpEnc message.');
     };
 
 
     /**
      * Encodes a given value to a binary TLV string of a given type.
-     * 
+     *
      * @param tlvType
      *     Type of string to use (16-bit unsigned integer).
      * @param value
@@ -327,10 +327,10 @@
         return out + value;
     };
 
-    
+
     /**
      * Encodes an array of values to a binary TLV string of a given type.
-     * 
+     *
      * @param tlvType
      *     Type of string to use (16-bit unsigned integer).
      * @param valueArray
@@ -341,12 +341,12 @@
     mpenc.codec._encodeTlvArray = function(tlvType, valueArray) {
         _assert((valueArray instanceof Array) || (valueArray === null),
                 'Value passed neither an array or null.');
-        
+
         // Trivial case, quick exit.
         if ((valueArray === null) || (valueArray.length === 0)) {
             return '';
         }
-        
+
         var out = '';
         for (var i = 0; i < valueArray.length; i++) {
             out += mpenc.codec.encodeTLV(tlvType, valueArray[i]);
@@ -354,11 +354,11 @@
         return out;
     };
 
-    
+
     /**
      * Encodes a given protocol message content into a binary string message
      * consisting of a sequence of TLV binary strings.
-     * 
+     *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      * @param groupKey
@@ -375,7 +375,7 @@
         if (typeof(message) === 'string' || message instanceof String) {
             // We're dealing with a message containing user content.
             var encrypted = mpenc.codec.encryptDataMessage(message, groupKey);
-            
+
             // We want message attributes in this order:
             // signature, protocol version, iv, message data
             out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.MESSAGE_IV,
@@ -390,7 +390,7 @@
         } else {
             // Process message attributes in this order:
             // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
-            
+
             out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.SOURCE, message.source);
             out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.DEST, message.dest);
             if (message.agreement === 'initial') {
@@ -404,15 +404,15 @@
             out += mpenc.codec._encodeTlvArray(mpenc.codec.TLV_TYPE.PUB_KEY, message.pubKeys);
             out += mpenc.codec.encodeTLV(mpenc.codec.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
         }
-        
+
         return out;
     };
 
-    
+
     /**
      * Encodes a given protocol message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
-     * 
+     *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      * @param groupKey
@@ -431,11 +431,11 @@
         var content = mpenc.codec.encodeMessageContent(message);
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
-    
-    
+
+
     /**
      * Converts an unsigned short integer to a binary string.
-     * 
+     *
      * @param value
      *     A 16-bit unsigned integer.
      * @returns
@@ -444,11 +444,11 @@
     mpenc.codec._short2bin = function(value) {
         return String.fromCharCode(value >> 8) + String.fromCharCode(value & 0xff);
     };
-    
-    
+
+
     /**
      * Converts a binary string to an unsigned short integer.
-     * 
+     *
      * @param value
      *     A two character binary string.
      * @returns
@@ -458,13 +458,13 @@
         return (value.charCodeAt(0) << 8) + value.charCodeAt(1);
     };
 
-    
+
     /**
      * Encrypts a given data message.
-     * 
+     *
      * The data message is encrypted using AES-128-CBC, and a new random IV is
      * generated and returned.
-     * 
+     *
      * @param data {string}
      *     Binary string data message.
      * @param key {string}
@@ -484,12 +484,12 @@
                  iv: djbec.bytes2string(ivBytes) };
     };
 
-    
+
     /**
      * Decrypts a given data message.
-     * 
+     *
      * The data message is decrypted using AES-128-CBC.
-     * 
+     *
      * @param data {string}
      *     Binary string data message.
      * @param key {string}
@@ -509,13 +509,13 @@
         return djbec.bytes2string(clearBytes);
     };
 
-    
+
     /**
      * Signs a given data message with the ephemeral private key.
-     * 
+     *
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
-     * 
+     *
      * @param data {string}
      *     Binary string data message.
      * @param privKey {string}
@@ -529,19 +529,19 @@
         if (data === null || data === undefined) {
             return null;
         }
-        
+
         var pubKeyBytes = djbec.string2bytes(pubKey);
         var signatureBytes = djbec.signature(data, privKey, pubKeyBytes);
         return djbec.bytes2string(signatureBytes);
     };
 
-    
+
     /**
      * Checks the signature of a given data message with the ephemeral public key.
-     * 
+     *
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
-     * 
+     *
      * @param data {string}
      *     Binary string data message.
      * @param signature {string}
@@ -555,17 +555,17 @@
         if (data === null || data === undefined) {
             return null;
         }
-        
+
         var pubKeyBytes = djbec.string2bytes(pubKey);
         var signatureBytes = djbec.string2bytes(signature);
         return signatureBytes = djbec.checksig(signatureBytes, data, pubKeyBytes);
     };
-    
-    
+
+
     /**
      * Returns an mpENC protocol query message ready to be put onto the wire,
      * including.the given message.
-     * 
+     *
      * @param text {string}
      *     Text message to accompany the mpENC protocol query message.
      * @returns
@@ -576,5 +576,5 @@
     };
     // TODO: message wrapping like OTR:
     // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
-    
+
 })();

@@ -9,23 +9,23 @@
     /**
      * @namespace
      * Implementation of a protocol handler with its state machine.
-     * 
+     *
      * @description
      * <p>Implementation of a protocol handler with its state machine.</p>
-     * 
+     *
      * <p>
      * This protocol handler manages the message flow for user authentication,
      * authenticated signature key exchange, and group key agreement.</p>
-     * 
+     *
      * <p>
      * This implementation is using the an authenticated signature key exchange that
      * also provides participant authentication as well as a CLIQUES-based group
      * key agreement.</p>
      */
     mpenc.handler = {};
-    
+
     var _assert = mpenc.assert.assert;
-    
+
     /*
      * Created: 27 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
      *
@@ -38,15 +38,15 @@
      * it under the terms of the GNU Affero General Public License version 3
      * as published by the Free Software Foundation. See the accompanying
      * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     * 
+     *
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-    
+
     /**
      * Carries message content for the mpEnc protocol flow.
-     * 
+     *
      * @constructor
      * @param source
      *     Message originator (from).
@@ -67,7 +67,7 @@
      * @param sessionSignature
      *     Signature to acknowledge the session.
      * @returns {ProtocolMessage}
-     * 
+     *
      * @property source
      *     Message originator (from).
      * @property dest
@@ -102,14 +102,14 @@
         this.nonces = nonces || [];
         this.pubKeys = pubKeys || [];
         this.sessionSignature = sessionSignature || null;
-        
+
         return this;
     };
-    
-    
+
+
     /**
      * Implementation of a protocol handler with its state machine.
-     * 
+     *
      * @constructor
      * @param id {string}
      *     Member's identifier string.
@@ -121,7 +121,7 @@
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
      * @returns {ProtocolHandler}
-     * 
+     *
      * @property id {string}
      *     Member's identifier string.
      * @property privKey
@@ -133,13 +133,13 @@
      *     indicated by member ID `ky`.
      * @property protocolOutQueue
      *     Queue for outgoing protocol related (non-user) messages, prioritised
-     *     in processing over user messages. 
+     *     in processing over user messages.
      * @property messageOutQueue
-     *     Queue for outgoing user content messages. 
+     *     Queue for outgoing user content messages.
      * @property uiQueue
      *     Queue for messages to display in the UI. Contains objects with
      *     attributes `type` (can be strings 'message', 'info', 'warn' and
-     *     'error') and `message`. 
+     *     'error') and `message`.
      * @property askeMember
      *     A {SignatureKeyExchangeMember} object with the same participant ID.
      * @property cliquesMember
@@ -153,24 +153,24 @@
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
-        
+
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
                 'Constructor call missing required parameters.');
-        
+
         // Make protocol handlers for sub tasks.
         this.cliquesMember = new mpenc.cliques.CliquesMember(this.id);
         this.askeMember = new mpenc.ske.SignatureKeyExchangeMember(this.id);
         this.askeMember.staticPrivKey = privKey;
         this.askeMember.staticPubKeyDir = staticPubKeyDir;
-        
+
         return this;
     };
-    
-    
+
+
     /**
      * Start the protocol negotiation with the group participants..
-     * 
+     *
      * @method
      * @param otherMembers
      *     Iterable of other members for the group (excluding self).
@@ -179,17 +179,17 @@
      */
     mpenc.handler.ProtocolHandler.prototype.start = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
-        
+
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
-        
+
         return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
-    
-    
+
+
     /**
      * Start a new upflow for joining new members..
-     * 
+     *
      * @method
      * @param newMembers
      *     Iterable of new members to join the group.
@@ -198,52 +198,52 @@
      */
     mpenc.handler.ProtocolHandler.prototype.join = function(newMembers) {
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
-        
+
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
-        
+
         return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
-    
-    
+
+
     /**
      * Start a new downflow for excluding members.
-     * 
+     *
      * @method
      * @param excludeMembers
      *     Iterable of members to exclude from the group.
-     * @returns 
+     * @returns
      *     Wire encoded {ProtocolMessage} content.
      */
     mpenc.handler.ProtocolHandler.prototype.exclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
-        
+
         var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
         var askeMessage = this.askeMember.exclude(excludeMembers);
-        
+
         return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
     };
-    
-    
+
+
     /**
      * Refresh group key.
-     * 
+     *
      * @returns
      *     Wire encoded {ProtocolMessage} content.
      * @method
      */
     mpenc.handler.ProtocolHandler.prototype.refresh = function() {
         var cliquesMessage = this.cliquesMember.akaRefresh();
-        
+
         return mpenc.codec.encodeMessage(this._mergeMessages(cliquesMessage, null));
     };
-    
-    
+
+
     /**
      * Handles mpEnc protocol message processing.
-     * 
+     *
      * @method
      * @param wireMessage
      *     Received message (wire encoded). See {@link ProtocolMessage}.
@@ -255,11 +255,11 @@
         // * Use message meta-data (eventData.from) to identify sender.
         // * Access content from eventData.messageHtml and/or eventData.message
         var classify = mpenc.codec.categoriseMessage(wireMessage);
-        
+
         if (!classify) {
             return;
         }
-        
+
         switch (classify.category) {
             case mpenc.codec.MESSAGE_CATEGORY.MPENC_ERROR:
                 this.uiQueue.push({
@@ -311,11 +311,11 @@
                 break;
         }
     };
-    
-    
+
+
     /**
      * Handles keying protocol execution with all participants.
-     * 
+     *
      * @method
      * @param message
      *     Received message (decoded). See {@link ProtocolMessage}.
@@ -328,7 +328,7 @@
         var outCliquesMessage = null;
         var outAskeMessage = null;
         var outMessage = null;
-        
+
         if (message.dest === null || message.dest === '') {
             if (message.intKeys && (message.intKeys.length === message.members.length)) {
                 this.cliquesMember.downflow(inCliquesMessage);
@@ -344,11 +344,11 @@
         }
         return outMessage;
     };
-    
-    
+
+
     /**
      * Merges the contents of the messages for ASKE and CLIQUES into one message..
-     * 
+     *
      * @method
      * @param cliquesMessage
      *     Message from CLIQUES protocol workflow.
@@ -363,20 +363,20 @@
         if (!cliquesMessage && !askeMessage) {
             return null;
         }
-        
+
         var newMessage = mpenc.handler.ProtocolMessage(this.id);
-        
+
         if (cliquesMessage && askeMessage) {
             _assert(cliquesMessage.source === askeMessage.source,
                     "Message source mismatch, this shouldn't happen.");
             _assert(cliquesMessage.dest === askeMessage.dest,
                     "Message destination mismatch, this shouldn't happen.");
         }
-        
+
         // Empty objects to simplify further logic.
         cliquesMessage = cliquesMessage || {};
         askeMessage = askeMessage || {};
-        
+
         newMessage.dest = cliquesMessage.dest || askeMessage.dest || '';
         newMessage.flow = cliquesMessage.flow || askeMessage.flow;
         newMessage.members = cliquesMessage.members || askeMessage.members;
@@ -390,14 +390,14 @@
         } else {
             newMessage.agreement = 'auxilliary';
         }
-        
+
         return newMessage;
     };
-    
-    
+
+
     /**
      * Extracts a CLIQUES message out of the received protocol handler message.
-     * 
+     *
      * @method
      * @param message {ProtocolMessage}
      *     Message from protocol handler.
@@ -417,14 +417,14 @@
         } else {
             newMessage.agreement = 'aka';
         }
-        
+
         return newMessage;
     };
-    
-    
+
+
     /**
      * Extracts a ASKE message out of the received protocol handler message.
-     * 
+     *
      * @method
      * @param message {ProtocolMessage}
      *     Message from protocol handler.
@@ -440,7 +440,7 @@
         newMessage.nonces = message.nonces;
         newMessage.pubKeys = message.pubKeys;
         newMessage.sessionSignature = message.sessionSignature;
-        
+
         return newMessage;
     };
 })();

@@ -9,7 +9,7 @@ var _tu = {};
 
 /**
  * Number of bits in a key.
- * 
+ *
  * @param key
  *     The key to inspect.
  * @param wordSize
@@ -25,7 +25,7 @@ _tu.keyBits = function(key, wordSize) {
 
 /**
  * Number of bits in a key.
- * 
+ *
  * @param key
  *     The key to inspect.
  * @param wordSize
@@ -41,9 +41,9 @@ _tu.keyBits = function(key, wordSize) {
 
 /**
  * Returns a random byte string of given length.
- * 
+ *
  * It does not use cryptographic strong random numbers!
- * 
+ *
  * @param length
  *     Length of binary string.
  * @returns {string}

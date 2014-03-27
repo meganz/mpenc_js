@@ -15,7 +15,7 @@
  * it under the terms of the GNU Affero General Public License version 3
  * as published by the Free Software Foundation. See the accompanying
  * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
- * 
+ *
  * This code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -26,18 +26,18 @@
 
     var assert = chai.assert;
     var _echo = function(x) { return x; };
-    
+
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
-    
+
     beforeEach(function() {
         sandbox = sinon.sandbox.create();
     });
-    
+
     afterEach(function() {
         sandbox.restore();
     });
-    
+
     function _stripProtoFromMessage(message) {
         var _PROTO_STRING = '?mpENC:';
         if (!message) {
@@ -45,16 +45,16 @@
         }
         return atob(message.substring(_PROTO_STRING.length, message.length -1));
     }
-    
+
     describe("ProtocolHandler class", function() {
         var ns = mpenc.handler;
-        
+
         describe('constructor', function() {
             it('fails for missing params', function() {
                 assert.throws(function() { new ns.ProtocolHandler('42', _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY); },
                               "Constructor call missing required parameters.");
             });
-            
+
             it('just make an instance', function() {
                 var handler = new ns.ProtocolHandler('42',
                                                      _td.RSA_PRIV_KEY,
@@ -67,7 +67,7 @@
                 assert.ok(handler.cliquesMember);
             });
         });
-        
+
         describe('#_mergeMessages() method', function() {
             it('fail for mismatching senders', function() {
                 var participant = new ns.ProtocolHandler('1',
@@ -81,7 +81,7 @@
                 assert.throws(function() { participant._mergeMessages(cliquesMessage, askeMessage); },
                               "Message source mismatch, this shouldn't happen.");
             });
-            
+
             it('fail for mismatching receivers', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
@@ -94,7 +94,7 @@
                 assert.throws(function() { participant._mergeMessages(cliquesMessage, askeMessage); },
                               "Message destination mismatch, this shouldn't happen.");
             });
-            
+
             it('merge the messages', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
@@ -115,7 +115,7 @@
                 assert.deepEqual(message.pubKeys, askeMessage.pubKeys);
                 assert.strictEqual(message.sessionSignature, askeMessage.sessionSignature);
             });
-            
+
             it('merge the messages for ASKE only', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
@@ -133,7 +133,7 @@
                 assert.deepEqual(message.pubKeys, askeMessage.pubKeys);
                 assert.strictEqual(message.sessionSignature, askeMessage.sessionSignature);
             });
-            
+
             it('merge the messages for CLIQUES only', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
@@ -148,7 +148,7 @@
                 assert.deepEqual(message.members, cliquesMessage.members);
                 assert.deepEqual(message.intKeys, cliquesMessage.intKeys);
             });
-            
+
             it('merge the messages for final case (no messages)', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
@@ -157,7 +157,7 @@
                 assert.strictEqual(message, null);
             });
         });
-        
+
         describe('#_getCliquesMessage() method', function() {
             it('the vanilla ika case', function() {
                 var message = {
@@ -171,7 +171,7 @@
                     pubKeys: null,
                     sessionSignature: null
                 };
-                
+
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -186,7 +186,7 @@
                 assert.deepEqual(cliquesMessage.intKeys, compare.intKeys);
             });
         });
-        
+
         describe('#_getAskeMessage() method', function() {
             it('the vanilla ika case', function() {
                 var message = {
@@ -200,7 +200,7 @@
                     pubKeys: null,
                     sessionSignature: null
                 };
-                
+
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -217,7 +217,7 @@
                 assert.deepEqual(askeMessage.sessionSignature, compare.sessionSignature);
             });
         });
-        
+
         describe('#start() method', function() {
             it('start/initiate a group session', function() {
                 var participant = new ns.ProtocolHandler('1',
@@ -239,7 +239,7 @@
                 assert.strictEqual(message, null);
             });
         });
-        
+
         describe('#join() method', function() {
             it('join empty member list', function() {
                 var participant = new ns.ProtocolHandler('1',
@@ -249,7 +249,7 @@
                 assert.throws(function() { participant.join([]); },
                               'No members to add.');
             });
-            
+
             it('add members to group', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY,
@@ -270,7 +270,7 @@
                 assert.strictEqual(message, null);
             });
         });
-        
+
         describe('#exclude() method', function() {
             it('exclude empty member list', function() {
                 var participant = new ns.ProtocolHandler('3',
@@ -280,7 +280,7 @@
                 assert.throws(function() { participant.exclude([]); },
                               'No members to exclude.');
             });
-            
+
             it('exclude self', function() {
                 var participant = new ns.ProtocolHandler('3',
                                                          _td.RSA_PRIV_KEY,
@@ -289,7 +289,7 @@
                 assert.throws(function() { participant.exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
-            
+
             it('exclude members', function() {
                 var participant = new ns.ProtocolHandler('3',
                                                          _td.RSA_PRIV_KEY,
@@ -309,7 +309,7 @@
                 assert.strictEqual(message, null);
             });
         });
-        
+
         describe('#refresh() method', function() {
             it('refresh own private key using aka', function() {
                 var participant = new ns.ProtocolHandler('3',
@@ -327,7 +327,7 @@
                 assert.strictEqual(message, null);
             });
         });
-        
+
         describe('#processKeyingMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2', agreement: 'initial',
@@ -358,7 +358,7 @@
                 assert.lengthOf(output.pubKeys, compare.pubKeys.length);
                 assert.strictEqual(output.sessionSignature, compare.sessionSignature);
             });
-            
+
             it('processing for last upflow message', function() {
                 var message = { source: '4', dest: '5', agreement: 'initial',
                                 flow: 'upflow', members: ['1', '2', '3', '4', '5'],
@@ -390,7 +390,7 @@
                 assert.lengthOf(output.pubKeys, compare.pubKeys.length);
                 assert.ok(output.sessionSignature);
             });
-            
+
             it('processing for a downflow message', function() {
                 var message = { source: '5', dest: '', agreement: 'initial',
                                 flow: 'downflow', members: ['1', '2', '3', '4', '5'],
@@ -423,7 +423,7 @@
                 sinon.assert.calledOnce(askeDownflowSpy);
                 sinon.assert.calledOnce(mergeMessagesSpy);
             });
-            
+
             it('processing for a downflow message after CLIQUES finish', function() {
                 var message = { source: '5', dest: '', agreement: 'initial',
                                 flow: 'downflow', members: ['1', '2', '3', '4', '5'],
@@ -455,7 +455,7 @@
                 sinon.assert.calledOnce(mergeMessagesSpy);
             });
         });
-        
+
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2',
@@ -472,7 +472,7 @@
                 assert.strictEqual(participant.uiQueue[0].message,
                                    'Received unencrypted message, requesting encryption.');
             });
-            
+
             it('on error message', function() {
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
@@ -486,13 +486,13 @@
                 assert.strictEqual(participant.uiQueue[0].message,
                                    'Error in mpEnc protocol: Hatschi!');
             });
-            
+
             it('on keying message', function() {
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                
+
                 sandbox.stub(mpenc.codec, 'decodeMessageContent').returns('foo');
                 participant.processKeyingMessage = sinon.stub().returns('foo');
                 sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
@@ -505,13 +505,13 @@
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
             });
-            
+
             it('on data message', function() {
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                
+
                 sandbox.stub(mpenc.codec, 'decodeMessageContent').returns(_td.DATA_MESSAGE_CONTENT);
                 participant.processMessage(_td.DATA_MESSAGE_WIRE);
                 sinon.assert.calledOnce(mpenc.codec.decodeMessageContent);
@@ -522,7 +522,7 @@
                 assert.strictEqual(participant.uiQueue[0].message,
                                    'foo');
             });
-            
+
             it('on data message, invalid signature', function() {
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
@@ -540,7 +540,7 @@
                 assert.strictEqual(participant.uiQueue[0].message,
                                    'Signature of received message invalid.');
             });
-            
+
 //            it('on query message', function() {
 //                var participant = new ns.ProtocolHandler('2',
 //                                                         _td.RSA_PRIV_KEY,
@@ -552,7 +552,7 @@
 //                assert.lengthOf(participant.messageOutQueue, 0);
 //                assert.lengthOf(participant.uiQueue, 0);
 //            });
-            
+
             it('whole flow for 5 members, 2 joining, 2 others leaving, refresh', function() {
 //                var numMembers = 5;
 //                var initiator = 0;
@@ -570,11 +570,11 @@
 //                for (var i = 2; i <= numMembers; i++) {
 //                    otherMembers.push(i.toString());
 //                }
-//                
+//
 //                // Start.
 //                var message = participants[initiator].start(otherMembers);
 //                var message_js = mpenc.codec.decodeMessageContent(_stripProtoFromMessage(message));
-//                
+//
 //                // Upflow.
 //                while (message && message_js.dest !== null) {
 //                    var nextId = message_js.members.indexOf(message_js.dest);
@@ -582,7 +582,7 @@
 //                    message = participants[nextId].processMessage(message);
 //                    message_js = mpenc.codec.decodeMessageContent(_stripProtoFromMessage(message));
 //                }
-                
+
 //                // Downflow for all.
 //                var nextMessages = [];
 //                while (message_js) {
@@ -614,7 +614,7 @@
 //                    }
 //                    assert.ok(participant.askeMember.isSessionAcknowledged());
 //                }
-//                
+//
 //                // Join two new guys.
 //                var newMembers = ['6', '7'];
 //                members = members.concat(newMembers);
@@ -625,18 +625,18 @@
 //                                                           _td.STATIC_PUB_KEY_DIR);
 //                    participants.push(newMember);
 //                }
-//                
+//
 //                // '4' starts upflow for join.
 //                message = participants[3].join(newMembers);
 //                message_js = mpenc.codec.decodeMessageContent(message);
-//                
+//
 //                // Upflow for join.
 //                while (message_js.dest !== null) {
 //                    var nextId = message_js.members.indexOf(message_js.dest);
 //                    message = participants[nextId].processMessage(message);
 //                    message_js = mpenc.codec.decodeMessageContent(message);
 //                }
-//                
+//
 //                // Downflow for all.
 //                nextMessages = [];
 //                while (message_js) {
@@ -668,14 +668,14 @@
 //                    }
 //                    assert.ok(participant.askeMember.isSessionAcknowledged());
 //                }
-//                
+//
 //                // '3' excludes two members.
 //                var toExclude = ['1', '4'];
 //                members.splice(members.indexOf('1'), 1);
 //                members.splice(members.indexOf('4'), 1);
 //                message = participants[2].exclude(toExclude);
 //                message_js = mpenc.codec.decodeMessageContent(message);
-//                
+//
 //                // Downflow for exclude.
 //                nextMessages = [];
 //                while (message_js) {
@@ -707,12 +707,12 @@
 //                    }
 //                    assert.ok(participant.askeMember.isSessionAcknowledged());
 //                }
-//                
+//
 //                // '2' initiates a key refresh.
 //                var oldKey = participants[1].cliquesMember.groupKey;
 //                message = participants[1].refresh();
 //                message_js = mpenc.codec.decodeMessageContent(message);
-//                
+//
 //                // Downflow for refresh.
 //                nextMessages = [];
 //                while (message_js) {

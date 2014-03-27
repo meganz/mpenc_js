@@ -15,7 +15,7 @@
  * it under the terms of the GNU Affero General Public License version 3
  * as published by the Free Software Foundation. See the accompanying
  * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
- * 
+ *
  * This code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -26,18 +26,18 @@
 
     var assert = chai.assert;
     var ns = mpenc.codec;
-    
+
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
-    
+
     beforeEach(function() {
         sandbox = sinon.sandbox.create();
     });
-    
+
     afterEach(function() {
         sandbox.restore();
     });
-    
+
     describe("module level TLV stuff", function() {
         describe("_short2bin()", function() {
             it('just convert', function() {
@@ -48,7 +48,7 @@
                 }
             });
         });
-        
+
         describe("_bin2short()", function() {
             it('just convert', function() {
                 var values = ['\u0000\u0000', '\u0000\u002a', '\u0004\u00d2', 'Sl'];
@@ -58,7 +58,7 @@
                 }
             });
         });
-        
+
         describe("encodeTLV()", function() {
             it('null equivalent', function() {
                 var tests = ['', null, undefined];
@@ -68,7 +68,7 @@
                 }
                 assert.strictEqual(ns.encodeTLV(0), '\u0000\u0000\u0000\u0000');
             });
-            
+
             it('some examples', function() {
                 var tests = [[0, 'hello'],
                              [42, "Don't panic!"],
@@ -86,7 +86,7 @@
                 }
             });
         });
-        
+
         describe("_encodeTlvArray()", function() {
             it('null content equivalents', function() {
                 var tests = [[''], [null]];
@@ -95,7 +95,7 @@
                     assert.strictEqual(result, '\u0000\u0000\u0000\u0000');
                 }
             });
-            
+
             it('null equivalents', function() {
                 var tests = [[], null];
                 for (var i = 0; i < tests.length; i++) {
@@ -103,12 +103,12 @@
                     assert.strictEqual(result, '');
                 }
             });
-            
+
             it('passed in non-array', function() {
                 assert.throws(function() { ns._encodeTlvArray(0, '42'); },
                               'Value passed neither an array or null.');
             });
-            
+
             it('some examples', function() {
                 var result = ns._encodeTlvArray(42, ['1', '22', '333']);
                 assert.strictEqual(result,
@@ -117,14 +117,14 @@
                                    + '\u0000\u002a\u0000\u0003333');
             });
         });
-        
+
         describe("decodeTLV()", function() {
             it('null equivalent', function() {
                 var result = ns.decodeTLV('\u0000\u0000\u0000\u0000');
                 assert.strictEqual(result.type, 0);
                 assert.strictEqual(result.value, null);
             });
-            
+
             it('some examples', function() {
                 var tests = ['\u0000\u0000\u0000\u0005hello',
                              "\u0000\u002a\u0000\u000cDon't panic!",
@@ -141,13 +141,13 @@
                     assert.strictEqual(result.rest, expected[i][2]);
                 }
             });
-            
+
             it('misformed TLV', function() {
                 assert.throws(function() { ns.decodeTLV('\u0000\u0000\u0000\u0005hell'); },
                               'TLV payload length does not match indicated length.');
             });
         });
-        
+
         describe("categoriseMessage()", function() {
             it('normal categories', function() {
                 var tests = ['Klaatu barada nikto.',
@@ -164,12 +164,12 @@
                     assert.strictEqual(result.content, expected[i][1]);
                 }
             });
-            
+
             it('unknown message', function() {
                 assert.throws(function() { ns.categoriseMessage('?mpENC...blah.'); },
                               'Unknown mpEnc message.');
             });
-            
+
             it('null message', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
@@ -177,19 +177,19 @@
                 }
             });
         });
-        
+
         describe("encodeMessageContent()", function() {
             it('upflow message', function() {
                 sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
                 assert.lengthOf(result, 60);
             });
-            
+
             it('upflow message binary', function() {
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
                 assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
             });
-            
+
             it('data message', function() {
                 var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
                                                      _td.ED25519_PRIV_KEY,
@@ -199,7 +199,7 @@
                 assert.lengthOf(result, 113);
             });
         });
-        
+
         describe("decodeMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING);
@@ -213,7 +213,7 @@
                 assert.deepEqual(result.pubKeys, _td.UPFLOW_MESSAGE_CONTENT.pubKeys);
                 assert.strictEqual(result.sessionSignature, _td.UPFLOW_MESSAGE_CONTENT.sessionSignature);
             });
-            
+
             it('wrong protocol version', function() {
                 var message = _td.UPFLOW_MESSAGE_STRING.substring(0, 4)
                             + String.fromCharCode(77)
@@ -221,7 +221,7 @@
                 assert.throws(function() { ns.decodeMessageContent(message); },
                               'Received wrong protocol version: 77');
             });
-            
+
             it('data message', function() {
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                                      _td.GROUP_KEY,
@@ -232,7 +232,7 @@
                 assert.lengthOf(result.iv, 16);
                 assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
             });
-            
+
             it('data message, invalid signature', function() {
                 // Change a single byte.
                 var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
@@ -249,7 +249,7 @@
             });
         });
     });
-    
+
     describe("encodeMessage()", function() {
         it('upflow message', function() {
             var message = {
@@ -267,7 +267,7 @@
             var result = ns.encodeMessage(message);
             assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
-        
+
         it('upflow message binary', function() {
             var message = {
                 source: '1',
@@ -283,13 +283,13 @@
             var result = ns.encodeMessage(message);
             assert.strictEqual(result, _td.UPFLOW_MESSAGE_WIRE);
         });
-        
+
         it('null message', function() {
             assert.strictEqual(ns.encodeMessage(null), null);
             assert.strictEqual(ns.encodeMessage(undefined), null);
         });
     });
-    
+
     describe("encryptDataMessage()", function() {
         it('null equivalents', function() {
             var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
@@ -298,7 +298,7 @@
                 assert.strictEqual(ns.encryptDataMessage(tests[i], key), null);
             }
         });
-        
+
         it('data messages', function() {
             var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
             var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
@@ -317,7 +317,7 @@
             }
         });
     });
-    
+
     describe("decryptDataMessage()", function() {
         it('null equivalents', function() {
             var iv = djbec.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
@@ -327,7 +327,7 @@
                 assert.strictEqual(ns.decryptDataMessage(tests[i], key, iv), null);
             }
         });
-        
+
         it('data messages', function() {
             var iv = djbec.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
             var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
@@ -344,7 +344,7 @@
             }
         });
     });
-    
+
     describe("encryptDataMessage()/decryptDataMessage()", function() {
         it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {
@@ -359,7 +359,7 @@
             }
         });
     });
-    
+
     describe("signDataMessage()", function() {
         it('null equivalents', function() {
             var tests = [null, undefined];
@@ -369,7 +369,7 @@
                                                       _td.ED25519_PUB_KEY), null);
             }
         });
-        
+
         it('data messages', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
@@ -386,7 +386,7 @@
             }
         });
     });
-    
+
     describe("verifyDataMessage()", function() {
         it('verifies', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
@@ -417,7 +417,7 @@
             }
         });
     });
-    
+
     describe("signDataMessage()/verifyDataMessage()", function() {
         it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {

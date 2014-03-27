@@ -20,7 +20,7 @@ module.exports = function(config) {
       'lib/djbec.js',
       'lib/rsa.js',
       'lib/asmcrypto.js',
-      
+
       //{pattern: 'lib/*.js', included: true},
       'src/mpenc.js',
       {pattern: 'src/*.js', included: true},
@@ -46,9 +46,9 @@ module.exports = function(config) {
 // Coverage configuration
     coverageReporter: {
         type: 'html',
-        dir: 'coverage/' 
+        dir: 'coverage/'
     },
-    
+
     // web server port
     port: 9876,
 
@@ -80,4 +80,4 @@ module.exports = function(config) {
     singleRun: false
   });
 };
- 
+

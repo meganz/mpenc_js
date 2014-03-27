@@ -9,13 +9,13 @@
     /**
      * @namespace
      * Some patches/enhancements to third party library modules.
-     * 
+     *
      * @description
      * <p>Some patches/enhancements to third party library modules.</p>
      */
-    
+
     var _assert = mpenc.assert.assert;
-    
+
     /*
      * Created: 20 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
      *
@@ -28,17 +28,17 @@
      * it under the terms of the GNU Affero General Public License version 3
      * as published by the Free Software Foundation. See the accompanying
      * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     * 
+     *
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-    
+
     // Patches to the curve255.js namespace module.
-    
+
     /**
      * Converts an 16-bit word element (unsigned) array a hex string representation.
-     * 
+     *
      * @param key
      *     The key as an 8 bit (unsigned) integer array.
      * @returns
@@ -62,7 +62,7 @@
 
     /**
      * Converts a hex string to a 16-bit word element (unsigned) array representation.
-     * 
+     *
      * @param key
      *     Hex string representation of key (big endian).
      * @returns
@@ -92,7 +92,7 @@
 
     /**
      * Converts an 16-bit word element (unsigned) array a binary string representation.
-     * 
+     *
      * @param key
      *     The key as an 16-bit word element (unsigned) integer array.
      * @returns
@@ -116,7 +116,7 @@
 
     /**
      * Converts a binary string to a 16-bit word element (unsigned) array representation.
-     * 
+     *
      * @param key
      *     Binary string representation of key (big endian).
      * @returns

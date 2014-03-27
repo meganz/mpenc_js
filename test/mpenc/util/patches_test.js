@@ -15,7 +15,7 @@
  * it under the terms of the GNU Affero General Public License version 3
  * as published by the Free Software Foundation. See the accompanying
  * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
- * 
+ *
  * This code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -23,7 +23,7 @@
 
 (function() {
     "use strict";
-    
+
     var assert = chai.assert;
 
     describe("curve255 patches", function() {
@@ -37,7 +37,7 @@
                 }
             });
         });
-        
+
         describe('(fromHex())', function() {
             it('simple conversion test', function() {
                 var values = ['499602d2', '007b', '0000007b', '000007b', '00007b', ''];
@@ -48,7 +48,7 @@
                 }
             });
         });
-        
+
         describe('(toString())', function() {
             it('simple conversion test', function() {
                 var values = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
@@ -60,7 +60,7 @@
                 }
             });
         });
-        
+
         describe('(fromString())', function() {
             it('simple conversion test', function() {
                 var values = ['Slartibartfast', '\u0000abc', 'abc', ''];
