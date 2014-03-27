@@ -21,17 +21,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/codec",
+    "mpenc",
+    "mpenc/util/utils",
+    "chai",
+    "sinon/sandbox"
+], function(ns, mpenc, utils, chai, sinon_sandbox) {
     "use strict";
 
     var assert = chai.assert;
-    var ns = mpenc.codec;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
     beforeEach(function() {
-        sandbox = sinon.sandbox.create();
+        sandbox = sinon_sandbox.create();
     });
 
     afterEach(function() {
@@ -180,7 +185,7 @@
 
         describe("encodeMessageContent()", function() {
             it('upflow message', function() {
-                sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+                sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
                 assert.lengthOf(result, 60);
             });
@@ -263,7 +268,7 @@
                 pubKeys: [_td.ED25519_PUB_KEY],
                 sessionSignature: null
             };
-            sandbox.stub(mpenc.codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
             var result = ns.encodeMessage(message);
             assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
@@ -309,7 +314,7 @@
                             'IGX/B9/06eKjM/v2xiXPaA==',
                             'fSeQGNTTe+eUismz9dhnAgwyJjA/dUBmkgwuX/aB6Vc=',
                             'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ=='];
-            sandbox.stub(mpenc.utils, '_newKey08').returns(iv);
+            sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
                 assert.strictEqual(result.iv, djbec.bytes2string(iv));
@@ -348,7 +353,7 @@
     describe("encryptDataMessage()/decryptDataMessage()", function() {
         it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var key = djbec.bytes2string(mpenc.utils._newKey08(128));
+                var key = djbec.bytes2string(utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var encryptResult = ns.encryptDataMessage(message, key);
@@ -421,7 +426,7 @@
     describe("signDataMessage()/verifyDataMessage()", function() {
         it('5 round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var privKey = djbec.bytes2string(mpenc.utils._newKey08(512));
+                var privKey = djbec.bytes2string(utils._newKey08(512));
                 var pubKey = djbec.bytes2string(djbec.publickey(privKey));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
@@ -430,4 +435,4 @@
             }
         });
     });
-})();
+});

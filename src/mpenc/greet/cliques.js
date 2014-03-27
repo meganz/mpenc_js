@@ -1,17 +1,22 @@
- /**
+/**
  * @fileOverview
- * Implementation of group key agreement based on CLIQUES.
+ * Implementation of group key agreement based on ns.
  */
 
-(function() {
+define([
+    "mpenc/util/assert",
+    "mpenc/util/patches",
+    "mpenc/util/utils",
+    "curve255"
+], function(assert, patches, utils, curve255) {
     "use strict";
 
     /**
      * @namespace
-     * Implementation of group key agreement based on CLIQUES.
+     * Implementation of group key agreement based on ns.
      *
      * @description
-     * <p>Implementation of group key agreement based on CLIQUES.</p>
+     * <p>Implementation of group key agreement based on ns.</p>
      *
      * <p>
      * Michael Steiner, Gene Tsudik, and Michael Waidner. 2000.<br/>
@@ -22,9 +27,9 @@
      * <p>This implementation is using the Curve25519 for ECDH mechanisms as a base
      * extended for group key agreement.</p>
      */
-    mpenc.cliques = {};
+    var ns = {};
 
-    var _assert = mpenc.assert.assert;
+    var _assert = assert.assert;
 
     /*
      * Created: 20 Jan 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -79,7 +84,7 @@
      * @property debugKeys
      *     List (array) of keying debugging strings.
      */
-    mpenc.cliques.CliquesMessage = function(source, dest, agreement, flow, members,
+    ns.CliquesMessage = function(source, dest, agreement, flow, members,
                                             intKeys, debugKeys) {
         this.source = source || '';
         this.dest = dest || '';
@@ -93,7 +98,7 @@
 
 
     /**
-     * Implementation of group key agreement based on CLIQUES.
+     * Implementation of group key agreement based on ns.
      *
      * This implementation is using the Curve25519 for ECDH mechanisms as a base
      * extended for group key agreement.
@@ -121,7 +126,7 @@
      * @property groupKey
      *     Shared secret, the group key.
      */
-    mpenc.cliques.CliquesMember = function(id) {
+    ns.CliquesMember = function(id) {
         this.id = id;
         this.members = [];
         this.intKeys = null;
@@ -146,16 +151,16 @@
      *     Iterable of other members for the group (excluding self).
      * @returns {CliquesMessage}
      */
-    mpenc.cliques.CliquesMember.prototype.ika = function(otherMembers) {
+    ns.CliquesMember.prototype.ika = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.intKeys = null;
         this._debugIntKeys = null;
         if (this.privKey) {
-            mpenc.utils._clearmem(this.privKey);
+            utils._clearmem(this.privKey);
             this.privKey = null;
             this._debugPrivKey = null;
         }
-        var startMessage = new mpenc.cliques.CliquesMessage(this.id);
+        var startMessage = new ns.CliquesMessage(this.id);
         startMessage.members = [this.id].concat(otherMembers);
         startMessage.agreement = 'ika';
         startMessage.flow = 'upflow';
@@ -171,10 +176,10 @@
      *     Iterable of new members to join the group.
      * @returns {CliquesMessage}
      */
-    mpenc.cliques.CliquesMember.prototype.akaJoin = function(newMembers) {
+    ns.CliquesMember.prototype.akaJoin = function(newMembers) {
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
         var allMembers = this.members.concat(newMembers);
-        _assert(mpenc.utils._noDuplicatesInList(allMembers),
+        _assert(utils._noDuplicatesInList(allMembers),
                 'Duplicates in member list detected!');
 
         // Replace members list.
@@ -189,7 +194,7 @@
         this._debugIntKeys.push(retValue.cardinalDebugKey);
 
         // Pass a message on to the first new member to join.
-        var startMessage = new mpenc.cliques.CliquesMessage(this.id);
+        var startMessage = new ns.CliquesMessage(this.id);
         startMessage.members = allMembers;
         startMessage.dest = newMembers[0];
         startMessage.agreement = 'aka';
@@ -209,9 +214,9 @@
      *     Iterable of members to exclude from the group.
      * @returns {CliquesMessage}
      */
-    mpenc.cliques.CliquesMember.prototype.akaExclude = function(excludeMembers) {
+    ns.CliquesMember.prototype.akaExclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
-        _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
+        _assert(utils._arrayIsSubSet(excludeMembers, this.members),
                 'Members list to exclude is not a sub-set of previous members!');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
@@ -229,14 +234,14 @@
 
         // Discard old and make new group key.
         if (this.groupKey) {
-            mpenc.utils._clearmem(this.groupKey);
+            utils._clearmem(this.groupKey);
             this.groupKey = null;
         }
         this.groupKey = retValue.cardinal;
         this._debugGroupKey = retValue.cardinalDebugKey;
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new mpenc.cliques.CliquesMessage(this.id);
+        var broadcastMessage = new ns.CliquesMessage(this.id);
         broadcastMessage.members = this.members;
         broadcastMessage.agreement = 'aka';
         broadcastMessage.flow = 'downflow';
@@ -253,20 +258,20 @@
      * @returns {CliquesMessage}
      * @method
      */
-    mpenc.cliques.CliquesMember.prototype.akaRefresh = function() {
+    ns.CliquesMember.prototype.akaRefresh = function() {
         // Renew all keys.
         var retValue = this._renewPrivKey();
 
         // Discard old and make new group key.
         if (this.groupKey) {
-            mpenc.utils._clearmem(this.groupKey);
+            utils._clearmem(this.groupKey);
             this.groupKey = null;
         }
         this.groupKey = retValue.cardinal;
         this._debugGroupKey = retValue.cardinalDebugKey;
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new mpenc.cliques.CliquesMessage(this.id);
+        var broadcastMessage = new ns.CliquesMessage(this.id);
         broadcastMessage.members = this.members;
         broadcastMessage.agreement = 'aka';
         broadcastMessage.flow = 'downflow';
@@ -285,8 +290,8 @@
      *     Received upflow message. See {@link CliquesMessage}.
      * @returns {CliquesMessage}
      */
-    mpenc.cliques.CliquesMember.prototype.upflow = function(message) {
-        _assert(mpenc.utils._noDuplicatesInList(message.members),
+    ns.CliquesMember.prototype.upflow = function(message) {
+        _assert(utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
         _assert(message.intKeys.length <= message.members.length,
                 'Too many intermediate keys on CLIQUES upflow!');
@@ -305,7 +310,7 @@
         var myPos = this.members.indexOf(this.id);
 
         // Clone message.
-        message = mpenc.utils.clone(message);
+        message = utils.clone(message);
         if (myPos === this.members.length - 1) {
             // I'm the last in the chain:
             // Cardinal is secret key.
@@ -339,19 +344,19 @@
      * @method
      * @private
      */
-    mpenc.cliques.CliquesMember.prototype._renewPrivKey = function() {
+    ns.CliquesMember.prototype._renewPrivKey = function() {
         var myPos = this.members.indexOf(this.id);
         if (this.privKey) {
             // Patch our old private key into intermediate keys.
-            this.intKeys[myPos] = mpenc.cliques._scalarMultiply(this.privKey,
+            this.intKeys[myPos] = ns._scalarMultiply(this.privKey,
                                                                 this.intKeys[myPos]);
-            this._debugIntKeys[myPos] = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,
+            this._debugIntKeys[myPos] = ns._scalarMultiplyDebug(this._debugPrivKey,
                                                                            this._debugIntKeys[myPos]);
             this.privKey = null;
         }
 
         // Make a new private key.
-        this.privKey = curve255.toString(mpenc.utils._newKey16(256));
+        this.privKey = curve255.toString(utils._newKey16(256));
         this.privKeyId++;
         this.keyTimestamp = Math.round(Date.now() / 1000);
         if (this._debugPrivKey) {
@@ -363,17 +368,17 @@
         // Update intermediate keys.
         for (var i = 0; i < this.intKeys.length; i++) {
             if (i !== myPos) {
-                this.intKeys[i] = mpenc.cliques._scalarMultiply(this.privKey,
+                this.intKeys[i] = ns._scalarMultiply(this.privKey,
                                                                 this.intKeys[i]);
-                this._debugIntKeys[i] = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,
+                this._debugIntKeys[i] = ns._scalarMultiplyDebug(this._debugPrivKey,
                                                                            this._debugIntKeys[i]);
             }
         }
 
         // New cardinal is "own" intermediate scalar multiplied with our private.
         return {
-            'cardinalKey': mpenc.cliques._scalarMultiply(this.privKey, this.intKeys[myPos]),
-            'cardinalDebugKey': mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,
+            'cardinalKey': ns._scalarMultiply(this.privKey, this.intKeys[myPos]),
+            'cardinalDebugKey': ns._scalarMultiplyDebug(this._debugPrivKey,
                                                                    this._debugIntKeys[myPos])
         };
     };
@@ -385,11 +390,11 @@
      * @param message
      *     Received downflow broadcast message.
      */
-    mpenc.cliques.CliquesMember.prototype.downflow = function(message) {
-        _assert(mpenc.utils._noDuplicatesInList(message.members),
+    ns.CliquesMember.prototype.downflow = function(message) {
+        _assert(utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
         if (message.agreement === 'ika') {
-            _assert(mpenc.utils.arrayEqual(this.members, message.members),
+            _assert(utils.arrayEqual(this.members, message.members),
                     'Member list mis-match in CLIQUES protocol');
         }
         _assert(message.members.indexOf(this.id) >= 0,
@@ -411,9 +416,9 @@
      *     Debug "key" sequences.
      * @private
      */
-    mpenc.cliques.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
+    ns.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
         if ((this.intKeys) && (this.groupKey)) {
-            mpenc.utils._clearmem(this.groupKey);
+            utils._clearmem(this.groupKey);
             this.groupKey = null;
             this._debugGroupKey = null;
         }
@@ -421,9 +426,9 @@
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;
         this._debugIntKeys = debugKeys;
-        this.groupKey = mpenc.cliques._scalarMultiply(this.privKey,
+        this.groupKey = ns._scalarMultiply(this.privKey,
                                                       this.intKeys[myPos]);
-        this._debugGroupKey = mpenc.cliques._scalarMultiplyDebug(this._debugPrivKey,
+        this._debugGroupKey = ns._scalarMultiplyDebug(this._debugPrivKey,
                                                                  this._debugIntKeys[myPos]);
     };
 
@@ -442,7 +447,7 @@
      *     Scalar product of keys.
      * @private
      */
-    mpenc.cliques._scalarMultiply = function(privKey, intKey) {
+    ns._scalarMultiply = function(privKey, intKey) {
         var value = null;
         if (intKey) {
             value = curve255.curve25519(curve255.fromString(privKey),
@@ -468,11 +473,13 @@
      *     Scalar product of keys.
      * @private
      */
-    mpenc.cliques._scalarMultiplyDebug = function(privKey, intKey) {
+    ns._scalarMultiplyDebug = function(privKey, intKey) {
         if (intKey) {
             return privKey + '*' + intKey;
         } else {
             return privKey + '*G';
         }
     };
-})();
+
+    return ns;
+});

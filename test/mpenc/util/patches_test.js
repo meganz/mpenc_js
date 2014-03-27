@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Tests for `patches` module.
+ * Tests for `mpenc.util.patches` module.
  */
 
 /*
@@ -21,7 +21,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/util/patches",
+    "chai",
+], function(ns, chai) {
     "use strict";
 
     var assert = chai.assert;
@@ -73,4 +76,4 @@
             });
         });
     });
-})();
+});

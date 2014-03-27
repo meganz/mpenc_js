@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.cliques` module.
+ * Test of the `mpenc.greet.cliques` module.
  */
 
 /*
@@ -21,14 +21,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/greet/cliques",
+    "mpenc/util/utils",
+    "chai",
+    "sinon/assert",
+    "sinon/spy",
+], function(ns, utils, chai, sinon_assert, sinon_spy) {
     "use strict";
-
     var assert = chai.assert;
 
     describe("module level", function() {
-        var ns = mpenc.cliques;
-
         describe('_scalarMultiplyDebug()', function() {
             it('should multiply debug with base point if no key given', function() {
                 assert.strictEqual(ns._scalarMultiplyDebug('1'), '1*G');
@@ -56,8 +59,6 @@
     });
 
     describe('CliquesMember class', function() {
-        var ns = mpenc.cliques;
-
         describe('constructor', function() {
             it('simple CliquesMember constructor', function() {
                 var participant = new ns.CliquesMember('4');
@@ -122,11 +123,11 @@
         describe('#ika() method', function() {
             it('start the IKA', function() {
                 var participant = new ns.CliquesMember('1');
-                var spy = sinon.spy();
+                var spy = sinon_spy();
                 participant.upflow = spy;
                 var otherMembers = ['2', '3', '4', '5', '6'];
                 participant.ika(otherMembers);
-                sinon.assert.calledOnce(spy);
+                sinon_assert.calledOnce(spy);
             });
 
             it('start the IKA without members', function() {
@@ -264,7 +265,7 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 assert.throws(function() { participant.downflow(broadcastMessage); },
                               'Mis-match intermediate key number for CLIQUES downflow.');
             });
@@ -286,7 +287,7 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 participant.downflow(broadcastMessage);
                 assert.strictEqual(participant.intKeys, messageKeys);
                 assert.strictEqual(_tu.keyBits(participant.groupKey, 8), 256);
@@ -310,7 +311,7 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 participant.downflow(broadcastMessage);
                 var prevGroupKey = participant.groupKey;
                 participant.downflow(broadcastMessage);
@@ -580,12 +581,11 @@
         });
     });
 
-
     /**
      * Returns a fresh copy of the private key constant, protected from "cleaning".
      * @returns Array of words.
      */
     function _PRIV_KEY() {
-        return mpenc.utils.clone(_td.C25519_PRIV_KEY);
+        return utils.clone(_td.C25519_PRIV_KEY);
     }
-})();
+});

@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.handler` module.
+ * Test of the `mpenc.greet.handler` module.
  */
 
 /*
@@ -21,17 +21,28 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/greet/handler",
+    "mpenc/util/utils",
+    "mpenc/codec",
+    "mpenc",
+    "chai",
+    "sinon/assert",
+    "sinon/sandbox",
+    "sinon/spy",
+    "sinon/stub",
+], function(ns, utils, codec, mpenc, chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
     var assert = chai.assert;
+
     var _echo = function(x) { return x; };
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
     beforeEach(function() {
-        sandbox = sinon.sandbox.create();
+        sandbox = sinon_sandbox.create();
     });
 
     afterEach(function() {
@@ -47,8 +58,6 @@
     }
 
     describe("ProtocolHandler class", function() {
-        var ns = mpenc.handler;
-
         describe('constructor', function() {
             it('fails for missing params', function() {
                 assert.throws(function() { new ns.ProtocolHandler('42', _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY); },
@@ -224,18 +233,18 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var cliquesSpy = sinon.spy();
-                var askeSpy = sinon.spy();
-                var mergeMessagesStub = sinon.stub().returns(null);
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                var cliquesSpy = sinon_spy();
+                var askeSpy = sinon_spy();
+                var mergeMessagesStub = stub().returns(null);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.cliquesMember.ika = cliquesSpy;
                 participant.askeMember.commit = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
                 var otherMembers = ['2', '3', '4', '5', '6'];
                 var message = participant.start(otherMembers);
-                sinon.assert.calledOnce(cliquesSpy);
-                sinon.assert.calledOnce(askeSpy);
-                sinon.assert.calledOnce(mergeMessagesStub);
+                sinon_assert.calledOnce(cliquesSpy);
+                sinon_assert.calledOnce(askeSpy);
+                sinon_assert.calledOnce(mergeMessagesStub);
                 assert.strictEqual(message, null);
             });
         });
@@ -255,18 +264,18 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var cliquesSpy = sinon.spy();
-                var askeSpy = sinon.spy();
-                var mergeMessagesStub = sinon.stub().returns(null);
+                var cliquesSpy = sinon_spy();
+                var askeSpy = sinon_spy();
+                var mergeMessagesStub = stub().returns(null);
                 participant.cliquesMember.akaJoin = cliquesSpy;
                 participant.askeMember.join = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 var otherMembers = ['6', '7'];
                 var message = participant.join(otherMembers);
-                sinon.assert.calledOnce(cliquesSpy);
-                sinon.assert.calledOnce(askeSpy);
-                sinon.assert.calledOnce(mergeMessagesStub);
+                sinon_assert.calledOnce(cliquesSpy);
+                sinon_assert.calledOnce(askeSpy);
+                sinon_assert.calledOnce(mergeMessagesStub);
                 assert.strictEqual(message, null);
             });
         });
@@ -295,17 +304,17 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var cliquesSpy = sinon.spy();
-                var askeSpy = sinon.spy();
-                var mergeMessagesStub = sinon.stub().returns(null);
+                var cliquesSpy = sinon_spy();
+                var askeSpy = sinon_spy();
+                var mergeMessagesStub = stub().returns(null);
                 participant.cliquesMember.akaExclude = cliquesSpy;
                 participant.askeMember.exclude = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 var message = participant.exclude(['1', '4']);
-                sinon.assert.calledOnce(cliquesSpy);
-                sinon.assert.calledOnce(askeSpy);
-                sinon.assert.calledOnce(mergeMessagesStub);
+                sinon_assert.calledOnce(cliquesSpy);
+                sinon_assert.calledOnce(askeSpy);
+                sinon_assert.calledOnce(mergeMessagesStub);
                 assert.strictEqual(message, null);
             });
         });
@@ -316,14 +325,14 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var cliquesSpy = sinon.spy();
-                var mergeMessagesStub = sinon.stub().returns(null);
+                var cliquesSpy = sinon_spy();
+                var mergeMessagesStub = stub().returns(null);
                 participant.cliquesMember.akaRefresh = cliquesSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 var message = participant.refresh();
-                sinon.assert.calledOnce(cliquesSpy);
-                sinon.assert.calledOnce(mergeMessagesStub);
+                sinon_assert.calledOnce(cliquesSpy);
+                sinon_assert.calledOnce(mergeMessagesStub);
                 assert.strictEqual(message, null);
             });
         });
@@ -344,8 +353,8 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(mpenc.codec, 'decodeMessageContent', _echo);
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 var output = participant.processKeyingMessage(message);
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
@@ -377,8 +386,8 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(mpenc.codec, 'decodeMessageContent', _echo);
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 var output = participant.processKeyingMessage(message);
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
@@ -404,24 +413,24 @@
                                                        _td.RSA_PRIV_KEY,
                                                        _td.RSA_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
-                var cliquesUpflowSpy = sinon.spy();
-                var cliquesDownflowSpy = sinon.spy();
+                var cliquesUpflowSpy = sinon_spy();
+                var cliquesDownflowSpy = sinon_spy();
                 participant.cliquesMember.upflow = cliquesUpflowSpy;
                 participant.cliquesMember.downflow = cliquesDownflowSpy;
-                var askeUpflowSpy = sinon.spy();
-                var askeDownflowSpy = sinon.spy();
+                var askeUpflowSpy = sinon_spy();
+                var askeDownflowSpy = sinon_spy();
                 participant.askeMember.upflow = askeUpflowSpy;
                 participant.askeMember.downflow = askeDownflowSpy;
-                var mergeMessagesSpy = sinon.spy();
+                var mergeMessagesSpy = sinon_spy();
                 participant._mergeMessages = mergeMessagesSpy;
-                sandbox.stub(mpenc.codec, 'decodeMessageContent', _echo);
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processKeyingMessage(message);
                 assert.strictEqual(cliquesUpflowSpy.callCount, 0);
                 assert.strictEqual(askeUpflowSpy.callCount, 0);
-                sinon.assert.calledOnce(cliquesDownflowSpy);
-                sinon.assert.calledOnce(askeDownflowSpy);
-                sinon.assert.calledOnce(mergeMessagesSpy);
+                sinon_assert.calledOnce(cliquesDownflowSpy);
+                sinon_assert.calledOnce(askeDownflowSpy);
+                sinon_assert.calledOnce(mergeMessagesSpy);
             });
 
             it('processing for a downflow message after CLIQUES finish', function() {
@@ -435,24 +444,24 @@
                                                        _td.RSA_PRIV_KEY,
                                                        _td.RSA_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
-                var cliquesUpflowSpy = sinon.spy();
-                var cliquesDownflowSpy = sinon.spy();
+                var cliquesUpflowSpy = sinon_spy();
+                var cliquesDownflowSpy = sinon_spy();
                 participant.cliquesMember.upflow = cliquesUpflowSpy;
                 participant.cliquesMember.downflow = cliquesDownflowSpy;
-                var askeUpflowSpy = sinon.spy();
-                var askeDownflowSpy = sinon.spy();
+                var askeUpflowSpy = sinon_spy();
+                var askeDownflowSpy = sinon_spy();
                 participant.askeMember.upflow = askeUpflowSpy;
                 participant.askeMember.downflow = askeDownflowSpy;
-                var mergeMessagesSpy = sinon.spy();
+                var mergeMessagesSpy = sinon_spy();
                 participant._mergeMessages = mergeMessagesSpy;
-                sandbox.stub(mpenc.codec, 'decodeMessageContent', _echo);
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processKeyingMessage(message);
                 assert.strictEqual(cliquesUpflowSpy.callCount, 0);
                 assert.strictEqual(askeUpflowSpy.callCount, 0);
                 assert.strictEqual(cliquesDownflowSpy.callCount, 0);
-                sinon.assert.calledOnce(askeDownflowSpy);
-                sinon.assert.calledOnce(mergeMessagesSpy);
+                sinon_assert.calledOnce(askeDownflowSpy);
+                sinon_assert.calledOnce(mergeMessagesSpy);
             });
         });
 
@@ -493,13 +502,13 @@
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
 
-                sandbox.stub(mpenc.codec, 'decodeMessageContent').returns('foo');
-                participant.processKeyingMessage = sinon.stub().returns('foo');
-                sandbox.stub(mpenc.codec, 'encodeMessage', _echo);
+                sandbox.stub(codec, 'decodeMessageContent').returns('foo');
+                participant.processKeyingMessage = stub().returns('foo');
+                sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage('?mpENC:Zm9v.');
-                sinon.assert.calledOnce(mpenc.codec.decodeMessageContent);
-                sinon.assert.calledOnce(participant.processKeyingMessage);
-                sinon.assert.calledOnce(mpenc.codec.encodeMessage);
+                sinon_assert.calledOnce(codec.decodeMessageContent);
+                sinon_assert.calledOnce(participant.processKeyingMessage);
+                sinon_assert.calledOnce(codec.encodeMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0], 'foo');
                 assert.lengthOf(participant.messageOutQueue, 0);
@@ -512,9 +521,9 @@
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
 
-                sandbox.stub(mpenc.codec, 'decodeMessageContent').returns(_td.DATA_MESSAGE_CONTENT);
+                sandbox.stub(codec, 'decodeMessageContent').returns(_td.DATA_MESSAGE_CONTENT);
                 participant.processMessage(_td.DATA_MESSAGE_WIRE);
-                sinon.assert.calledOnce(mpenc.codec.decodeMessageContent);
+                sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
@@ -528,11 +537,11 @@
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var decodedContent = mpenc.utils.clone(_td.DATA_MESSAGE_CONTENT);
+                var decodedContent = utils.clone(_td.DATA_MESSAGE_CONTENT);
                 decodedContent.signatureOk = false;
-                sandbox.stub(mpenc.codec, 'decodeMessageContent').returns(decodedContent);
+                sandbox.stub(codec, 'decodeMessageContent').returns(decodedContent);
                 participant.processMessage(_td.DATA_MESSAGE_WIRE);
-                sinon.assert.calledOnce(mpenc.codec.decodeMessageContent);
+                sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
@@ -573,14 +582,14 @@
 //
 //                // Start.
 //                var message = participants[initiator].start(otherMembers);
-//                var message_js = mpenc.codec.decodeMessageContent(_stripProtoFromMessage(message));
+//                var message_js = codec.decodeMessageContent(_stripProtoFromMessage(message));
 //
 //                // Upflow.
 //                while (message && message_js.dest !== null) {
 //                    var nextId = message_js.members.indexOf(message_js.dest);
 //                    dump(nextId);
 //                    message = participants[nextId].processMessage(message);
-//                    message_js = mpenc.codec.decodeMessageContent(_stripProtoFromMessage(message));
+//                    message_js = codec.decodeMessageContent(_stripProtoFromMessage(message));
 //                }
 
 //                // Downflow for all.
@@ -593,13 +602,13 @@
 //                        }
 //                        var nextMessage = participant.processMessage(message);
 //                        if (nextMessage) {
-//                            nextMessages.push(mpenc.utils.clone(nextMessage));
+//                            nextMessages.push(utils.clone(nextMessage));
 //                        }
 //                        assert.deepEqual(participant.cliquesMember.members, members);
 //                        assert.deepEqual(participant.askeMember.members, members);
 //                    }
 //                    message = nextMessages.shift();
-//                    message_js = mpenc.codec.decodeMessageContent(message);
+//                    message_js = codec.decodeMessageContent(message);
 //                }
 //                var keyCheck = null;
 //                for (var i = 0; i < participants.length; i++) {
@@ -628,13 +637,13 @@
 //
 //                // '4' starts upflow for join.
 //                message = participants[3].join(newMembers);
-//                message_js = mpenc.codec.decodeMessageContent(message);
+//                message_js = codec.decodeMessageContent(message);
 //
 //                // Upflow for join.
 //                while (message_js.dest !== null) {
 //                    var nextId = message_js.members.indexOf(message_js.dest);
 //                    message = participants[nextId].processMessage(message);
-//                    message_js = mpenc.codec.decodeMessageContent(message);
+//                    message_js = codec.decodeMessageContent(message);
 //                }
 //
 //                // Downflow for all.
@@ -647,13 +656,13 @@
 //                        }
 //                        var nextMessage = participant.processMessage(message);
 //                        if (nextMessage) {
-//                            nextMessages.push(mpenc.utils.clone(nextMessage));
+//                            nextMessages.push(utils.clone(nextMessage));
 //                        }
 //                        assert.deepEqual(participant.cliquesMember.members, members);
 //                        assert.deepEqual(participant.askeMember.members, members);
 //                    }
 //                    message = nextMessages.shift();
-//                    message_js = mpenc.codec.decodeMessageContent(message);
+//                    message_js = codec.decodeMessageContent(message);
 //                }
 //                keyCheck = null;
 //                for (var i = 0; i < participants.length; i++) {
@@ -674,7 +683,7 @@
 //                members.splice(members.indexOf('1'), 1);
 //                members.splice(members.indexOf('4'), 1);
 //                message = participants[2].exclude(toExclude);
-//                message_js = mpenc.codec.decodeMessageContent(message);
+//                message_js = codec.decodeMessageContent(message);
 //
 //                // Downflow for exclude.
 //                nextMessages = [];
@@ -686,13 +695,13 @@
 //                        }
 //                        var nextMessage = participant.processMessage(message);
 //                        if (nextMessage) {
-//                            nextMessages.push(mpenc.utils.clone(nextMessage));
+//                            nextMessages.push(utils.clone(nextMessage));
 //                        }
 //                        assert.deepEqual(participant.cliquesMember.members, members);
 //                        assert.deepEqual(participant.askeMember.members, members);
 //                    }
 //                    message = nextMessages.shift();
-//                    message_js = mpenc.codec.decodeMessageContent(message);
+//                    message_js = codec.decodeMessageContent(message);
 //                }
 //                keyCheck = null;
 //                for (var i = 0; i < participants.length; i++) {
@@ -711,7 +720,7 @@
 //                // '2' initiates a key refresh.
 //                var oldKey = participants[1].cliquesMember.groupKey;
 //                message = participants[1].refresh();
-//                message_js = mpenc.codec.decodeMessageContent(message);
+//                message_js = codec.decodeMessageContent(message);
 //
 //                // Downflow for refresh.
 //                nextMessages = [];
@@ -723,13 +732,13 @@
 //                        }
 //                        var nextMessage = participant.processMessage(message);
 //                        if (nextMessage) {
-//                            nextMessages.push(mpenc.utils.clone(nextMessage));
+//                            nextMessages.push(utils.clone(nextMessage));
 //                        }
 //                        assert.deepEqual(participant.cliquesMember.members, members);
 //                        assert.deepEqual(participant.askeMember.members, members);
 //                    }
 //                    message = nextMessages.shift();
-//                    message_js = mpenc.codec.decodeMessageContent(message);
+//                    message_js = codec.decodeMessageContent(message);
 //                }
 //                keyCheck = null;
 //                for (var i = 0; i < participants.length; i++) {
@@ -748,4 +757,4 @@
             });
         });
     });
-})();
+});

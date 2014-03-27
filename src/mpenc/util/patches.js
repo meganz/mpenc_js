@@ -3,7 +3,10 @@
  * Some patches/enhancements to third party library modules.
  */
 
-(function() {
+define([
+    "mpenc/util/utils",
+    "curve255"
+], function(utils, curve255) {
     "use strict";
 
     /**
@@ -13,8 +16,7 @@
      * @description
      * <p>Some patches/enhancements to third party library modules.</p>
      */
-
-    var _assert = mpenc.assert.assert;
+    var ns = {};
 
     /*
      * Created: 20 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -52,7 +54,7 @@
             var remainder = 0;
             for (var j = 0; j < 4; j++) {
                 remainder = value % 16;
-                out = mpenc.utils._HEX_CHARS[remainder % 0x0f] + out;
+                out = utils._HEX_CHARS[remainder % 0x0f] + out;
                 value = value >> 4;
             }
         }
@@ -81,7 +83,7 @@
         while (i < key.length) {
             var value = 0;
             for (var j = 0; j < 4; j++) {
-                value = (value << 4) + mpenc.utils._HEX_CHARS.indexOf(key[i + j]);
+                value = (value << 4) + utils._HEX_CHARS.indexOf(key[i + j]);
             }
             out.unshift(value);
             i += 4;
@@ -135,4 +137,6 @@
         }
         return out;
     };
-})();
+
+    return ns;
+});

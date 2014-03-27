@@ -1,9 +1,16 @@
 /**
  * @fileOverview
- * Test of the `mpenc.ske` module (Signature Key Exchange).
+ * Test of the `mpenc.greet.ske` module (Signature Key Exchange).
  */
 
-(function() {
+define([
+    "mpenc/greet/ske",
+    "mpenc/util/utils",
+    "chai",
+    "sinon/assert",
+    "sinon/sandbox",
+    "sinon/spy",
+], function(ns, utils, chai, sinon_assert, sinon_sandbox, sinon_spy) {
     "use strict";
 
     /*
@@ -24,11 +31,13 @@
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
+    var assert = chai.assert;
+
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
     beforeEach(function() {
-        sandbox = sinon.sandbox.create();
+        sandbox = sinon_sandbox.create();
     });
 
     afterEach(function() {
@@ -36,8 +45,6 @@
     });
 
     describe("module level", function() {
-        var ns = mpenc.ske;
-
         describe('_binstring2mpi()', function() {
             it('convert message to MPI representation', function() {
                 var messages = ['foo', 'The answer is 42!'];
@@ -138,7 +145,7 @@
                     return x;
                 };
 
-                sandbox.stub(mpenc.utils, 'sha256', echo);
+                sandbox.stub(utils, 'sha256', echo);
                 sandbox.stub(djbec, 'bytes2string', echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');
@@ -147,8 +154,6 @@
     });
 
     describe("SignatureKeyExchangeMember class", function() {
-        var ns = mpenc.ske;
-
         describe('constructur', function() {
             it('simple constructor', function() {
                 new ns.SignatureKeyExchangeMember();
@@ -159,10 +164,10 @@
             it('start commit chain', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var otherMembers = ['2', '3', '4', '5'];
-                var spy = sinon.spy();
+                var spy = sinon_spy();
                 participant.upflow = spy;
                 participant.commit(otherMembers);
-                sinon.assert.calledOnce(spy);
+                sinon_assert.calledOnce(spy);
             });
 
             it('start commit chain without members', function() {
@@ -405,7 +410,7 @@
 
             it('upflow after a join', function() {
                 var members = ['1', '2', '3', '4', '5'];
-                var startMessage = new mpenc.ske.SignatureKeyExchangeMessage('3', '',
+                var startMessage = new ns.SignatureKeyExchangeMessage('3', '',
                                                                              'upflow');
                 startMessage.dest = '6';
                 startMessage.members = members.concat('6');
@@ -418,7 +423,7 @@
                 }
 
                 var participant = new ns.SignatureKeyExchangeMember('6');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.staticPrivKey = _td.RSA_PRIV_KEY;
                 var message = participant.upflow(startMessage);
                 assert.deepEqual(participant.members, message.members);
@@ -465,7 +470,7 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(
+                sandbox.stub(ns, '_computeSid').returns(
                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
                 assert.throws(function() { participant.downflow(message); },
@@ -488,7 +493,7 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(ns, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, false]);
@@ -514,12 +519,12 @@
                     message.nonces.push(_td.ED25519_PUB_KEY);
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
-                participant.members = mpenc.utils.clone(message.members);
-                participant.nonces = mpenc.utils.clone(message.nonces);
-                participant.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
+                participant.members = utils.clone(message.members);
+                participant.nonces = utils.clone(message.nonces);
+                participant.ephemeralPubKeys = utils.clone(message.pubKeys);
                 participant.sessionId = _td.SESSION_ID.concat();
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(ns, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
                 assert.ok(newMessage === null);
                 assert.deepEqual(participant.authenticatedMembers,
@@ -564,7 +569,7 @@
             it('join a member', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.nonces = [];
                 participant.ephemeralPubKeys = [];
                 for (var i = 0; i < members.length; i++) {
@@ -610,7 +615,7 @@
             it('exclude members', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.nonces = [];
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -787,5 +792,5 @@
 
     //var bytes = djbec.string2bytes(message.sessionSignature);
     //var hex = djbec.bytes2hex(bytes);
-    //assert.deepEqual(bytes, mpenc.utils.hex2bytearray(hex));
-})();
+    //assert.deepEqual(bytes, utils.hex2bytearray(hex));
+});

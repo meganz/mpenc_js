@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Tests for `mpenc.utils` module.
+ * Tests for `mpenc.util.utils` module.
  */
 
 /*
@@ -21,14 +21,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/util/utils",
+    "chai",
+], function(ns, chai) {
     "use strict";
 
     var assert = chai.assert;
 
     describe("module level", function() {
-        var ns = mpenc.utils;
-
         describe('_arrayIsSubSet()', function() {
             it('check for sub/superset between arrays', function() {
                 var subset = ['1', '2', '3'];
@@ -117,4 +118,4 @@
             });
         });
     });
-})();
+});

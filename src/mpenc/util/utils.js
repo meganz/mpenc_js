@@ -3,7 +3,10 @@
  * Some utilities.
  */
 
-(function() {
+define([
+    "djbec",
+    "sjcl"
+], function(djbec, sjcl) {
     "use strict";
 
     /**
@@ -13,7 +16,7 @@
      * @description
      * Some utilities.
      */
-    mpenc.utils = {};
+    var ns = {};
 
     /*
      * Created: 7 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -33,7 +36,7 @@
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
-    mpenc.utils._HEX_CHARS = '0123456789abcdef';
+    ns._HEX_CHARS = '0123456789abcdef';
 
     /**
      * Generates a new random key as an array of 32 bit words.
@@ -44,7 +47,7 @@
      *     32 bit word array of the key.
      * @private
      */
-    mpenc.utils._newKey32 = function(bits) {
+    ns._newKey32 = function(bits) {
         // TODO: Replace with Mega's implementation of rand(n)
         // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
         var paranoia = [0,48,64,96,128,192,256,384,512,768,1024].indexOf(bits);
@@ -62,8 +65,8 @@
      *     16 bit word array of the key.
      * @private
      */
-    mpenc.utils._newKey16 = function(bits) {
-        return mpenc.utils._key32to16(mpenc.utils._newKey32(bits));
+    ns._newKey16 = function(bits) {
+        return ns._key32to16(ns._newKey32(bits));
     };
 
 
@@ -77,8 +80,8 @@
      *     8 bit value array of the key.
      * @private
      */
-    mpenc.utils._newKey08 = function(bits) {
-        return mpenc.utils._key32to08(mpenc.utils._newKey32(bits));
+    ns._newKey08 = function(bits) {
+        return ns._key32to08(ns._newKey32(bits));
     };
 
 
@@ -91,7 +94,7 @@
      *     8 bit value array of the key.
      * @private
      */
-    mpenc.utils._key32to08 = function(key) {
+    ns._key32to08 = function(key) {
         var keyOut = [];
         for (var i = 0; i < key.length; i++) {
             var value = key[i];
@@ -113,7 +116,7 @@
      *     16 bit value array of the key.
      * @private
      */
-    mpenc.utils._key32to16 = function(key) {
+    ns._key32to16 = function(key) {
         var keyOut = [];
         for (var i = 0; i < key.length; i++) {
             var value = key[i];
@@ -135,12 +138,12 @@
      *     Hex string representation of key (little endian).
      * @private
      */
-    mpenc.utils._key08toHex = function(key) {
+    ns._key08toHex = function(key) {
         var out = '';
         for (var i = 0; i < key.length; i++) {
             var value = key[i];
             for (var j = 0; j < 2; j++) {
-                out += mpenc.utils._HEX_CHARS[value % 0x0f];
+                out += ns._HEX_CHARS[value % 0x0f];
                 value = value >> 4;
             }
         }
@@ -155,7 +158,7 @@
      *     The key to clear.
      * @private
      */
-    mpenc.utils._clearmem = function(key) {
+    ns._clearmem = function(key) {
         for (var i = 0; i < key.length; i++) {
             key[i] = 0;
         }
@@ -173,7 +176,7 @@
      *     The new array.
      * @private
      */
-    mpenc.utils._arrayMaker = function(size, template) {
+    ns._arrayMaker = function(size, template) {
         var arr = new Array(size);
         for (var i = 0; i < size; i++) {
             arr[i] = template;
@@ -194,7 +197,7 @@
      *     True for uniqueness.
      * @private
      */
-    mpenc.utils._arrayIsSet = function(theArray) {
+    ns._arrayIsSet = function(theArray) {
         // Until ES6 is down everywhere to offer the Set() class, we need to work
         // around it.
         var mockSet = {};
@@ -225,7 +228,7 @@
      *     True for the first being a subset of the second.
      * @private
      */
-    mpenc.utils._arrayIsSubSet = function(subset, superset) {
+    ns._arrayIsSubSet = function(subset, superset) {
         // Until ES6 is down everywhere to offer the Set() class, we need to work
         // around it.
         var mockSet = {};
@@ -257,14 +260,14 @@
      *     True for no duplicates in list.
      * @private
      */
-    mpenc.utils._noDuplicatesInList = function(aList) {
+    ns._noDuplicatesInList = function(aList) {
         var listCheck = [];
         for (var i = 0; i < aList.length; i++) {
             if (aList[i] !== null) {
                 listCheck.push(aList[i]);
             }
         }
-        return mpenc.utils._arrayIsSet(listCheck);
+        return ns._arrayIsSet(listCheck);
     };
 
 
@@ -278,12 +281,12 @@
      * @returns
      *     Array of byte values (unsigned integers).
      */
-    mpenc.utils.hex2bytearray = function(hexstring) {
+    ns.hex2bytearray = function(hexstring) {
         var result = [];
         var i = 0;
         while (i < hexstring.length) {
-            result.push((mpenc.utils._HEX_CHARS.indexOf(hexstring.charAt(i++)) << 4)
-                        + mpenc.utils._HEX_CHARS.indexOf(hexstring.charAt(i++)));
+            result.push((ns._HEX_CHARS.indexOf(hexstring.charAt(i++)) << 4)
+                        + ns._HEX_CHARS.indexOf(hexstring.charAt(i++)));
         }
         return result;
     };
@@ -299,11 +302,11 @@
      * @returns
      *     Hexadecimal string.
      */
-    mpenc.utils.bytearray2hex = function(arr) {
+    ns.bytearray2hex = function(arr) {
         var result = '';
         for (var i = 0; i < arr.length; i++) {
-            result += mpenc.utils._HEX_CHARS.charAt(arr[i] >> 4)
-                    + mpenc.utils._HEX_CHARS.charAt(arr[i] & 15);
+            result += ns._HEX_CHARS.charAt(arr[i] >> 4)
+                    + ns._HEX_CHARS.charAt(arr[i] & 15);
         }
         return result;
     };
@@ -317,7 +320,7 @@
      * @returns
      *     Binary string.
      */
-    mpenc.utils.sha256 = function(data) {
+    ns.sha256 = function(data) {
         return djbec.bytes2string(asmCrypto.SHA256.bytes(data));
     };
 
@@ -334,7 +337,7 @@
      * @returns
      *     A deep copy of the original object.
      */
-    mpenc.utils.clone = function(obj) {
+    ns.clone = function(obj) {
         // Handle the 3 simple types, and null or undefined.
         if (null == obj || "object" != typeof obj) return obj;
 
@@ -349,7 +352,7 @@
         if (obj instanceof Array) {
             var copy = [];
             for (var i = 0, len = obj.length; i < len; i++) {
-                copy[i] = mpenc.utils.clone(obj[i]);
+                copy[i] = ns.clone(obj[i]);
             }
             return copy;
         }
@@ -359,7 +362,7 @@
             var copy = {};
             for (var attr in obj) {
                 if (obj.hasOwnProperty(attr)) {
-                    copy[attr] = mpenc.utils.clone(obj[attr]);
+                    copy[attr] = ns.clone(obj[attr]);
                 }
             }
             return copy;
@@ -381,7 +384,7 @@
      * @returns
      *     A true on equality.
      */
-    mpenc.utils.arrayEqual = function(arr1, arr2) {
+    ns.arrayEqual = function(arr1, arr2) {
         // If the other array is a falsy value, return.
         if (!arr2) {
             return false;
@@ -396,7 +399,7 @@
             // Check if we have nested arrays.
             if (arr1[i] instanceof Array && arr2[i] instanceof Array) {
                 // Recurse into the nested arrays.
-                if (!mpenc.utils.arrayEqual(arr1[i], arr2[i])) {
+                if (!ns.arrayEqual(arr1[i], arr2[i])) {
                     return false;
                 }
             } else if (arr1[i] !== arr2[i]) {
@@ -422,7 +425,7 @@
      * @returns
      *     A true on equality.
      */
-    mpenc.utils.objectEqual = function(obj1, obj2) {
+    ns.objectEqual = function(obj1, obj2) {
         // For the first loop, we only check for types
         for (var propName in obj1) {
             // Check for inherited methods and properties - like .equals itself
@@ -457,12 +460,12 @@
             // This returns the script back to the array comparing.
             if (obj1[propName] instanceof Array && obj2[propName] instanceof Array) {
                 // Recurse into the nested arrays.
-                if (!mpenc.utils.arrayEqual(obj1[propName], obj2[propName])) {
+                if (!ns.arrayEqual(obj1[propName], obj2[propName])) {
                     return false;
                 }
             } else if (obj1[propName] instanceof Object && obj2[propName] instanceof Object) {
                 // Recurse into another objects.
-                if (!mpenc.utils.objectEqual(obj1[propName], obj2[propName])) {
+                if (!ns.objectEqual(obj1[propName], obj2[propName])) {
                     return false;
                 }
             }
@@ -474,4 +477,6 @@
         // If everything passed, let's say YES.
         return true;
     };
-})();
+
+    return ns;
+});

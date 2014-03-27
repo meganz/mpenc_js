@@ -3,7 +3,7 @@
  * Assertion helper module.
  */
 
-(function() {
+define([], function() {
     "use strict";
 
     /**
@@ -22,7 +22,7 @@
      * }
      * </pre>
      */
-    mpenc.assert = {};
+    var ns = {};
 
     /**
      * Assertion exception.
@@ -30,11 +30,11 @@
      *     Message for exception on failure.
      * @constructor
      */
-    mpenc.assert.AssertionFailed = function(message) {
+    ns.AssertionFailed = function(message) {
         this.message = message;
     };
-    mpenc.assert.AssertionFailed.prototype = Object.create(Error.prototype);
-    mpenc.assert.AssertionFailed.prototype.name = 'AssertionFailed';
+    ns.AssertionFailed.prototype = Object.create(Error.prototype);
+    ns.AssertionFailed.prototype.name = 'AssertionFailed';
 
 
     /**
@@ -47,9 +47,11 @@
      * @param message
      *     Message for exception on failure.
      */
-    mpenc.assert.assert = function(test, message) {
+    ns.assert = function(test, message) {
         if (!test) {
-            throw new mpenc.assert.AssertionFailed(message);
+            throw new ns.AssertionFailed(message);
         }
     };
-})();
+
+    return ns;
+});

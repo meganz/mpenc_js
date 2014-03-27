@@ -7,25 +7,29 @@ module.exports = function(config) {
     basePath: '',
 
     // frameworks to use
-    frameworks: ['mocha', 'chai', 'sinon'],
+    frameworks: ['requirejs', 'mocha', 'chai', 'sinon'],
 
     // list of files / patterns to load in the browser
+    // {included: false} files are loaded by requirejs
     files: [
       // Dependency-based load order of lib/ modules.
       'lib/sjcl.js',
       'lib/curve255.js',
       'lib/jsbn.js',
       'lib/jsbn2.js',
-      'lib/sha512.js',
+      {pattern:'lib/sha512.js', included: false},
       'lib/djbec.js',
       'lib/rsa.js',
       'lib/asmcrypto.js',
+      // karma-sinon does not yet integrate with requirejs, so we have to do this hack
+      {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 
-      //{pattern: 'lib/*.js', included: true},
-      'src/mpenc.js',
-      {pattern: 'src/*.js', included: true},
+      // ours
+      {pattern: 'src/**/*.js', included: false},
       'test/test_data.js',
-      {pattern: 'test/*.js', included: true}
+      'test/test_utils.js',
+      {pattern: 'test/**/*_test.js', included: false},
+      'test/test_main.js',
     ],
 
     // list of files to exclude
@@ -40,8 +44,8 @@ module.exports = function(config) {
     // (Do not include tests or libraries.
     // These files will be instrumented by Istanbul.)
     preprocessors: {
-         'src/*.js': ['coverage']
-     },
+         'src/**/*.js': ['coverage']
+    },
 
 // Coverage configuration
     coverageReporter: {

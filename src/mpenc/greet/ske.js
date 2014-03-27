@@ -3,7 +3,11 @@
  * Implementation of an authenticated Signature Key Exchange scheme.
  */
 
-(function() {
+define([
+    "mpenc/util/assert",
+    "mpenc/util/utils",
+    "rsa",
+], function(assert, utils, rsa) {
     "use strict";
 
     /**
@@ -26,9 +30,9 @@
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.</p>
      */
-    mpenc.ske = {};
+    var ns = {};
 
-    var _assert = mpenc.assert.assert;
+    var _assert = assert.assert;
 
     /*
      * Created: 5 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -83,7 +87,7 @@
      * @property sessionSignature
      *     Session acknowledgement signature using sender's static key.
      */
-    mpenc.ske.SignatureKeyExchangeMessage = function(source, dest, flow, members,
+    ns.SignatureKeyExchangeMessage = function(source, dest, flow, members,
                                                      nonces, pubKeys,
                                                      sessionSignature) {
         this.source = source || '';
@@ -136,7 +140,7 @@
      *     the members `priv`, `pub` and `authenticated` (if the key was
      *     successfully authenticated).
      */
-    mpenc.ske.SignatureKeyExchangeMember = function(id) {
+    ns.SignatureKeyExchangeMember = function(id) {
         this.id = id;
         this.members = [];
         this.authenticatedMembers = null;
@@ -161,10 +165,10 @@
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
+    ns.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.ephemeralPubKeys = null;
-        var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id,
                                                                      '', 'upflow');
         startMessage.members = [this.id].concat(otherMembers);
         this.nonce = null;
@@ -182,8 +186,8 @@
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.upflow = function(message) {
-        _assert(mpenc.utils._noDuplicatesInList(message.members),
+    ns.SignatureKeyExchangeMember.prototype.upflow = function(message) {
+        _assert(utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
         _assert(message.nonces.length <= message.members.length,
                 'Too many nonces on ASKE upflow!');
@@ -192,30 +196,30 @@
         var myPos = message.members.indexOf(this.id);
         _assert(myPos >= 0, 'Not member of this key exchange!');
 
-        this.members = mpenc.utils.clone(message.members);
-        this.nonces = mpenc.utils.clone(message.nonces);
-        this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
+        this.members = utils.clone(message.members);
+        this.nonces = utils.clone(message.nonces);
+        this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = djbec.bytes2string(mpenc.utils._newKey08(256));
+        this.nonce = djbec.bytes2string(utils._newKey08(256));
         this.nonces.push(this.nonce);
-        this.ephemeralPrivKey = djbec.bytes2string(mpenc.utils._newKey08(512));
+        this.ephemeralPrivKey = djbec.bytes2string(utils._newKey08(512));
         this.ephemeralPubKey = djbec.bytes2string(djbec.publickey(this.ephemeralPrivKey));
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
 
         // Clone message.
-        message = mpenc.utils.clone(message);
+        message = utils.clone(message);
 
         // Pass on a message.
         if (myPos === this.members.length - 1) {
             // Compute my session ID.
-            this.sessionId = mpenc.ske._computeSid(this.members, this.nonces);
+            this.sessionId = ns._computeSid(this.members, this.nonces);
             // I'm the last in the chain:
             // Broadcast own session authentication.
             message.source = this.id;
             message.dest = '';
             message.flow = 'downflow';
-            this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+            this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
             this.authenticatedMembers[myPos] = true;
             message.sessionSignature = this._computeSessionSig();
         } else {
@@ -223,8 +227,8 @@
             message.source = this.id;
             message.dest = this.members[myPos + 1];
         }
-        message.nonces = mpenc.utils.clone(this.nonces);
-        message.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
+        message.nonces = utils.clone(this.nonces);
+        message.pubKeys = utils.clone(this.ephemeralPubKeys);
         return message;
     };
 
@@ -237,12 +241,12 @@
      *     Session signature.
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
+    ns.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
         _assert(this.sessionId, 'Session ID not available.');
         _assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
         var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
-        var hashValue = mpenc.utils.sha256(sessionAck);
-        return mpenc.ske._smallrsasign(hashValue, this.staticPrivKey);
+        var hashValue = utils.sha256(sessionAck);
+        return ns._smallrsasign(hashValue, this.staticPrivKey);
     };
 
 
@@ -258,7 +262,7 @@
      *     Whether the signature verifies against the member's static public key.
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memberId, signature) {
+    ns.SignatureKeyExchangeMember.prototype._verifySessionSig = function(memberId, signature) {
         _assert(this.sessionId, 'Session ID not available.');
         var memberPos = this.members.indexOf(memberId);
         _assert(memberPos >= 0, 'Member not in participants list.');
@@ -266,11 +270,11 @@
                 "Member's ephemeral pub key missing.");
         _assert(this.staticPubKeyDir.get(memberId),
                 "Member's static pub key missing.");
-        var decrypted = mpenc.ske._smallrsaverify(signature,
+        var decrypted = ns._smallrsaverify(signature,
                                                   this.staticPubKeyDir.get(memberId));
         var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
-        var hashValue = mpenc.utils.sha256(sessionAck);
+        var hashValue = utils.sha256(sessionAck);
         return (decrypted === hashValue);
     };
 
@@ -285,24 +289,24 @@
      * @returns {SignatureKeyExchangeMessage} or null.
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.downflow = function(message) {
-        _assert(mpenc.utils._noDuplicatesInList(message.members),
+    ns.SignatureKeyExchangeMember.prototype.downflow = function(message) {
+        _assert(utils._noDuplicatesInList(message.members),
                 'Duplicates in member list detected!');
         var myPos = message.members.indexOf(this.id);
 
         // Generate session ID for received information.
-        var sid = mpenc.ske._computeSid(message.members, message.nonces);
+        var sid = ns._computeSid(message.members, message.nonces);
 
         // Is this a broadcast for a new session?
         var existingSession = (this.sessionId === sid);
         if (!existingSession) {
-            this.members = mpenc.utils.clone(message.members);
-            this.nonces = mpenc.utils.clone(message.nonces);
-            this.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
+            this.members = utils.clone(message.members);
+            this.nonces = utils.clone(message.nonces);
+            this.ephemeralPubKeys = utils.clone(message.pubKeys);
             this.sessionId = sid;
 
             // New authentication list, and authenticate myself.
-            this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+            this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
             this.authenticatedMembers[myPos] = true;
         }
 
@@ -319,7 +323,7 @@
         }
 
         // Clone message.
-        message = mpenc.utils.clone(message);
+        message = utils.clone(message);
         // We haven't acknowledged, yet, so pass on the message.
         message.source = this.id;
         message.sessionSignature = this._computeSessionSig();
@@ -335,7 +339,7 @@
      * @returns True on a valid session.
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
+    ns.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
         return this.authenticatedMembers.every(function(item) { return item; });
     };
 
@@ -348,20 +352,20 @@
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.join = function(newMembers) {
+    ns.SignatureKeyExchangeMember.prototype.join = function(newMembers) {
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
         var allMembers = this.members.concat(newMembers);
-        _assert(mpenc.utils._noDuplicatesInList(allMembers),
+        _assert(utils._noDuplicatesInList(allMembers),
                 'Duplicates in member list detected!');
         this.members = allMembers;
 
         // Pass a message on to the first new member to join.
-        var startMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id,
                                                                      '', 'upflow');
         startMessage.dest = newMembers[0];
-        startMessage.members = mpenc.utils.clone(allMembers);
-        startMessage.nonces = mpenc.utils.clone(this.nonces);
-        startMessage.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
+        startMessage.members = utils.clone(allMembers);
+        startMessage.nonces = utils.clone(this.nonces);
+        startMessage.pubKeys = utils.clone(this.ephemeralPubKeys);
 
         return startMessage;
     };
@@ -375,9 +379,9 @@
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
-    mpenc.ske.SignatureKeyExchangeMember.prototype.exclude = function(excludeMembers) {
+    ns.SignatureKeyExchangeMember.prototype.exclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
-        _assert(mpenc.utils._arrayIsSubSet(excludeMembers, this.members),
+        _assert(utils._arrayIsSubSet(excludeMembers, this.members),
                 'Members list to exclude is not a sub-set of previous members!');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
@@ -395,19 +399,19 @@
         }
 
         // Compute my session ID.
-        this.sessionId = mpenc.ske._computeSid(this.members, this.nonces);
+        this.sessionId = ns._computeSid(this.members, this.nonces);
 
         // Discard old and make new group key.
         var myPos = this.members.indexOf(this.id);
-        this.authenticatedMembers = mpenc.utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new mpenc.ske.SignatureKeyExchangeMessage(this.id,
+        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id,
                                                                          '', 'downflow');
-        broadcastMessage.members = mpenc.utils.clone(this.members);
-        broadcastMessage.nonces = mpenc.utils.clone(this.nonces);
-        broadcastMessage.pubKeys = mpenc.utils.clone(this.ephemeralPubKeys);
+        broadcastMessage.members = utils.clone(this.members);
+        broadcastMessage.nonces = utils.clone(this.nonces);
+        broadcastMessage.pubKeys = utils.clone(this.ephemeralPubKeys);
         broadcastMessage.sessionSignature = this._computeSessionSig();
 
         return broadcastMessage;
@@ -422,7 +426,7 @@
      * @returns
      *     MPI representation.
      */
-    mpenc.ske._binstring2mpi = function(binstring) {
+    ns._binstring2mpi = function(binstring) {
         var contentLength = binstring.length * 8;
         var data = String.fromCharCode(contentLength >> 8)
                  + String.fromCharCode(contentLength & 255) + binstring;
@@ -438,7 +442,7 @@
      * @returns
      *     Binary string representation of data.
      */
-    mpenc.ske._mpi2binstring = function(mpi) {
+    ns._mpi2binstring = function(mpi) {
         return b2mpi(mpi).slice(2);
     };
 
@@ -455,7 +459,7 @@
      * @returns
      *     Encoded message as binary string.
      */
-    mpenc.ske._pkcs1v15_encode = function(message, length) {
+    ns._pkcs1v15_encode = function(message, length) {
         _assert(message.length < length - 10,
                 'message too long for encoding scheme');
 
@@ -481,7 +485,7 @@
      * @returns
      *     Decoded message as binary string.
      */
-    mpenc.ske._pkcs1v15_decode = function(message) {
+    ns._pkcs1v15_decode = function(message) {
         _assert(message.length > 10, 'message decoding error');
         return message.slice(message.indexOf(String.fromCharCode(0)) + 1);
     };
@@ -500,14 +504,13 @@
      * @returns
      *     Ciphertext encoded as binary string.
      */
-    mpenc.ske._smallrsaencrypt = function(cleartext, pubkey) {
+    ns._smallrsaencrypt = function(cleartext, pubkey) {
         // pubkey[2] is length of key in bits.
         var keyLength = pubkey[2] >> 3;
 
         // Convert to MPI format and return cipher as binary string.
-        var data = mpenc.ske._binstring2mpi(mpenc.ske._pkcs1v15_encode(cleartext,
-                                                                       keyLength));
-        return mpenc.ske._mpi2binstring(RSAencrypt(data, pubkey[1], pubkey[0]));
+        var data = ns._binstring2mpi(ns._pkcs1v15_encode(cleartext, keyLength));
+        return ns._mpi2binstring(rsa.RSAencrypt(data, pubkey[1], pubkey[0]));
     };
 
 
@@ -522,11 +525,11 @@
      * @returns
      *     Cleartext encoded as binary string.
      */
-    mpenc.ske._smallrsadecrypt = function(ciphertext, privkey) {
-        var cleartext = RSAdecrypt(mpenc.ske._binstring2mpi(ciphertext),
-                                   privkey[2], privkey[0], privkey[1], privkey[3]);
-        var data = mpenc.ske._mpi2binstring(cleartext);
-        return mpenc.ske._pkcs1v15_decode(data);
+    ns._smallrsadecrypt = function(ciphertext, privkey) {
+        var cleartext = rsa.RSAdecrypt(ns._binstring2mpi(ciphertext),
+                                       privkey[2], privkey[0], privkey[1], privkey[3]);
+        var data = ns._mpi2binstring(cleartext);
+        return ns._pkcs1v15_decode(data);
     };
 
 
@@ -544,15 +547,15 @@
      * @returns
      *     Encrypted message encoded as binary string.
      */
-    mpenc.ske._smallrsasign = function(cleartext, privkey) {
+    ns._smallrsasign = function(cleartext, privkey) {
         var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
 
         // Convert to MPI format and return cipher as binary string.
-        var data = mpenc.ske._pkcs1v15_encode(cleartext, keyLength);
+        var data = ns._pkcs1v15_encode(cleartext, keyLength);
         // Decrypt ciphertext.
-        var cipher = RSAdecrypt(mpenc.ske._binstring2mpi(data),
-                                privkey[2], privkey[0], privkey[1], privkey[3]);
-        return mpenc.ske._mpi2binstring(cipher);
+        var cipher = rsa.RSAdecrypt(ns._binstring2mpi(data),
+                                    privkey[2], privkey[0], privkey[1], privkey[3]);
+        return ns._mpi2binstring(cipher);
     };
 
 
@@ -567,11 +570,11 @@
      * @returns
      *     Cleartext encoded as binary string.
      */
-    mpenc.ske._smallrsaverify = function(ciphertext, pubkey) {
+    ns._smallrsaverify = function(ciphertext, pubkey) {
         // Convert to MPI format and return cleartext as binary string.
-        var data = mpenc.ske._binstring2mpi(ciphertext);
-        var cleartext = mpenc.ske._mpi2binstring(RSAencrypt(data, pubkey[1], pubkey[0]));
-        return mpenc.ske._pkcs1v15_decode(cleartext);
+        var data = ns._binstring2mpi(ciphertext);
+        var cleartext = ns._mpi2binstring(rsa.RSAencrypt(data, pubkey[1], pubkey[0]));
+        return ns._pkcs1v15_decode(cleartext);
     };
 
 
@@ -586,7 +589,7 @@
      * @returns
      *     Session ID as binary string.
      */
-    mpenc.ske._computeSid = function(members, nonces) {
+    ns._computeSid = function(members, nonces) {
         // Create a mapping to access sorted/paired items later.
         var mapping = {};
         for (var i = 0; i < members.length; i++) {
@@ -605,6 +608,8 @@
                 nonceItems += mapping[pid];
             }
         }
-        return mpenc.utils.sha256(pidItems + nonceItems);
+        return utils.sha256(pidItems + nonceItems);
     };
-})();
+
+    return ns;
+});

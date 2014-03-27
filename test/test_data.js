@@ -28,7 +28,7 @@ var _td = {};
 // Attempt to patch the problem with running the code in PhantomJS.
 //Uint8Array = Array;
 
-/* Constants mainly for the mpenc.cliques. */
+/* Constants mainly for the mpenc.greet.cliques. */
 
 _td.C25519_PRIV_KEY = 'bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=';
 _td.C25519_PRIV_KEY = atob(_td.C25519_PRIV_KEY);
@@ -37,7 +37,7 @@ _td.C25519_PUB_KEY = atob(_td.C25519_PUB_KEY);
 _td.COMP_KEY = 'YGhamvNw4vYjmU3aPhEwnPNWmfhSJP0D2XbU50YADws=';
 _td.COMP_KEY = atob(_td.COMP_KEY);
 
-/* Constants mainly for the mpenc.ske. */
+/* Constants mainly for the mpenc.greet.ske. */
 
 // eabuse@nexgo.de
 _td.RSA_PRIV_KEY = [[75021949, 120245708, 82706226, 16596609, 37674797,
@@ -144,7 +144,7 @@ _td.STATIC_PUB_KEY_DIR = {
     'get': function(key) { return _td.RSA_PUB_KEY; }
 };
 
-/* Constants mainly for the mpenc.codec and mpenc.handler. */
+/* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
 _td.UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEy'
@@ -174,7 +174,7 @@ _td.DATA_MESSAGE_WIRE = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
     signatureOk: true,
-    protocol: mpenc.VERSION,
+    protocol: String.fromCharCode(0x01), // same as mpenc.VERSION
     iv: 'xxx',
     data: 'foo',
 };

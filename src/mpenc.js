@@ -14,7 +14,7 @@
  * it under the terms of the GNU Affero General Public License version 3
  * as published by the Free Software Foundation. See the accompanying
  * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
- * 
+ *
  * This code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -25,16 +25,21 @@
 /**
  * @namespace
  * The multi-party encrypted chat protocol, top-level namespace.
- * 
+ *
  * @description
  * This is eventually to be extended towards the mpOTR standard, currently
  * under development.
  */
-var mpenc = {};
+define([
+    "exports",
+], function(exports) {
 
-/** Protocol version indicator. */
-mpenc.VERSION = String.fromCharCode(0x01);
+    var mpenc = {};
 
-if(typeof module !== 'undefined' && module.exports){
-  module.exports = mpenc;
-}
+    /** Protocol version indicator. */
+    mpenc.VERSION = String.fromCharCode(0x01);
+
+    exports.VERSION = mpenc.VERSION;
+
+    return mpenc;
+});
