@@ -9,6 +9,6 @@ api-doc:
 	$(JSDOC) --destination doc/api/ -r src
 
 clean:
-	rm -rf doc/api/
+	rm -rf doc/api/ coverage/
 
 .PHONY: test
