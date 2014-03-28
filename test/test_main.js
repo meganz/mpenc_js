@@ -34,7 +34,7 @@ requirejs.config({
             }},
         'jsSHA': { exports: 'jsSHA' },
         'rsa': {
-            exports: 'RSAencrypt',
+            exports: 'rsa',
             init: function() {
                 return this.rsa = {RSAencrypt: RSAencrypt, RSAdecrypt: RSAdecrypt};
             }},
