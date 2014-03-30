@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.cliques` module.
+ * Test of the `mpenc.greet.cliques` module.
  */
 
 /*
@@ -15,38 +15,41 @@
  * it under the terms of the GNU Affero General Public License version 3
  * as published by the Free Software Foundation. See the accompanying
  * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
- * 
+ *
  * This code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-(function() {
+define([
+    "mpenc/greet/cliques",
+    "mpenc/util/utils",
+    "chai",
+    "sinon/assert",
+    "sinon/spy",
+], function(ns, utils, chai, sinon_assert, sinon_spy) {
     "use strict";
-    
     var assert = chai.assert;
-    
+
     describe("module level", function() {
-        var ns = mpenc.cliques;
-        
         describe('_scalarMultiplyDebug()', function() {
             it('should multiply debug with base point if no key given', function() {
                 assert.strictEqual(ns._scalarMultiplyDebug('1'), '1*G');
                 assert.strictEqual(ns._scalarMultiplyDebug('2'), '2*G');
             });
-            
+
             it('should multiply debug priv key with intermediate key', function() {
                 assert.deepEqual(ns._scalarMultiplyDebug('1', '2*G'), '1*2*G');
                 assert.deepEqual(ns._scalarMultiplyDebug('2', '3*4*5*G'), '2*3*4*5*G');
             });
         });
-    
+
         describe('_scalarMultiply()', function() {
             it('should multiply with base point if no key given', function() {
                 var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY);
                 assert.strictEqual(compPubKey, _td.C25519_PUB_KEY);
             });
-            
+
             it('should multiply priv key with intermediate key', function() {
                 var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY,
                                                     _td.C25519_PRIV_KEY);
@@ -54,10 +57,8 @@
             });
         });
     });
-    
+
     describe('CliquesMember class', function() {
-        var ns = mpenc.cliques;
-        
         describe('constructor', function() {
             it('simple CliquesMember constructor', function() {
                 var participant = new ns.CliquesMember('4');
@@ -65,7 +66,7 @@
                 assert.strictEqual(participant.privKeyId, 0);
             });
         });
-    
+
         describe('#_setKeys() method', function() {
             it('update local key state', function() {
                 var numMembers = 5;
@@ -87,7 +88,7 @@
                 assert.strictEqual(participant._debugGroupKey, '3*1*2*4*5*G');
             });
         });
-    
+
         describe('#_renewPrivKey() method', function() {
             it('reniewing private key and int keys', function() {
                 var numMembers = 5;
@@ -118,24 +119,24 @@
                 }
             });
         });
-    
+
         describe('#ika() method', function() {
             it('start the IKA', function() {
                 var participant = new ns.CliquesMember('1');
-                var spy = sinon.spy();
+                var spy = sinon_spy();
                 participant.upflow = spy;
                 var otherMembers = ['2', '3', '4', '5', '6'];
                 participant.ika(otherMembers);
-                sinon.assert.calledOnce(spy);
+                sinon_assert.calledOnce(spy);
             });
-        
+
             it('start the IKA without members', function() {
                 var participant = new ns.CliquesMember('1');
                 assert.throws(function() { participant.ika([]); },
                               'No members to add.');
             });
         });
-    
+
         describe('#upflow() method', function() {
             it('ika upflow, no previous messages', function() {
                 var participant = new ns.CliquesMember('1');
@@ -158,7 +159,7 @@
                 assert.strictEqual(newMessage.source, '1');
                 assert.strictEqual(newMessage.dest, '2');
             });
-            
+
             it('ika upflow duplicates in member list', function() {
                 var participant = new ns.CliquesMember('1');
                 var members = ['3', '1', '2', '3', '4', '5', '6'];
@@ -167,7 +168,7 @@
                 assert.throws(function() { participant.upflow(startMessage); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('ika upflow on completed upflow', function() {
                 var participant = new ns.CliquesMember('1');
                 var members = ['1', '2', '3', '4', '5'];
@@ -182,7 +183,7 @@
                 assert.throws(function() { participant.upflow(message); },
                               'Too many intermediate keys on CLIQUES upflow!');
             });
-            
+
             it('ika upflow, for all members', function() {
                 var numMembers = 5;
                 var members = [];
@@ -211,7 +212,7 @@
                     assert.strictEqual(message.source, members[i]);
                     assert.strictEqual(message.dest, members[i + 1]);
                 }
-    
+
                 // The last member behaves differently.
                 message = participants[numMembers - 1].upflow(message);
                 assert.deepEqual(participants[i].members, members);
@@ -226,7 +227,7 @@
                 assert.strictEqual(message.dest, '');
             });
         });
-        
+
         describe('#downflow() method', function() {
             it('ika downflow duplicates in member list', function() {
                 var members = ['3', '1', '2', '3', '4', '5'];
@@ -237,7 +238,7 @@
                 assert.throws(function() { participant.downflow(broadcastMessage); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('ika downflow member list mismatch', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.CliquesMember('3');
@@ -248,7 +249,7 @@
                 assert.throws(function() { participant.downflow(broadcastMessage); },
                               'Member list mis-match in CLIQUES protocol');
             });
-            
+
             it('ika downflow intKey list number mismatch', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var messageKeys = [];
@@ -264,11 +265,11 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 assert.throws(function() { participant.downflow(broadcastMessage); },
                               'Mis-match intermediate key number for CLIQUES downflow.');
             });
-        
+
             it('ika downflow message process', function() {
                 var numMembers = 5;
                 var members = [];
@@ -286,13 +287,13 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 participant.downflow(broadcastMessage);
                 assert.strictEqual(participant.intKeys, messageKeys);
                 assert.strictEqual(_tu.keyBits(participant.groupKey, 8), 256);
                 assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
             });
-        
+
             it('ika duplicate downflow message process', function() {
                 var numMembers = 5;
                 var members = [];
@@ -310,14 +311,14 @@
                 broadcastMessage.flow = 'downflow';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
-                broadcastMessage.debugKeys = mpenc.utils.clone(members);
+                broadcastMessage.debugKeys = utils.clone(members);
                 participant.downflow(broadcastMessage);
                 var prevGroupKey = participant.groupKey;
                 participant.downflow(broadcastMessage);
                 assert.strictEqual(participant.groupKey, prevGroupKey);
             });
         });
-    
+
         describe('#akaJoin() method', function() {
             it('join empty member list using aka', function() {
                 var members = ['1', '2', '3', '4', '5'];
@@ -327,7 +328,7 @@
                 assert.throws(function() { participant.akaJoin([]); },
                               'No members to add.');
             });
-            
+
             it('join duplicate member list using aka', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.CliquesMember('3');
@@ -336,7 +337,7 @@
                 assert.throws(function() { participant.akaJoin(['2']); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('join a member using aka', function() {
                 var numMembers = 5;
                 var members = [];
@@ -385,7 +386,7 @@
                 assert.deepEqual(participant.groupKey, newParticipant.groupKey);
             });
         });
-    
+
         describe('#akaExclude() method', function() {
             it('exclude empty member list using aka', function() {
                 var members = ['1', '2', '3', '4', '5'];
@@ -395,7 +396,7 @@
                 assert.throws(function() { participant.akaExclude([]); },
                               'No members to exclude.');
             });
-            
+
             it('exclude non existing member using aka', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.CliquesMember('3');
@@ -404,7 +405,7 @@
                 assert.throws(function() { participant.akaExclude(['1', '7']); },
                               'Members list to exclude is not a sub-set of previous members!');
             });
-            
+
             it('exclude self using aka', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.CliquesMember('3');
@@ -413,7 +414,7 @@
                 assert.throws(function() { participant.akaExclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
-            
+
             it('exclude members using aka', function() {
                 var initialMembers = 5;
                 var participant = new ns.CliquesMember('3');
@@ -438,7 +439,7 @@
                 assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
             });
         });
-        
+
         describe('#akaRefresh() method', function() {
             it('refresh own private key using aka', function() {
                 var initialMembers = 5;
@@ -461,7 +462,7 @@
                 assert.strictEqual(participant.privKeyId, 1);
             });
         });
-        
+
         describe('whole ika', function() {
             it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh', function() {
                 var numMembers = 5;
@@ -478,7 +479,7 @@
                 }
                 // IKA start.
                 var message = participants[initiator].ika(otherMembers);
-                
+
                 // IKA upflow.
                 while (message.flow === 'upflow') {
                     if (message.dest !== '') {
@@ -489,7 +490,7 @@
                                   "This shouldn't happen, something's seriously dodgy!");
                     }
                 }
-                
+
                 // IKA downflow for all.
                 var keyCheck = null;
                 for (var i = 0; i < numMembers; i++) {
@@ -503,13 +504,13 @@
                         assert.strictEqual(participant.groupKey, keyCheck);
                     }
                 }
-                
+
                 // AKA to join two new guys.
                 var newMembers = ['6', '7'];
                 for (var i = 0; i < newMembers.length; i++) {
                     participants.push(new ns.CliquesMember(newMembers[i]));
                 }
-                
+
                 // '4' starts AKA for join.
                 message = participants[3].akaJoin(newMembers);
                 // AKA upflow for join.
@@ -522,7 +523,7 @@
                                   "This shouldn't happen, something's seriously dodgy!");
                     }
                 }
-                
+
                 // AKA downflow for join.
                 keyCheck = null;
                 for (var i = 0; i < message.members.length; i++) {
@@ -537,11 +538,11 @@
                         assert.deepEqual(participant.groupKey, keyCheck);
                     }
                 }
-                
+
                 // '3' excludes some members.
                 var toExclude = ['1', '4'];
                 message = participants[2].akaExclude(toExclude);
-                
+
                 // AKA downflow for exclude.
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -559,10 +560,10 @@
                         assert.deepEqual(participant.groupKey, keyCheck);
                     }
                 }
-                
+
                 // '2' initiates a key refresh.
                 message = participants[1].akaRefresh();
-                
+
                 // AKA downflow for refresh.
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -579,13 +580,12 @@
             });
         });
     });
-    
-    
+
     /**
      * Returns a fresh copy of the private key constant, protected from "cleaning".
      * @returns Array of words.
      */
     function _PRIV_KEY() {
-        return mpenc.utils.clone(_td.C25519_PRIV_KEY);
+        return utils.clone(_td.C25519_PRIV_KEY);
     }
-})();
+});

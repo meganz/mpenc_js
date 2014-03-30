@@ -1,11 +1,18 @@
 /**
  * @fileOverview
- * Test of the `mpenc.ske` module (Signature Key Exchange).
+ * Test of the `mpenc.greet.ske` module (Signature Key Exchange).
  */
 
-(function() {
+define([
+    "mpenc/greet/ske",
+    "mpenc/util/utils",
+    "chai",
+    "sinon/assert",
+    "sinon/sandbox",
+    "sinon/spy",
+], function(ns, utils, chai, sinon_assert, sinon_sandbox, sinon_spy) {
     "use strict";
-    
+
     /*
      * Created: 5 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
      *
@@ -18,26 +25,26 @@
      * it under the terms of the GNU Affero General Public License version 3
      * as published by the Free Software Foundation. See the accompanying
      * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     * 
+     *
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-    
+
+    var assert = chai.assert;
+
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
-    
+
     beforeEach(function() {
-        sandbox = sinon.sandbox.create();
+        sandbox = sinon_sandbox.create();
     });
-    
+
     afterEach(function() {
         sandbox.restore();
     });
-    
+
     describe("module level", function() {
-        var ns = mpenc.ske;
-        
         describe('_binstring2mpi()', function() {
             it('convert message to MPI representation', function() {
                 var messages = ['foo', 'The answer is 42!'];
@@ -49,7 +56,7 @@
                 }
             });
         });
-        
+
         describe('_mpi2binstring()', function() {
             it('convert message from MPI representation', function() {
                 var messages = [[6713199],
@@ -61,7 +68,7 @@
                 }
             });
         });
-        
+
         describe('_pkcs1v15_encode()', function() {
             it('convert message to PKCS#1 v1.5 encoding', function() {
                 var messages = ['foo', 'Klaatu barada nikto.', _td.SESSION_ID];
@@ -70,21 +77,21 @@
                     assert.lengthOf(result, 256);
                 }
             });
-    
+
             it('encoding fail on too big message', function() {
                 var message = ns._mpi2binstring(_td.RSA_PUB_KEY[0]);
                 assert.throws(function() { ns._pkcs1v15_encode(message, 256); },
                               'message too long for encoding scheme');
             });
         });
-        
+
         describe('_pkcs1v15_decode()', function() {
             it('decoding fail on too small message', function() {
                 assert.throws(function() { ns._pkcs1v15_decode('foo'); },
                               'message decoding error');
             });
         });
-        
+
         describe('_pkcs1v15_encode()/_pkcs1v15_decode()', function() {
             it('roundtrip convert message with PKCS#1 v1.5 encoding', function() {
                 var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
@@ -94,7 +101,7 @@
                 }
             });
         });
-            
+
         describe('_smallrsaencrypt()/_smallrsadecrypt()', function() {
             it('RSA encryption and decryption round trip', function() {
                 var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
@@ -105,7 +112,7 @@
                 }
             });
         });
-            
+
         describe('_smallrsaensign()/_smallrsaverify()', function() {
             it('RSA signing and verification round trip', function() {
                 var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
@@ -116,7 +123,7 @@
                 }
             });
         });
-    
+
         describe('_computeSid()', function() {
             it('compute SID', function() {
                 var members = ['3', '1', '2', '4', '5'];
@@ -129,48 +136,46 @@
                 sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, _td.SESSION_ID);
             });
-            
+
             it('compute SID (missing members)', function() {
                 var members = ['3', '1', null, '4', '5'];
                 var nonces = ['3333', '1111', '2222', '4444', '5555'];
-                
+
                 var echo = function(x) {
                     return x;
                 };
-                
-                sandbox.stub(mpenc.utils, 'sha256', echo);
+
+                sandbox.stub(utils, 'sha256', echo);
                 sandbox.stub(djbec, 'bytes2string', echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');
             });
         });
     });
-    
+
     describe("SignatureKeyExchangeMember class", function() {
-        var ns = mpenc.ske;
-        
         describe('constructur', function() {
             it('simple constructor', function() {
                 new ns.SignatureKeyExchangeMember();
             });
         });
-        
+
         describe('#commit() method', function() {
             it('start commit chain', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var otherMembers = ['2', '3', '4', '5'];
-                var spy = sinon.spy();
+                var spy = sinon_spy();
                 participant.upflow = spy;
                 participant.commit(otherMembers);
-                sinon.assert.calledOnce(spy);
+                sinon_assert.calledOnce(spy);
             });
-            
+
             it('start commit chain without members', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 assert.throws(function() { participant.commit([]); },
                               'No members to add.');
             });
-            
+
             it('start commit', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var otherMembers = ['2', '3', '4', '5'];
@@ -183,7 +188,7 @@
                 assert.lengthOf(startMessage.pubKeys, 1);
             });
         });
-        
+
         describe('#_computeSessionSig() method', function() {
             it('sign something', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
@@ -197,7 +202,7 @@
                 assert.strictEqual(_tu.keyBits(ns._smallrsaverify(signature, _td.RSA_PUB_KEY), 8), 256);
             });
         });
-        
+
         describe('#_verifySessionSig() method', function() {
             it('verification fail on invalid member', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -213,7 +218,7 @@
                 assert.throws(function() { participant._verifySessionSig('6', _td.SIGNATURE); },
                               'Member not in participants list.');
             });
-            
+
             it('verification fail on missing SID', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
@@ -227,7 +232,7 @@
                 assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                               'Session ID not available.');
             });
-            
+
             it('verification fail on missing ephemeral key', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
@@ -239,7 +244,7 @@
                 assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                               "Member's ephemeral pub key missing.");
             });
-            
+
             it('verification fail on missing static key', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
@@ -254,7 +259,7 @@
                 assert.throws(function() { participant._verifySessionSig('1', _td.SIGNATURE); },
                               "Member's static pub key missing.");
             });
-            
+
             it('verify a signature', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
@@ -265,13 +270,13 @@
                 for (var i = 0; i < 5; i++) {
                     participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
                     participant.nonces.push(_td.ED25519_PUB_KEY); // Same form as nonce.
-                    
+
                 }
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 assert.strictEqual(participant._verifySessionSig('1', _td.SIGNATURE),
                                    true);
             });
-            
+
             it('roundtrip sign/verify', function() {
                 var participant1 = new ns.SignatureKeyExchangeMember('1');
                 participant1.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
@@ -293,7 +298,7 @@
                                    true);
             });
         });
-        
+
         describe('#upflow() method', function() {
             it('upflow duplicates in member list', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
@@ -303,7 +308,7 @@
                 assert.throws(function() { participant.upflow(startMessage); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('upflow not in member list', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var members = ['2', '3', '4', '5', '6'];
@@ -312,7 +317,7 @@
                 assert.throws(function() { participant.upflow(startMessage); },
                               'Not member of this key exchange!');
             });
-            
+
             it('upflow, for initiator', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var members = ['1', '2', '3', '4', '5'];
@@ -326,7 +331,7 @@
                 assert.lengthOf(message.nonces, 1);
                 assert.lengthOf(message.pubKeys, 1);
             });
-            
+
             it('upflow on completed upflow, too many nonces', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var members = ['1', '2', '3', '4', '5'];
@@ -341,7 +346,7 @@
                 assert.throws(function() { participant.upflow(message); },
                               'Too many nonces on ASKE upflow!');
             });
-            
+
             it('upflow on completed upflow, too many nonces', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
                 var members = ['1', '2', '3', '4', '5'];
@@ -356,7 +361,7 @@
                 assert.throws(function() { participant.upflow(message); },
                               'Too many pub keys on ASKE upflow!');
             });
-            
+
             it('upflow, for all members', function() {
                 var numMembers = 5;
                 var members = [];
@@ -381,7 +386,7 @@
                     assert.strictEqual(message.source, members[i]);
                     assert.strictEqual(message.dest, members[i + 1]);
                 }
-    
+
                 // The last member behaves differently.
                 var lastid = numMembers - 1;
                 participants[lastid].staticPrivKey = _td.RSA_PRIV_KEY;
@@ -402,10 +407,10 @@
                 assert.ok(_tu.keyBits(message.sessionSignature, 8) >= 2040);
                 assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
             });
-            
+
             it('upflow after a join', function() {
                 var members = ['1', '2', '3', '4', '5'];
-                var startMessage = new mpenc.ske.SignatureKeyExchangeMessage('3', '',
+                var startMessage = new ns.SignatureKeyExchangeMessage('3', '',
                                                                              'upflow');
                 startMessage.dest = '6';
                 startMessage.members = members.concat('6');
@@ -416,9 +421,9 @@
                     startMessage.nonces.push(_td.ED25519_PUB_KEY);
                     startMessage.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
-                
+
                 var participant = new ns.SignatureKeyExchangeMember('6');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.staticPrivKey = _td.RSA_PRIV_KEY;
                 var message = participant.upflow(startMessage);
                 assert.deepEqual(participant.members, message.members);
@@ -438,7 +443,7 @@
                 assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
             });
         });
-        
+
         describe('#downflow() method', function() {
             it('downflow duplicates in member list', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
@@ -448,7 +453,7 @@
                 assert.throws(function() { participant.downflow(message); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('downflow, failed authentication', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -465,13 +470,13 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(
+                sandbox.stub(ns, '_computeSid').returns(
                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
                 assert.throws(function() { participant.downflow(message); },
                               'Authentication of member failed: 1');
             });
-            
+
             it('downflow, still unacknowledged', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -488,7 +493,7 @@
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(ns, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, false]);
@@ -496,7 +501,7 @@
                 assert.ok(_tu.keyBits(newMessage.sessionSignature, 8) <= 2048);
                 assert.ok(_tu.keyBits(newMessage.sessionSignature, 8) >= 2040);
             });
-            
+
             it('downflow, already acknowledged', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -514,19 +519,19 @@
                     message.nonces.push(_td.ED25519_PUB_KEY);
                     message.pubKeys.push(_td.ED25519_PUB_KEY);
                 }
-                participant.members = mpenc.utils.clone(message.members);
-                participant.nonces = mpenc.utils.clone(message.nonces);
-                participant.ephemeralPubKeys = mpenc.utils.clone(message.pubKeys);
+                participant.members = utils.clone(message.members);
+                participant.nonces = utils.clone(message.nonces);
+                participant.ephemeralPubKeys = utils.clone(message.pubKeys);
                 participant.sessionId = _td.SESSION_ID.concat();
                 message.sessionSignature = _td.SIGNATURE;
-                sandbox.stub(mpenc.ske, '_computeSid').returns(_td.SESSION_ID);
+                sandbox.stub(ns, '_computeSid').returns(_td.SESSION_ID);
                 var newMessage = participant.downflow(message);
                 assert.ok(newMessage === null);
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, true]);
             });
         });
-        
+
         describe('#isSessionAcknowledged() method', function() {
             it('simple tests', function() {
                 var tests = [null,
@@ -543,7 +548,7 @@
                 }
             });
         });
-        
+
         describe('#join() method', function() {
             it('join empty member list', function() {
                 var members = ['1', '2', '3', '4', '5'];
@@ -552,7 +557,7 @@
                 assert.throws(function() { participant.join([]); },
                               'No members to add.');
             });
-            
+
             it('join duplicate member list', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -560,11 +565,11 @@
                 assert.throws(function() { participant.join(['2']); },
                               'Duplicates in member list detected!');
             });
-            
+
             it('join a member', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.nonces = [];
                 participant.ephemeralPubKeys = [];
                 for (var i = 0; i < members.length; i++) {
@@ -581,7 +586,7 @@
                 assert.lengthOf(message.pubKeys, 5);
             });
         });
-    
+
         describe('#exclude() method', function() {
             it('exclude empty member list', function() {
                 var members = ['1', '2', '3', '4', '5'];
@@ -590,7 +595,7 @@
                 assert.throws(function() { participant.exclude([]); },
                               'No members to exclude.');
             });
-            
+
             it('exclude non existing member', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -598,7 +603,7 @@
                 assert.throws(function() { participant.exclude(['1', '7']); },
                               'Members list to exclude is not a sub-set of previous members!');
             });
-            
+
             it('exclude self', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
@@ -606,11 +611,11 @@
                 assert.throws(function() { participant.exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
-            
+
             it('exclude members', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.members = mpenc.utils.clone(members);
+                participant.members = utils.clone(members);
                 participant.nonces = [];
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -643,7 +648,7 @@
                 assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
             });
         });
-        
+
         describe('whole ASKE', function() {
             it('whole flow for 5 members, 2 joining, 2 others leaving', function() {
                 var numMembers = 5;
@@ -663,7 +668,7 @@
                 }
                 // ASKE commit.
                 var message = participants[initiator].commit(otherMembers);
-                
+
                 // ASKE upflow.
                 while (message.flow === 'upflow') {
                     if (message.dest !== '') {
@@ -674,10 +679,10 @@
                                   "This shouldn't happen, something's seriously dodgy!");
                     }
                 }
-                
+
                 // ASKE downflow for all.
                 var sid = null;
-                var nextMessages = []; 
+                var nextMessages = [];
                 while (message !== undefined) {
                     for (var i = 0; i < numMembers; i++) {
                         var participant = participants[i];
@@ -698,7 +703,7 @@
                 for (var i = 0; i < participants.length; i++) {
                     assert.ok(participants[i].isSessionAcknowledged());
                 }
-                
+
                 // Join two new guys.
                 var newMembers = ['6', '7'];
                 members = members.concat(newMembers);
@@ -708,7 +713,7 @@
                     newMember.staticPrivKey = _td.RSA_PRIV_KEY;
                     participants.push(newMember);
                 }
-                
+
                 // '4' starts upflow for join.
                 message = participants[3].join(newMembers);
                 // Upflow for join.
@@ -721,10 +726,10 @@
                                   "This shouldn't happen, something's seriously dodgy!");
                     }
                 }
-                
+
                 // Downflow for join.
                 sid = null;
-                nextMessages = []; 
+                nextMessages = [];
                 while (message !== undefined) {
                     for (var i = 0; i < members.length; i++) {
                         var participant = participants[i];
@@ -745,16 +750,16 @@
                 for (var i = 0; i < participants.length; i++) {
                     assert.ok(participants[i].isSessionAcknowledged());
                 }
-                
+
                 // '3' excludes two members.
                 var toExclude = ['1', '4'];
                 members.splice(members.indexOf('1'), 1);
                 members.splice(members.indexOf('4'), 1);
                 message = participants[2].exclude(toExclude);
-                
+
                 // Downflow for exclude.
                 sid = null;
-                nextMessages = []; 
+                nextMessages = [];
                 while (message !== undefined) {
                     for (var i = 0; i < participants.length; i++) {
                         var participant = participants[i];
@@ -784,8 +789,8 @@
             });
         });
     });
-    
+
     //var bytes = djbec.string2bytes(message.sessionSignature);
     //var hex = djbec.bytes2hex(bytes);
-    //assert.deepEqual(bytes, mpenc.utils.hex2bytearray(hex));
-})();
+    //assert.deepEqual(bytes, utils.hex2bytearray(hex));
+});
