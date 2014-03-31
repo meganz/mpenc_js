@@ -23,7 +23,7 @@
 
 define([
     "mpenc/greet/handler",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "mpenc/codec",
     "mpenc",
     "chai",

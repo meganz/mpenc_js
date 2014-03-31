@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
 ], function(ns, chai) {
     "use strict";

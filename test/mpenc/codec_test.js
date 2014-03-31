@@ -24,7 +24,7 @@
 define([
     "mpenc/codec",
     "mpenc",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
     "sinon/sandbox"
 ], function(ns, mpenc, utils, chai, sinon_sandbox) {

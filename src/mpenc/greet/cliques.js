@@ -4,9 +4,9 @@
  */
 
 define([
-    "mpenc/util/assert",
-    "mpenc/util/patches",
-    "mpenc/util/utils",
+    "mpenc/helper/assert",
+    "mpenc/helper/patches",
+    "mpenc/helper/utils",
     "curve255"
 ], function(assert, patches, utils, curve255) {
     "use strict";

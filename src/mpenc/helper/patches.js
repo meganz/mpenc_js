@@ -4,13 +4,13 @@
  */
 
 define([
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "curve255"
 ], function(utils, curve255) {
     "use strict";
 
     /**
-     * @exports mpenc/util/patches
+     * @exports mpenc/helper/patches
      * Some patches/enhancements to third party library modules.
      *
      * @description

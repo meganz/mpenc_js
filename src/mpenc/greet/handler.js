@@ -4,8 +4,8 @@
  */
 
 define([
-    "mpenc/util/assert",
-    "mpenc/util/utils",
+    "mpenc/helper/assert",
+    "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "require",  // TODO(xl): remove this when we refactor away the circular dep from mpenc/codec

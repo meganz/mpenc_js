@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/util/patches",
+    "mpenc/helper/patches",
     "chai",
 ], function(ns, chai) {
     "use strict";

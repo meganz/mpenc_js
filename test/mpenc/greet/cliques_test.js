@@ -23,7 +23,7 @@
 
 define([
     "mpenc/greet/cliques",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
     "sinon/assert",
     "sinon/spy",

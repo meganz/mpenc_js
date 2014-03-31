@@ -5,7 +5,7 @@
 
 define([
     "mpenc/greet/ske",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
