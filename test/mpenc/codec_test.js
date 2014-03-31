@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.codec` module.
+ * Test of the `mpenc/codec` module.
  */
 
 /*

@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.greet.cliques` module.
+ * Test of the `mpenc/greet/cliques` module.
  */
 
 /*

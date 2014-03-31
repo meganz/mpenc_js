@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Tests for `mpenc.util.patches` module.
+ * Tests for `mpenc/helper/patches` module.
  */
 
 /*

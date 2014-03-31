@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Tests for `mpenc.util.utils` module.
+ * Tests for `mpenc/helper/utils` module.
  */
 
 /*

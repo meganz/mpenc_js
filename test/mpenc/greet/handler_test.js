@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.greet.handler` module.
+ * Test of the `mpenc/greet/handler` module.
  */
 
 /*

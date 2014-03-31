@@ -407,7 +407,7 @@ define([
      *
      * @method
      * @param message {ProtocolMessage}
-     *     Message from protocol ns.
+     *     Message from protocol handler.
      * @returns {cliques.CliquesMessage}
      *     Extracted message.
      */
@@ -434,7 +434,7 @@ define([
      *
      * @method
      * @param message {ProtocolMessage}
-     *     Message from protocol ns.
+     *     Message from protocol handler.
      * @returns {ske.SignatureKeyExchangeMessage}
      *     Extracted message.
      */

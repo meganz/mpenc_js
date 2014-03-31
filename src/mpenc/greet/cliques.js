@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Implementation of group key agreement based on ns.
+ * Implementation of group key agreement based on CLIQUES.
  */
 
 define([
@@ -13,10 +13,10 @@ define([
 
     /**
      * @exports mpenc/greet/cliques
-     * Implementation of group key agreement based on ns.
+     * Implementation of group key agreement based on CLIQUES.
      *
      * @description
-     * <p>Implementation of group key agreement based on ns.</p>
+     * <p>Implementation of group key agreement based on CLIQUES.</p>
      *
      * <p>
      * Michael Steiner, Gene Tsudik, and Michael Waidner. 2000.<br/>
@@ -98,7 +98,7 @@ define([
 
 
     /**
-     * Implementation of group key agreement based on ns.
+     * Implementation of group key agreement based on CLIQUES.
      *
      * This implementation is using the Curve25519 for ECDH mechanisms as a base
      * extended for group key agreement.
