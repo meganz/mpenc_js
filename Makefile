@@ -6,7 +6,10 @@ test:
 	@$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
 
 api-doc:
-	$(JSDOC) --destination doc/api/ -r src
+	$(JSDOC) --destination doc/api/ --private \
+                 --template /usr/local/share/jsdoc-toolkit/templates/jaguarjs-jsdoc/ \
+                 --configure jsdoc.json \
+                 --recurse src/
 
 clean:
 	rm -rf doc/api/ coverage/
