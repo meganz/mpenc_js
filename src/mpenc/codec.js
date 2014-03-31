@@ -229,12 +229,13 @@ define([
                     // This is the first TLV in a data message.
                     // Let's make a new message object if we don't have one, yet.
                     if (!out) {
-                        out = {};
+                        out = new require("mpenc/greet/handler").DataMessage();
                     }
                     out.signature = tlv.value;
                     out.signatureOk = ns.verifyDataMessage(tlv.rest,
                                                            out.signature,
                                                            pubKey);
+                    out.rawMessage = tlv.rest;
                     break;
                 case ns.TLV_TYPE.MESSAGE_IV:
                     out.iv = tlv.value;

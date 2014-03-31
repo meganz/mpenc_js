@@ -115,6 +115,52 @@ define([
 
 
     /**
+     * Carries a data message's content.
+     *
+     * @constructor
+     * @param signature {string}
+     *     Binary signature string for the message
+     * @param signatureOk {bool}
+     *     Indicator whether the message validates. after message decoding.
+     *     (Has to be done at time of message decoding as the symmetric block
+     *     cipher employs padding.)
+     * @param rawMessage {string}
+     *     The raw message, after splitting off the signature. Can be used to
+     *     re-verify the signature, if needed.
+     * @param protocol {string}
+     *     Single byte string indicating the protocol version using the binary
+     *     version of the character.
+     * @param data {string}
+     *     Binary string containing the decrypted pay load of the message.
+     * @returns {ProtocolMessage}
+     *
+     * @property signature {string}
+     *     Binary signature string for the message
+     * @property signatureOk {bool}
+     *     Indicator whether the message validates. after message decoding.
+     *     (Has to be done at time of message decoding as the symmetric block
+     *     cipher employs padding.)
+     * @property rawMessage {string}
+     *     The raw message, after splitting off the signature. Can be used to
+     *     re-verify the signature, if needed.
+     * @property protocol {string}
+     *     Single byte string indicating the protocol version using the binary
+     *     version of the character.
+     * @property data {string}
+     *     Binary string containing the decrypted pay load of the message.
+     */
+    ns.DataMessage = function(signature, signatureOk, rawMessage, protocol, data) {
+        this.signature = signature || '';
+        this.signatureOk = signatureOk || false;
+        this.rawMessage = rawMessage || '';
+        this.protocol = protocol || '';
+        this.data = data | '';
+        
+        return this;
+    };
+
+
+    /**
      * Implementation of a protocol handler with its state machine.
      *
      * @constructor
@@ -292,7 +338,7 @@ define([
             case require("mpenc/codec").MESSAGE_CATEGORY.MPENC_MESSAGE:
                 var decodedMessage = require("mpenc/codec").decodeMessageContent(classify.content);
                 if (decodedMessage.data !== undefined) {
-                    // This is a normal communication message.
+                    // This is a normal communication/data message.
                     if (decodedMessage.signatureOk === false) {
                         // Signature failed, abort!
                         this.uiQueue.push({
@@ -306,7 +352,7 @@ define([
                         });
                     }
                 } else {
-                    // This is a keying message.
+                    // This is a mpenc.greet message.
                     var outMessage = this.processKeyingMessage(decodedMessage);
                     if (outMessage) {
                         this.protocolOutQueue.push(require("mpenc/codec").encodeMessage(outMessage));

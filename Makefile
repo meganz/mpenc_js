@@ -7,7 +7,7 @@ test:
 
 api-doc:
 	$(JSDOC) --destination doc/api/ --private \
-                 --template /usr/local/share/jsdoc-toolkit/templates/jaguarjs-jsdoc/ \
+                 --template doc/templates/jaguarjs-jsdoc/ \
                  --configure jsdoc.json \
                  --recurse src/
 
