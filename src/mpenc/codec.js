@@ -6,11 +6,10 @@
 define([
     "mpenc/helper/assert",
     "mpenc",
+    "mpenc/messages",
     "mpenc/helper/utils",
     "djbec",
-    "require", // TODO(xl): remove this when we refactor away the circular dep on mpenc/handler
-    "mpenc/handler",
-], function(assert, mpenc, utils, djbec, require, handler) {
+], function(assert, mpenc, messages, utils, djbec) {
     "use strict";
 
     /**
@@ -184,7 +183,7 @@ define([
                     // This is the first TLV in a protocol message.
                     // Let's make a new message object if we don't have one, yet.
                     if (!out) {
-                        out = new require("mpenc/handler").ProtocolMessage();
+                        out = new messages.ProtocolMessage();
                     }
                     protocol = tlv.value;
                     break;
@@ -229,7 +228,7 @@ define([
                     // This is the first TLV in a data message.
                     // Let's make a new message object if we don't have one, yet.
                     if (!out) {
-                        out = new require("mpenc/handler").DataMessage();
+                        out = new messages.DataMessage();
                     }
                     out.signature = tlv.value;
                     out.signatureOk = ns.verifyDataMessage(tlv.rest,
@@ -586,5 +585,6 @@ define([
     // TODO: message wrapping like OTR:
     // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
 
+    
     return ns;
 });

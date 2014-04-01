@@ -1,5 +1,4 @@
-// Karma configuration
-// Generated on Thu Jan 30 2014 15:59:20 GMT+1300 (NZDT)
+// Karma configuration.
 
 module.exports = function(config) {
   config.set({
