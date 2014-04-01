@@ -97,8 +97,8 @@ define([
      *     Session acknowledgement signature using sender's static key.
      */
     ns.ProtocolMessage = function(source, dest, agreement, flow, members,
-                                             intKeys, debugKeys, nonces, pubKeys,
-                                             sessionSignature) {
+                                  intKeys, debugKeys, nonces, pubKeys,
+                                  sessionSignature) {
         this.source = source || '';
         this.dest = dest || '';
         this.agreement = agreement || '';

@@ -8,8 +8,8 @@ define([
     "mpenc",
     "mpenc/helper/utils",
     "djbec",
-    "require", // TODO(xl): remove this when we refactor away the circular dep on mpenc/greet/handler
-    "mpenc/greet/handler",
+    "require", // TODO(xl): remove this when we refactor away the circular dep on mpenc/handler
+    "mpenc/handler",
 ], function(assert, mpenc, utils, djbec, require, handler) {
     "use strict";
 
@@ -165,7 +165,7 @@ define([
      *     Symmetric group encryption key to encrypt message.
      * @param pubKey
      *     Sender's (ephemeral) public signing key.
-     * @returns {mpenc.greet.handler.ProtocolMessage}
+     * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      */
     ns.decodeMessageContent = function(message, groupKey, pubKey) {
@@ -184,7 +184,7 @@ define([
                     // This is the first TLV in a protocol message.
                     // Let's make a new message object if we don't have one, yet.
                     if (!out) {
-                        out = new require("mpenc/greet/handler").ProtocolMessage();
+                        out = new require("mpenc/handler").ProtocolMessage();
                     }
                     protocol = tlv.value;
                     break;
@@ -229,7 +229,7 @@ define([
                     // This is the first TLV in a data message.
                     // Let's make a new message object if we don't have one, yet.
                     if (!out) {
-                        out = new require("mpenc/greet/handler").DataMessage();
+                        out = new require("mpenc/handler").DataMessage();
                     }
                     out.signature = tlv.value;
                     out.signatureOk = ns.verifyDataMessage(tlv.rest,
@@ -368,7 +368,7 @@ define([
      * Encodes a given protocol message content into a binary string message
      * consisting of a sequence of TLV binary strings.
      *
-     * @param message {mpenc.greet.handler.ProtocolMessage}
+     * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      * @param groupKey
      *     Symmetric group encryption key to encrypt message.
@@ -422,7 +422,7 @@ define([
      * Encodes a given protocol message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
-     * @param message {mpenc.greet.handler.ProtocolMessage}
+     * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      * @param groupKey
      *     Symmetric group encryption key to encrypt message.

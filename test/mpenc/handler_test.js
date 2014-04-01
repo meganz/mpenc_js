@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc/greet/handler` module.
+ * Test of the `mpenc/handler` module.
  */
 
 /*
@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/greet/handler",
+    "mpenc/handler",
     "mpenc/helper/utils",
     "mpenc/codec",
     "mpenc",
