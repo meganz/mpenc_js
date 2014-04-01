@@ -52,7 +52,7 @@ define([
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
-    
+
     /**
      * Implementation of a protocol handler with its state machine.
      *
@@ -129,7 +129,7 @@ define([
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
 
-        return codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
+        return this._mergeMessages(cliquesMessage, askeMessage);
     };
 
 
@@ -148,7 +148,7 @@ define([
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
 
-        return codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
+        return this._mergeMessages(cliquesMessage, askeMessage);
     };
 
 
@@ -169,7 +169,7 @@ define([
         var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
         var askeMessage = this.askeMember.exclude(excludeMembers);
 
-        return codec.encodeMessage(this._mergeMessages(cliquesMessage, askeMessage));
+        return this._mergeMessages(cliquesMessage, askeMessage);
     };
 
 
@@ -183,7 +183,7 @@ define([
     ns.ProtocolHandler.prototype.refresh = function() {
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
-        return codec.encodeMessage(this._mergeMessages(cliquesMessage, null));
+        return this._mergeMessages(cliquesMessage, null);
     };
 
 
@@ -192,15 +192,12 @@ define([
      *
      * @method
      * @param wireMessage
-     *     Received message (wire encoded). See {@link ProtocolMessage}.
+     *     Received message (wire encoded). The message contains an attribute
+     *     `message` carrying either an {@link mpenc.messages.ProtocolMessage}
+     *     or {@link mpenc.messages.DataMessage} payload.
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {
-        // FIXME: Rework in a way to fit the Karere filter model, as e. g. in
-        // https://code.developers.mega.co.nz/messenger/karere/blob/feature-karere/js/chat/capslockFilterDemo.js#L32
-        // https://code.developers.mega.co.nz/messenger/karere/blob/feature-karere/js/chat/emoticonsFilter.js#L45
-        // * Use message meta-data (eventData.from) to identify sender.
-        // * Access content from eventData.messageHtml and/or eventData.message
-        var classify = codec.categoriseMessage(wireMessage);
+        var classify = codec.categoriseMessage(wireMessage.message);
 
         if (!classify) {
             return;
@@ -216,17 +213,21 @@ define([
             case codec.MESSAGE_CATEGORY.PLAIN:
                 this.protocolOutQueue.push(codec.getQueryMessage(
                     "We're not dealing with plaintext messages. Let's negotiate mpENC communication."));
-                this.uiQueue.push({
-                        type: 'info',
-                        message: 'Received unencrypted message, requesting encryption.'
-                    });
+                wireMessage.type = 'info';
+                wireMessage.message = 'Received unencrypted message, requesting encryption.';
+                this.uiQueue.push(wireMessage);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_QUERY:
-                // TODO: Start process:
-                // * Find sender (use eventData.from)
-                // * call this.start(otherMembers);
-                // * enqueue message returned from start()
-                dump('*** Starting mpEnc keying with other members. ***');
+                // Initiate keying protocol flow.
+                var outContent = this.start(wireMessage.from);
+                if (outContent) {
+                    var outMessage = {
+                        from: this.id,
+                        to: 'FIXME',
+                        message: codec.encodeMessage(outContent),
+                    };
+                    this.protocolOutQueue.push(outMessage);
+                }
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
                 var decodedMessage = codec.decodeMessageContent(classify.content);
@@ -234,21 +235,24 @@ define([
                     // This is a normal communication/data message.
                     if (decodedMessage.signatureOk === false) {
                         // Signature failed, abort!
-                        this.uiQueue.push({
-                            type: 'error',
-                            message: 'Signature of received message invalid.'
-                        });
+                        wireMessage.type = 'error';
+                        wireMessage.message = 'Signature of received message invalid.';
+                        this.uiQueue.push(wireMessage);
                     } else {
-                        this.uiQueue.push({
-                            type: 'message',
-                            message: decodedMessage.data
-                        });
+                        wireMessage.type = 'message';
+                        wireMessage.message = decodedMessage.data;
+                        this.uiQueue.push(wireMessage);
                     }
                 } else {
                     // This is an mpenc.greet message.
-                    var outMessage = this.processKeyingMessage(decodedMessage);
-                    if (outMessage) {
-                        this.protocolOutQueue.push(codec.encodeMessage(outMessage));
+                    var outContent = this.processKeyingMessage(decodedMessage);
+                    if (outContent) {
+                        var outMessage = {
+                            from: this.id,
+                            to: 'FIXME',
+                            message: codec.encodeMessage(outContent),
+                        };
+                        this.protocolOutQueue.push(outMessage);
                     }
                 }
                 break;

@@ -164,13 +164,13 @@ _td.UPFLOW_MESSAGE_CONTENT = {
     pubKeys: [_td.ED25519_PUB_KEY],
     sessionSignature: null,
 };
-_td.UPFLOW_MESSAGE_WIRE = '?mpENC:' + btoa(_td.UPFLOW_MESSAGE_STRING) + '.';
+_td.UPFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.UPFLOW_MESSAGE_STRING) + '.';
 
 _td.DATA_MESSAGE_STRING = atob('AAMAQBgeUZZlXeV7seFV0nrJ7y6xsp0XXVg/4DyIYn'
                                + 'p7h38Zpzzq6PMvNV/qXOl90U4/an2qu1sA2ZIR9Q'
                                + 'vAuwbjpggAAQABAQAEABCp6DcgfRj0yUpCHA7Nrr'
                                + 'Y8AAIAEJzvDvtbuEHIcICY5n3QEqI=');
-_td.DATA_MESSAGE_WIRE = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
+_td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
     signatureOk: true,

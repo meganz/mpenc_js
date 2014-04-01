@@ -236,7 +236,6 @@ define([
                 var cliquesSpy = sinon_spy();
                 var askeSpy = sinon_spy();
                 var mergeMessagesStub = stub().returns(null);
-                sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.cliquesMember.ika = cliquesSpy;
                 participant.askeMember.commit = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
@@ -270,7 +269,6 @@ define([
                 participant.cliquesMember.akaJoin = cliquesSpy;
                 participant.askeMember.join = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(codec, 'encodeMessage', _echo);
                 var otherMembers = ['6', '7'];
                 var message = participant.join(otherMembers);
                 sinon_assert.calledOnce(cliquesSpy);
@@ -310,7 +308,6 @@ define([
                 participant.cliquesMember.akaExclude = cliquesSpy;
                 participant.askeMember.exclude = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(codec, 'encodeMessage', _echo);
                 var message = participant.exclude(['1', '4']);
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(askeSpy);
@@ -329,7 +326,6 @@ define([
                 var mergeMessagesStub = stub().returns(null);
                 participant.cliquesMember.akaRefresh = cliquesSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                sandbox.stub(codec, 'encodeMessage', _echo);
                 var message = participant.refresh();
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(mergeMessagesStub);
@@ -471,7 +467,9 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.processMessage('Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.');
+                var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
+                               from: 'kiri@singer.org.nz/waiata42'};
+                participant.processMessage(message);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].substring(0, 9),
                                    '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?');
@@ -487,7 +485,9 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.processMessage('?mpENC Error:Hatschi!');
+                var message = {message: '?mpENC Error:Hatschi!',
+                               from: 'common@cold.govt.nz/flu2'};
+                participant.processMessage(message);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
@@ -502,15 +502,18 @@ define([
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
 
+                var message = {message: '?mpENC:Zm9v.',
+                               from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns('foo');
                 participant.processKeyingMessage = stub().returns('foo');
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                participant.processMessage('?mpENC:Zm9v.');
+                participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 sinon_assert.calledOnce(participant.processKeyingMessage);
                 sinon_assert.calledOnce(codec.encodeMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0], 'foo');
+                assert.strictEqual(participant.protocolOutQueue[0].message, 'foo');
+                assert.strictEqual(participant.protocolOutQueue[0].from, '2');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
             });
@@ -521,8 +524,10 @@ define([
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
 
+                var message = {message: _td.DATA_MESSAGE_PAYLOAD,
+                               from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns(_td.DATA_MESSAGE_CONTENT);
-                participant.processMessage(_td.DATA_MESSAGE_WIRE);
+                participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
@@ -539,8 +544,10 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 var decodedContent = utils.clone(_td.DATA_MESSAGE_CONTENT);
                 decodedContent.signatureOk = false;
+                var message = {message: _td.DATA_MESSAGE_PAYLOAD,
+                               from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns(decodedContent);
-                participant.processMessage(_td.DATA_MESSAGE_WIRE);
+                participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
@@ -550,17 +557,23 @@ define([
                                    'Signature of received message invalid.');
             });
 
-//            it('on query message', function() {
-//                var participant = new ns.ProtocolHandler('2',
-//                                                         _td.RSA_PRIV_KEY,
-//                                                         _td.RSA_PUB_KEY,
-//                                                         _td.STATIC_PUB_KEY_DIR);
-//                participant.processMessage('?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.');
-//                assert.lengthOf(participant.protocolOutQueue, 1);
-//                assert.strictEqual(participant.protocolOutQueue[0], 'xxx');
-//                assert.lengthOf(participant.messageOutQueue, 0);
-//                assert.lengthOf(participant.uiQueue, 0);
-//            });
+            it('on query message', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                               from: 'raw@hide.com/rollingrollingrolling'};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant.start = _echo;
+                participant.processMessage(message);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.strictEqual(participant.protocolOutQueue[0].message, message.from);
+                assert.strictEqual(participant.protocolOutQueue[0].from, '2');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
 
             it('whole flow for 5 members, 2 joining, 2 others leaving, refresh', function() {
 //                var numMembers = 5;

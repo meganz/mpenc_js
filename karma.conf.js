@@ -43,10 +43,10 @@ module.exports = function(config) {
     // (Do not include tests or libraries.
     // These files will be instrumented by Istanbul.)
     preprocessors: {
-        'src/**/*.js': ['coverage']
+//        'src/**/*.js': ['coverage']
     },
 
-// Coverage configuration
+    // Coverage configuration
     coverageReporter: {
         type: 'html',
         dir: 'coverage/'

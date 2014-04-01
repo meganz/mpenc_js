@@ -286,7 +286,7 @@ define([
                 sessionSignature: null
             };
             var result = ns.encodeMessage(message);
-            assert.strictEqual(result, _td.UPFLOW_MESSAGE_WIRE);
+            assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
         });
 
         it('null message', function() {
