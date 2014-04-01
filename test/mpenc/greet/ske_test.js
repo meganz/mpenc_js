@@ -1,11 +1,11 @@
 /**
  * @fileOverview
- * Test of the `mpenc.greet.ske` module (Signature Key Exchange).
+ * Test of the `mpenc/greet/ske` module (Signature Key Exchange).
  */
 
 define([
     "mpenc/greet/ske",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
     "sinon/assert",
     "sinon/sandbox",

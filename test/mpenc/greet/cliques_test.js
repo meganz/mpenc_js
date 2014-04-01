@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Test of the `mpenc.greet.cliques` module.
+ * Test of the `mpenc/greet/cliques` module.
  */
 
 /*
@@ -23,7 +23,7 @@
 
 define([
     "mpenc/greet/cliques",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
     "sinon/assert",
     "sinon/spy",

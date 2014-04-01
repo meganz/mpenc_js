@@ -1,6 +1,6 @@
 /**
  * @fileOverview
- * Tests for `mpenc.util.utils` module.
+ * Tests for `mpenc/helper/utils` module.
  */
 
 /*
@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "chai",
 ], function(ns, chai) {
     "use strict";

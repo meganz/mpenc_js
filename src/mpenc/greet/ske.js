@@ -4,8 +4,8 @@
  */
 
 define([
-    "mpenc/util/assert",
-    "mpenc/util/utils",
+    "mpenc/helper/assert",
+    "mpenc/helper/utils",
     "rsa",
 ], function(assert, utils, rsa) {
     "use strict";

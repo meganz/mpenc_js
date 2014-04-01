@@ -10,7 +10,7 @@ define([
     "use strict";
 
     /**
-     * @exports mpenc/util/utils
+     * @exports mpenc/helper/utils
      * Some utilities.
      *
      * @description

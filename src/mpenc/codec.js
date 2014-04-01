@@ -4,9 +4,9 @@
  */
 
 define([
-    "mpenc/util/assert",
+    "mpenc/helper/assert",
     "mpenc",
-    "mpenc/util/utils",
+    "mpenc/helper/utils",
     "djbec",
     "require", // TODO(xl): remove this when we refactor away the circular dep on mpenc/greet/handler
     "mpenc/greet/handler",
