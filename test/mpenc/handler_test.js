@@ -567,8 +567,12 @@ define([
                                from: 'kiri@singer.org.nz/waiata42'};
                 participant.processMessage(message);
                 assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].substring(0, 9),
+                assert.strictEqual(participant.protocolOutQueue[0].message.substring(0, 9),
                                    '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?');
+                assert.strictEqual(participant.protocolOutQueue[0].from,
+                                   '2');
+                assert.strictEqual(participant.protocolOutQueue[0].to,
+                                   'kiri@singer.org.nz/waiata42');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
                 assert.strictEqual(participant.uiQueue[0].type, 'info');
@@ -696,7 +700,7 @@ define([
                     payload = _getPayload(message);
                 }
 
-                // Downflow for all.
+                // Downflow.
                 var nextMessages = [];
                 while (payload) {
                     for (var i = 0; i < participants.length; i++) {
@@ -727,6 +731,9 @@ define([
                         assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
                     }
                     assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
                 // Join two new guys.
@@ -753,7 +760,7 @@ define([
                     payload = _getPayload(message);
                 }
 
-                // Downflow for all.
+                // Downflow for join.
                 nextMessages = [];
                 while (payload) {
                     for (var i = 0; i < participants.length; i++) {
@@ -784,6 +791,9 @@ define([
                         assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
                     }
                     assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
                 // '3' excludes two members.
@@ -825,6 +835,9 @@ define([
                         assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
                     }
                     assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
                 // '2' initiates a key refresh.
@@ -869,11 +882,94 @@ define([
                     }
                     assert.notStrictEqual(participant.cliquesMember.groupKey, oldGroupKey);
                     assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
+                }
+            });
+
+            it('whole flow for two initiated by plain text message', function() {
+                var numMembers = 2;
+                var members = [];
+                var participants = [];
+                for (var i = 1; i <= numMembers; i++) {
+                    members.push(i.toString());
+                    var newMember = new ns.ProtocolHandler(i.toString(),
+                                                           _td.RSA_PRIV_KEY,
+                                                           _td.RSA_PUB_KEY,
+                                                           _td.STATIC_PUB_KEY_DIR);
+                    participants.push(newMember);
+                }
+                var message = {message: 'Kia ora', from: '1', to: '2'};
+                var payload = null;
+
+                // Processing plain text message.
+                participants[1].processMessage(message);
+                message = participants[1].protocolOutQueue.shift();
+                assert.strictEqual(message.message.substring(0, 9),
+                                   '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?');
+                assert.strictEqual(message.from, '2');
+                assert.strictEqual(message.to, '1');
+                var uiMessage = participants[1].uiQueue.shift();
+                assert.strictEqual(uiMessage.type, 'info');
+                assert.strictEqual(uiMessage.message, 'Received unencrypted message, requesting encryption.');
+
+                // Process mpEnc query response.
+                participants[0].processMessage(message);
+                message = participants[0].protocolOutQueue.shift();
+                payload = _getPayload(message);
+                assert.strictEqual(payload.source, '1');
+                assert.strictEqual(payload.dest, '2');
+                assert.strictEqual(payload.agreement, 'initial');
+                assert.strictEqual(payload.flow, 'upflow');
+
+                // Process key agreement upflow.
+                participants[1].processMessage(message);
+                message = participants[1].protocolOutQueue.shift();
+                payload = _getPayload(message);
+                assert.strictEqual(payload.source, '2');
+                assert.strictEqual(payload.dest, null);
+                assert.strictEqual(payload.agreement, 'initial');
+                assert.strictEqual(payload.flow, 'downflow');
+
+                // Downflow for both.
+                var nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                var keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
                 }
             });
         });
     });
 
-    // TODO: start() -> _start(), and make public API start() to use _start()
     // TODO: Send authored/data message.
 });

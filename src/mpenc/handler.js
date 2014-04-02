@@ -289,8 +289,13 @@ define([
                     });
                 break;
             case codec.MESSAGE_CATEGORY.PLAIN:
-                this.protocolOutQueue.push(codec.getQueryMessage(
-                    "We're not dealing with plaintext messages. Let's negotiate mpENC communication."));
+                var outMessage = {
+                    from: this.id,
+                    to: wireMessage.from,
+                    message: codec.getQueryMessage(
+                        "We're not dealing with plaintext messages. Let's negotiate mpENC communication."),
+                };
+                this.protocolOutQueue.push(outMessage);
                 wireMessage.type = 'info';
                 wireMessage.message = 'Received unencrypted message, requesting encryption.';
                 this.uiQueue.push(wireMessage);
