@@ -57,6 +57,14 @@ define([
         return atob(message.substring(_PROTO_STRING.length, message.length -1));
     }
 
+    function _getPayload(message) {
+        if (message) {
+            return codec.decodeMessageContent(codec.categoriseMessage(_stripProtoFromMessage(message.message)).content);
+        } else {
+            return null;
+        }
+    }
+
     describe("ProtocolHandler class", function() {
         describe('constructor', function() {
             it('fails for missing params', function() {
@@ -227,7 +235,7 @@ define([
             });
         });
 
-        describe('#start() method', function() {
+        describe('#_start() method', function() {
             it('start/initiate a group session', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY,
@@ -240,7 +248,7 @@ define([
                 participant.askeMember.commit = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
                 var otherMembers = ['2', '3', '4', '5', '6'];
-                var message = participant.start(otherMembers);
+                var message = participant._start(otherMembers);
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(askeSpy);
                 sinon_assert.calledOnce(mergeMessagesStub);
@@ -248,13 +256,35 @@ define([
             });
         });
 
-        describe('#join() method', function() {
+        describe('#start() method', function() {
+            it('start/initiate a group session', function() {
+                var participant = new ns.ProtocolHandler('jake@blues.org/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: "I'm puttin' the band back together!",
+                               dest: 'elwood@blues.org/ios1234'};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant._start = stub().returns(message);
+                participant.start(['elwood@blues.org/ios1234']);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._start);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'jake@blues.org/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, 'elwood@blues.org/ios1234');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
+        describe('#_join() method', function() {
             it('join empty member list', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                assert.throws(function() { participant.join([]); },
+                assert.throws(function() { participant._join([]); },
                               'No members to add.');
             });
 
@@ -270,7 +300,7 @@ define([
                 participant.askeMember.join = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
                 var otherMembers = ['6', '7'];
-                var message = participant.join(otherMembers);
+                var message = participant._join(otherMembers);
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(askeSpy);
                 sinon_assert.calledOnce(mergeMessagesStub);
@@ -278,13 +308,35 @@ define([
             });
         });
 
-        describe('#exclude() method', function() {
+        describe('#join() method', function() {
+            it('add members to group', function() {
+                var participant = new ns.ProtocolHandler('jake@blues.org/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: "I'm puttin' the band back together!",
+                               dest: 'ray@charles.org/ios1234'};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant._join = stub().returns(message);
+                participant.join(['ray@charles.org/ios1234']);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._join);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'jake@blues.org/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, 'ray@charles.org/ios1234');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
+        describe('#_exclude() method', function() {
             it('exclude empty member list', function() {
                 var participant = new ns.ProtocolHandler('3',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                assert.throws(function() { participant.exclude([]); },
+                assert.throws(function() { participant._exclude([]); },
                               'No members to exclude.');
             });
 
@@ -293,7 +345,7 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                assert.throws(function() { participant.exclude(['3', '5']); },
+                assert.throws(function() { participant._exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
 
@@ -308,7 +360,7 @@ define([
                 participant.cliquesMember.akaExclude = cliquesSpy;
                 participant.askeMember.exclude = askeSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                var message = participant.exclude(['1', '4']);
+                var message = participant._exclude(['1', '4']);
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(askeSpy);
                 sinon_assert.calledOnce(mergeMessagesStub);
@@ -316,7 +368,29 @@ define([
             });
         });
 
-        describe('#refresh() method', function() {
+        describe('#exclude() method', function() {
+            it('exclude members', function() {
+                var participant = new ns.ProtocolHandler('a.dumbledore@hogwarts.ac.uk/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: "You're fired!",
+                               dest: ''};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant._exclude = stub().returns(message);
+                participant.exclude(['g.lockhart@hogwarts.ac.uk/ios1234']);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._exclude);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'a.dumbledore@hogwarts.ac.uk/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
+        describe('#_refresh() method', function() {
             it('refresh own private key using aka', function() {
                 var participant = new ns.ProtocolHandler('3',
                                                          _td.RSA_PRIV_KEY,
@@ -326,14 +400,36 @@ define([
                 var mergeMessagesStub = stub().returns(null);
                 participant.cliquesMember.akaRefresh = cliquesSpy;
                 participant._mergeMessages = mergeMessagesStub;
-                var message = participant.refresh();
+                var message = participant._refresh();
                 sinon_assert.calledOnce(cliquesSpy);
                 sinon_assert.calledOnce(mergeMessagesStub);
                 assert.strictEqual(message, null);
             });
         });
 
-        describe('#processKeyingMessage() method', function() {
+        describe('#refresh() method', function() {
+            it('refresh own private key using aka', function() {
+                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: "Fresh Prince",
+                               dest: ''};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant._refresh = stub().returns(message);
+                participant.refresh();
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._refresh);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'dj.jazzy.jeff@wraper.com/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
+        describe('#_processKeyingMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2', agreement: 'initial',
                                 flow: 'upflow', members: ['1', '2', '3', '4', '5'],
@@ -351,7 +447,7 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                var output = participant.processKeyingMessage(message);
+                var output = participant._processKeyingMessage(message);
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
                 assert.strictEqual(output.agreement, compare.agreement);
@@ -384,7 +480,7 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                var output = participant.processKeyingMessage(message);
+                var output = participant._processKeyingMessage(message);
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
                 assert.strictEqual(output.agreement, compare.agreement);
@@ -421,7 +517,7 @@ define([
                 participant._mergeMessages = mergeMessagesSpy;
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                participant.processKeyingMessage(message);
+                participant._processKeyingMessage(message);
                 assert.strictEqual(cliquesUpflowSpy.callCount, 0);
                 assert.strictEqual(askeUpflowSpy.callCount, 0);
                 sinon_assert.calledOnce(cliquesDownflowSpy);
@@ -452,7 +548,7 @@ define([
                 participant._mergeMessages = mergeMessagesSpy;
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                participant.processKeyingMessage(message);
+                participant._processKeyingMessage(message);
                 assert.strictEqual(cliquesUpflowSpy.callCount, 0);
                 assert.strictEqual(askeUpflowSpy.callCount, 0);
                 assert.strictEqual(cliquesDownflowSpy.callCount, 0);
@@ -505,11 +601,11 @@ define([
                 var message = {message: '?mpENC:Zm9v.',
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns('foo');
-                participant.processKeyingMessage = stub().returns('foo');
+                participant._processKeyingMessage = stub().returns('foo');
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
-                sinon_assert.calledOnce(participant.processKeyingMessage);
+                sinon_assert.calledOnce(participant._processKeyingMessage);
                 sinon_assert.calledOnce(codec.encodeMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, 'foo');
@@ -564,210 +660,220 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
-                sandbox.stub(codec, 'encodeMessage', _echo);
-                participant.start = _echo;
+                participant.start = stub();
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.encodeMessage);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].message, message.from);
-                assert.strictEqual(participant.protocolOutQueue[0].from, '2');
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
+                sinon_assert.calledOnce(participant.start);
             });
 
             it('whole flow for 5 members, 2 joining, 2 others leaving, refresh', function() {
-//                var numMembers = 5;
-//                var initiator = 0;
-//                var members = [];
-//                var participants = [];
-//                for (var i = 1; i <= numMembers; i++) {
-//                    members.push(i.toString());
-//                    var newMember = new ns.ProtocolHandler(i.toString(),
-//                                                           _td.RSA_PRIV_KEY,
-//                                                           _td.RSA_PUB_KEY,
-//                                                           _td.STATIC_PUB_KEY_DIR);
-//                    participants.push(newMember);
-//                }
-//                var otherMembers = [];
-//                for (var i = 2; i <= numMembers; i++) {
-//                    otherMembers.push(i.toString());
-//                }
-//
-//                // Start.
-//                var message = participants[initiator].start(otherMembers);
-//                var message_js = codec.decodeMessageContent(_stripProtoFromMessage(message));
-//
-//                // Upflow.
-//                while (message && message_js.dest !== null) {
-//                    var nextId = message_js.members.indexOf(message_js.dest);
-//                    dump(nextId);
-//                    message = participants[nextId].processMessage(message);
-//                    message_js = codec.decodeMessageContent(_stripProtoFromMessage(message));
-//                }
+                var numMembers = 5;
+                var initiator = 0;
+                var members = [];
+                var participants = [];
+                for (var i = 1; i <= numMembers; i++) {
+                    members.push(i.toString());
+                    var newMember = new ns.ProtocolHandler(i.toString(),
+                                                           _td.RSA_PRIV_KEY,
+                                                           _td.RSA_PUB_KEY,
+                                                           _td.STATIC_PUB_KEY_DIR);
+                    participants.push(newMember);
+                }
+                var otherMembers = [];
+                for (var i = 2; i <= numMembers; i++) {
+                    otherMembers.push(i.toString());
+                }
 
-//                // Downflow for all.
-//                var nextMessages = [];
-//                while (message_js) {
-//                    for (var i = 0; i < participants.length; i++) {
-//                        var participant = participants[i];
-//                        if (members.indexOf(participant.id) < 0) {
-//                            continue;
-//                        }
-//                        var nextMessage = participant.processMessage(message);
-//                        if (nextMessage) {
-//                            nextMessages.push(utils.clone(nextMessage));
-//                        }
-//                        assert.deepEqual(participant.cliquesMember.members, members);
-//                        assert.deepEqual(participant.askeMember.members, members);
-//                    }
-//                    message = nextMessages.shift();
-//                    message_js = codec.decodeMessageContent(message);
-//                }
-//                var keyCheck = null;
-//                for (var i = 0; i < participants.length; i++) {
-//                    var participant = participants[i];
-//                    if (members.indexOf(participant.id) < 0) {
-//                        continue;
-//                    }
-//                    if (!keyCheck) {
-//                        keyCheck = participant.cliquesMember.groupKey;
-//                    } else {
-//                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
-//                    }
-//                    assert.ok(participant.askeMember.isSessionAcknowledged());
-//                }
-//
-//                // Join two new guys.
-//                var newMembers = ['6', '7'];
-//                members = members.concat(newMembers);
-//                for (var i = 0; i < newMembers.length; i++) {
-//                    var newMember = new ns.ProtocolHandler(newMembers[i],
-//                                                           _td.RSA_PRIV_KEY,
-//                                                           _td.RSA_PUB_KEY,
-//                                                           _td.STATIC_PUB_KEY_DIR);
-//                    participants.push(newMember);
-//                }
-//
-//                // '4' starts upflow for join.
-//                message = participants[3].join(newMembers);
-//                message_js = codec.decodeMessageContent(message);
-//
-//                // Upflow for join.
-//                while (message_js.dest !== null) {
-//                    var nextId = message_js.members.indexOf(message_js.dest);
-//                    message = participants[nextId].processMessage(message);
-//                    message_js = codec.decodeMessageContent(message);
-//                }
-//
-//                // Downflow for all.
-//                nextMessages = [];
-//                while (message_js) {
-//                    for (var i = 0; i < participants.length; i++) {
-//                        var participant = participants[i];
-//                        if (members.indexOf(participant.id) < 0) {
-//                            continue;
-//                        }
-//                        var nextMessage = participant.processMessage(message);
-//                        if (nextMessage) {
-//                            nextMessages.push(utils.clone(nextMessage));
-//                        }
-//                        assert.deepEqual(participant.cliquesMember.members, members);
-//                        assert.deepEqual(participant.askeMember.members, members);
-//                    }
-//                    message = nextMessages.shift();
-//                    message_js = codec.decodeMessageContent(message);
-//                }
-//                keyCheck = null;
-//                for (var i = 0; i < participants.length; i++) {
-//                    var participant = participants[i];
-//                    if (members.indexOf(participant.id) < 0) {
-//                        continue;
-//                    }
-//                    if (!keyCheck) {
-//                        keyCheck = participant.cliquesMember.groupKey;
-//                    } else {
-//                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
-//                    }
-//                    assert.ok(participant.askeMember.isSessionAcknowledged());
-//                }
-//
-//                // '3' excludes two members.
-//                var toExclude = ['1', '4'];
-//                members.splice(members.indexOf('1'), 1);
-//                members.splice(members.indexOf('4'), 1);
-//                message = participants[2].exclude(toExclude);
-//                message_js = codec.decodeMessageContent(message);
-//
-//                // Downflow for exclude.
-//                nextMessages = [];
-//                while (message_js) {
-//                    for (var i = 0; i < participants.length; i++) {
-//                        var participant = participants[i];
-//                        if (members.indexOf(participant.id) < 0) {
-//                            continue;
-//                        }
-//                        var nextMessage = participant.processMessage(message);
-//                        if (nextMessage) {
-//                            nextMessages.push(utils.clone(nextMessage));
-//                        }
-//                        assert.deepEqual(participant.cliquesMember.members, members);
-//                        assert.deepEqual(participant.askeMember.members, members);
-//                    }
-//                    message = nextMessages.shift();
-//                    message_js = codec.decodeMessageContent(message);
-//                }
-//                keyCheck = null;
-//                for (var i = 0; i < participants.length; i++) {
-//                    var participant = participants[i];
-//                    if (members.indexOf(participant.id) < 0) {
-//                        continue;
-//                    }
-//                    if (!keyCheck) {
-//                        keyCheck = participant.cliquesMember.groupKey;
-//                    } else {
-//                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
-//                    }
-//                    assert.ok(participant.askeMember.isSessionAcknowledged());
-//                }
-//
-//                // '2' initiates a key refresh.
-//                var oldKey = participants[1].cliquesMember.groupKey;
-//                message = participants[1].refresh();
-//                message_js = codec.decodeMessageContent(message);
-//
-//                // Downflow for refresh.
-//                nextMessages = [];
-//                while (message_js) {
-//                    for (var i = 0; i < participants.length; i++) {
-//                        var participant = participants[i];
-//                        if (members.indexOf(participant.id) < 0) {
-//                            continue;
-//                        }
-//                        var nextMessage = participant.processMessage(message);
-//                        if (nextMessage) {
-//                            nextMessages.push(utils.clone(nextMessage));
-//                        }
-//                        assert.deepEqual(participant.cliquesMember.members, members);
-//                        assert.deepEqual(participant.askeMember.members, members);
-//                    }
-//                    message = nextMessages.shift();
-//                    message_js = codec.decodeMessageContent(message);
-//                }
-//                keyCheck = null;
-//                for (var i = 0; i < participants.length; i++) {
-//                    var participant = participants[i];
-//                    if (members.indexOf(participant.id) < 0) {
-//                        continue;
-//                    }
-//                    if (!keyCheck) {
-//                        keyCheck = participant.cliquesMember.groupKey;
-//                    } else {
-//                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
-//                    }
-//                    assert.notStrictEqual(participant.cliquesMember.groupKey, oldKey);
-//                    assert.ok(participant.askeMember.isSessionAcknowledged());
-//                }
+                // Start.
+                participants[initiator].start(otherMembers);
+                var message = participants[initiator].protocolOutQueue.shift();
+                var payload = _getPayload(message);
+
+                // Upflow.
+                while (message && payload.dest !== null) {
+                    var nextId = payload.members.indexOf(payload.dest);
+                    participants[nextId].processMessage(message);
+                    message = participants[nextId].protocolOutQueue.shift();
+                    payload = _getPayload(message);
+                }
+
+                // Downflow for all.
+                var nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage =  participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                var keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+
+                // Join two new guys.
+                var newMembers = ['6', '7'];
+                members = members.concat(newMembers);
+                for (var i = 0; i < newMembers.length; i++) {
+                    var newMember = new ns.ProtocolHandler(newMembers[i],
+                                                           _td.RSA_PRIV_KEY,
+                                                           _td.RSA_PUB_KEY,
+                                                           _td.STATIC_PUB_KEY_DIR);
+                    participants.push(newMember);
+                }
+
+                // '4' starts upflow for join.
+                participants[3].join(newMembers);
+                message = participants[3].protocolOutQueue.shift();
+                payload = _getPayload(message);
+
+                // Upflow for join.
+                while (payload.dest !== null) {
+                    var nextId = payload.members.indexOf(payload.dest);
+                    participants[nextId].processMessage(message);
+                    message = participants[nextId].protocolOutQueue.shift();
+                    payload = _getPayload(message);
+                }
+
+                // Downflow for all.
+                nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+
+                // '3' excludes two members.
+                var toExclude = ['1', '4'];
+                members.splice(members.indexOf('1'), 1);
+                members.splice(members.indexOf('4'), 1);
+                participants[2].exclude(toExclude);
+                message = participants[2].protocolOutQueue.shift();
+                payload = _getPayload(message);
+
+                // Downflow for exclude.
+                nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
+
+                // '2' initiates a key refresh.
+                var oldGroupKey = participants[1].cliquesMember.groupKey;
+                var oldPrivKey = participants[1].cliquesMember.privKey;
+                participants[1].refresh();
+                message = participants[1].protocolOutQueue.shift();
+                payload = _getPayload(message);
+                assert.notStrictEqual(participants[1].cliquesMember.privKey, oldPrivKey);
+                assert.notStrictEqual(participants[1].cliquesMember.groupKey, oldGroupKey);
+
+                // Downflow for refresh.
+                nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        oldPrivKey = participant.cliquesMember.privKey;
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.notStrictEqual(participant.cliquesMember.groupKey, oldGroupKey);
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                }
             });
         });
     });
+
+    // TODO: start() -> _start(), and make public API start() to use _start()
+    // TODO: Send authored/data message.
 });

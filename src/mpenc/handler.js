@@ -115,7 +115,7 @@ define([
 
 
     /**
-     * Start the protocol negotiation with the group participants..
+     * Mechanism to start the protocol negotiation with the group participants..
      *
      * @method
      * @param otherMembers
@@ -123,11 +123,50 @@ define([
      * @returns
      *     Wire encoded {ProtocolMessage} content.
      */
-    ns.ProtocolHandler.prototype.start = function(otherMembers) {
+    ns.ProtocolHandler.prototype._start = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
+
+        return this._mergeMessages(cliquesMessage, askeMessage);
+    };
+
+
+    /**
+     * Start the protocol negotiation with the group participants..
+     *
+     * @method
+     * @param otherMembers
+     *     Iterable of other members for the group (excluding self).
+     */
+    ns.ProtocolHandler.prototype.start = function(otherMembers) {
+        var outContent = this._start(otherMembers);
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+        }
+    };
+
+
+    /**
+     * Mechanism to start a new upflow for joining new members..
+     *
+     * @method
+     * @param newMembers
+     *     Iterable of new members to join the group.
+     * @returns
+     *     Wire encoded {ProtocolMessage} content.
+     */
+    ns.ProtocolHandler.prototype._join = function(newMembers) {
+        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
+
+        var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
+        var askeMessage = this.askeMember.join(newMembers);
 
         return this._mergeMessages(cliquesMessage, askeMessage);
     };
@@ -139,21 +178,22 @@ define([
      * @method
      * @param newMembers
      *     Iterable of new members to join the group.
-     * @returns
-     *     Wire encoded {ProtocolMessage} content.
      */
     ns.ProtocolHandler.prototype.join = function(newMembers) {
-        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
-
-        var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
-        var askeMessage = this.askeMember.join(newMembers);
-
-        return this._mergeMessages(cliquesMessage, askeMessage);
+        var outContent = this._join(newMembers);
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+        }
     };
 
 
     /**
-     * Start a new downflow for excluding members.
+     * Mechanism to start a new downflow for excluding members.
      *
      * @method
      * @param excludeMembers
@@ -161,7 +201,7 @@ define([
      * @returns
      *     Wire encoded {ProtocolMessage} content.
      */
-    ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
+    ns.ProtocolHandler.prototype._exclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
@@ -174,16 +214,53 @@ define([
 
 
     /**
-     * Refresh group key.
+     * Start a new downflow for excluding members.
+     *
+     * @method
+     * @param excludeMembers
+     *     Iterable of members to exclude from the group.
+     */
+    ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
+        var outContent = this._exclude(excludeMembers);
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+        }
+    };
+
+
+    /**
+     * Mechanism to refresh group key.
      *
      * @returns
      *     Wire encoded {ProtocolMessage} content.
      * @method
      */
-    ns.ProtocolHandler.prototype.refresh = function() {
+    ns.ProtocolHandler.prototype._refresh = function() {
         var cliquesMessage = this.cliquesMember.akaRefresh();
-
         return this._mergeMessages(cliquesMessage, null);
+    };
+
+
+    /**
+     * Refresh group key.
+     *
+     * @method
+     */
+    ns.ProtocolHandler.prototype.refresh = function() {
+        var outContent = this._refresh();
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+        }
     };
 
 
@@ -204,6 +281,7 @@ define([
         }
 
         switch (classify.category) {
+            // FIXME: When setting the out-bound wire message's `to` field, make sure that a broadcast goes to the room JID!
             case codec.MESSAGE_CATEGORY.MPENC_ERROR:
                 this.uiQueue.push({
                         type: 'error',
@@ -219,15 +297,7 @@ define([
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_QUERY:
                 // Initiate keying protocol flow.
-                var outContent = this.start(wireMessage.from);
-                if (outContent) {
-                    var outMessage = {
-                        from: this.id,
-                        to: 'FIXME',
-                        message: codec.encodeMessage(outContent),
-                    };
-                    this.protocolOutQueue.push(outMessage);
-                }
+                this.start(wireMessage.from);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
                 var decodedMessage = codec.decodeMessageContent(classify.content);
@@ -245,11 +315,11 @@ define([
                     }
                 } else {
                     // This is an mpenc.greet message.
-                    var outContent = this.processKeyingMessage(decodedMessage);
+                    var outContent = this._processKeyingMessage(decodedMessage);
                     if (outContent) {
                         var outMessage = {
                             from: this.id,
-                            to: 'FIXME',
+                            to: outContent.dest,
                             message: codec.encodeMessage(outContent),
                         };
                         this.protocolOutQueue.push(outMessage);
@@ -272,7 +342,7 @@ define([
      * @returns {mpenc.messages.ProtocolMessage}
      *     Un-encoded message content.
      */
-    ns.ProtocolHandler.prototype.processKeyingMessage = function(message) {
+    ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(utils.clone(message));
         var inAskeMessage = this._getAskeMessage(utils.clone(message));
         var outCliquesMessage = null;

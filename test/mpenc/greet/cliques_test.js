@@ -562,18 +562,22 @@ define([
                 }
 
                 // '2' initiates a key refresh.
+                var oldGroupKey = participants[1].groupKey;
                 message = participants[1].akaRefresh();
+                assert.notStrictEqual(participants[1].groupKey, oldGroupKey);
 
                 // AKA downflow for refresh.
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
                     if (message.members.indexOf(participants[i].id) >= 0) {
+                        oldGroupKey = participants[i].groupKey;
                         participants[i].downflow(message);
                         assert.deepEqual(participants[i].members, message.members);
                         if (!keyCheck) {
                             keyCheck = participants[i].groupKey;
                         } else {
                             assert.deepEqual(participants[i].groupKey, keyCheck);
+                            assert.notStrictEqual(participants[i].groupKey, oldGroupKey);
                         }
                     }
                 }

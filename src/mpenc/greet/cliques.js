@@ -267,7 +267,7 @@ define([
             utils._clearmem(this.groupKey);
             this.groupKey = null;
         }
-        this.groupKey = retValue.cardinal;
+        this.groupKey = retValue.cardinalKey;
         this._debugGroupKey = retValue.cardinalDebugKey;
 
         // Pass broadcast message on to all members.
@@ -349,9 +349,9 @@ define([
         if (this.privKey) {
             // Patch our old private key into intermediate keys.
             this.intKeys[myPos] = ns._scalarMultiply(this.privKey,
-                                                                this.intKeys[myPos]);
+                                                     this.intKeys[myPos]);
             this._debugIntKeys[myPos] = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                           this._debugIntKeys[myPos]);
+                                                                this._debugIntKeys[myPos]);
             this.privKey = null;
         }
 
@@ -369,17 +369,18 @@ define([
         for (var i = 0; i < this.intKeys.length; i++) {
             if (i !== myPos) {
                 this.intKeys[i] = ns._scalarMultiply(this.privKey,
-                                                                this.intKeys[i]);
+                                                     this.intKeys[i]);
                 this._debugIntKeys[i] = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                           this._debugIntKeys[i]);
+                                                                this._debugIntKeys[i]);
             }
         }
 
         // New cardinal is "own" intermediate scalar multiplied with our private.
+        var cardinalKey = ns._scalarMultiply(this.privKey, this.intKeys[myPos]);
         return {
-            'cardinalKey': ns._scalarMultiply(this.privKey, this.intKeys[myPos]),
-            'cardinalDebugKey': ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                   this._debugIntKeys[myPos])
+            cardinalKey: '' + cardinalKey,
+            cardinalDebugKey: ns._scalarMultiplyDebug(this._debugPrivKey,
+                                                      this._debugIntKeys[myPos])
         };
     };
 
@@ -427,9 +428,9 @@ define([
         this.intKeys = intKeys;
         this._debugIntKeys = debugKeys;
         this.groupKey = ns._scalarMultiply(this.privKey,
-                                                      this.intKeys[myPos]);
+                                           this.intKeys[myPos]);
         this._debugGroupKey = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                 this._debugIntKeys[myPos]);
+                                                      this._debugIntKeys[myPos]);
     };
 
 
