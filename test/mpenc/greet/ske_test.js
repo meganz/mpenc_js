@@ -649,6 +649,18 @@ define([
             });
         });
 
+        describe('#getMemberEphemeralPubKey() method', function() {
+            it('simple tests', function() {
+                var participant = new ns.SignatureKeyExchangeMember('John');
+                participant.members = ['John', 'Paul', 'George', 'Ringo'];
+                participant.ephemeralPubKeys = ['1', '2', '3', '5'];
+                participant.oldEphemeralKeys['Pete'] = '4';
+                assert.strictEqual(participant.getMemberEphemeralPubKey('George'), '3');
+                assert.strictEqual(participant.getMemberEphemeralPubKey('Pete'), '4');
+                assert.strictEqual(participant.getMemberEphemeralPubKey('Freddy'), undefined);
+            });
+        });
+
         describe('whole ASKE', function() {
             it('whole flow for 5 members, 2 joining, 2 others leaving', function() {
                 var numMembers = 5;

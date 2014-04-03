@@ -57,9 +57,16 @@ define([
         return atob(message.substring(_PROTO_STRING.length, message.length -1));
     }
 
-    function _getPayload(message) {
+    function _getPayload(message, senderParticipant) {
         if (message) {
-            return codec.decodeMessageContent(codec.categoriseMessage(_stripProtoFromMessage(message.message)).content);
+            var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
+            if (senderParticipant) {
+                return codec.decodeMessageContent(content,
+                                                  senderParticipant.cliquesMember.groupKey.substring(0, 16),
+                                                  senderParticipant.askeMember.ephemeralPubKey);
+            } else {
+                return codec.decodeMessageContent(content);
+            }
         } else {
             return null;
         }
@@ -557,6 +564,26 @@ define([
             });
         });
 
+        describe('#send() method', function() {
+            it('send a message confidentially', function() {
+                var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                var message = 'Shout, shout, let it all out!';
+                participant.send(message);
+                assert.lengthOf(participant.messageOutQueue, 1);
+                assert.lengthOf(participant.messageOutQueue[0].message, 180);
+                assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
+                assert.strictEqual(participant.messageOutQueue[0].to, '');
+                assert.lengthOf(participant.protocolOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2',
@@ -601,7 +628,9 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-
+                var groupKey = _td.COMP_KEY.substring(0, 16);
+                participant.cliquesMember.groupKey = groupKey;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: '?mpENC:Zm9v.',
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns('foo');
@@ -623,12 +652,20 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-
+                var groupKey = _td.COMP_KEY.substring(0, 16);
+                participant.cliquesMember.groupKey = groupKey;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns(_td.DATA_MESSAGE_CONTENT);
+                sandbox.stub(participant.askeMember, 'getMemberEphemeralPubKey').returns('lala');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
+                assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 3);
+                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[1],
+                                   groupKey);
+                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[2],
+                                   'lala');
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
@@ -642,6 +679,9 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
+                var groupKey = _td.COMP_KEY.substring(0, 16);
+                participant.cliquesMember.groupKey = groupKey;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var decodedContent = utils.clone(_td.DATA_MESSAGE_CONTENT);
                 decodedContent.signatureOk = false;
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
@@ -669,7 +709,7 @@ define([
                 sinon_assert.calledOnce(participant.start);
             });
 
-            it('whole flow for 5 members, 2 joining, 2 others leaving, refresh', function() {
+            it('whole flow for 5 members, 2 joining, 2 others leaving, send message, refresh key', function() {
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];
@@ -838,6 +878,24 @@ define([
                     assert.lengthOf(participant.protocolOutQueue, 0);
                     assert.lengthOf(participant.uiQueue, 0);
                     assert.lengthOf(participant.messageOutQueue, 0);
+                }
+
+                // '5' sends a confidential text message to the group.
+                participants[4].send('Rock me Amadeus');
+                message = participants[4].messageOutQueue.shift();
+
+                // Received message for all.
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    var messageClone = utils.clone(message);
+                    participant.processMessage(messageClone);
+                    var uiMessage = participant.uiQueue.shift();
+                    assert.strictEqual(uiMessage.message, 'Rock me Amadeus');
+                    assert.strictEqual(uiMessage.type, 'message');
+                    assert.strictEqual(uiMessage.from, '5');
                 }
 
                 // '2' initiates a key refresh.

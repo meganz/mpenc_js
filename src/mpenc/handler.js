@@ -305,7 +305,18 @@ define([
                 this.start(wireMessage.from);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
-                var decodedMessage = codec.decodeMessageContent(classify.content);
+                var decodedMessage = null;
+                if (this.cliquesMember.groupKey) {
+                    // We've been through a key agreement, so we've got keys.
+                    var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
+                    decodedMessage = codec.decodeMessageContent(classify.content,
+                                                                this.cliquesMember.groupKey.substring(0, 16),
+                                                                signingPubKey);
+                } else {
+                    // We're still running the key agreement.
+                    decodedMessage = codec.decodeMessageContent(classify.content);
+                }
+
                 if (decodedMessage.data !== undefined) {
                     // This is a normal communication/data message.
                     if (decodedMessage.signatureOk === false) {
@@ -335,6 +346,26 @@ define([
                 _assert(false, 'Received unknown message category: ' + classify.category);
                 break;
         }
+    };
+
+
+    /**
+     * Sends a message confidentially to the current group.
+     *
+     * @method
+     * @param messageContent {string}
+     *     Unencrypted message content to be sent (plain text or HTML).
+     */
+    ns.ProtocolHandler.prototype.send = function(messageContent) {
+        var outMessage = {
+            from: this.id,
+            to: '', // FIXME: use proper room JID.
+            message: codec.encodeMessage(messageContent,
+                                         this.cliquesMember.groupKey.substring(0, 16),
+                                         this.askeMember.ephemeralPrivKey,
+                                         this.askeMember.ephemeralPubKey),
+        };
+        this.messageOutQueue.push(outMessage);
     };
 
 

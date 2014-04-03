@@ -26,8 +26,9 @@ define([
     "mpenc",
     "mpenc/helper/utils",
     "chai",
-    "sinon/sandbox"
-], function(ns, mpenc, utils, chai, sinon_sandbox) {
+    "sinon/sandbox",
+    "sinon/assert",
+], function(ns, mpenc, utils, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
@@ -293,6 +294,24 @@ define([
             assert.strictEqual(ns.encodeMessage(null), null);
             assert.strictEqual(ns.encodeMessage(undefined), null);
         });
+
+        it('data message', function() {
+            var message = 'wha tekau ma rua';
+            sandbox.stub(ns, 'encodeMessageContent').returns('42');
+            var groupKey = _td.COMP_KEY.substring(0, 16);
+            var result = ns.encodeMessage(message, groupKey, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
+            sinon_assert.calledOnce(ns.encodeMessageContent);
+            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 4);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[0],
+                               message);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[1],
+                               groupKey);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[2],
+                               _td.ED25519_PRIV_KEY);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[3],
+                               _td.ED25519_PUB_KEY);
+            assert.strictEqual(result, '?mpENC:NDI=.');
+        });
     });
 
     describe("encryptDataMessage()", function() {
@@ -351,7 +370,7 @@ define([
     });
 
     describe("encryptDataMessage()/decryptDataMessage()", function() {
-        it('5 round trips', function() {
+        it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var key = djbec.bytes2string(utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
@@ -378,11 +397,11 @@ define([
         it('data messages', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
-            var expected = ['74XflUXiebsofcIbUM9hl32bFZ+pGV3ZIgsg96mhdEp3EbX+uB+Ti1tEHKwHaCtcQwSioYzDeki6ijattbvkDA==',
-                            'HOcWT2UCbCNrps4zOclKia1ZRvsgFHpkPE+3m2401BsRjBq+4vSGLErey9X82I5R0T6iocatWWQfuQjxvDDRDg==',
-                            'lbQ8SmTH0pFF25NThHYBkchQcFcxMF9aG33qgG5TBJIFWXyIVAv2ASE0PLoC/EG13RFLBBHvkkyjNIpQW+ugAA==',
-                            'sniCFEWWWGDsAXVqwRYuaOCexaag9o1TDEfsg5R4he22iyu7bULTqB9R3ueEdhTVLOKmz0XZU4BPlpzl235wCQ==',
-                            'oEDxuOeRJL3e66mgWZA2B/OJLMqvilI74MrjzSpgaW6KhxXj9de/aGpon1C7jivCWGycUcdeHI/pchNU3hvvAw=='];
+            var expected = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHaQ1yfuNR4R3MasfnTWbNDTjumHZIVOjeAo97Wl2WDgDA==',
+                            'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYlIIkDGFoa8ROYvX4lb2V9l8ZkAYYmeeagQbqSkUR92BQ==',
+                            'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40Yq/lqqfuVViyNu8/rghDQ9bi98q/GU/fE7Yn1YH3rrIAQ==',
+                            'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNUIgwO6SUsi1XhXkqwWDu6di3CxlRcqwKgXoxHkVwOkFCQ==',
+                            '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa4x4ERHgxvje7BbpoADYGA5SHooFzIP4znGYeoHAZ+4Bw=='];
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.signDataMessage(tests[i],
                                                 _td.ED25519_PRIV_KEY,
@@ -424,14 +443,15 @@ define([
     });
 
     describe("signDataMessage()/verifyDataMessage()", function() {
-        it('5 round trips', function() {
+        it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var privKey = djbec.bytes2string(utils._newKey08(512));
                 var pubKey = djbec.bytes2string(djbec.publickey(privKey));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var signature = ns.signDataMessage(message, privKey, pubKey);
-                assert.ok(message, signature, pubKey);
+                assert.ok(ns.verifyDataMessage(message, signature, pubKey),
+                          'iteration ' + (i + 1));
             }
         });
     });

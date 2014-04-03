@@ -336,11 +336,31 @@ define([
      * Returns true if the authenticated signature key exchange is fully
      * acknowledged.
      *
-     * @returns True on a valid session.
+     * @returns {bool}
+     *     True on a valid session.
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
         return this.authenticatedMembers.every(function(item) { return item; });
+    };
+
+
+    /**
+     * Returns the ephemeral public signing key of a participant.
+     *
+     * @param participantId
+     *     Participant ID of the member to query for.
+     * @returns {string}
+     *     The binary string of the key or `undefined` if unknown.
+     * @method
+     */
+    ns.SignatureKeyExchangeMember.prototype.getMemberEphemeralPubKey = function(participantId) {
+        var index = this.members.indexOf(participantId);
+        if (index >= 0) {
+            return this.ephemeralPubKeys[index];
+        } else {
+            return this.oldEphemeralKeys[participantId];
+        }
     };
 
 

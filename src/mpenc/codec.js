@@ -436,7 +436,7 @@ define([
         if (message === null || message === undefined) {
             return null;
         }
-        var content = ns.encodeMessageContent(message);
+        var content = ns.encodeMessageContent(message, groupKey, privKey, pubKey);
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
 
@@ -585,6 +585,6 @@ define([
     // TODO: message wrapping like OTR:
     // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
 
-    
+
     return ns;
 });
