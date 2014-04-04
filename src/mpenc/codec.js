@@ -55,8 +55,14 @@ define([
     /**
      * "Enumeration" protocol message category types.
      *
-     * @property DATA
-     *     Used to transmit a private message.
+     * @property PLAIN {integer}
+     *     Plain text message (not using mpENC).
+     * @property MPENC_QUERY {integer}
+     *     Query to initiate an mpENC session.
+     * @property MPENC_MESSAGE {integer}
+     *     mpENC message.
+     * @property MPENC_ERROR {integer}
+     *     Message for error in mpENC protocol.
      */
     ns.MESSAGE_CATEGORY = {
         PLAIN:             0x00,
@@ -69,31 +75,33 @@ define([
     /**
      * "Enumeration" for TLV types.
      *
-     * @property PADDING
+     * @property PADDING {integer}
      *     Can be used for arbitrary length of padding byte sequences.
-     * @property PROTOCOL_VERSION
+     * @property PROTOCOL_VERSION {integer}
      *     Indicates the protocol version to be used as a 16-bit unsigned integer.
-     * @property MESSAGE_TYPE
+     * @property MESSAGE_TYPE {integer}
      *     A single byte indicating the type of message transmitted.
-     * @property SOURCE
+     * @property SOURCE {integer}
      *     Message originator (from, should be only one).
-     * @property DEST
+     * @property DEST {integer}
      *     Message destination (to, should be only one, broadcast if not present).
-     * @property AUX_AGREEMENT
+     * @property AUX_AGREEMENT {integer}
      *     Type of key agreement. 0 for "initial" or 1 for "auxilliary".
-     * @property MEMBER
+     * @property MEMBER {integer}
      *     A participating member ID.
-     * @property INT_KEY
+     * @property INT_KEY {integer}
      *     An intermediate key for the group key agreement (max occurrence is
      *     the number of members present).
-     * @property NONCE
+     * @property NONCE {integer}
      *     A nonce of a member for ASKE (max occurrence is the number of
      *     members present).
-     * @property PUB_KEY
+     * @property PUB_KEY {integer}
      *     Ephemeral public signing key of a member (max occurrence is the
      *     number of members present).
-     * @property SESSION_SIGNATURE
+     * @property SESSION_SIGNATURE {integer}
      *     Session acknowledgement signature using sender's static key.
+     * @property SIGNING_KEY {integer}
+     *     Session's ephemeral (private) signing key.
      */
     ns.TLV_TYPE = {
         PADDING:           0x0000,
@@ -109,6 +117,7 @@ define([
         NONCE:             0x0105, // 261
         PUB_KEY:           0x0106, // 262
         SESSION_SIGNATURE: 0x0107, // 263
+        SIGNING_KEY:       0x0108, // 264
     };
 
 
@@ -117,7 +126,7 @@ define([
      *
      * FIXME: This needs some serious work.
      *
-     * @property DATA
+     * @property DATA {integer}
      *     Used to transmit a private message.
      */
     ns.MESSAGE_TYPE = {
@@ -131,7 +140,7 @@ define([
     /**
      * Decodes a given binary TVL string to a type and value.
      *
-     * @param tlv
+     * @param tlv {string}
      *     A binary TLV string.
      * @returns {Object}
      *     An object containing the type of string (in `type`, 16-bit unsigned
@@ -158,11 +167,11 @@ define([
     /**
      * Decodes a given TLV encoded protocol message content into an object.
      *
-     * @param message
+     * @param message {string}
      *     A binary message representation.
-     * @param groupKey
+     * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @param pubKey
+     * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
      * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
@@ -191,8 +200,8 @@ define([
                     out.source = tlv.value;
                     break;
                 case ns.TLV_TYPE.DEST:
-                    out.dest = tlv.value;
-                    if ((out.dest === '') || (out.dest === null)) {
+                    out.dest = tlv.value || '';
+                    if (out.dest === '') {
                         out.flow = 'downflow';
                     } else {
                         out.flow = 'upflow';
@@ -223,6 +232,9 @@ define([
                     break;
                 case ns.TLV_TYPE.SESSION_SIGNATURE:
                     out.sessionSignature = tlv.value;
+                    break;
+                case ns.TLV_TYPE.SIGNING_KEY:
+                    out.signingKey = tlv.value;
                     break;
                 case ns.TLV_TYPE.MESSAGE_SIGNATURE:
                     // This is the first TLV in a data message.
@@ -274,7 +286,7 @@ define([
     /**
      * Detects the category of a given message.
      *
-     * @param message
+     * @param message {string}
      *     A wire protocol message representation.
      * @returns {mpenc.codec.MESSAGE_CATEGORY}
      *     Message category indicator.
@@ -318,12 +330,12 @@ define([
     /**
      * Encodes a given value to a binary TLV string of a given type.
      *
-     * @param tlvType
+     * @param tlvType {integer}
      *     Type of string to use (16-bit unsigned integer).
-     * @param value
+     * @param value {string}
      *     A binary string of the pay load to carry. If omitted, no value
      *     (null) is used.
-     * @returns
+     * @returns {string}
      *     A binary TLV string.
      */
     ns.encodeTLV = function(tlvType, value) {
@@ -339,11 +351,11 @@ define([
     /**
      * Encodes an array of values to a binary TLV string of a given type.
      *
-     * @param tlvType
+     * @param tlvType {integer}
      *     Type of string to use (16-bit unsigned integer).
-     * @param valueArray
+     * @param valueArray {Array}
      *     The array of values.
-     * @returns
+     * @returns {string}
      *     A binary TLV string.
      */
     ns._encodeTlvArray = function(tlvType, valueArray) {
@@ -369,13 +381,13 @@ define([
      *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
-     * @param groupKey
+     * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @param privKey
+     * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
-     * @param pubKey
+     * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @returns
+     * @returns {string}
      *     A binary message representation.
      */
     ns.encodeMessageContent = function(message, groupKey, privKey, pubKey) {
@@ -397,7 +409,8 @@ define([
                 + out;
         } else {
             // Process message attributes in this order:
-            // source, dest, agreement, members, intKeys, nonces, pubKeys, sessionSignature
+            // source, dest, agreement, members, intKeys, nonces, pubKeys,
+            // sessionSignature, signingKey
 
             out += ns.encodeTLV(ns.TLV_TYPE.SOURCE, message.source);
             out += ns.encodeTLV(ns.TLV_TYPE.DEST, message.dest);
@@ -406,11 +419,24 @@ define([
             } else {
                 out += ns.encodeTLV(ns.TLV_TYPE.AUX_AGREEMENT, _ONE_BYTE);
             }
-            out += ns._encodeTlvArray(ns.TLV_TYPE.MEMBER, message.members);
-            out += ns._encodeTlvArray(ns.TLV_TYPE.INT_KEY, message.intKeys);
-            out += ns._encodeTlvArray(ns.TLV_TYPE.NONCE, message.nonces);
-            out += ns._encodeTlvArray(ns.TLV_TYPE.PUB_KEY, message.pubKeys);
-            out += ns.encodeTLV(ns.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
+            if (message.members) {
+                out += ns._encodeTlvArray(ns.TLV_TYPE.MEMBER, message.members);
+            }
+            if (message.intKeys) {
+                out += ns._encodeTlvArray(ns.TLV_TYPE.INT_KEY, message.intKeys);
+            }
+            if (message.nonces) {
+                out += ns._encodeTlvArray(ns.TLV_TYPE.NONCE, message.nonces);
+            }
+            if (message.pubKeys) {
+                out += ns._encodeTlvArray(ns.TLV_TYPE.PUB_KEY, message.pubKeys);
+            }
+            if (message.sessionSignature) {
+                out += ns.encodeTLV(ns.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
+            }
+            if (message.signingKey) {
+                out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
+            }
         }
 
         return out;
@@ -423,13 +449,13 @@ define([
      *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
-     * @param groupKey
+     * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @param privKey
+     * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
-     * @param pubKey
+     * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @returns
+     * @returns {string}
      *     A wire ready message representation.
      */
     ns.encodeMessage = function(message, groupKey, privKey, pubKey) {
@@ -444,9 +470,9 @@ define([
     /**
      * Converts an unsigned short integer to a binary string.
      *
-     * @param value
+     * @param value {integer}
      *     A 16-bit unsigned integer.
-     * @returns
+     * @returns {string}
      *     A two character binary string.
      */
     ns._short2bin = function(value) {
@@ -457,9 +483,9 @@ define([
     /**
      * Converts a binary string to an unsigned short integer.
      *
-     * @param value
+     * @param value {string}
      *     A two character binary string.
-     * @returns
+     * @returns {integer}
      *     A 16-bit unsigned integer.
      */
     ns._bin2short= function(value) {
@@ -576,14 +602,12 @@ define([
      *
      * @param text {string}
      *     Text message to accompany the mpENC protocol query message.
-     * @returns
+     * @returns {string}
      *     A wire ready message representation.
      */
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + mpenc.VERSION.charCodeAt(0) + '?' + text;
     };
-    // TODO: message wrapping like OTR:
-    // * proto query/request: "?mpENCv1?" (anywhere in message to express willingness to use mpENCvX, or re-establish mpENCvX session)
 
 
     return ns;

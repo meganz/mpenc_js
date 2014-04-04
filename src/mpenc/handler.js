@@ -120,8 +120,8 @@ define([
      * @method
      * @param otherMembers
      *     Iterable of other members for the group (excluding self).
-     * @returns
-     *     Wire encoded {ProtocolMessage} content.
+     * @returns {mpenc.messages.ProtocolMessage}
+     *     Un-encoded message content.
      */
     ns.ProtocolHandler.prototype._start = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
@@ -159,8 +159,8 @@ define([
      * @method
      * @param newMembers
      *     Iterable of new members to join the group.
-     * @returns
-     *     Wire encoded {ProtocolMessage} content.
+     * @returns {mpenc.messages.ProtocolMessage}
+     *     Un-encoded message content.
      */
     ns.ProtocolHandler.prototype._join = function(newMembers) {
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
@@ -198,8 +198,8 @@ define([
      * @method
      * @param excludeMembers
      *     Iterable of members to exclude from the group.
-     * @returns
-     *     Wire encoded {ProtocolMessage} content.
+     * @returns {mpenc.messages.ProtocolMessage}
+     *     Un-encoded message content.
      */
     ns.ProtocolHandler.prototype._exclude = function(excludeMembers) {
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
@@ -234,10 +234,43 @@ define([
 
 
     /**
+     * Mechanism to start the downflow for quitting participation.
+     *
+     * @returns {mpenc.messages.ProtocolMessage}
+     *     Un-encoded message content.
+     * @method
+     */
+    ns.ProtocolHandler.prototype._quit = function() {
+        _assert(this.askeMember.ephemeralPrivKey !== null,
+                'Not participating.');
+        var askeMessage = this.askeMember.quit();
+        return this._mergeMessages(null, askeMessage);
+    };
+
+
+    /**
+     * Start the downflow for quitting participation.
+     *
+     * @method
+     */
+    ns.ProtocolHandler.prototype.quit = function() {
+        var outContent = this._quit();
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+        }
+    };
+
+
+    /**
      * Mechanism to refresh group key.
      *
-     * @returns
-     *     Wire encoded {ProtocolMessage} content.
+     * @returns {mpenc.messages.ProtocolMessage}
+     *     Un-encoded message content.
      * @method
      */
     ns.ProtocolHandler.prototype._refresh = function() {
@@ -373,7 +406,7 @@ define([
      * Handles keying protocol execution with all participants.
      *
      * @method
-     * @param message
+     * @param message {mpenc.messages.ProtocolMessage}
      *     Received message (decoded). See {@link mpenc.messages.ProtocolMessage}.
      * @returns {mpenc.messages.ProtocolMessage}
      *     Un-encoded message content.
@@ -406,9 +439,9 @@ define([
      * Merges the contents of the messages for ASKE and CLIQUES into one message..
      *
      * @method
-     * @param cliquesMessage
+     * @param cliquesMessage {mpenc.greet.cliques.CliquesMessage}
      *     Message from CLIQUES protocol workflow.
-     * @param askeMessage
+     * @param askeMessage {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Message from ASKE protocol workflow.
      * @returns {mpenc.messages.ProtocolMessage}
      *     Joined message (not wire encoded).
@@ -441,6 +474,7 @@ define([
         newMessage.nonces = askeMessage.nonces || null;
         newMessage.pubKeys = askeMessage.pubKeys || null;
         newMessage.sessionSignature = askeMessage.sessionSignature || null;
+        newMessage.signingKey = askeMessage.signingKey || null;
         if (cliquesMessage.agreement === 'ika') {
             newMessage.agreement = 'initial';
         } else {
@@ -457,7 +491,7 @@ define([
      * @method
      * @param message {mpenc.messages.ProtocolMessage}
      *     Message from protocol handler.
-     * @returns {mpenc.cliques.CliquesMessage}
+     * @returns {mpenc.greet.cliques.CliquesMessage}
      *     Extracted message.
      */
     ns.ProtocolHandler.prototype._getCliquesMessage = function(message) {
@@ -482,9 +516,9 @@ define([
      * Extracts a ASKE message out of the received protocol handler message.
      *
      * @method
-     * @param message {mpenc.messages.ProtocolMessage}
+     * @param message {mpenc.greet.messages.ProtocolMessage}
      *     Message from protocol handler.
-     * @returns {mpenc.ske.SignatureKeyExchangeMessage}
+     * @returns {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Extracted message.
      */
     ns.ProtocolHandler.prototype._getAskeMessage = function(message) {
@@ -496,6 +530,7 @@ define([
         newMessage.nonces = message.nonces;
         newMessage.pubKeys = message.pubKeys;
         newMessage.sessionSignature = message.sessionSignature;
+        newMessage.signingKey = message.signingKey;
 
         return newMessage;
     };

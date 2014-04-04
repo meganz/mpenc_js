@@ -72,20 +72,22 @@ define([
      *     Signature to acknowledge the session.
      * @returns {SignatureKeyExchangeMessage}
      *
-     * @property source
+     * @property source {string}
      *     Sender participant ID of message.
-     * @property dest
+     * @property dest {string}
      *     Destination participatn ID of message (empty for broadcast).
-     * @property flow
+     * @property flow {string}
      *     Flow direction of message ('upflow' or 'downflow').
-     * @property members
+     * @property members {Array}
      *     Participant IDs of members.
-     * @property nonces
+     * @property nonces {Array}
      *     Nonces of members.
-     * @property pubKeys
+     * @property pubKeys {Array}
      *     Ephemeral public signing key of members.
-     * @property sessionSignature
+     * @property sessionSignature {string}
      *     Session acknowledgement signature using sender's static key.
+     * @property signingKey {string}
+     *     Ephemeral private signing key for session (upon quitting participation).
      */
     ns.SignatureKeyExchangeMessage = function(source, dest, flow, members,
                                                      nonces, pubKeys,
@@ -97,6 +99,7 @@ define([
         this.nonces = nonces || [];
         this.pubKeys = pubKeys || [];
         this.sessionSignature = sessionSignature || null;
+        this.signingKey = null;
 
         return this;
     };
@@ -359,7 +362,10 @@ define([
         if (index >= 0) {
             return this.ephemeralPubKeys[index];
         } else {
-            return this.oldEphemeralKeys[participantId];
+            var record = this.oldEphemeralKeys[participantId];
+            if (record) {
+                return record.pub;
+            }
         }
     };
 
@@ -380,8 +386,7 @@ define([
         this.members = allMembers;
 
         // Pass a message on to the first new member to join.
-        var startMessage = new ns.SignatureKeyExchangeMessage(this.id,
-                                                                     '', 'upflow');
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'upflow');
         startMessage.dest = newMembers[0];
         startMessage.members = utils.clone(allMembers);
         startMessage.nonces = utils.clone(this.nonces);
@@ -410,8 +415,8 @@ define([
         for (var i = 0; i < excludeMembers.length; i++) {
             var index = this.members.indexOf(excludeMembers[i]);
             this.oldEphemeralKeys[excludeMembers[i]] = {
-                'pub': this.ephemeralPubKeys[index] || null,
-                'authenticated': this.authenticatedMembers[index] || false,
+                pub: this.ephemeralPubKeys[index] || null,
+                authenticated: this.authenticatedMembers[index] || false,
             };
             this.members.splice(index, 1);
             this.nonces.splice(index, 1);
@@ -427,12 +432,51 @@ define([
         this.authenticatedMembers[myPos] = true;
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id,
-                                                                         '', 'downflow');
+        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'downflow');
         broadcastMessage.members = utils.clone(this.members);
         broadcastMessage.nonces = utils.clone(this.nonces);
         broadcastMessage.pubKeys = utils.clone(this.ephemeralPubKeys);
         broadcastMessage.sessionSignature = this._computeSessionSig();
+
+        return broadcastMessage;
+    };
+
+
+    /**
+     * Quit own participation and publish the ephemeral signing key.
+     *
+     * @returns {SignatureKeyExchangeMessage}
+     * @method
+     */
+    ns.SignatureKeyExchangeMember.prototype.quit = function() {
+        _assert(this.ephemeralPrivKey !== null, 'Not participating.');
+
+        // Kick myself out.
+        var myPos = this.members.indexOf(this.id);
+        this.oldEphemeralKeys[this.id] = {
+            pub: this.ephemeralPubKey,
+            priv: this.ephemeralPrivKey,
+            authenticated: false
+        };
+        if (this.authenticatedMembers) {
+            this.oldEphemeralKeys[this.id] = this.authenticatedMembers[myPos];
+            this.authenticatedMembers.splice(myPos, 1);
+        }
+        this.ephemeralPubKey = null;
+        this.ephemeralPrivKey = null;
+        if (this.members) {
+            this.members.splice(myPos, 1);
+        }
+        if (this.nonces) {
+            this.nonces.splice(myPos, 1);
+        }
+        if (this.ephemeralPubKeys) {
+            this.ephemeralPubKeys.splice(myPos, 1);
+        }
+
+        // Pass broadcast message on to all members.
+        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'downflow');
+        broadcastMessage.signingKey = this.oldEphemeralKeys[this.id].priv;
 
         return broadcastMessage;
     };

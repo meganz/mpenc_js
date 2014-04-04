@@ -632,7 +632,6 @@ define([
                 assert.deepEqual(participant.members, ['2', '3', '5']);
                 assert.lengthOf(participant.nonces, 3);
                 assert.lengthOf(participant.ephemeralPubKeys, 3);
-                assert.lengthOf(participant.nonces , 3);
                 assert.lengthOf(participant.authenticatedMembers , 3);
                 assert.deepEqual(participant.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
                 assert.deepEqual(participant.oldEphemeralKeys['1'].authenticated, true);
@@ -649,12 +648,40 @@ define([
             });
         });
 
+        describe('#quit() method', function() {
+            it('not a member any more', function() {
+                var participant = new ns.SignatureKeyExchangeMember('3');
+                participant.members = ['1', '2'];
+                assert.throws(function() { participant.quit(); },
+                              'Not participating.');
+            });
+
+            it('simple tests', function() {
+                var participant = new ns.SignatureKeyExchangeMember('Peter');
+                participant.members = ['Peter', 'Tony', 'Steve', 'Mike', 'Phil'];
+                participant.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
+                participant.ephemeralPubKey = '1';
+                participant.ephemeralPrivKey = '111';
+                var message = participant.quit();
+                assert.strictEqual(participant.ephemeralPrivKey, null);
+                assert.strictEqual(participant.ephemeralPubKey, null);
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
+                assert.deepEqual(participant.members, ['Tony', 'Steve', 'Mike', 'Phil']);
+                assert.lengthOf(participant.ephemeralPubKeys, 4);
+                assert.strictEqual(message.source, 'Peter');
+                assert.strictEqual(message.dest, '');
+                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.signingKey, '111');
+            });
+        });
+
         describe('#getMemberEphemeralPubKey() method', function() {
             it('simple tests', function() {
                 var participant = new ns.SignatureKeyExchangeMember('John');
                 participant.members = ['John', 'Paul', 'George', 'Ringo'];
                 participant.ephemeralPubKeys = ['1', '2', '3', '5'];
-                participant.oldEphemeralKeys['Pete'] = '4';
+                participant.oldEphemeralKeys['Pete'] = {pub: '4'};
                 assert.strictEqual(participant.getMemberEphemeralPubKey('George'), '3');
                 assert.strictEqual(participant.getMemberEphemeralPubKey('Pete'), '4');
                 assert.strictEqual(participant.getMemberEphemeralPubKey('Freddy'), undefined);

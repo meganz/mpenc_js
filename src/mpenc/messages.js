@@ -39,46 +39,48 @@ define([
      * Carries message content for the mpEnc protocol flow.
      *
      * @constructor
-     * @param source
+     * @param source {string}
      *     Message originator (from).
-     * @param dest
+     * @param dest {string}
      *     Message destination (to).
-     * @param agreement
+     * @param agreement {string}
      *     Type of key agreement. "initial" or "auxilliary".
-     * @param flow
+     * @param flow {string}
      *     Direction of message flow. "upflow" or "downflow".
-     * @param members
+     * @param members {Array}
      *     List (array) of all participating members.
-     * @param intKeys
+     * @param intKeys {Array}
      *     List (array) of intermediate keys for group key agreement.
-     * @param nonces
+     * @param nonces {Array}
      *     Nonces of members for ASKE.
-     * @param pubKeys
+     * @param pubKeys {Array}
      *     List (array) of all participants' ephemeral public keys.
-     * @param sessionSignature
+     * @param sessionSignature {string}
      *     Signature to acknowledge the session.
      * @returns {ProtocolMessage}
      *
-     * @property source
+     * @property source {string}
      *     Message originator (from).
-     * @property dest
+     * @property dest {string}
      *     Message destination (to).
-     * @property agreement
+     * @property agreement {string}
      *     Type of key agreement. "initial" or "auxilliary".
-     * @property flow
+     * @property flow {string}
      *     Direction of message flow. "upflow" or "downflow".
-     * @property members
+     * @property members {Array}
      *     List (array) of all participating members.
-     * @property intKeys
+     * @property intKeys {Array}
      *     List (array) of intermediate keys for group key agreement.
-     * @property debugKeys
+     * @property debugKeys {Array}
      *     List (array) of keying debugging strings.
-     * @property nonces
+     * @property nonces {Array}
      *     Nonces of members for ASKE.
-     * @property pubKeys
+     * @property pubKeys {Array}
      *     Ephemeral public signing key of members.
-     * @property sessionSignature
+     * @property sessionSignature {string}
      *     Session acknowledgement signature using sender's static key.
+     * @property signingKey {string}
+     *     Ephemeral private signing key for session (upon quitting participation).
      */
     ns.ProtocolMessage = function(source, dest, agreement, flow, members,
                                   intKeys, debugKeys, nonces, pubKeys,
@@ -93,6 +95,7 @@ define([
         this.nonces = nonces || [];
         this.pubKeys = pubKeys || [];
         this.sessionSignature = sessionSignature || null;
+        this.signingKey = null;
 
         return this;
     };
@@ -139,7 +142,7 @@ define([
         this.rawMessage = rawMessage || '';
         this.protocol = protocol || '';
         this.data = data | '';
-        
+
         return this;
     };
 

@@ -188,12 +188,23 @@ define([
             it('upflow message', function() {
                 sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
-                assert.lengthOf(result, 60);
+                assert.lengthOf(result, 56);
             });
 
             it('upflow message binary', function() {
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT);
                 assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
+            });
+
+            it('downflow message for quit', function() {
+                sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT);
+                assert.lengthOf(result, 20);
+            });
+
+            it('downflow message for quit binary', function() {
+                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT);
+                assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_STRING);
             });
 
             it('data message', function() {
@@ -218,6 +229,15 @@ define([
                 assert.deepEqual(result.nonces, _td.UPFLOW_MESSAGE_CONTENT.nonces);
                 assert.deepEqual(result.pubKeys, _td.UPFLOW_MESSAGE_CONTENT.pubKeys);
                 assert.strictEqual(result.sessionSignature, _td.UPFLOW_MESSAGE_CONTENT.sessionSignature);
+            });
+
+            it('downflow message for quit', function() {
+                var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
+                assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
+                assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
+                assert.strictEqual(result.agreement, 'auxilliary');
+                assert.strictEqual(result.flow, _td.DOWNFLOW_MESSAGE_CONTENT.flow);
+                assert.strictEqual(result.signingKey, _td.DOWNFLOW_MESSAGE_CONTENT.signingKey);
             });
 
             it('wrong protocol version', function() {
@@ -271,7 +291,7 @@ define([
             };
             sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
             var result = ns.encodeMessage(message);
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
+            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
         });
 
         it('upflow message binary', function() {
@@ -288,6 +308,18 @@ define([
             };
             var result = ns.encodeMessage(message);
             assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
+        });
+
+        it('downflow message on quit', function() {
+            var message = _td.DOWNFLOW_MESSAGE_CONTENT;
+            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
+            var result = ns.encodeMessage(message);
+            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAA=.');
+        });
+
+        it('downflow message on quit binary', function() {
+            var result = ns.encodeMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
+            assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_PAYLOAD);
         });
 
         it('null message', function() {

@@ -143,12 +143,12 @@ _td.STATIC_PUB_KEY_DIR = {
 /* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
-_td.UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEy'
-                                 + 'AQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIG'
-                                 + 'qZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6h'
-                                 + 'UQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+'
-                                 + '00sztfGH6hUQlNAQYAIFYm6SFboX/gzyP1xo6X'
-                                 + '6WLt1w7JkFt1PasFeVnvhgcSAQcAAA==');
+_td.UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMA'
+                                 + 'ATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8Y'
+                                 + 'ntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZ'
+                                 + 'ijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQ'
+                                 + 'YAIFYm6SFboX/gzyP1xo6X6WLt1w7JkFt1PasFeVnv'
+                                 + 'hgcS');
 _td.UPFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '2',
@@ -161,6 +161,17 @@ _td.UPFLOW_MESSAGE_CONTENT = {
     sessionSignature: null,
 };
 _td.UPFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.UPFLOW_MESSAGE_STRING) + '.';
+
+_td.DOWNFLOW_MESSAGE_CONTENT = {
+    source: '1',
+    dest: '',
+    flow: 'downflow',
+    signingKey: _td.ED25519_PRIV_KEY,
+};
+_td.DOWNFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAABAgABAQEIAEBsMNKqhzno19'
+                                   + 'p4hYzjuTHFsiqI61enu/8DBW90l+JZasyB39Eygf'
+                                   + 'uJ5NAk29/RGuy1eb3K30cFOOL3L+OcjJnd');
+_td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
 _td.DATA_MESSAGE_STRING = atob('AAMAQBgeUZZlXeV7seFV0nrJ7y6xsp0XXVg/4DyIYn'
                                + 'p7h38Zpzzq6PMvNV/qXOl90U4/an2qu1sA2ZIR9Q'
