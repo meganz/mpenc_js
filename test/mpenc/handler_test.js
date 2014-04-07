@@ -257,7 +257,6 @@ define([
                 assert.strictEqual(askeMessage.dest, compare.dest);
                 assert.strictEqual(askeMessage.flow, compare.flow);
                 assert.strictEqual(askeMessage.signingKey, compare.signingKey);
-//                dump(askeMessage);
             });
         });
 
@@ -424,9 +423,11 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 sandbox.spy(participant.askeMember, 'quit');
+                sandbox.stub(participant.cliquesMember, 'akaQuit');
                 sandbox.stub(participant, '_mergeMessages').returns(null);
                 var message = participant._quit();
                 sinon_assert.calledOnce(participant.askeMember.quit);
+                sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 assert.strictEqual(message, null);
             });
@@ -568,24 +569,19 @@ define([
                                                        _td.RSA_PRIV_KEY,
                                                        _td.RSA_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
-                var cliquesUpflowSpy = sinon_spy();
-                var cliquesDownflowSpy = sinon_spy();
-                participant.cliquesMember.upflow = cliquesUpflowSpy;
-                participant.cliquesMember.downflow = cliquesDownflowSpy;
-                var askeUpflowSpy = sinon_spy();
-                var askeDownflowSpy = sinon_spy();
-                participant.askeMember.upflow = askeUpflowSpy;
-                participant.askeMember.downflow = askeDownflowSpy;
-                var mergeMessagesSpy = sinon_spy();
-                participant._mergeMessages = mergeMessagesSpy;
+                sandbox.spy(participant.cliquesMember, 'upflow');
+                sandbox.stub(participant.cliquesMember, 'downflow');
+                sandbox.spy(participant.askeMember, 'upflow');
+                sandbox.stub(participant.askeMember, 'downflow');
+                sandbox.spy(participant, '_mergeMessages');
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant._processKeyingMessage(message);
-                assert.strictEqual(cliquesUpflowSpy.callCount, 0);
-                assert.strictEqual(askeUpflowSpy.callCount, 0);
-                sinon_assert.calledOnce(cliquesDownflowSpy);
-                sinon_assert.calledOnce(askeDownflowSpy);
-                sinon_assert.calledOnce(mergeMessagesSpy);
+                assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
+                assert.strictEqual(participant.askeMember.upflow.callCount, 0);
+                sinon_assert.calledOnce(participant.cliquesMember.downflow);
+                sinon_assert.calledOnce(participant.askeMember.downflow);
+                sinon_assert.calledOnce(participant._mergeMessages);
             });
 
             it('processing for a downflow message after CLIQUES finish', function() {
@@ -599,24 +595,30 @@ define([
                                                        _td.RSA_PRIV_KEY,
                                                        _td.RSA_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
-                var cliquesUpflowSpy = sinon_spy();
-                var cliquesDownflowSpy = sinon_spy();
-                participant.cliquesMember.upflow = cliquesUpflowSpy;
-                participant.cliquesMember.downflow = cliquesDownflowSpy;
-                var askeUpflowSpy = sinon_spy();
-                var askeDownflowSpy = sinon_spy();
-                participant.askeMember.upflow = askeUpflowSpy;
-                participant.askeMember.downflow = askeDownflowSpy;
-                var mergeMessagesSpy = sinon_spy();
-                participant._mergeMessages = mergeMessagesSpy;
+                sandbox.spy(participant.cliquesMember, 'upflow');
+                sandbox.spy(participant.cliquesMember, 'downflow');
+                sandbox.spy(participant.askeMember, 'upflow');
+                sandbox.stub(participant.askeMember, 'downflow');
+                sandbox.spy(participant, '_mergeMessages');
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant._processKeyingMessage(message);
-                assert.strictEqual(cliquesUpflowSpy.callCount, 0);
-                assert.strictEqual(askeUpflowSpy.callCount, 0);
-                assert.strictEqual(cliquesDownflowSpy.callCount, 0);
-                sinon_assert.calledOnce(askeDownflowSpy);
-                sinon_assert.calledOnce(mergeMessagesSpy);
+                assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
+                assert.strictEqual(participant.askeMember.upflow.callCount, 0);
+                assert.strictEqual(participant.cliquesMember.downflow.callCount, 0);
+                sinon_assert.calledOnce(participant.askeMember.downflow);
+                sinon_assert.calledOnce(participant._mergeMessages);
+            });
+
+            it('processing for a downflow quit message', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                       _td.RSA_PRIV_KEY,
+                                                       _td.RSA_PUB_KEY,
+                                                       _td.STATIC_PUB_KEY_DIR);
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                assert.throws(function() { participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT); },
+                              'Key refresh for quitting is not implemented, yet!');
             });
         });
 
@@ -754,6 +756,18 @@ define([
             });
 
             it('on query message', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = {message: '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                               from: 'raw@hide.com/rollingrollingrolling'};
+                participant.start = stub();
+                participant.processMessage(message);
+                sinon_assert.calledOnce(participant.start);
+            });
+
+            it('on quit message', function() {
                 var participant = new ns.ProtocolHandler('2',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
@@ -1084,6 +1098,4 @@ define([
             });
         });
     });
-
-    // TODO: Send authored/data message.
 });

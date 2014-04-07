@@ -253,6 +253,29 @@ define([
 
 
     /**
+     * AKA (Auxiliary Key Agreement) for excluding members.
+     *
+     * For CLIQUES, there is no message flow involved.
+     *
+     * @method
+     */
+    ns.CliquesMember.prototype.akaQuit = function() {
+        _assert(this.privKey !== null, 'Not participating.');
+
+        // Kick myself out.
+        var myPos = this.members.indexOf(this.id);
+        if (myPos >= 0) {
+            this.members.splice(myPos, 1);
+            this.intKeys = [];
+            this._debugIntKeys = [];
+            utils._clearmem(this.privKey);
+            this.privKey = null;
+            this.pubKey = null;
+        }
+    };
+
+
+    /**
      * Start the AKA (Auxiliary Key Agreement) for refreshing the own private key.
      *
      * @returns {CliquesMessage}

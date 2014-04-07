@@ -667,6 +667,28 @@ define([
                 assert.strictEqual(participant.ephemeralPubKey, null);
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, false);
+                assert.deepEqual(participant.members, ['Tony', 'Steve', 'Mike', 'Phil']);
+                assert.lengthOf(participant.ephemeralPubKeys, 4);
+                assert.strictEqual(message.source, 'Peter');
+                assert.strictEqual(message.dest, '');
+                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.signingKey, '111');
+            });
+
+            it('simple tests with authenticated members', function() {
+                var participant = new ns.SignatureKeyExchangeMember('Peter');
+                participant.members = ['Peter', 'Tony', 'Steve', 'Mike', 'Phil'];
+                participant.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
+                participant.ephemeralPubKey = '1';
+                participant.ephemeralPrivKey = '111';
+                participant.authenticatedMembers= [true, true, true, true, true];
+                var message = participant.quit();
+                assert.strictEqual(participant.ephemeralPrivKey, null);
+                assert.strictEqual(participant.ephemeralPubKey, null);
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
+                assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, true);
                 assert.deepEqual(participant.members, ['Tony', 'Steve', 'Mike', 'Phil']);
                 assert.lengthOf(participant.ephemeralPubKeys, 4);
                 assert.strictEqual(message.source, 'Peter');

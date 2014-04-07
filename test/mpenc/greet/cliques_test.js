@@ -463,6 +463,35 @@ define([
             });
         });
 
+        describe('#akaQuit() method', function() {
+            it('not a member any more', function() {
+                var participant = new ns.CliquesMember('3');
+                participant.members = ['1', '2'];
+                assert.throws(function() { participant.akaQuit(); },
+                              'Not participating.');
+            });
+
+            it('simple test', function() {
+                var initialMembers = 5;
+                var participant = new ns.CliquesMember('3');
+                participant.intKeys = [];
+                participant._debugIntKeys = [];
+                for (var i = 1; i <= initialMembers; i++) {
+                    participant.members.push(i.toString());
+                    participant.intKeys.push(_PRIV_KEY());
+                    participant._debugIntKeys.push(i.toString());
+                    participant.privKey = _PRIV_KEY();
+                    participant.goupKey = _PRIV_KEY();
+                }
+                participant.akaQuit();
+                assert.strictEqual(participant.keyTimestamp, null);
+                assert.deepEqual(participant.members, ['1', '2', '4', '5']);
+                assert.deepEqual(participant.intKeys, []);
+                assert.deepEqual(participant._debugIntKeys, []);
+                assert.deepEqual(participant.privKey, null);
+            });
+        });
+
         describe('whole ika', function() {
             it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh', function() {
                 var numMembers = 5;

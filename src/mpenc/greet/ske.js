@@ -459,7 +459,7 @@ define([
             authenticated: false
         };
         if (this.authenticatedMembers) {
-            this.oldEphemeralKeys[this.id] = this.authenticatedMembers[myPos];
+            this.oldEphemeralKeys[this.id].authenticated = this.authenticatedMembers[myPos];
             this.authenticatedMembers.splice(myPos, 1);
         }
         this.ephemeralPubKey = null;

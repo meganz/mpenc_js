@@ -243,6 +243,7 @@ define([
     ns.ProtocolHandler.prototype._quit = function() {
         _assert(this.askeMember.ephemeralPrivKey !== null,
                 'Not participating.');
+        this.cliquesMember.akaQuit();
         var askeMessage = this.askeMember.quit();
         return this._mergeMessages(null, askeMessage);
     };
@@ -317,9 +318,9 @@ define([
             // FIXME: When setting the out-bound wire message's `to` field, make sure that a broadcast goes to the room JID!
             case codec.MESSAGE_CATEGORY.MPENC_ERROR:
                 this.uiQueue.push({
-                        type: 'error',
-                        message: 'Error in mpEnc protocol: ' + classify.content
-                    });
+                    type: 'error',
+                    message: 'Error in mpEnc protocol: ' + classify.content
+                });
                 break;
             case codec.MESSAGE_CATEGORY.PLAIN:
                 var outMessage = {
@@ -372,6 +373,8 @@ define([
                             message: codec.encodeMessage(outContent),
                         };
                         this.protocolOutQueue.push(outMessage);
+                    } else {
+                        // Nothing to do, we're done here.
                     }
                 }
                 break;
@@ -419,14 +422,24 @@ define([
         var outMessage = null;
 
         if (message.dest === null || message.dest === '') {
-            if (message.intKeys && (message.intKeys.length === message.members.length)) {
-                this.cliquesMember.downflow(inCliquesMessage);
-            }
-            if (message.nonces && (message.nonces.length === message.members.length)) {
-                outAskeMessage = this.askeMember.downflow(inAskeMessage);
+            // Dealing with a broadcast downflow message.
+            if (message.signingKey) {
+                // Sender is quitting participation.
+                // TODO: quit() stuff here: CLIQUES will need to refresh keys, but avoid a race condition if all do it.
+                _assert(false, 'Key refresh for quitting is not implemented, yet!');
+            } else {
+                // Content for the CLIQUES protocol.
+                if (message.intKeys && (message.intKeys.length === message.members.length)) {
+                    this.cliquesMember.downflow(inCliquesMessage);
+                }
+                // Content for the signature key exchange protocol.
+                if (message.nonces && (message.nonces.length === message.members.length)) {
+                    outAskeMessage = this.askeMember.downflow(inAskeMessage);
+                }
             }
             outMessage = this._mergeMessages(null, outAskeMessage);
         } else {
+            // Dealing with a directed upflow message.
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
             outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);;
