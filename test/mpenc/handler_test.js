@@ -25,18 +25,22 @@ define([
     "mpenc/handler",
     "mpenc/helper/utils",
     "mpenc/codec",
-    "mpenc",
+    "mpenc/version",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, mpenc, chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
+], function(ns, utils, codec, version,
+        chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
     var assert = chai.assert;
 
     var _echo = function(x) { return x; };
+
+    // set test data
+    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -653,7 +657,7 @@ define([
                 participant.processMessage(message);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message.substring(0, 9),
-                                   '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?');
+                                   '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?');
                 assert.strictEqual(participant.protocolOutQueue[0].from,
                                    '2');
                 assert.strictEqual(participant.protocolOutQueue[0].to,
@@ -760,7 +764,7 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();
                 participant.processMessage(message);
@@ -772,7 +776,7 @@ define([
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();
                 participant.processMessage(message);
@@ -1035,7 +1039,7 @@ define([
                 participants[1].processMessage(message);
                 message = participants[1].protocolOutQueue.shift();
                 assert.strictEqual(message.message.substring(0, 9),
-                                   '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?');
+                                   '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?');
                 assert.strictEqual(message.from, '2');
                 assert.strictEqual(message.to, '1');
                 var uiMessage = participants[1].uiQueue.shift();

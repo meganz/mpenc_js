@@ -181,7 +181,7 @@ _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
     signatureOk: true,
-    protocol: String.fromCharCode(0x01), // same as mpenc.VERSION
+    protocol: undefined, // define this in tests
     iv: 'xxx',
     data: 'foo',
 };

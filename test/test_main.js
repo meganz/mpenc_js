@@ -7,39 +7,28 @@ for (var file in window.__karma__.files) {
     }
 }
 
-requirejs.config({
+var Object_deep_merge = function(parent, overrides) {
+    var obj = {};
+    for (var k in parent) {
+        obj[k] = parent[k];
+    }
+    for (var k in overrides) {
+        obj[k] = (typeof parent[k] === "object")
+                ? Object_deep_merge(parent[k], overrides[k])
+                : overrides[k];
+    }
+    return obj;
+};
+
+requirejs.config(Object_deep_merge(requirejs_config_mpenc, {
     // Karma serves files from '/base'
     baseUrl: '/base/src',
 
+    // extra path hacks for tests
     paths: {
-        // libs
-        'curve255': '../lib/curve255',
-        'djbec': '../lib/djbec',
-        'jsSHA': '../lib/sha512',
-        'rsa': '../lib/rsa',
-        'sjcl': '../lib/sjcl',
-        // tests
         'sinon': '../node_modules/sinon/lib/sinon',
     },
-
     shim: {
-        // libs
-        'curve255': { exports: 'curve255' },
-        'djbec': {
-            deps: ['jsSHA'],
-            exports: 'djbec',
-            init: function(jsSHA) {
-                // djbec refers to a global "jsSHA" variable, so define it here
-                this.jsSHA = jsSHA;
-            }},
-        'jsSHA': { exports: 'jsSHA' },
-        'rsa': {
-            exports: 'rsa',
-            init: function() {
-                return this.rsa = {RSAencrypt: RSAencrypt, RSAdecrypt: RSAdecrypt};
-            }},
-        'sjcl': { exports: 'sjcl' },
-        // tests
         'sinon': { exports: 'sinon' },
         'sinon/assert': { exports: 'sinon.assert' },
         'sinon/sandbox': { exports: 'sinon.sandbox' },
@@ -52,4 +41,4 @@ requirejs.config({
 
     // start test run, once Require.js is done
     callback: window.__karma__.start
-});
+}));

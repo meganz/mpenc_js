@@ -24,6 +24,7 @@ module.exports = function(config) {
         {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 
         // ours
+        'src/config.js',
         {pattern: 'src/**/*.js', included: false},
         'test/test_data.js',
         'test/test_utils.js',
