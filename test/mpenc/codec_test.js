@@ -23,15 +23,18 @@
 
 define([
     "mpenc/codec",
-    "mpenc",
+    "mpenc/version",
     "mpenc/helper/utils",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, mpenc, utils, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
+
+    // set test data
+    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -157,11 +160,11 @@ define([
         describe("categoriseMessage()", function() {
             it('normal categories', function() {
                 var tests = ['Klaatu barada nikto.',
-                             '?mpENCv' + mpenc.VERSION.charCodeAt(0) + '?foo.',
+                             '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                              '?mpENC:Zm9v.',
                              '?mpENC Error:foo.'];
                 var expected = [[ns.MESSAGE_CATEGORY.PLAIN, 'Klaatu barada nikto.'],
-                                [ns.MESSAGE_CATEGORY.MPENC_QUERY, mpenc.VERSION],
+                                [ns.MESSAGE_CATEGORY.MPENC_QUERY, version.PROTOCOL_VERSION],
                                 [ns.MESSAGE_CATEGORY.MPENC_MESSAGE, 'foo'],
                                 [ns.MESSAGE_CATEGORY.MPENC_ERROR, 'foo.']];
                 for (var i = 0; i < tests.length; i++) {

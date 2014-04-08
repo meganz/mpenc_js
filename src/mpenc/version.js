@@ -1,5 +1,5 @@
 /**
- * @fileOverview JavaScript mpEnc implementation.
+ * @fileOverview Metadata about the mpEnc library
  */
 
 /*
@@ -20,26 +20,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-define([
-    "exports",
-    "mpenc/codec",
-    "mpenc/handler",
-    "mpenc/messages",
-    "mpenc/version",
-], function(exports, codec, handler, messages, version) {
+define([], function() {
     "use strict";
 
     /**
-     * @exports mpenc
-     * The multi-party encrypted chat protocol, public API.
-     *
+     * @exports mpenc/version
      * @description
-     * This is eventually to be extended towards the mpOTR standard, currently
-     * under development.
+     * Metadata about the mpEnc library
      */
-    var mpenc = {};
+    var ns = {};
 
-    exports.version = version;
+    /** Protocol version indicator. */
+    ns.PROTOCOL_VERSION = String.fromCharCode(0x01);
 
-    return mpenc;
+    return ns;
 });
