@@ -13,7 +13,11 @@ var requirejs_config_mpenc =
         "curve255": {
             exports: "curve255",
             init: function() {
-                this.curve255 = curve255;
+                this.curve255 = {
+                    curve25519: curve25519,
+                    base32decode: c255lbase32decode,
+                    base32encode: c255lbase32encode,
+                };
             },
         },
         "djbec": {
@@ -36,7 +40,10 @@ var requirejs_config_mpenc =
         "rsa": {
             exports: "rsa",
             init: function() {
-                return this.rsa = {RSAencrypt: RSAencrypt, RSAdecrypt: RSAdecrypt};
+                return this.rsa = {
+                    RSAencrypt: RSAencrypt,
+                    RSAdecrypt: RSAdecrypt,
+                };
             },
         },
         "sjcl": {
