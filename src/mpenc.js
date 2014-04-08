@@ -21,12 +21,11 @@
  */
 
 define([
-    "exports",
     "mpenc/codec",
     "mpenc/handler",
     "mpenc/messages",
     "mpenc/version",
-], function(exports, codec, handler, messages, version) {
+], function(codec, handler, messages, version) {
     "use strict";
 
     /**
@@ -39,7 +38,9 @@ define([
      */
     var mpenc = {};
 
-    exports.version = version;
+    mpenc.version = version;
+
+    mpenc.handler = handler;
 
     return mpenc;
 });
