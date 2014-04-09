@@ -439,6 +439,8 @@ define([
      *     Unencrypted message content to be sent (plain text or HTML).
      */
     ns.ProtocolHandler.prototype.send = function(messageContent) {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'Messages can only be sent in initialised state.');
         var outMessage = {
             from: this.id,
             to: '', // FIXME: use proper room JID.

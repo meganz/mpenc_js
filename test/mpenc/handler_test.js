@@ -739,6 +739,7 @@ define([
                 participant.cliquesMember.groupKey = _td.COMP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.INITIALISED;
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
@@ -747,6 +748,16 @@ define([
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
+            });
+
+            it('on uninitialised state', function() {
+                var participant = new ns.ProtocolHandler('kenny@southpark.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.INIT_DOWNFLOW;
+                assert.throws(function() { participant.send('Wassup?'); },
+                              'Messages can only be sent in initialised state.');
             });
         });
 
