@@ -10,6 +10,7 @@ var requirejs_config_mpenc =
         "sjcl": "../lib/sjcl",
     },
     shim: {
+        // dependencies that we use directly need to be added here
         "curve255": {
             exports: "curve255",
             init: function() {
@@ -27,15 +28,6 @@ var requirejs_config_mpenc =
                 // djbec refers to a global "jsSHA" variable, so define it here
                 this.jsSHA = jsSHA;
             },
-        },
-        "jsbn": {
-            exports: "jsbn",
-        },
-        "jsbn2": {
-            exports: "jsbn2",
-        },
-        "jsSHA": {
-            exports: "jsSHA",
         },
         "rsa": {
             exports: "rsa",
