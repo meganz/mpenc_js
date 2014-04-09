@@ -541,7 +541,7 @@ define([
                              [true, true, true, true, true]];
                 var expected = [false, false, false, false, true];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                for (var i = 0; i++; i < tests.length) {
+                for (var i = 0; i < tests.length; i++) {
                     participant.authenticatedMembers = tests[i];
                     assert.strictEqual(participant.isSessionAcknowledged(),
                                        expected[i]);
