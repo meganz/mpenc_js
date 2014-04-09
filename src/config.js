@@ -48,6 +48,9 @@ var requirejs_config_mpenc =
         },
         "sjcl": {
             exports: "sjcl",
+            init: function() {
+                this.sjcl = sjcl;
+            },
         },
     },
 })
