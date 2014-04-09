@@ -65,6 +65,9 @@ define([
      * @param staticPubKeyDir
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
+     * @param queueUpdatedCallback {Function}
+     *      An fn callback, that will be called everytime after something was added to `.protocolOutQueue`,
+     *      `.messageOutQueue` or `.uiQueue`
      * @returns {ProtocolHandler}
      *
      * @property id {string}
@@ -90,7 +93,7 @@ define([
      * @property cliquesMember
      *     A {CliquesMember} object with the same participant ID.
      */
-    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir) {
+    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir, queueUpdatedCallback) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -98,6 +101,7 @@ define([
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
+        this.queueUpdatedCallback = queueUpdatedCallback || function() {};
 
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
@@ -148,6 +152,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -187,6 +192,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -228,6 +234,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -262,6 +269,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -293,6 +301,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -320,6 +329,7 @@ define([
                     type: 'error',
                     message: 'Error in mpEnc protocol: ' + classify.content
                 });
+                this.queueUpdatedCallback(this);
                 break;
             case codec.MESSAGE_CATEGORY.PLAIN:
                 var outMessage = {
@@ -328,10 +338,11 @@ define([
                     message: codec.getQueryMessage(
                         "We're not dealing with plaintext messages. Let's negotiate mpENC communication."),
                 };
-                this.protocolOutQueue.push(outMessage);
+                this.protocolOutQueue.push(outMessage);;
                 wireMessage.type = 'info';
                 wireMessage.message = 'Received unencrypted message, requesting encryption.';
                 this.uiQueue.push(wireMessage);
+                this.queueUpdatedCallback(this);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_QUERY:
                 // Initiate keying protocol flow.
@@ -362,6 +373,7 @@ define([
                         wireMessage.message = decodedMessage.data;
                         this.uiQueue.push(wireMessage);
                     }
+                    this.queueUpdatedCallback(this);
                 } else {
                     // This is an mpenc.greet message.
                     var outContent = this._processKeyingMessage(decodedMessage);
@@ -372,6 +384,7 @@ define([
                             message: codec.encodeMessage(outContent),
                         };
                         this.protocolOutQueue.push(outMessage);
+                        this.queueUpdatedCallback(this);
                     } else {
                         // Nothing to do, we're done here.
                     }
@@ -401,6 +414,7 @@ define([
                                          this.askeMember.ephemeralPubKey),
         };
         this.messageOutQueue.push(outMessage);
+        this.queueUpdatedCallback(this);
     };
 
 

@@ -22,7 +22,7 @@ $(BUILDDIR)/build-config.js: src/config.js
 build: $(R_JS) $(BUILDDIR)/build-config.js
 	$(R_JS) -o $(BUILDDIR)/build-config.js out="$(BUILDDIR)/mpenc.js" \
 	    baseUrl=src name=../$(ALMOND) include=mpenc \
-	    wrap.startFile=almond.0 wrap.endFile=almond.1
+	    wrap.startFile=almond.0 wrap.endFile=almond.1 optimize=none
 
 build-test: compile-test.js build
 	./$< ./$(BUILDDIR)/mpenc.js

@@ -27,6 +27,7 @@ var requirejs_config_mpenc =
             init: function(jsSHA, jsbn, jsbn2) {
                 // djbec refers to a global "jsSHA" variable, so define it here
                 this.jsSHA = jsSHA;
+                this.djbec = djbec;
             },
         },
         "rsa": {
