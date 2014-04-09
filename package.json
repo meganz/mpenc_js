@@ -24,6 +24,7 @@
   "gitHead": "064cfd52ef69822d4bacf3b18e6979c49a3ca8ed",
   "readmeFilename": "README.md",
   "devDependencies": {
+    "almond": "~0.2.9",
     "karma-script-launcher": "~0.1.0",
     "karma-chrome-launcher": "~0.1.2",
     "karma-firefox-launcher": "~0.1.3",

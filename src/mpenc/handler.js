@@ -6,12 +6,11 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
-    "mpenc",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
     "mpenc/messages",
-], function(assert, utils, mpenc, cliques, ske, codec, messages) {
+], function(assert, utils, cliques, ske, codec, messages) {
     "use strict";
 
     /**

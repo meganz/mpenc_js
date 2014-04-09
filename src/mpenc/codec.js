@@ -5,11 +5,11 @@
 
 define([
     "mpenc/helper/assert",
-    "mpenc",
     "mpenc/messages",
     "mpenc/helper/utils",
+    "mpenc/version",
     "djbec",
-], function(assert, mpenc, messages, utils, djbec) {
+], function(assert, messages, utils, version, djbec) {
     "use strict";
 
     /**
@@ -276,7 +276,7 @@ define([
             out.protocol = protocol;
             out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
         }
-        _assert(protocol === mpenc.VERSION,
+        _assert(protocol === version.PROTOCOL_VERSION,
                 'Received wrong protocol version: ' + protocol.charCodeAt(0) + '.');
 
         return out;
@@ -317,10 +317,10 @@ define([
         }
 
         // Check for query.
-        var version = /v(\d+)\?/.exec(message);
-        if (version && (version[1] === '' + mpenc.VERSION.charCodeAt(0))) {
+        var ver = /v(\d+)\?/.exec(message);
+        if (ver && (ver[1] === '' + version.PROTOCOL_VERSION.charCodeAt(0))) {
             return { category: ns.MESSAGE_CATEGORY.MPENC_QUERY,
-                     content: String.fromCharCode(version[1]) };
+                     content: String.fromCharCode(ver[1]) };
         }
 
         _assert(false, 'Unknown mpEnc message.');
@@ -391,7 +391,7 @@ define([
      *     A binary message representation.
      */
     ns.encodeMessageContent = function(message, groupKey, privKey, pubKey) {
-        var out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, mpenc.VERSION);
+        var out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
         if (typeof(message) === 'string' || message instanceof String) {
             // We're dealing with a message containing user content.
             var encrypted = ns.encryptDataMessage(message, groupKey);
@@ -606,7 +606,7 @@ define([
      *     A wire ready message representation.
      */
     ns.getQueryMessage = function(text) {
-        return _PROTOCOL_PREFIX + 'v' + mpenc.VERSION.charCodeAt(0) + '?' + text;
+        return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
     };
 
 
