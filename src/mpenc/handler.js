@@ -93,6 +93,11 @@ define([
      * @param staticPubKeyDir {object}
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
+     * @param queueUpdatedCallback {Function}
+     *      An fn callback, that will be called everytime after something was added to `.protocolOutQueue`,
+     *      `.messageOutQueue` or `.uiQueue`
+     * @param stateUpdatedCallback {Function}
+     *      An fn callback, that will be called everytime when .state is changed
      * @returns {ProtocolHandler}
      *
      * @property id {string}
@@ -121,7 +126,7 @@ define([
      * @property state {integer}
      *     Current state of the mpEnc protocol handler according to {STATE}.
      */
-    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir) {
+    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir, queueUpdatedCallback, stateUpdatedCallback) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -129,6 +134,8 @@ define([
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
+        this.queueUpdatedCallback = queueUpdatedCallback || function() {};
+        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.state = ns.STATE.NULL;
 
         // Sanity check.
@@ -175,6 +182,9 @@ define([
         _assert(this.state === ns.STATE.NULL,
                 'start() can only be called from an uninitialised state.');
         this.state = ns.STATE.INIT_UPFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._start(otherMembers);
         if (outContent) {
             var outMessage = {
@@ -183,6 +193,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -217,6 +228,9 @@ define([
         _assert(this.state === ns.STATE.INITIALISED,
                 'join() can only be called from an initialised state.');
         this.state = ns.STATE.AUX_UPFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._join(newMembers);
         if (outContent) {
             var outMessage = {
@@ -225,6 +239,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -261,6 +276,9 @@ define([
         _assert(this.state === ns.STATE.INITIALISED,
                 'exclude() can only be called from an initialised state.');
         this.state = ns.STATE.AUX_DOWNFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._exclude(excludeMembers);
         if (outContent) {
             var outMessage = {
@@ -269,6 +287,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -298,6 +317,9 @@ define([
         _assert(this.state === ns.STATE.INITIALISED,
                 'quit() can only be called from an initialised state.');
         this.state = ns.STATE.NULL;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._quit();
         if (outContent) {
             var outMessage = {
@@ -306,6 +328,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -332,6 +355,9 @@ define([
         _assert(this.state === ns.STATE.INITIALISED,
                 'refresh() can only be called from an initialised state.');
         this.state = ns.STATE.INITIALISED;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._refresh();
         if (outContent) {
             var outMessage = {
@@ -340,6 +366,7 @@ define([
                 message: codec.encodeMessage(outContent),
             };
             this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
         }
     };
 
@@ -367,6 +394,7 @@ define([
                     type: 'error',
                     message: 'Error in mpEnc protocol: ' + classify.content
                 });
+                this.queueUpdatedCallback(this);
                 break;
             case codec.MESSAGE_CATEGORY.PLAIN:
                 var outMessage = {
@@ -375,10 +403,11 @@ define([
                     message: codec.getQueryMessage(
                         "We're not dealing with plaintext messages. Let's negotiate mpENC communication."),
                 };
-                this.protocolOutQueue.push(outMessage);
+                this.protocolOutQueue.push(outMessage);;
                 wireMessage.type = 'info';
                 wireMessage.message = 'Received unencrypted message, requesting encryption.';
                 this.uiQueue.push(wireMessage);
+                this.queueUpdatedCallback(this);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_QUERY:
                 // Initiate keying protocol flow.
@@ -409,6 +438,7 @@ define([
                         wireMessage.message = decodedMessage.data;
                         this.uiQueue.push(wireMessage);
                     }
+                    this.queueUpdatedCallback(this);
                 } else {
                     // This is an mpenc.greet message.
                     var outContent = this._processKeyingMessage(decodedMessage);
@@ -419,6 +449,7 @@ define([
                             message: codec.encodeMessage(outContent),
                         };
                         this.protocolOutQueue.push(outMessage);
+                        this.queueUpdatedCallback(this);
                     } else {
                         // Nothing to do, we're done here.
                     }
@@ -437,19 +468,23 @@ define([
      * @method
      * @param messageContent {string}
      *     Unencrypted message content to be sent (plain text or HTML).
+     * @param extra {*}
+     *     Use this argument to pass any additional metadata that you want to be used later in your implementation code
      */
-    ns.ProtocolHandler.prototype.send = function(messageContent) {
+    ns.ProtocolHandler.prototype.send = function(messageContent, extra) {
         _assert(this.state === ns.STATE.INITIALISED,
                 'Messages can only be sent in initialised state.');
         var outMessage = {
             from: this.id,
             to: '', // FIXME: use proper room JID.
+            extra: extra,
             message: codec.encodeMessage(messageContent,
                                          this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
                                          this.askeMember.ephemeralPubKey),
         };
         this.messageOutQueue.push(outMessage);
+        this.queueUpdatedCallback(this);
     };
 
 
@@ -509,10 +544,12 @@ define([
                 } else {
                     this.state = ns.STATE.AUX_DOWNFLOW;
                 }
+                this.stateUpdatedCallback(this);
             }
             if (this.askeMember.isSessionAcknowledged()) {
                 // We have seen and verified all broadcasts from others.
                 this.state = ns.STATE.INITIALISED;
+                this.stateUpdatedCallback(this);
             }
         } else {
             // Dealing with a directed upflow message.
@@ -530,12 +567,16 @@ define([
                 } else {
                     this.state = ns.STATE.INIT_UPFLOW;
                 }
+
+                this.stateUpdatedCallback(this);
             } else {
                 if (outMessage.dest === '') {
                     this.state = ns.STATE.AUX_DOWNFLOW;
                 } else {
                     this.state = ns.STATE.AUX_UPFLOW;
                 }
+
+                this.stateUpdatedCallback(this);
             }
         }
         return outMessage;
