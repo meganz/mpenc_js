@@ -344,7 +344,11 @@ define([
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.isSessionAcknowledged = function() {
-        return this.authenticatedMembers.every(function(item) { return item; });
+        if (this.authenticatedMembers && (this.authenticatedMembers.length > 0)) {
+            return this.authenticatedMembers.every(function(item) { return item; });
+        } else {
+            return false;
+        }
     };
 
 

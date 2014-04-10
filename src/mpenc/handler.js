@@ -53,47 +53,80 @@ define([
 
 
     /**
+     * "Enumeration" defining the different stable and intermediate states of
+     * the mpEnc module.
+     *
+     * @property NULL {integer}
+     *     Uninitialised (default) state.
+     * @property INIT_UPFLOW {integer}
+     *     During process of initial protocol upflow.
+     * @property INIT_DOWNFLOW {integer}
+     *     During process of initial protocol downflow.
+     * @property INITIALISED {integer}
+     *     Default state during general usage of mpEnc. No protocol/key
+     *     negotiation going on, and a valid group key is available.
+     * @property AUX_UPFLOW {integer}
+     *     During process of auxiliary protocol upflow.
+     * @property AUX_DOWNFLOW {integer}
+     *     During process of auxiliary protocol downflow.
+     */
+    ns.STATE = {
+        NULL:          0x00,
+        INIT_UPFLOW:   0x01,
+        INIT_DOWNFLOW: 0x02,
+        INITIALISED:   0x03,
+        AUX_UPFLOW:    0x04,
+        AUX_DOWNFLOW:  0x05,
+    };
+
+
+    /**
      * Implementation of a protocol handler with its state machine.
      *
      * @constructor
      * @param id {string}
      *     Member's identifier string.
-     * @param privKey
+     * @param privKey {string}
      *     This participant's static/long term private key.
-     * @param pubKey
+     * @param pubKey {string}
      *     This participant's static/long term public key.
-     * @param staticPubKeyDir
+     * @param staticPubKeyDir {object}
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
      * @param queueUpdatedCallback {Function}
      *      An fn callback, that will be called everytime after something was added to `.protocolOutQueue`,
      *      `.messageOutQueue` or `.uiQueue`
+     * @param stateUpdatedCallback {Function}
+     *      An fn callback, that will be called everytime when .state is changed
      * @returns {ProtocolHandler}
      *
      * @property id {string}
      *     Member's identifier string.
-     * @property privKey
+     * @property privKey {string}
      *     This participant's static/long term private key.
-     * @property pubKey
+     * @property pubKey {string}
      *     This participant's static/long term public key.
-     * @property staticPubKeyDir
+     * @property staticPubKeyDir {object}
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
-     * @property protocolOutQueue
+     * @property protocolOutQueue {Array}
      *     Queue for outgoing protocol related (non-user) messages, prioritised
      *     in processing over user messages.
-     * @property messageOutQueue
+     * @property messageOutQueue {Array}
      *     Queue for outgoing user content messages.
-     * @property uiQueue
+     * @property uiQueue {Array}
      *     Queue for messages to display in the UI. Contains objects with
      *     attributes `type` (can be strings 'message', 'info', 'warn' and
      *     'error') and `message`.
-     * @property askeMember
-     *     A {SignatureKeyExchangeMember} object with the same participant ID.
-     * @property cliquesMember
-     *     A {CliquesMember} object with the same participant ID.
+     * @property askeMember {SignatureKeyExchangeMember}
+     *      Reference to signature key exchange protocol handler with the same
+     *      participant ID.
+     * @property cliquesMember {CliquesMember}
+     *     Reference to CLIQUES protocol handler with the same participant ID.
+     * @property state {integer}
+     *     Current state of the mpEnc protocol handler according to {STATE}.
      */
-    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir, queueUpdatedCallback) {
+    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir, queueUpdatedCallback, stateUpdatedCallback) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -102,6 +135,8 @@ define([
         this.messageOutQueue = [];
         this.uiQueue = [];
         this.queueUpdatedCallback = queueUpdatedCallback || function() {};
+        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
+        this.state = ns.STATE.NULL;
 
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
@@ -144,6 +179,12 @@ define([
      *     Iterable of other members for the group (excluding self).
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
+        _assert(this.state === ns.STATE.NULL,
+                'start() can only be called from an uninitialised state.');
+        this.state = ns.STATE.INIT_UPFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._start(otherMembers);
         if (outContent) {
             var outMessage = {
@@ -184,6 +225,12 @@ define([
      *     Iterable of new members to join the group.
      */
     ns.ProtocolHandler.prototype.join = function(newMembers) {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'join() can only be called from an initialised state.');
+        this.state = ns.STATE.AUX_UPFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._join(newMembers);
         if (outContent) {
             var outMessage = {
@@ -226,6 +273,12 @@ define([
      *     Iterable of members to exclude from the group.
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'exclude() can only be called from an initialised state.');
+        this.state = ns.STATE.AUX_DOWNFLOW;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._exclude(excludeMembers);
         if (outContent) {
             var outMessage = {
@@ -261,6 +314,12 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.quit = function() {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'quit() can only be called from an initialised state.');
+        this.state = ns.STATE.NULL;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._quit();
         if (outContent) {
             var outMessage = {
@@ -293,6 +352,12 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.refresh = function() {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'refresh() can only be called from an initialised state.');
+        this.state = ns.STATE.INITIALISED;
+
+        this.stateUpdatedCallback(this);
+
         var outContent = this._refresh();
         if (outContent) {
             var outMessage = {
@@ -350,7 +415,7 @@ define([
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
                 var decodedMessage = null;
-                if (this.cliquesMember.groupKey) {
+                if (this.state === ns.STATE.INITIALISED) {
                     // We've been through a key agreement, so we've got keys.
                     var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
                     decodedMessage = codec.decodeMessageContent(classify.content,
@@ -403,11 +468,16 @@ define([
      * @method
      * @param messageContent {string}
      *     Unencrypted message content to be sent (plain text or HTML).
+     * @param extra {*}
+     *     Use this argument to pass any additional metadata that you want to be used later in your implementation code
      */
-    ns.ProtocolHandler.prototype.send = function(messageContent) {
+    ns.ProtocolHandler.prototype.send = function(messageContent, extra) {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'Messages can only be sent in initialised state.');
         var outMessage = {
             from: this.id,
             to: '', // FIXME: use proper room JID.
+            extra: extra,
             message: codec.encodeMessage(messageContent,
                                          this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
@@ -436,6 +506,18 @@ define([
 
         if (message.dest === null || message.dest === '') {
             // Dealing with a broadcast downflow message.
+            // Check for legal state transitions.
+            if (message.agreement === 'initial') {
+                _assert((this.state === ns.STATE.INIT_UPFLOW)
+                        || (this.state === ns.STATE.INIT_DOWNFLOW)
+                        || (this.state === ns.STATE.INITIALISED),
+                        'Initial downflow can only follow an initial upflow (or own downflow).');
+            } else {
+                _assert((this.state === ns.STATE.INITIALISED)
+                        || (this.state === ns.STATE.AUX_UPFLOW)
+                        || (this.state === ns.STATE.AUX_DOWNFLOW),
+                        'Auxiliary downflow can only follow an initialised state or auxiliary upflow (or own downflow).');
+            }
             if (message.signingKey) {
                 // Sender is quitting participation.
                 // TODO: quit() stuff here: CLIQUES will need to refresh keys, but avoid a race condition if all do it.
@@ -451,11 +533,51 @@ define([
                 }
             }
             outMessage = this._mergeMessages(null, outAskeMessage);
+            if (outMessage && message.agreement === 'initial') {
+                // Can't be inferred from ASKE message alone.
+                outMessage.agreement = 'initial';
+            }
+            // Handle state transitions.
+            if (outMessage) {
+                if (outMessage.agreement === 'initial') {
+                    this.state = ns.STATE.INIT_DOWNFLOW;
+                } else {
+                    this.state = ns.STATE.AUX_DOWNFLOW;
+                }
+                this.stateUpdatedCallback(this);
+            }
+            if (this.askeMember.isSessionAcknowledged()) {
+                // We have seen and verified all broadcasts from others.
+                this.state = ns.STATE.INITIALISED;
+                this.stateUpdatedCallback(this);
+            }
         } else {
             // Dealing with a directed upflow message.
+            // Check for legal state transitions.
+            _assert((this.state === ns.STATE.INITIALISED)
+                    || (this.state === ns.STATE.NULL),
+                    'Auxiliary upflow can only follow an uninitialised or initialised state.');
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
-            outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);;
+            outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);
+            // Handle state transitions.
+            if (message.agreement === 'initial') {
+                if (outMessage.dest === '') {
+                    this.state = ns.STATE.INIT_DOWNFLOW;
+                } else {
+                    this.state = ns.STATE.INIT_UPFLOW;
+                }
+
+                this.stateUpdatedCallback(this);
+            } else {
+                if (outMessage.dest === '') {
+                    this.state = ns.STATE.AUX_DOWNFLOW;
+                } else {
+                    this.state = ns.STATE.AUX_UPFLOW;
+                }
+
+                this.stateUpdatedCallback(this);
+            }
         }
         return outMessage;
     };
