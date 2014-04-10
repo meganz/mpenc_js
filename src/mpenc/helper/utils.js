@@ -410,6 +410,25 @@ define([
         return true;
     };
 
+    /**
+     * Check an object's invariants.
+     *
+     * Visits all ancestor prototypes of an object (including itself) and runs
+     * the 1-ary functions listed in prototype.__invariants against the object.
+     */
+    ns.checkInvariants = function(obj) {
+        var parent = obj;
+        while (parent !== Object.prototype) {
+            if (parent.hasOwnProperty("__invariants")) {
+                var invariants = parent.__invariants
+                for (var k in invariants) {
+                    console.log("checking " + k + " on " + obj);
+                    invariants[k](obj);
+                }
+            }
+            parent = Object.getPrototypeOf(parent);
+        }
+    };
 
     /**
      * (Deep) compares two JavaScript objects.
