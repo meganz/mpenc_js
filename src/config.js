@@ -10,6 +10,7 @@ var requirejs_config_mpenc =
         "sjcl": "../lib/sjcl",
     },
     shim: {
+        // dependencies that we use directly need to be added here
         "curve255": {
             exports: "curve255",
             init: function() {
@@ -28,15 +29,6 @@ var requirejs_config_mpenc =
                 this.jsSHA = jsSHA;
             },
         },
-        "jsbn": {
-            exports: "jsbn",
-        },
-        "jsbn2": {
-            exports: "jsbn2",
-        },
-        "jsSHA": {
-            exports: "jsSHA",
-        },
         "rsa": {
             exports: "rsa",
             init: function() {
@@ -48,6 +40,9 @@ var requirejs_config_mpenc =
         },
         "sjcl": {
             exports: "sjcl",
+            init: function() {
+                this.sjcl = sjcl;
+            },
         },
     },
 })
