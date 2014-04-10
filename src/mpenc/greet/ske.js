@@ -90,8 +90,7 @@ define([
      *     Ephemeral private signing key for session (upon quitting participation).
      */
     ns.SignatureKeyExchangeMessage = function(source, dest, flow, members,
-                                                     nonces, pubKeys,
-                                                     sessionSignature) {
+                                              nonces, pubKeys, sessionSignature) {
         this.source = source || '';
         this.dest = dest || '';
         this.flow = flow || '';
@@ -171,8 +170,7 @@ define([
     ns.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.ephemeralPubKeys = null;
-        var startMessage = new ns.SignatureKeyExchangeMessage(this.id,
-                                                                     '', 'upflow');
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'upflow');
         startMessage.members = [this.id].concat(otherMembers);
         this.nonce = null;
         this.nonces = [];
@@ -206,7 +204,11 @@ define([
         // Make new nonce and ephemeral signing key pair.
         this.nonce = djbec.bytes2string(utils._newKey08(256));
         this.nonces.push(this.nonce);
-        this.ephemeralPrivKey = djbec.bytes2string(utils._newKey08(512));
+        if (!this.ephemeralPrivKey) {
+            // Only generate a new key if we don't have one.
+            // We might want to recover and just re-run the protocol.
+            this.ephemeralPrivKey = djbec.bytes2string(utils._newKey08(512));
+        }
         this.ephemeralPubKey = djbec.bytes2string(djbec.publickey(this.ephemeralPrivKey));
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
 
@@ -274,7 +276,7 @@ define([
         _assert(this.staticPubKeyDir.get(memberId),
                 "Member's static pub key missing.");
         var decrypted = ns._smallrsaverify(signature,
-                                                  this.staticPubKeyDir.get(memberId));
+                                           this.staticPubKeyDir.get(memberId));
         var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
