@@ -391,6 +391,11 @@ define([
                 'Duplicates in member list detected!');
         this.members = allMembers;
 
+        // Discard authentications.
+        var myPos = this.members.indexOf(this.id);
+        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers[myPos] = true;
+
         // Pass a message on to the first new member to join.
         var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'upflow');
         startMessage.dest = newMembers[0];
@@ -432,7 +437,7 @@ define([
         // Compute my session ID.
         this.sessionId = ns._computeSid(this.members, this.nonces);
 
-        // Discard old and make new group key.
+        // Discard authentications.
         var myPos = this.members.indexOf(this.id);
         this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;

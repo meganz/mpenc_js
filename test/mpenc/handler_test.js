@@ -464,6 +464,32 @@ define([
                                   'exclude() can only be called from an initialised state.');
                 }
             });
+
+            it('exclude last peer', function() {
+                var participant = new ns.ProtocolHandler('chingachgook@mohicans.org/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.INITIALISED;
+                participant.members = ['chingachgook@mohicans.org/android123',
+                                       'uncas@mohicans.org/ios1234'];
+                var message = {message: "My poor son!",
+                               dest: ''};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                sandbox.stub(participant, '_exclude').returns(message);
+                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
+                participant.exclude(['uncas@mohicans.org/ios1234']);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._exclude);
+                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'chingachgook@mohicans.org/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+                assert.strictEqual(participant.state, ns.STATE.INITIALISED);
+            });
         });
 
         describe('#_quit() method', function() {
@@ -580,14 +606,40 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.NULL,
                                      ns.STATE.INIT_UPFLOW,
-                                     ns.STATE.INIT_DOWNFLOW,
-                                     ns.STATE.AUX_UPFLOW,
-                                     ns.STATE.AUX_DOWNFLOW];
+                                     ns.STATE.AUX_UPFLOW];
                 for (var i = 0; i < illegalStates.length; i++) {
                     participant.state = illegalStates[i];
                     assert.throws(function() { participant.refresh(); },
-                                  'refresh() can only be called from an initialised state.');
+                                  'refresh() can only be called from an initialised or downflow states.');
                 }
+            });
+        });
+
+        describe('#recover() method', function() {
+            it('simplest recover', function() {
+                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.AUX_DOWNFLOW;
+                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
+                sandbox.stub(participant, 'refresh');
+                participant.recover();
+                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
+                sinon_assert.calledOnce(participant.refresh);
+            });
+
+            it('full recover', function() {
+                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.AUX_UPFLOW;
+                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(false);
+                sandbox.stub(participant, 'fullRefresh');
+                participant.recover();
+                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
+                sinon_assert.calledOnce(participant.fullRefresh);
             });
         });
 
@@ -1021,11 +1073,11 @@ define([
                         if (nextMessage) {
                             nextMessages.push(utils.clone(nextMessage));
                         }
-//                        if (participant.askeMember.isSessionAcknowledged()) {
-//                            assert.strictEqual(participant.state, ns.STATE.INITIALISED);
-//                        } else {
-//                            assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
-//                        }
+                        if (participant.askeMember.isSessionAcknowledged()) {
+                            assert.strictEqual(participant.state, ns.STATE.INITIALISED);
+                        } else {
+                            assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
+                        }
                         assert.deepEqual(participant.cliquesMember.members, members);
                         assert.deepEqual(participant.askeMember.members, members);
                     }

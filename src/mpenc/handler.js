@@ -94,10 +94,11 @@ define([
      *     An object with a `get(key)` method, returning the static public key of
      *     indicated by member ID `ky`.
      * @param queueUpdatedCallback {Function}
-     *      An fn callback, that will be called everytime after something was added to `.protocolOutQueue`,
-     *      `.messageOutQueue` or `.uiQueue`
+     *      A callback function, that will be called every time something was
+     *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
      * @param stateUpdatedCallback {Function}
-     *      An fn callback, that will be called everytime when .state is changed
+     *      A callback function, that will be called every time the `state` is
+     *      changed.
      * @returns {ProtocolHandler}
      *
      * @property id {string}
@@ -126,7 +127,8 @@ define([
      * @property state {integer}
      *     Current state of the mpEnc protocol handler according to {STATE}.
      */
-    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir, queueUpdatedCallback, stateUpdatedCallback) {
+    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir,
+                                  queueUpdatedCallback, stateUpdatedCallback) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -156,7 +158,7 @@ define([
      * Mechanism to start the protocol negotiation with the group participants..
      *
      * @method
-     * @param otherMembers
+     * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
      * @returns {mpenc.messages.ProtocolMessage}
      *     Un-encoded message content.
@@ -175,14 +177,13 @@ define([
      * Start the protocol negotiation with the group participants..
      *
      * @method
-     * @param otherMembers
+     * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
         _assert(this.state === ns.STATE.NULL,
                 'start() can only be called from an uninitialised state.');
         this.state = ns.STATE.INIT_UPFLOW;
-
         this.stateUpdatedCallback(this);
 
         var outContent = this._start(otherMembers);
@@ -202,7 +203,7 @@ define([
      * Mechanism to start a new upflow for joining new members..
      *
      * @method
-     * @param newMembers
+     * @param newMembers {Array}
      *     Iterable of new members to join the group.
      * @returns {mpenc.messages.ProtocolMessage}
      *     Un-encoded message content.
@@ -221,14 +222,13 @@ define([
      * Start a new upflow for joining new members..
      *
      * @method
-     * @param newMembers
+     * @param newMembers {Array}
      *     Iterable of new members to join the group.
      */
     ns.ProtocolHandler.prototype.join = function(newMembers) {
         _assert(this.state === ns.STATE.INITIALISED,
                 'join() can only be called from an initialised state.');
         this.state = ns.STATE.AUX_UPFLOW;
-
         this.stateUpdatedCallback(this);
 
         var outContent = this._join(newMembers);
@@ -248,7 +248,7 @@ define([
      * Mechanism to start a new downflow for excluding members.
      *
      * @method
-     * @param excludeMembers
+     * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
      * @returns {mpenc.messages.ProtocolMessage}
      *     Un-encoded message content.
@@ -269,14 +269,13 @@ define([
      * Start a new downflow for excluding members.
      *
      * @method
-     * @param excludeMembers
+     * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
         _assert(this.state === ns.STATE.INITIALISED,
                 'exclude() can only be called from an initialised state.');
         this.state = ns.STATE.AUX_DOWNFLOW;
-
         this.stateUpdatedCallback(this);
 
         var outContent = this._exclude(excludeMembers);
@@ -288,6 +287,11 @@ define([
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
+        }
+
+        if (this.askeMember.isSessionAcknowledged()) {
+            this.state = ns.STATE.INITIALISED;
+            this.stateUpdatedCallback(this);
         }
     };
 
@@ -317,7 +321,6 @@ define([
         _assert(this.state === ns.STATE.INITIALISED,
                 'quit() can only be called from an initialised state.');
         this.state = ns.STATE.NULL;
-
         this.stateUpdatedCallback(this);
 
         var outContent = this._quit();
@@ -352,10 +355,11 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.refresh = function() {
-        _assert(this.state === ns.STATE.INITIALISED,
-                'refresh() can only be called from an initialised state.');
+        _assert((this.state === ns.STATE.INITIALISED)
+                || (this.state === ns.STATE.INIT_DOWNFLOW)
+                || (this.state === ns.STATE.AUX_DOWNFLOW),
+                'refresh() can only be called from an initialised or downflow states.');
         this.state = ns.STATE.INITIALISED;
-
         this.stateUpdatedCallback(this);
 
         var outContent = this._refresh();
@@ -372,10 +376,99 @@ define([
 
 
     /**
+     * Fully re-run whole key agreements, but retain the ephemeral signing key..
+     *
+     * @method
+     */
+    ns.ProtocolHandler.prototype.fullRefresh = function() {
+        _assert(false, 'Not implemented.');
+//        _assert((this.state === ns.STATE.INITIALISED)
+//                || (this.state === ns.STATE.INIT_DOWNFLOW)
+//                || (this.state === ns.STATE.AUX_DOWNFLOW),
+//                'refresh() can only be called from an initialised or downflow states.');
+//        this.state = ns.STATE.INITIALISED;
+//        this.stateUpdatedCallback(this);
+//
+//        var outContent = this._refresh();
+//        if (outContent) {
+//            var outMessage = {
+//                from: this.id,
+//                to: outContent.dest,
+//                message: codec.encodeMessage(outContent),
+//            };
+//            this.protocolOutQueue.push(outMessage);
+//            this.queueUpdatedCallback(this);
+//        }
+    };
+
+
+    /**
+     * Recover from protocol failure.
+     *
+     * An attempt is made to do so with as little protocol overhead as possible.
+     *
+     * @param keepMembers {Array}
+     *     Iterable of members to keep in the group (exclude others). This list
+     *     should include the one self. (Optional parameter.)
+     * @method
+     */
+    ns.ProtocolHandler.prototype.recover = function(keepMembers) {
+        var toKeep = [];
+        var toExclude = [];
+
+        if (keepMembers && (keepMembers.length > 0)) {
+            // Sort through keepMembers (they may be in "odd" order).
+            for (var i = 0; i < this.askeMember.members.length; i++) {
+                var index = keepMembers.indexOf(this.askeMember.members[i]);
+                if (index < 0) {
+                    toExclude.push(this.askeMember.members[i]);
+                } else {
+                    toKeep.push(this.askeMember.members[i]);
+                }
+            }
+            _assert(toKeep.length === keepMembers.length,
+                    'Mismatch between members to keep and current members.');
+            if (toExclude.length > 0) {
+                this.state = ns.STATE.AUX_DOWNFLOW;
+                this.stateUpdatedCallback(this);
+
+                var outContent = this._exclude(excludeMembers);
+                if (outContent) {
+                    var outMessage = {
+                        from: this.id,
+                        to: outContent.dest,
+                        message: codec.encodeMessage(outContent),
+                    };
+                    this.protocolOutQueue.push(outMessage);
+                    this.queueUpdatedCallback(this);
+                }
+            }
+        } else {
+            if (this.askeMember.isSessionAcknowledged() &&
+                    ((this.state === ns.STATE.INITIALISED)
+                            || (this.state === ns.STATE.INIT_DOWNFLOW)
+                            || (this.state === ns.STATE.AUX_DOWNFLOW))) {
+                this.refresh();
+            } else {
+                this.fullRefresh();
+            }
+        }
+        // easy case: refresh
+        // * only if it happens in downflow
+        // * if all authenticated, call refresh
+
+        // harder case: fullRefresh
+        // * else run fullRefresh():
+        // *      set sessionId = null, privKey = null, intermediateKeys = []
+        // *      run _start()
+    };
+
+
+    /**
      * Handles mpEnc protocol message processing.
      *
      * @method
-     * @param wireMessage
+     * @param wireMessage {object}
      *     Received message (wire encoded). The message contains an attribute
      *     `message` carrying either an {@link mpenc.messages.ProtocolMessage}
      *     or {@link mpenc.messages.DataMessage} payload.
@@ -567,7 +660,6 @@ define([
                 } else {
                     this.state = ns.STATE.INIT_UPFLOW;
                 }
-
                 this.stateUpdatedCallback(this);
             } else {
                 if (outMessage.dest === '') {
@@ -575,7 +667,6 @@ define([
                 } else {
                     this.state = ns.STATE.AUX_UPFLOW;
                 }
-
                 this.stateUpdatedCallback(this);
             }
         }

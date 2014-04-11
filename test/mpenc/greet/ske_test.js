@@ -578,6 +578,7 @@ define([
                     participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
                 }
                 var message = participant.join(['6']);
+                assert.strictEqual(participant.isSessionAcknowledged(), false);
                 assert.deepEqual(message.members, ['1', '2', '3', '4', '5', '6']);
                 assert.strictEqual(message.source, '3');
                 assert.strictEqual(message.dest, '6');
@@ -629,6 +630,7 @@ define([
                     participant.authenticatedMembers.push(true);
                 }
                 var message = participant.exclude(['1', '4']);
+                assert.strictEqual(participant.isSessionAcknowledged(), false);
                 assert.deepEqual(participant.members, ['2', '3', '5']);
                 assert.lengthOf(participant.nonces, 3);
                 assert.lengthOf(participant.ephemeralPubKeys, 3);
