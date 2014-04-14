@@ -136,7 +136,6 @@ define([
         this.groupKey = null;
         // For debugging: Chain of all scalar multiplication keys.
         this._debugIntKeys = null;
-        this._debugPrivKeys = null;
         this._debugGroupKey = null;
 
         return this;
@@ -155,16 +154,29 @@ define([
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.intKeys = null;
         this._debugIntKeys = null;
-        if (this.privKey) {
-            utils._clearmem(this.privKey);
-            this.privKey = null;
-            this._debugPrivKey = null;
-        }
+        this.privKey = null;
+        this._debugPrivKey = null;
         var startMessage = new ns.CliquesMessage(this.id);
         startMessage.members = [this.id].concat(otherMembers);
         startMessage.agreement = 'ika';
         startMessage.flow = 'upflow';
         return this.upflow(startMessage);
+    };
+
+
+    /**
+     * Start the IKA (Initial Key Agreement) for a full/complete refresh of
+     * all keys.
+     *
+     * @returns {CliquesMessage}
+     * @method
+     */
+    ns.CliquesMember.prototype.ikaFullRefresh = function() {
+        // Start with the other members.
+        var otherMembers = utils.clone(this.members);
+        var myPos = otherMembers.indexOf(this.id);
+        otherMembers.splice(myPos, 1);
+        return this.ika(otherMembers);
     };
 
 
@@ -233,10 +245,6 @@ define([
         var retValue = this._renewPrivKey();
 
         // Discard old and make new group key.
-        if (this.groupKey) {
-            utils._clearmem(this.groupKey);
-            this.groupKey = null;
-        }
         this.groupKey = retValue.cardinal;
         this._debugGroupKey = retValue.cardinalDebugKey;
 
@@ -268,7 +276,6 @@ define([
             this.members.splice(myPos, 1);
             this.intKeys = [];
             this._debugIntKeys = [];
-            utils._clearmem(this.privKey);
             this.privKey = null;
             this.pubKey = null;
         }
@@ -286,10 +293,7 @@ define([
         var retValue = this._renewPrivKey();
 
         // Discard old and make new group key.
-        if (this.groupKey) {
-            utils._clearmem(this.groupKey);
-            this.groupKey = null;
-        }
+        this.groupKey = null;
         this.groupKey = retValue.cardinalKey;
         this._debugGroupKey = retValue.cardinalDebugKey;
 
@@ -326,6 +330,12 @@ define([
             // We're the first, so let's initialise it.
             this.intKeys = [null];
             this._debugIntKeys = [null];
+        }
+
+        // To not confuse _renewPrivKey() in full refresh situation.
+        if (message.agreement === 'ika') {
+            this.privKey = null;
+            this._debugPrivKey = null;
         }
 
         // Renew all keys.
@@ -441,11 +451,9 @@ define([
      * @private
      */
     ns.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
-        if ((this.intKeys) && (this.groupKey)) {
-            utils._clearmem(this.groupKey);
-            this.groupKey = null;
-            this._debugGroupKey = null;
-        }
+        this.groupKey = null;
+        this._debugGroupKey = null;
+
         // New objects for intermediate keys.
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;

@@ -376,7 +376,7 @@ define([
 
 
     /**
-     * Fully re-run whole key agreements, but retain the ephemeral signing key..
+     * Fully re-run whole key agreements, but retain the ephemeral signing key.
      *
      * @method
      */
@@ -432,7 +432,7 @@ define([
                 this.state = ns.STATE.AUX_DOWNFLOW;
                 this.stateUpdatedCallback(this);
 
-                var outContent = this._exclude(excludeMembers);
+                var outContent = this._exclude(toExclude);
                 if (outContent) {
                     var outMessage = {
                         from: this.id,
@@ -453,13 +453,9 @@ define([
                 this.fullRefresh();
             }
         }
-        // easy case: refresh
-        // * only if it happens in downflow
-        // * if all authenticated, call refresh
-
         // harder case: fullRefresh
         // * else run fullRefresh():
-        // *      set sessionId = null, privKey = null, intermediateKeys = []
+        // *      set privKey = null, intermediateKeys = []
         // *      run _start()
     };
 

@@ -494,6 +494,40 @@ define([
 
 
     /**
+     * Fully re-run whole key agreements, but retain the ephemeral signing key.
+     *
+     * @returns {SignatureKeyExchangeMessage}
+     * @method
+     */
+    ns.SignatureKeyExchangeMember.prototype.fullRefresh = function() {
+        // Store away old ephemeral keys of members.
+        for (var i = 0; i < this.members.length; i++) {
+            if (this.ephemeralPubKeys && (i < this.ephemeralPubKeys.length)) {
+                this.oldEphemeralKeys[this.members[i]] = {
+                    pub: this.ephemeralPubKeys[i],
+                    priv: null,
+                };
+                if (this.ephemeralPubKeys && (i < this.authenticatedMembers.length)) {
+                    this.oldEphemeralKeys[this.members[i]].authenticated = this.authenticatedMembers[i];
+                } else {
+                    this.oldEphemeralKeys[this.members[i]].authenticated = false;
+                }
+            }
+        }
+        this.oldEphemeralKeys[this.id].priv = this.ephemeralPrivKey;
+
+        // Force complete new exchange of session info.
+        this.sessionId = null;
+
+        // Start with the other members.
+        var otherMembers = utils.clone(this.members);
+        var myPos = otherMembers.indexOf(this.id);
+        otherMembers.splice(myPos, 1);
+        return this.commit(otherMembers);
+    };
+
+
+    /**
      * Converts a (binary) string to a multi-precision integer (MPI).
      *
      * @param binstring

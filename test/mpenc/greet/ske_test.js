@@ -33,6 +33,8 @@ define([
 
     var assert = chai.assert;
 
+    var _echo = function(x) { return x; };
+
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
@@ -141,12 +143,8 @@ define([
                 var members = ['3', '1', null, '4', '5'];
                 var nonces = ['3333', '1111', '2222', '4444', '5555'];
 
-                var echo = function(x) {
-                    return x;
-                };
-
-                sandbox.stub(utils, 'sha256', echo);
-                sandbox.stub(djbec, 'bytes2string', echo);
+                sandbox.stub(utils, 'sha256', _echo);
+                sandbox.stub(djbec, 'bytes2string', _echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');
             });
@@ -700,6 +698,24 @@ define([
             });
         });
 
+        describe('#fullRefresh() method', function() {
+            it('simple tests', function() {
+                var participant = new ns.SignatureKeyExchangeMember('John');
+                participant.members = ['John', 'Paul', 'George', 'Ringo'];
+                participant.ephemeralPubKeys = ['1', '2', '3'];
+                participant.authenticatedMembers = [true, false];
+                participant.oldEphemeralKeys= {};
+                sandbox.stub(participant, 'commit', _echo);
+                var result = participant.fullRefresh();
+                var compare = {John: {pub: '1', priv: null, authenticated: true},
+                               Paul: {pub: '2', priv: null, authenticated: false},
+                               George: {pub: '3', priv: null, authenticated: false}};
+                assert.deepEqual(result, ['Paul', 'George', 'Ringo']);
+                assert.deepEqual(participant.oldEphemeralKeys, compare);
+                sinon_assert.calledOnce(participant.commit);
+            });
+        });
+
         describe('#getMemberEphemeralPubKey() method', function() {
             it('simple tests', function() {
                 var participant = new ns.SignatureKeyExchangeMember('John');
@@ -713,7 +729,7 @@ define([
         });
 
         describe('whole ASKE', function() {
-            it('whole flow for 5 members, 2 joining, 2 others leaving', function() {
+            it('whole flow for 5 members, 2 joining, 2 others leaving, full refresh', function() {
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];
@@ -816,9 +832,13 @@ define([
 
                 // '3' excludes two members.
                 var toExclude = ['1', '4'];
-                members.splice(members.indexOf('1'), 1);
-                members.splice(members.indexOf('4'), 1);
+                for (var i = 0; i < toExclude.length; i++) {
+                    var delIndex = members.indexOf(toExclude[i]);
+                    members.splice(delIndex, 1);
+                    participants.splice(delIndex, 1);
+                }
                 message = participants[2].exclude(toExclude);
+                members = message.members;
 
                 // Downflow for exclude.
                 sid = null;
@@ -849,11 +869,65 @@ define([
                     }
                     assert.ok(participant.isSessionAcknowledged());
                 }
+
+                // '5' starts a full refresh.
+                var oldSigningKey = participants[2].ephemeralPrivKey;
+                message = participants[2].fullRefresh();
+                assert.strictEqual(participants[2].ephemeralPrivKey, oldSigningKey);
+                // Sort participants.
+                var tempParticipants = [];
+                for (var i = 0; i < message.members.length; i++) {
+                    var index = members.indexOf(message.members[i]);
+                    tempParticipants.push(participants[index]);
+                }
+                participants = tempParticipants;
+                members = message.members;
+
+                // Upflow for full refresh.
+                while (message.flow === 'upflow') {
+                    if (message.dest !== '') {
+                        var nextId = message.members.indexOf(message.dest);
+                        oldSigningKey = participants[nextId].ephemeralPrivKey;
+                        message = participants[nextId].upflow(message);
+                        assert.strictEqual(participants[nextId].ephemeralPrivKey, oldSigningKey);
+                    } else {
+                        assert.ok(false,
+                                  "This shouldn't happen, something's seriously dodgy!");
+                    }
+                }
+
+                // Downflow for full refresh.
+                sid = null;
+                nextMessages = [];
+                while (message !== undefined) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        oldSigningKey = participant.ephemeralPrivKey;
+                        var nextMessage = participant.downflow(message);
+                        assert.strictEqual(participant.ephemeralPrivKey, oldSigningKey);
+                        if (nextMessage !== null) {
+                            nextMessages.push(nextMessage);
+                        }
+                        assert.deepEqual(participant.members, members);
+                        if (!sid) {
+                            sid = participant.sessionId;
+                        } else {
+                            assert.strictEqual(participant.sessionId, sid);
+                        }
+                    }
+                    message = nextMessages.shift();
+                }
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    assert.ok(participant.isSessionAcknowledged());
+                }
             });
         });
     });
-
-    //var bytes = djbec.string2bytes(message.sessionSignature);
-    //var hex = djbec.bytes2hex(bytes);
-    //assert.deepEqual(bytes, utils.hex2bytearray(hex));
 });

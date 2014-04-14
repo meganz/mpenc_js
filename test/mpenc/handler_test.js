@@ -578,7 +578,7 @@ define([
 
         describe('#refresh() method', function() {
             it('refresh own private key using aka', function() {
-                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@rapper.com/android123',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -592,7 +592,7 @@ define([
                 sinon_assert.calledOnce(participant._refresh);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'dj.jazzy.jeff@wraper.com/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'dj.jazzy.jeff@rapper.com/android123');
                 assert.strictEqual(participant.protocolOutQueue[0].to, '');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
@@ -617,7 +617,7 @@ define([
 
         describe('#recover() method', function() {
             it('simplest recover', function() {
-                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -630,7 +630,7 @@ define([
             });
 
             it('full recover', function() {
-                var participant = new ns.ProtocolHandler('dj.jazzy.jeff@wraper.com/android123',
+                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
                                                          _td.RSA_PRIV_KEY,
                                                          _td.RSA_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
@@ -640,6 +640,31 @@ define([
                 participant.recover();
                 sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
                 sinon_assert.calledOnce(participant.fullRefresh);
+            });
+
+            it('recover with members to keep', function() {
+                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.AUX_UPFLOW;
+                var message = {message: "You're dead!",
+                               dest: ''};
+                participant.askeMember.members = ['beatrix@kiddo.com/android123',
+                                                  'vernita@green.com/outlook4711',
+                                                  'o-ren@ishi.jp/ios1234'];
+                sandbox.stub(participant, '_exclude').returns(message);
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant.recover(['beatrix@kiddo.com/android123', 'o-ren@ishi.jp/ios1234']);
+                sinon_assert.calledOnce(participant._exclude);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'beatrix@kiddo.com/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+                assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
             });
         });
 
