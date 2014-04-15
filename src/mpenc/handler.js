@@ -563,16 +563,59 @@ define([
      * @method
      * @param messageContent {string}
      *     Unencrypted message content to be sent (plain text or HTML).
-     * @param extra {*}
-     *     Use this argument to pass any additional metadata that you want to be used later in your implementation code
+     * @param metadata {*}
+     *     Use this argument to pass additional meta-data to be used later in
+     *     plain text (unencrypted) in the implementation.
      */
-    ns.ProtocolHandler.prototype.send = function(messageContent, extra) {
+    ns.ProtocolHandler.prototype.send = function(messageContent, metadata) {
         _assert(this.state === ns.STATE.INITIALISED,
                 'Messages can only be sent in initialised state.');
         var outMessage = {
             from: this.id,
-            to: '', // FIXME: use proper room JID.
-            extra: extra,
+            to: '',
+            metadata: metadata,
+            message: codec.encodeMessage(messageContent,
+                                         this.cliquesMember.groupKey.substring(0, 16),
+                                         this.askeMember.ephemeralPrivKey,
+                                         this.askeMember.ephemeralPubKey),
+        };
+        this.messageOutQueue.push(outMessage);
+        this.queueUpdatedCallback(this);
+    };
+
+
+    /**
+     * Sends a message confidentially to an individual participant.
+     *
+     * *Warning:*
+     *
+     * A directed message is sent to one recipient only *to avoid network
+     * traffic.* For the current implementation, from a protection point of
+     * view the message has to be considered public in a group communication
+     * context. This means, that this mechanism is unsuitable for exchanging
+     * conversation transcripts with group participants in the presence of
+     * participants who are not entitled to *all* messages within the
+     * transcript!
+     *
+     * @method
+     * @param messageContent {string}
+     *     Unencrypted message content to be sent (plain text or HTML).
+     * @param to {string}
+     *     Recipient of a directed message (optional, default is to send to
+     *     entire group). *Note:* See warning on confidentiality above!
+     * @param metadata {*}
+     *     Use this argument to pass additional meta-data to be used later in
+     *     plain text (unencrypted) in the implementation.
+     */
+    ns.ProtocolHandler.prototype.sendTo = function(messageContent, to, metadata) {
+        _assert(this.state === ns.STATE.INITIALISED,
+                'Messages can only be sent in initialised state.');
+        _assert(to && (to.length > 0),
+                'A recipient has to be given.');
+        var outMessage = {
+            from: this.id,
+            to: to,
+            metadata: metadata,
             message: codec.encodeMessage(messageContent,
                                          this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,

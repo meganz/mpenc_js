@@ -871,6 +871,27 @@ define([
             });
         });
 
+        describe('#sendTo() method', function() {
+            it('send a directed message confidentially', function() {
+                var participant = new ns.ProtocolHandler('jennifer@rush.com/android123',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.INITIALISED;
+                var message = 'Whispers in the morning ...';
+                participant.sendTo(message, 'my_man@rush.com/ios12345');
+                assert.lengthOf(participant.messageOutQueue, 1);
+                assert.lengthOf(participant.messageOutQueue[0].message, 180);
+                assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
+                assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
+                assert.lengthOf(participant.protocolOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2',
