@@ -615,6 +615,39 @@ define([
             });
         });
 
+        describe('#fullRefresh() method', function() {
+            it('refresh all using ika', function() {
+                var participant = new ns.ProtocolHandler('Earth',
+                                                         _td.RSA_PRIV_KEY,
+                                                         _td.RSA_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.AUX_UPFLOW;
+                var members = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
+                               'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+                participant.askeMember.members = utils.clone(members);
+                participant.cliquesMember.members = utils.clone(members);
+                var message = {message: "Pluto's not a planet any more!!",
+                               dest: 'Mercury'};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                sandbox.stub(participant, '_start').returns(message);
+                var keepMembers = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
+                                   'Saturn', 'Uranus', 'Neptune'];
+                participant.fullRefresh(keepMembers);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._start);
+                sinon.assert.calledWith(participant._start,
+                                        ['Mercury', 'Venus', 'Mars', 'Jupiter',
+                                         'Saturn', 'Uranus', 'Neptune']);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'Earth');
+                assert.strictEqual(participant.protocolOutQueue[0].to, 'Mercury');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+                assert.strictEqual(participant.state, ns.STATE.INIT_UPFLOW);
+            });
+        });
+
         describe('#recover() method', function() {
             it('simplest recover', function() {
                 var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
@@ -977,7 +1010,7 @@ define([
                 sinon_assert.calledOnce(participant.start);
             });
 
-            it('whole flow for 5 members, 2 joining, 2 others leaving, send message, refresh key', function() {
+            it('whole flow for 5 members, 2 joining, 2 others leaving, send message, refresh key, full refresh', function() {
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];
@@ -1129,11 +1162,15 @@ define([
 
                 // '3' excludes two members.
                 var toExclude = ['1', '4'];
-                members.splice(members.indexOf('1'), 1);
-                members.splice(members.indexOf('4'), 1);
+                for (var i = 0; i < toExclude.length; i++) {
+                    var delIndex = members.indexOf(toExclude[i]);
+                    members.splice(delIndex, 1);
+                    participants.splice(delIndex, 1);
+                }
                 participants[2].exclude(toExclude);
                 message = participants[2].protocolOutQueue.shift();
                 payload = _getPayload(message);
+                members = payload.members;
 
                 // Downflow for exclude.
                 nextMessages = [];
@@ -1178,8 +1215,8 @@ define([
                 }
 
                 // '5' sends a confidential text message to the group.
-                participants[4].send('Rock me Amadeus');
-                message = participants[4].messageOutQueue.shift();
+                participants[2].send('Rock me Amadeus');
+                message = participants[2].messageOutQueue.shift();
 
                 // Received message for all.
                 for (var i = 0; i < participants.length; i++) {
@@ -1196,13 +1233,13 @@ define([
                 }
 
                 // '2' initiates a key refresh.
-                var oldGroupKey = participants[1].cliquesMember.groupKey;
-                var oldPrivKey = participants[1].cliquesMember.privKey;
-                participants[1].refresh();
-                message = participants[1].protocolOutQueue.shift();
+                var oldGroupKey = participants[0].cliquesMember.groupKey;
+                var oldPrivKey = participants[0].cliquesMember.privKey;
+                participants[0].refresh();
+                message = participants[0].protocolOutQueue.shift();
                 payload = _getPayload(message);
-                assert.notStrictEqual(participants[1].cliquesMember.privKey, oldPrivKey);
-                assert.notStrictEqual(participants[1].cliquesMember.groupKey, oldGroupKey);
+                assert.notStrictEqual(participants[0].cliquesMember.privKey, oldPrivKey);
+                assert.notStrictEqual(participants[0].cliquesMember.groupKey, oldGroupKey);
 
                 // Downflow for refresh.
                 nextMessages = [];
@@ -1246,6 +1283,84 @@ define([
                     assert.lengthOf(participant.protocolOutQueue, 0);
                     assert.lengthOf(participant.uiQueue, 0);
                     assert.lengthOf(participant.messageOutQueue, 0);
+                }
+
+                // '5' starts a glitch recovery.
+                participants[2].state = ns.STATE.AUX_UPFLOW; // The glitch, where things got stuck.
+                oldGroupKey = participants[2].cliquesMember.groupKey;
+                oldPrivKey = participants[2].cliquesMember.privKey;
+                var oldSigningKey = participants[2].askeMember.ephemeralPrivKey;
+                participants[2].recover();
+                // participants[2].fullRefresh();
+                message = participants[2].protocolOutQueue.shift();
+                payload = _getPayload(message);
+                assert.notStrictEqual(participants[2].cliquesMember.privKey, oldPrivKey);
+                assert.strictEqual(participants[2].askeMember.ephemeralPrivKey, oldSigningKey);
+                // Sort participants.
+                var tempParticipants = [];
+                for (var i = 0; i < payload.members.length; i++) {
+                    var index = members.indexOf(payload.members[i]);
+                    tempParticipants.push(participants[index]);
+                }
+                participants = tempParticipants;
+                members = payload.members;
+
+                // Upflow for recovery.
+                while (payload.dest !== '') {
+                    var nextId = payload.members.indexOf(payload.dest);
+                    oldSigningKey = participants[nextId].askeMember.ephemeralPrivKey;
+                    participants[nextId].processMessage(message);
+                    assert.strictEqual(participants[nextId].askeMember.ephemeralPrivKey, oldSigningKey);
+                    message = participants[nextId].protocolOutQueue.shift();
+                    payload = _getPayload(message);
+                    if (payload.dest === '') {
+                        assert.strictEqual(participants[nextId].state, ns.STATE.INIT_DOWNFLOW);
+                    } else {
+                        assert.strictEqual(participants[nextId].state, ns.STATE.INIT_UPFLOW);
+                    }
+                }
+
+                // Downflow for recovery.
+                nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        if (participant.askeMember.isSessionAcknowledged()) {
+                            assert.strictEqual(participant.state, ns.STATE.INITIALISED);
+                        } else {
+                            assert.strictEqual(participant.state, ns.STATE.INIT_DOWNFLOW);
+                        }
+                        assert.deepEqual(participant.cliquesMember.members, members);
+                        assert.deepEqual(participant.askeMember.members, members);
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message);
+                }
+                keyCheck = null;
+                for (var i = 0; i < participants.length; i++) {
+                    var participant = participants[i];
+                    if (members.indexOf(participant.id) < 0) {
+                        continue;
+                    }
+                    if (!keyCheck) {
+                        keyCheck = participant.cliquesMember.groupKey;
+                    } else {
+                        assert.strictEqual(participant.cliquesMember.groupKey, keyCheck);
+                    }
+                    assert.ok(participant.askeMember.isSessionAcknowledged());
+                    assert.strictEqual(participant.state, ns.STATE.INITIALISED);
+                    assert.lengthOf(participant.protocolOutQueue, 0);
+                    assert.lengthOf(participant.uiQueue, 0);
+                    assert.lengthOf(participant.messageOutQueue, 0);
+                    assert.notStrictEqual(participant.cliquesMember.groupKey, oldGroupKey);
                 }
             });
 

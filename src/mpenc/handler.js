@@ -378,27 +378,36 @@ define([
     /**
      * Fully re-run whole key agreements, but retain the ephemeral signing key.
      *
+     * @param keepMembers {Array}
+     *     Iterable of members to keep in the group (exclude others). This list
+     *     should include the one self. (Optional parameter.)
      * @method
      */
-    ns.ProtocolHandler.prototype.fullRefresh = function() {
-        _assert(false, 'Not implemented.');
-//        _assert((this.state === ns.STATE.INITIALISED)
-//                || (this.state === ns.STATE.INIT_DOWNFLOW)
-//                || (this.state === ns.STATE.AUX_DOWNFLOW),
-//                'refresh() can only be called from an initialised or downflow states.');
-//        this.state = ns.STATE.INITIALISED;
-//        this.stateUpdatedCallback(this);
-//
-//        var outContent = this._refresh();
-//        if (outContent) {
-//            var outMessage = {
-//                from: this.id,
-//                to: outContent.dest,
-//                message: codec.encodeMessage(outContent),
-//            };
-//            this.protocolOutQueue.push(outMessage);
-//            this.queueUpdatedCallback(this);
-//        }
+    ns.ProtocolHandler.prototype.fullRefresh = function(keepMembers) {
+        this.state = ns.STATE.INIT_UPFLOW;
+        this.stateUpdatedCallback(this);
+
+        // Remove ourselves from members list to keep (if we're in there).
+        var otherMembers = utils.clone(this.cliquesMember.members);
+        if (keepMembers) {
+            otherMembers = utils.clone(keepMembers);
+        }
+        var myPos = otherMembers.indexOf(this.id);
+        if (myPos >= 0) {
+            otherMembers.splice(myPos, 1);
+        }
+
+        // Now start a normal upflow for an initial agreement.
+        var outContent = this._start(otherMembers);
+        if (outContent) {
+            var outMessage = {
+                from: this.id,
+                to: outContent.dest,
+                message: codec.encodeMessage(outContent),
+            };
+            this.protocolOutQueue.push(outMessage);
+            this.queueUpdatedCallback(this);
+        }
     };
 
 
@@ -428,20 +437,21 @@ define([
             }
             _assert(toKeep.length === keepMembers.length,
                     'Mismatch between members to keep and current members.');
-            if (toExclude.length > 0) {
-                this.state = ns.STATE.AUX_DOWNFLOW;
-                this.stateUpdatedCallback(this);
+        }
 
-                var outContent = this._exclude(toExclude);
-                if (outContent) {
-                    var outMessage = {
-                        from: this.id,
-                        to: outContent.dest,
-                        message: codec.encodeMessage(outContent),
-                    };
-                    this.protocolOutQueue.push(outMessage);
-                    this.queueUpdatedCallback(this);
-                }
+        if (toExclude.length > 0) {
+            this.state = ns.STATE.AUX_DOWNFLOW;
+            this.stateUpdatedCallback(this);
+
+            var outContent = this._exclude(toExclude);
+            if (outContent) {
+                var outMessage = {
+                    from: this.id,
+                    to: outContent.dest,
+                    message: codec.encodeMessage(outContent),
+                };
+                this.protocolOutQueue.push(outMessage);
+                this.queueUpdatedCallback(this);
             }
         } else {
             if (this.askeMember.isSessionAcknowledged() &&
@@ -450,13 +460,9 @@ define([
                             || (this.state === ns.STATE.AUX_DOWNFLOW))) {
                 this.refresh();
             } else {
-                this.fullRefresh();
+                this.fullRefresh((toKeep.length > 0) ? toKeep : undefined);
             }
         }
-        // harder case: fullRefresh
-        // * else run fullRefresh():
-        // *      set privKey = null, intermediateKeys = []
-        // *      run _start()
     };
 
 
