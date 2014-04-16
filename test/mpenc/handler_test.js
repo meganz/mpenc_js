@@ -62,18 +62,24 @@ define([
     }
 
     function _getPayload(message, senderParticipant) {
-        if (message) {
+        if (message && senderParticipant) {
             var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
-            if (senderParticipant) {
-                return codec.decodeMessageContent(content,
-                                                  senderParticipant.cliquesMember.groupKey.substring(0, 16),
-                                                  senderParticipant.askeMember.ephemeralPubKey);
-            } else {
-                return codec.decodeMessageContent(content);
-            }
+            var groupKey = senderParticipant.cliquesMember.groupKey
+                                   ? senderParticipant.cliquesMember.groupKey.substring(0, 16)
+                                   : null;
+            return codec.decodeMessageContent(content, groupKey,
+                                              senderParticipant.askeMember.ephemeralPubKey);
         } else {
             return null;
         }
+    }
+
+    function _getSender(message, participants, members) {
+        if (!message) {
+            return null;
+        }
+        var index = members.indexOf(message.from);
+        return participants[index];
     }
 
     describe("ProtocolHandler class", function() {
@@ -1052,7 +1058,7 @@ define([
                 // Start.
                 participants[initiator].start(otherMembers);
                 var message = participants[initiator].protocolOutQueue.shift();
-                var payload = _getPayload(message);
+                var payload = _getPayload(message, _getSender(message, participants, members));
                 assert.strictEqual(participants[initiator].state, ns.STATE.INIT_UPFLOW);
 
                 // Upflow.
@@ -1060,7 +1066,8 @@ define([
                     var nextId = payload.members.indexOf(payload.dest);
                     participants[nextId].processMessage(message);
                     message = participants[nextId].protocolOutQueue.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
+
                     if (payload.dest === '') {
                         assert.strictEqual(participants[nextId].state, ns.STATE.INIT_DOWNFLOW);
                     } else {
@@ -1090,7 +1097,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 var keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -1124,14 +1131,14 @@ define([
                 // '4' starts upflow for join.
                 participants[3].join(newMembers);
                 message = participants[3].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, _getSender(message, participants, members));
 
                 // Upflow for join.
                 while (payload.dest !== '') {
                     var nextId = payload.members.indexOf(payload.dest);
                     participants[nextId].processMessage(message);
                     message = participants[nextId].protocolOutQueue.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                     if (payload.dest === '') {
                         assert.strictEqual(participants[nextId].state, ns.STATE.AUX_DOWNFLOW);
                     } else {
@@ -1161,7 +1168,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -1190,7 +1197,7 @@ define([
                 }
                 participants[2].exclude(toExclude);
                 message = participants[2].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, _getSender(message, participants, members));
                 members = payload.members;
 
                 // Downflow for exclude.
@@ -1215,7 +1222,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -1258,7 +1265,7 @@ define([
                 var oldPrivKey = participants[0].cliquesMember.privKey;
                 participants[0].refresh();
                 message = participants[0].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, _getSender(message, participants, members));
                 assert.notStrictEqual(participants[0].cliquesMember.privKey, oldPrivKey);
                 assert.notStrictEqual(participants[0].cliquesMember.groupKey, oldGroupKey);
 
@@ -1285,7 +1292,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -1314,7 +1321,7 @@ define([
                 participants[2].recover();
                 // participants[2].fullRefresh();
                 message = participants[2].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, _getSender(message, participants, members));
                 assert.notStrictEqual(participants[2].cliquesMember.privKey, oldPrivKey);
                 assert.strictEqual(participants[2].askeMember.ephemeralPrivKey, oldSigningKey);
                 // Sort participants.
@@ -1333,7 +1340,7 @@ define([
                     participants[nextId].processMessage(message);
                     assert.strictEqual(participants[nextId].askeMember.ephemeralPrivKey, oldSigningKey);
                     message = participants[nextId].protocolOutQueue.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                     if (payload.dest === '') {
                         assert.strictEqual(participants[nextId].state, ns.STATE.INIT_DOWNFLOW);
                     } else {
@@ -1363,7 +1370,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {
@@ -1415,7 +1422,7 @@ define([
                 // Process mpEnc query response.
                 participants[0].processMessage(message);
                 message = participants[0].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, participants[0]);
                 assert.strictEqual(payload.source, '1');
                 assert.strictEqual(payload.dest, '2');
                 assert.strictEqual(payload.agreement, 'initial');
@@ -1425,7 +1432,7 @@ define([
                 // Process key agreement upflow.
                 participants[1].processMessage(message);
                 message = participants[1].protocolOutQueue.shift();
-                payload = _getPayload(message);
+                payload = _getPayload(message, participants[1]);
                 assert.strictEqual(payload.source, '2');
                 assert.strictEqual(payload.dest, '');
                 assert.strictEqual(payload.agreement, 'initial');
@@ -1454,7 +1461,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message);
+                    payload = _getPayload(message, participants[1]);
                 }
                 var keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {

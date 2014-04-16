@@ -191,7 +191,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -236,7 +238,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -283,7 +287,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -328,7 +334,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -367,7 +375,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -403,7 +413,9 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent),
+                message: codec.encodeMessage(outContent, null,
+                                             this.askeMember.ephemeralPrivKey,
+                                             this.askeMember.ephemeralPubKey),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -448,7 +460,9 @@ define([
                 var outMessage = {
                     from: this.id,
                     to: outContent.dest,
-                    message: codec.encodeMessage(outContent),
+                    message: codec.encodeMessage(outContent, null,
+                                                 this.askeMember.ephemeralPrivKey,
+                                                 this.askeMember.ephemeralPubKey),
                 };
                 this.protocolOutQueue.push(outMessage);
                 this.queueUpdatedCallback(this);
@@ -483,7 +497,6 @@ define([
         }
 
         switch (classify.category) {
-            // FIXME: When setting the out-bound wire message's `to` field, make sure that a broadcast goes to the room JID!
             case codec.MESSAGE_CATEGORY.MPENC_ERROR:
                 this.uiQueue.push({
                     type: 'error',
@@ -521,7 +534,7 @@ define([
                     decodedMessage = codec.decodeMessageContent(classify.content);
                 }
 
-                if (decodedMessage.data !== undefined) {
+                if (decodedMessage.data) {
                     // This is a normal communication/data message.
                     if (decodedMessage.signatureOk === false) {
                         // Signature failed, abort!
@@ -541,7 +554,9 @@ define([
                         var outMessage = {
                             from: this.id,
                             to: outContent.dest,
-                            message: codec.encodeMessage(outContent),
+                            message: codec.encodeMessage(outContent, null,
+                                                         this.askeMember.ephemeralPrivKey,
+                                                         this.askeMember.ephemeralPubKey),
                         };
                         this.protocolOutQueue.push(outMessage);
                         this.queueUpdatedCallback(this);

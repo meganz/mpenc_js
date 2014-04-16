@@ -181,20 +181,13 @@ define([
             return null;
         }
 
-        var out = null;
-        var protocol = null;
+        var out = new messages.ProtocolMessage();
 
-        // members, intKeys, nonces, pubKeys, sessionSignature
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
             switch (tlv.type) {
                 case ns.TLV_TYPE.PROTOCOL_VERSION:
-                    // This is the first TLV in a protocol message.
-                    // Let's make a new message object if we don't have one, yet.
-                    if (!out) {
-                        out = new messages.ProtocolMessage();
-                    }
-                    protocol = tlv.value;
+                    out.protocol = tlv.value;
                     break;
                 case ns.TLV_TYPE.SOURCE:
                     out.source = tlv.value;
@@ -237,15 +230,7 @@ define([
                     out.signingKey = tlv.value;
                     break;
                 case ns.TLV_TYPE.MESSAGE_SIGNATURE:
-                    // This is the first TLV in a data message.
-                    // Let's make a new message object if we don't have one, yet.
-                    if (!out) {
-                        out = new messages.DataMessage();
-                    }
                     out.signature = tlv.value;
-                    out.signatureOk = ns.verifyDataMessage(tlv.rest,
-                                                           out.signature,
-                                                           pubKey);
                     out.rawMessage = tlv.rest;
                     break;
                 case ns.TLV_TYPE.MESSAGE_IV:
@@ -261,9 +246,12 @@ define([
 
             message = tlv.rest;
         }
-        // Some specifics depending on the type of mpENC message.
 
-        if (out.data === undefined) {
+        // Some specifics depending on the type of mpENC message.
+        if (out.data) {
+            // Some further crypto processing on data messages.
+            out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
+        } else {
             // Some sanity checks for keying messages.
             _assert(out.intKeys.length <= out.members.length,
                     'Number of intermediate keys cannot exceed number of members.');
@@ -271,13 +259,21 @@ define([
                     'Number of nonces cannot exceed number of members.');
             _assert(out.pubKeys.length <= out.members.length,
                     'Number of public keys cannot exceed number of members.');
-        } else {
-            // Some further crypto processing on data messages.
-            out.protocol = protocol;
-            out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
         }
-        _assert(protocol === version.PROTOCOL_VERSION,
-                'Received wrong protocol version: ' + protocol.charCodeAt(0) + '.');
+
+        // Check signature, if present.
+        if (out.signature) {
+            if (!pubKey) {
+                var index = out.members.indexOf(out.source);
+                pubKey = out.pubKeys[index];
+            }
+            out.signatureOk = ns.verifyDataMessage(out.rawMessage,
+                                                   out.signature,
+                                                   pubKey);
+        }
+
+        _assert(out.protocol === version.PROTOCOL_VERSION,
+                'Received wrong protocol version: ' + out.protocol.charCodeAt(0) + '.');
 
         return out;
     };
@@ -398,15 +394,11 @@ define([
 
             // We want message attributes in this order:
             // signature, protocol version, iv, message data
-            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV,
-                                         encrypted.iv);
-            out += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE,
-                                         encrypted.data);
+            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
+            out += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
             // Sign `out` and prepend signature.
             var signature = ns.signDataMessage(out, privKey, pubKey);
-            out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE,
-                                        signature)
-                + out;
+            out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
         } else {
             // Process message attributes in this order:
             // source, dest, agreement, members, intKeys, nonces, pubKeys,
@@ -437,6 +429,9 @@ define([
             if (message.signingKey) {
                 out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
             }
+            // Sign `out` and prepend signature.
+            var signature = ns.signDataMessage(out, privKey, pubKey);
+            out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
         }
 
         return out;

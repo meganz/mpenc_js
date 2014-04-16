@@ -143,12 +143,14 @@ _td.STATIC_PUB_KEY_DIR = {
 /* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
-_td.UPFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMA'
-                                 + 'ATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8Y'
-                                 + 'ntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZ'
-                                 + 'ijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQ'
-                                 + 'YAIFYm6SFboX/gzyP1xo6X6WLt1w7JkFt1PasFeVnv'
-                                 + 'hgcS');
+_td.UPFLOW_MESSAGE_STRING = atob('AAMAQOrbbqSmGKIs/GxHQYlDTQk6msjrx8ZJA1XsM7qo'
+                                 + '1vogQUeRgxYQwKmoC9QwaMESsZ1mktn+dhptpVufji'
+                                 + 'WnqwYAAQABAQEAAAExAQEAATIBAgABAAEDAAExAQMA'
+                                 + 'ATIBAwABMwEDAAE0AQMAATUBAwABNgEEAAABBAAgap'
+                                 + 'mKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqFRCU0B'
+                                 + 'BQAgapmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18Yfq'
+                                 + 'FRCU0BBgAgVibpIVuhf+DPI/XGjpfpYu3XDsmQW3U9'
+                                 + 'qwV5We+GBxI=');
 _td.UPFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '2',
@@ -168,9 +170,12 @@ _td.DOWNFLOW_MESSAGE_CONTENT = {
     flow: 'downflow',
     signingKey: _td.ED25519_PRIV_KEY,
 };
-_td.DOWNFLOW_MESSAGE_STRING = atob('AAEAAQEBAAABMQEBAAABAgABAQEIAEBsMNKqhzno19'
-                                   + 'p4hYzjuTHFsiqI61enu/8DBW90l+JZasyB39Eygf'
-                                   + 'uJ5NAk29/RGuy1eb3K30cFOOL3L+OcjJnd');
+_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQEMl2pIK7cw8wNwXEWZJz56HgqJKd5ec2PUMOa'
+                                   + 'kPpqBuzHxqaQH2e5bdaBg+yblut0bf4YSiO98yiY'
+                                   + 'PLLNoG8AIAAQABAQEAAAExAQEAAAECAAEBAQgAQG'
+                                   + 'ww0qqHOejX2niFjOO5McWyKojrV6e7/wMFb3SX4l'
+                                   + 'lqzIHf0TKB+4nk0CTb39Ea7LV5vcrfRwU44vcv45'
+                                   + 'yMmd0=');
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
 _td.DATA_MESSAGE_STRING = atob('AAMAQBgeUZZlXeV7seFV0nrJ7y6xsp0XXVg/4DyIYn'
