@@ -1461,7 +1461,7 @@ define([
                         assert.deepEqual(participant.askeMember.members, members);
                     }
                     message = nextMessages.shift();
-                    payload = _getPayload(message, participants[1]);
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
                 var keyCheck = null;
                 for (var i = 0; i < participants.length; i++) {

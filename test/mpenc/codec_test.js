@@ -284,14 +284,10 @@ define([
                 var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
                             + String.fromCharCode(77)
                             + _td.DATA_MESSAGE_STRING.substring(11);
-                var result = ns.decodeMessageContent(message,
-                                                     _td.GROUP_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.signatureOk, false);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 16);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
+                assert.throws(function() { ns.decodeMessageContent(message,
+                                                                   _td.GROUP_KEY,
+                                                                   _td.ED25519_PUB_KEY); },
+                              'Signature of message does not verify!');
             });
         });
     });
@@ -456,17 +452,21 @@ define([
 
         it('data messages', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
-            var expected = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHaQ1yfuNR4R3MasfnTWbNDTjumHZIVOjeAo97Wl2WDgDA==',
-                            'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYlIIkDGFoa8ROYvX4lb2V9l8ZkAYYmeeagQbqSkUR92BQ==',
-                            'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40Yq/lqqfuVViyNu8/rghDQ9bi98q/GU/fE7Yn1YH3rrIAQ==',
-                            'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNUIgwO6SUsi1XhXkqwWDu6di3CxlRcqwKgXoxHkVwOkFCQ==',
-                            '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa4x4ERHgxvje7BbpoADYGA5SHooFzIP4znGYeoHAZ+4Bw=='];
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
+            var expected = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHahza0DgAZt9A7wmIsiMwfKodGbikDRorV6i3ANAorUCg==',
+                            'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYnpX+D4XxyUmPuGIg19Lm+xl1Jz5YaYVfRvW7GWtA4iDA==',
+                            'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40YrOHOQlNP7tgMZNIH7WNPNoZsln4CKuKOJPiIVABS3LCA==',
+                            'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNULI/k3/rh0HMaYNzOHL0rAgWa0s85LjeH8IoLrkoyiFCw==',
+                            '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa79u2bg3awNqNncdICIlzZJbLtxJvd9wzGalgaJWMARDw==',
+                            'kqboV9HDTE2LDzaWUQti+t7cqfE9+EE33vEoZbYT15NX9CifbPouEDeTNkc8fvhPRx/SN4Jlsm+hE/fS8RpjCA=='];
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.signDataMessage(tests[i],
                                                 _td.ED25519_PRIV_KEY,
                                                 _td.ED25519_PUB_KEY);
-                assert.strictEqual(btoa(result), expected[i]);
+                assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
         });
     });
@@ -474,26 +474,35 @@ define([
     describe("verifyDataMessage()", function() {
         it('verifies', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
-            var signatures = ['74XflUXiebsofcIbUM9hl32bFZ+pGV3ZIgsg96mhdEp3EbX+uB+Ti1tEHKwHaCtcQwSioYzDeki6ijattbvkDA==',
-                              'HOcWT2UCbCNrps4zOclKia1ZRvsgFHpkPE+3m2401BsRjBq+4vSGLErey9X82I5R0T6iocatWWQfuQjxvDDRDg==',
-                              'lbQ8SmTH0pFF25NThHYBkchQcFcxMF9aG33qgG5TBJIFWXyIVAv2ASE0PLoC/EG13RFLBBHvkkyjNIpQW+ugAA==',
-                              'sniCFEWWWGDsAXVqwRYuaOCexaag9o1TDEfsg5R4he22iyu7bULTqB9R3ueEdhTVLOKmz0XZU4BPlpzl235wCQ==',
-                              'oEDxuOeRJL3e66mgWZA2B/OJLMqvilI74MrjzSpgaW6KhxXj9de/aGpon1C7jivCWGycUcdeHI/pchNU3hvvAw=='];
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
+            var signatures = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHahza0DgAZt9A7wmIsiMwfKodGbikDRorV6i3ANAorUCg==',
+                              'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYnpX+D4XxyUmPuGIg19Lm+xl1Jz5YaYVfRvW7GWtA4iDA==',
+                              'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40YrOHOQlNP7tgMZNIH7WNPNoZsln4CKuKOJPiIVABS3LCA==',
+                              'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNULI/k3/rh0HMaYNzOHL0rAgWa0s85LjeH8IoLrkoyiFCw==',
+                              '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa79u2bg3awNqNncdICIlzZJbLtxJvd9wzGalgaJWMARDw==',
+                              'kqboV9HDTE2LDzaWUQti+t7cqfE9+EE33vEoZbYT15NX9CifbPouEDeTNkc8fvhPRx/SN4Jlsm+hE/fS8RpjCA=='];
             for (var i = 0; i < tests.length; i++) {
                 assert.ok(ns.verifyDataMessage(tests[i],
                                                atob(signatures[i]),
                                                _td.ED25519_PUB_KEY));
             }
         });
+
         it('failes verification', function() {
-            var tests = ["Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         '', '42', "Don't panic!", 'Flying Spaghetti Monster'];
-            var signatures = ['74XflUXiebsofcIbUM9hl32bFZ+pGV3ZIgsg96mhdEp3EbX+uB+Ti1tEHKwHaCtcQwSioYzDeki6ijattbvkDA==',
-                              'HOcWT2UCbCNrps4zOclKia1ZRvsgFHpkPE+3m2401BsRjBq+4vSGLErey9X82I5R0T6iocatWWQfuQjxvDDRDg==',
-                              'lbQ8SmTH0pFF25NThHYBkchQcFcxMF9aG33qgG5TBJIFWXyIVAv2ASE0PLoC/EG13RFLBBHvkkyjNIpQW+ugAA==',
-                              'sniCFEWWWGDsAXVqwRYuaOCexaag9o1TDEfsg5R4he22iyu7bULTqB9R3ueEdhTVLOKmz0XZU4BPlpzl235wCQ==',
-                              'oEDxuOeRJL3e66mgWZA2B/OJLMqvilI74MrjzSpgaW6KhxXj9de/aGpon1C7jivCWGycUcdeHI/pchNU3hvvAw=='];
+            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
+            var signatures = ['kqboV9HDTE2LDzaWUQti+t7cqfE9+EE33vEoZbYT15NX9CifbPouEDeTNkc8fvhPRx/SN4Jlsm+hE/fS8RpjCA==',
+                              'WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHahza0DgAZt9A7wmIsiMwfKodGbikDRorV6i3ANAorUCg==',
+                              'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYnpX+D4XxyUmPuGIg19Lm+xl1Jz5YaYVfRvW7GWtA4iDA==',
+                              'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40YrOHOQlNP7tgMZNIH7WNPNoZsln4CKuKOJPiIVABS3LCA==',
+                              'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNULI/k3/rh0HMaYNzOHL0rAgWa0s85LjeH8IoLrkoyiFCw==',
+                              '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa79u2bg3awNqNncdICIlzZJbLtxJvd9wzGalgaJWMARDw=='];
             for (var i = 0; i < tests.length; i++) {
                 assert.notOk(ns.verifyDataMessage(tests[i],
                                                   atob(signatures[i]),
@@ -507,7 +516,7 @@ define([
             for (var i = 0; i < 5; i++) {
                 var privKey = djbec.bytes2string(utils._newKey08(512));
                 var pubKey = djbec.bytes2string(djbec.publickey(privKey));
-                var messageLength = Math.floor(256 * Math.random());
+                var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var signature = ns.signDataMessage(message, privKey, pubKey);
                 assert.ok(ns.verifyDataMessage(message, signature, pubKey),

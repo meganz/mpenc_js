@@ -270,6 +270,8 @@ define([
             out.signatureOk = ns.verifyDataMessage(out.rawMessage,
                                                    out.signature,
                                                    pubKey);
+            _assert(out.signatureOk,
+                    'Signature of message does not verify!');
         }
 
         _assert(out.protocol === version.PROTOCOL_VERSION,
