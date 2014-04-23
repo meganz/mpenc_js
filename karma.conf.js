@@ -18,6 +18,7 @@ module.exports = function(config) {
         'lib/jsbn2.js',
         {pattern:'lib/sha512.js', included: false},
         'lib/djbec.js',
+//        'lib/fdjbec.js',
         'lib/rsa.js',
         'lib/asmcrypto.js',
         // karma-sinon does not yet integrate with requirejs, so we have to do this hack
@@ -44,7 +45,7 @@ module.exports = function(config) {
     // (Do not include tests or libraries.
     // These files will be instrumented by Istanbul.)
     preprocessors: {
-        'src/**/*.js': ['coverage']
+//        'src/**/*.js': ['coverage']
     },
 
     // Coverage configuration
@@ -77,7 +78,10 @@ module.exports = function(config) {
     browsers: ['Firefox', 'Chrome'],
 
     // If browser does not capture in given timeout [ms], kill it
-    captureTimeout: 60000,
+    captureTimeout: 120000,
+//    browserDisconnectTimeout: 6000,
+//    browserDisconnectTolerance: 2,
+//    browserNoActivityTimeout: 60000,
 
     // Continuous Integration mode
     // if true, it capture browsers, run tests and exit
