@@ -7,7 +7,8 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
     "rsa",
-], function(assert, utils, rsa) {
+    "djbec",
+], function(assert, utils, rsa, djbec) {
     "use strict";
 
     /**

@@ -73,35 +73,42 @@ define([
 
 
     /**
-     * "Enumeration" for TLV types.
+     * "Enumeration" for TLV record types.
      *
      * @property PADDING {integer}
      *     Can be used for arbitrary length of padding byte sequences.
      * @property PROTOCOL_VERSION {integer}
      *     Indicates the protocol version to be used as a 16-bit unsigned integer.
-     * @property MESSAGE_TYPE {integer}
-     *     A single byte indicating the type of message transmitted.
+     * @property DATA_MESSAGE {string}
+     *     Data payload (chat message) content of the message.
+     * @property MESSAGE_SIGNATURE {string}
+     *     Signature of the entire message sent (must be the first TLV sent,
+     *     and sign *all* remaining binary content).
+     * @property MESSAGE_IV {string}
+     *     Random initialisation vector for encrypted message payload.
      * @property SOURCE {integer}
-     *     Message originator (from, should be only one).
+     *     Message originator ("from", must be only one).
      * @property DEST {integer}
-     *     Message destination (to, should be only one, broadcast if not present).
+     *     Message destination ("to", should be only one, broadcast if not
+     *     present or empty).
      * @property AUX_AGREEMENT {integer}
-     *     Type of key agreement. 0 for "initial" or 1 for "auxilliary".
+     *     Type of key agreement. Binary 0 for "initial" or 1 for "auxiliary".
      * @property MEMBER {integer}
-     *     A participating member ID.
+     *     A participating member's ID.
      * @property INT_KEY {integer}
-     *     An intermediate key for the group key agreement (max occurrence is
+     *     An intermediate key for the group key agreement (max. occurrence is
      *     the number of members present).
      * @property NONCE {integer}
-     *     A nonce of a member for ASKE (max occurrence is the number of
+     *     A nonce of a member for ASKE (max. occurrence is the number of
      *     members present).
      * @property PUB_KEY {integer}
-     *     Ephemeral public signing key of a member (max occurrence is the
+     *     Ephemeral public signing key of a member (max. occurrence is the
      *     number of members present).
      * @property SESSION_SIGNATURE {integer}
      *     Session acknowledgement signature using sender's static key.
      * @property SIGNING_KEY {integer}
-     *     Session's ephemeral (private) signing key.
+     *     Session's ephemeral (private) signing key, published upon departing
+     *     from a chat.
      */
     ns.TLV_TYPE = {
         PADDING:           0x0000,
@@ -186,6 +193,9 @@ define([
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
             switch (tlv.type) {
+                case ns.TLV_TYPE.PADDING:
+                    // Completely ignore this.
+                    break;
                 case ns.TLV_TYPE.PROTOCOL_VERSION:
                     out.protocol = tlv.value;
                     break;
@@ -605,6 +615,15 @@ define([
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
     };
+
+
+//    ns.test = function() {
+//        dump(djbec.sig_test('msg','key'));
+//        dump(djbec.sig_test('foo','baz'));
+//        dump(djbec.sig_test());
+//        dump(djbec.dh_test());
+//    };
+
 
 
     return ns;

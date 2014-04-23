@@ -339,7 +339,9 @@ define([
      */
     ns.clone = function(obj) {
         // Handle the 3 simple types, and null or undefined.
-        if (null == obj || "object" != typeof obj) return obj;
+        if (null == obj || "object" != typeof obj) {
+            return obj;
+        }
 
         // Handle date.
         if (obj instanceof Date) {

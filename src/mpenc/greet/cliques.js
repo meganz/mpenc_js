@@ -85,7 +85,7 @@ define([
      *     List (array) of keying debugging strings.
      */
     ns.CliquesMessage = function(source, dest, agreement, flow, members,
-                                            intKeys, debugKeys) {
+                                 intKeys, debugKeys) {
         this.source = source || '';
         this.dest = dest || '';
         this.agreement = agreement || '';

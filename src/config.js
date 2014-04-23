@@ -3,6 +3,7 @@ var requirejs_config_mpenc =
     paths: {
         "curve255": "../lib/curve255",
         "djbec": "../lib/djbec",
+//        "fdjbec": "../lib/fdjbec",
         "jsbn": "../lib/jsbn",
         "jsbn2": "../lib/jsbn2",
         "jsSHA": "../lib/sha512",
@@ -30,6 +31,17 @@ var requirejs_config_mpenc =
                 this.djbec = djbec;
             },
         },
+//        "fdjbec": {
+//            deps: ["jsSHA", "jsbn", "jsbn2", "curve255"],
+//            exports: "fdjbec",
+//            init: function(jsSHA, jsbn, jsbn2) {
+//                // fast-djbec refers to a global "jsSHA" variable, so define it here
+//                this.jsSHA = jsSHA;
+//                // fast-djbec refers to a global "load" function, so define it here
+//                this.load = function() { };
+//                this.fdjbec = fdjbec;
+//            },
+//        },
         "rsa": {
             exports: "rsa",
             init: function() {

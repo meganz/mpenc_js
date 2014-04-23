@@ -1055,12 +1055,15 @@ define([
                     otherMembers.push(i.toString());
                 }
 
+                var startTime = Math.round(Date.now() / 1000);
+                console.log('Starting at ' + Math.round(Date.now() / 1000 - startTime));
                 // Start.
                 participants[initiator].start(otherMembers);
                 var message = participants[initiator].protocolOutQueue.shift();
                 var payload = _getPayload(message, _getSender(message, participants, members));
                 assert.strictEqual(participants[initiator].state, ns.STATE.INIT_UPFLOW);
 
+                console.log('Upflow for start at ' + Math.round(Date.now() / 1000 - startTime));
                 // Upflow.
                 while (message && payload.dest !== '') {
                     var nextId = payload.members.indexOf(payload.dest);
@@ -1075,6 +1078,7 @@ define([
                     }
                 }
 
+                console.log('Downflow for start at ' + Math.round(Date.now() / 1000 - startTime));
                 // Downflow.
                 var nextMessages = [];
                 while (payload) {
@@ -1117,6 +1121,7 @@ define([
                     assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
+                console.log('Joining two new at ' + Math.round(Date.now() / 1000 - startTime));
                 // Join two new guys.
                 var newMembers = ['6', '7'];
                 members = members.concat(newMembers);
@@ -1133,6 +1138,7 @@ define([
                 message = participants[3].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
 
+                console.log('Upflow for join at ' + Math.round(Date.now() / 1000 - startTime));
                 // Upflow for join.
                 while (payload.dest !== '') {
                     var nextId = payload.members.indexOf(payload.dest);
@@ -1146,6 +1152,7 @@ define([
                     }
                 }
 
+                console.log('Downflow for join at ' + Math.round(Date.now() / 1000 - startTime));
                 // Downflow for join.
                 nextMessages = [];
                 while (payload) {
@@ -1188,6 +1195,7 @@ define([
                     assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
+                console.log('Excluding two at ' + Math.round(Date.now() / 1000 - startTime));
                 // '3' excludes two members.
                 var toExclude = ['1', '4'];
                 for (var i = 0; i < toExclude.length; i++) {
@@ -1200,6 +1208,7 @@ define([
                 payload = _getPayload(message, _getSender(message, participants, members));
                 members = payload.members;
 
+                console.log('Downflow for exclude at ' + Math.round(Date.now() / 1000 - startTime));
                 // Downflow for exclude.
                 nextMessages = [];
                 while (payload) {
@@ -1242,6 +1251,7 @@ define([
                     assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
+                console.log('Messaging at ' + Math.round(Date.now() / 1000 - startTime));
                 // '5' sends a confidential text message to the group.
                 participants[2].send('Rock me Amadeus');
                 message = participants[2].messageOutQueue.shift();
@@ -1260,6 +1270,7 @@ define([
                     assert.strictEqual(uiMessage.from, '5');
                 }
 
+                console.log('Refreshing at ' + Math.round(Date.now() / 1000 - startTime));
                 // '2' initiates a key refresh.
                 var oldGroupKey = participants[0].cliquesMember.groupKey;
                 var oldPrivKey = participants[0].cliquesMember.privKey;
@@ -1269,6 +1280,7 @@ define([
                 assert.notStrictEqual(participants[0].cliquesMember.privKey, oldPrivKey);
                 assert.notStrictEqual(participants[0].cliquesMember.groupKey, oldGroupKey);
 
+                console.log('Downflow for refresh at ' + Math.round(Date.now() / 1000 - startTime));
                 // Downflow for refresh.
                 nextMessages = [];
                 while (payload) {
@@ -1313,6 +1325,7 @@ define([
                     assert.lengthOf(participant.messageOutQueue, 0);
                 }
 
+                console.log('Recovering at ' + Math.round(Date.now() / 1000 - startTime));
                 // '5' starts a glitch recovery.
                 participants[2].state = ns.STATE.AUX_UPFLOW; // The glitch, where things got stuck.
                 oldGroupKey = participants[2].cliquesMember.groupKey;
@@ -1333,6 +1346,7 @@ define([
                 participants = tempParticipants;
                 members = payload.members;
 
+                console.log('Upflow for recover at ' + Math.round(Date.now() / 1000 - startTime));
                 // Upflow for recovery.
                 while (payload.dest !== '') {
                     var nextId = payload.members.indexOf(payload.dest);
@@ -1348,6 +1362,7 @@ define([
                     }
                 }
 
+                console.log('Downflow for recover at ' + Math.round(Date.now() / 1000 - startTime));
                 // Downflow for recovery.
                 nextMessages = [];
                 while (payload) {
