@@ -574,13 +574,18 @@ define([
                 'message too long for encoding scheme');
 
         // Padding string.
-        // TODO: Replace this with cryptographically secure random numbers.
-        var padding = '';
-        for (var i = 0; i < length - message.length - 2; i++) {
-            padding += String.fromCharCode(1 + Math.floor(255 * Math.random()));
+        var paddingString = '';
+        var paddingLength = length - message.length - 2;
+        var paddingByte = new Uint8Array(1);
+        asmCrypto.getRandomValues(paddingByte);
+        for (var i = 0; i < paddingLength; i++) {
+            while (paddingByte[0] === 0) {
+                asmCrypto.getRandomValues(paddingByte);
+            }
+            paddingString += String.fromCharCode(paddingByte[0]);
         }
 
-        return String.fromCharCode(2) + padding + String.fromCharCode(0) + message;
+        return String.fromCharCode(2) + paddingString + String.fromCharCode(0) + message;
     };
 
 

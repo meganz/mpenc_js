@@ -48,10 +48,17 @@ define([
      * @private
      */
     ns._newKey32 = function(bits) {
-        // TODO: Replace with Mega's implementation of rand(n)
-        // https://github.com/meganz/webclient/blob/master/js/keygen.js#L21
-        var paranoia = [0,48,64,96,128,192,256,384,512,768,1024].indexOf(bits);
-        return sjcl.random.randomWords(Math.floor(bits / 32), paranoia);
+        var buffer = ns._newKey08(bits);
+        var result = [];
+        var value = 0;
+        for (var i = 0; i < buffer.length; i += 4) {
+            value = buffer[i];
+            value += buffer[i + 1] << 8;
+            value += buffer[i + 2] << 16;
+            value += buffer[i + 3] << 24;
+            result.push(value);
+        }
+        return result;
     };
 
 
@@ -66,7 +73,15 @@ define([
      * @private
      */
     ns._newKey16 = function(bits) {
-        return ns._key32to16(ns._newKey32(bits));
+        var buffer = ns._newKey08(bits);
+        var result = [];
+        var value = 0;
+        for (var i = 0; i < buffer.length; i += 2) {
+            value = buffer[i];
+            value += buffer[i + 1] << 8;
+            result.push(value);
+        }
+        return result;
     };
 
 
@@ -81,7 +96,13 @@ define([
      * @private
      */
     ns._newKey08 = function(bits) {
-        return ns._key32to08(ns._newKey32(bits));
+        var buffer = new Uint8Array(Math.floor(bits / 8));
+        asmCrypto.getRandomValues(buffer);
+        var result = [];
+        for (var i = 0; i < buffer.length; i++) {
+            result.push(buffer[i]);
+        }
+        return result;
     };
 
 
