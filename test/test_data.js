@@ -125,13 +125,13 @@ _td.ED25519_PRIV_KEY = atob('bDDSqoc56NfaeIWM47kxxbIqiOtXp7v/AwVvdJfiWWrMgd/RM'
                             + 'oH7ieTQJNvf0RrstXm9yt9HBTji9y/jnIyZ3Q==');
 _td.ED25519_PUB_KEY = atob('o5YD5+BbKJeAUom3rqOcxGZxAR6FmGgRSRtN/Vv9MUE=');
 
-_td.SIGNATURE = 'F4NlubSGyHF9JBBQh0fKR9O11q6k2nP9GeF5VDdNUjthj1XZS3F4yX89xNnKK'
-              + '4RFDrWam8029hzZHTqswjBAvvJeHmj/ISUD4M0Oo6EAHi608S6J/RNoQhh0ym'
-              + 'BBLnn0UHQgagtYOorUXwzD0wsMPgGV3QEkw0weYP2+PrbHsMwZLieChKi6+d3'
-              + 'MpL1kber+MNkgewyLWBJaoBbdu40nQbnBA/3hK4V9VNPDZQmCq3sHO7GiDTHb'
-              + 'P7JI2HzzkSz8KY7LgXNBMLzEAL62E/q8Lg8l9jZQmyr197ZV8B7HTVBeULZvu'
-              + 'cTmDQafKVw35Z41QXVBHliF4exwi7/s8gfiOg==';
-_td.SIGNATURE = atob(_td.SIGNATURE);
+_td.SIGNATURE = atob('MQrFBnTAWTEiedco5LyxUTg+EXqDZKiZdjo61lF2ugqAUFV7uezdhdqe'
+                     + 'yUIp9of6grCek2DCFN6zv1CZfcazN0TYjBRT0jlz6uqVN6k3+838qk'
+                     + 'ckptnlWdIouvHnpMRbmCX9kVRruA6gi/9P0n6s2KxCK7I+gDabT4su'
+                     + 'Zv9UPTeQN0Mym8bnPke5CyvazACu1AKyPI0/wPHFybFidF2GA1o2U3'
+                     + 'CKbO/jb0NDyyDOsjvjHn3foMFrqTgmwdGCThKVy8HHPDWk2BgHjGdD'
+                     + 'PJm4U3+/KknqHvykM9QApJiu+imDzH0wuzqj1EH7ifdenjdFp5qH7l'
+                     + 'Tfdry3yWOqhykWqA==');
 
 _td.SESSION_ID = 'tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=';
 _td.SESSION_ID = atob(_td.SESSION_ID);

@@ -53,6 +53,8 @@ define([
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
+    var MAGIC_NUMBER = 'acksig';
+
     /**
      * Carries message content for the authenticated signature key exchange.
      *
@@ -250,7 +252,8 @@ define([
     ns.SignatureKeyExchangeMember.prototype._computeSessionSig = function() {
         _assert(this.sessionId, 'Session ID not available.');
         _assert(this.ephemeralPubKey, 'No ephemeral key pair available.');
-        var sessionAck = this.id + this.ephemeralPubKey + this.nonce + this.sessionId;
+        var sessionAck = MAGIC_NUMBER + this.id + this.ephemeralPubKey
+                       + this.nonce + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
         return ns._smallrsasign(hashValue, this.staticPrivKey);
     };
@@ -278,7 +281,7 @@ define([
                 "Member's static pub key missing.");
         var decrypted = ns._smallrsaverify(signature,
                                            this.staticPubKeyDir.get(memberId));
-        var sessionAck = memberId + this.ephemeralPubKeys[memberPos]
+        var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
         return (decrypted === hashValue);
