@@ -1037,8 +1037,8 @@ define([
                 sinon_assert.calledOnce(participant.start);
             });
 
-            it('whole flow for 5 members, 2 joining, 2 others leaving, send message, refresh key, full refresh', function() {
-                var numMembers = 5;
+            it('whole flow for 3 members, 2 joining, 2 others leaving, send message, refresh key, full refresh', function() {
+                var numMembers = 3;
                 var initiator = 0;
                 var members = [];
                 var participants = [];
@@ -1123,7 +1123,7 @@ define([
 
                 console.log('Joining two new at ' + Math.round(Date.now() / 1000 - startTime));
                 // Join two new guys.
-                var newMembers = ['6', '7'];
+                var newMembers = ['4', '5'];
                 members = members.concat(newMembers);
                 for (var i = 0; i < newMembers.length; i++) {
                     var newMember = new ns.ProtocolHandler(newMembers[i],
@@ -1133,9 +1133,9 @@ define([
                     participants.push(newMember);
                 }
 
-                // '4' starts upflow for join.
-                participants[3].join(newMembers);
-                message = participants[3].protocolOutQueue.shift();
+                // '2' starts upflow for join.
+                participants[1].join(newMembers);
+                message = participants[1].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
 
                 console.log('Upflow for join at ' + Math.round(Date.now() / 1000 - startTime));
@@ -1196,15 +1196,15 @@ define([
                 }
 
                 console.log('Excluding two at ' + Math.round(Date.now() / 1000 - startTime));
-                // '3' excludes two members.
-                var toExclude = ['1', '4'];
+                // '4' excludes two members.
+                var toExclude = ['1', '3'];
                 for (var i = 0; i < toExclude.length; i++) {
                     var delIndex = members.indexOf(toExclude[i]);
                     members.splice(delIndex, 1);
                     participants.splice(delIndex, 1);
                 }
-                participants[2].exclude(toExclude);
-                message = participants[2].protocolOutQueue.shift();
+                participants[1].exclude(toExclude);
+                message = participants[1].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
                 members = payload.members;
 
