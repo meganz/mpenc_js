@@ -383,12 +383,16 @@ define([
             var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
             var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
             var expected = ['ZZBBd/VfkkxbQjQnJs2XVw==',
                             'hPZ6wa6Sco8iO4tJUfiQwQ==',
                             'IGX/B9/06eKjM/v2xiXPaA==',
                             'fSeQGNTTe+eUismz9dhnAgwyJjA/dUBmkgwuX/aB6Vc=',
-                            'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ=='];
+                            'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ==',
+                            '+1YLHea/yTdsdBbKdQCTvA==',
+                            'A8PaLxNIrYKkA6GKziGXnoHciUR/DvhDIQmgL+QGgM4=',
+                            'DNiVaSUaU/t0629NVDEnmPXmZ6zJKq7IFx5DH3UtB50='];
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
@@ -415,9 +419,13 @@ define([
                          'hPZ6wa6Sco8iO4tJUfiQwQ==',
                          'IGX/B9/06eKjM/v2xiXPaA==',
                          'fSeQGNTTe+eUismz9dhnAgwyJjA/dUBmkgwuX/aB6Vc=',
-                         'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ=='];
+                         'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ==',
+                         '+1YLHea/yTdsdBbKdQCTvA==',
+                         'A8PaLxNIrYKkA6GKziGXnoHciUR/DvhDIQmgL+QGgM4=',
+                         'DNiVaSUaU/t0629NVDEnmPXmZ6zJKq7IFx5DH3UtB50='];
             var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
+                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
                 assert.strictEqual(result, expected[i]);

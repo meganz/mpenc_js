@@ -11,7 +11,7 @@ Code Contributions
 ** License: 2-clause BSD license or GNU GPL >= version 2.0
 * Ron Garret's Edwards25519 ECDSA code
 ** http://www.flownet.com/ron/code/
-** File: `djbec.js`
+** File: `djbec.js` and `fast-djbec.js`
 ** License: MIT license
 * Tom Wu's BigInteger implementation
 ** http://www-cs-students.stanford.edu/~tjw/jsbn/

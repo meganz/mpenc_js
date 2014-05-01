@@ -520,7 +520,9 @@ define([
         }
         var keyBytes = new Uint8Array(djbec.string2bytes(key));
         var ivBytes = new Uint8Array(utils._newKey08(128));
-        var cipherBytes = asmCrypto.AES_CBC.encrypt(data, keyBytes, true, ivBytes);
+        // Protect multi-byte characters.
+        var dataBytes = unescape(encodeURIComponent(data));
+        var cipherBytes = asmCrypto.AES_CBC.encrypt(dataBytes, keyBytes, true, ivBytes);
         return { data: djbec.bytes2string(cipherBytes),
                  iv: djbec.bytes2string(ivBytes) };
     };
@@ -547,7 +549,8 @@ define([
         var keyBytes = new Uint8Array(djbec.string2bytes(key));
         var ivBytes = new Uint8Array(djbec.string2bytes(iv));
         var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
-        return djbec.bytes2string(clearBytes);
+        // Undo protection for multi-byte characters.
+        return decodeURIComponent(escape(djbec.bytes2string(clearBytes)));
     };
 
 
