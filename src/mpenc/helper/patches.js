@@ -73,11 +73,9 @@ define([
      */
     curve255.fromHex = function(key) {
         var out = [];
-        if (key.length % 4) {
-            var padding = 4 - key.length % 4;
-            for (var i = 0; i < padding; i++) {
-                key = '0' + key;
-            }
+        var padding = 4 - ((key.length % 4) || 4);
+        for (var i = 0; i < padding; i++) {
+            key = '0' + key;
         }
         var i = 0;
         while (i < key.length) {

@@ -30,12 +30,9 @@ var _td = {};
 
 /* Constants mainly for the mpenc.greet.cliques. */
 
-_td.C25519_PRIV_KEY = 'bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=';
-_td.C25519_PRIV_KEY = atob(_td.C25519_PRIV_KEY);
-_td.C25519_PUB_KEY  = 'apmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqFRCU0=';
-_td.C25519_PUB_KEY = atob(_td.C25519_PUB_KEY);
-_td.COMP_KEY = 'YGhamvNw4vYjmU3aPhEwnPNWmfhSJP0D2XbU50YADws=';
-_td.COMP_KEY = atob(_td.COMP_KEY);
+_td.C25519_PRIV_KEY = atob('bjsHiad/643YeCeLEjOowGBwUGx8k/beiJS76sHbBt0=');
+_td.C25519_PUB_KEY = atob('apmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqFRCU0=');
+_td.COMP_KEY = atob('YGhamvNw4vYjmU3aPhEwnPNWmfhSJP0D2XbU50YADws=');
 
 /* Constants mainly for the mpenc.greet.ske. */
 
@@ -119,12 +116,9 @@ _td.RSA_PUB_KEY = [[230365881, 209576468, 15544222, 146241808, 252079570,
 //7F36EC4982FD15B4409D18C954F8F6B20083BFB30BFFF8BAFB5DCFEB7495F19";
 //_td.RSA_EXPONENT = 0x10001;
 
-_td.ED25519_PRIV_KEY = 'bDDSqoc56NfaeIWM47kxxbIqiOtXp7v/AwVvdJfiWWrMgd/RMoH7ie'
-                     + 'TQJNvf0RrstXm9yt9HBTji9y/jnIyZ3Q==';
 _td.ED25519_PRIV_KEY = atob('bDDSqoc56NfaeIWM47kxxbIqiOtXp7v/AwVvdJfiWWrMgd/RM'
                             + 'oH7ieTQJNvf0RrstXm9yt9HBTji9y/jnIyZ3Q==');
 _td.ED25519_PUB_KEY = atob('o5YD5+BbKJeAUom3rqOcxGZxAR6FmGgRSRtN/Vv9MUE=');
-
 _td.SIGNATURE = atob('MQrFBnTAWTEiedco5LyxUTg+EXqDZKiZdjo61lF2ugqAUFV7uezdhdqe'
                      + 'yUIp9of6grCek2DCFN6zv1CZfcazN0TYjBRT0jlz6uqVN6k3+838qk'
                      + 'ckptnlWdIouvHnpMRbmCX9kVRruA6gi/9P0n6s2KxCK7I+gDabT4su'
@@ -132,10 +126,7 @@ _td.SIGNATURE = atob('MQrFBnTAWTEiedco5LyxUTg+EXqDZKiZdjo61lF2ugqAUFV7uezdhdqe'
                      + 'CKbO/jb0NDyyDOsjvjHn3foMFrqTgmwdGCThKVy8HHPDWk2BgHjGdD'
                      + 'PJm4U3+/KknqHvykM9QApJiu+imDzH0wuzqj1EH7ifdenjdFp5qH7l'
                      + 'Tfdry3yWOqhykWqA==');
-
-_td.SESSION_ID = 'tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=';
-_td.SESSION_ID = atob(_td.SESSION_ID);
-
+_td.SESSION_ID = atob('tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=');
 _td.STATIC_PUB_KEY_DIR = {
     'get': function(key) { return _td.RSA_PUB_KEY; }
 };
