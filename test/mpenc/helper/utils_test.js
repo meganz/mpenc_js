@@ -118,6 +118,33 @@ define([
             });
         });
 
+        describe('constTimeStringCmp()', function() {
+            it('tests for equality', function() {
+                var tests = [['', ''],
+                             ['\u0000', '\u0000'],
+                             [_td.ED25519_PUB_KEY, _td.ED25519_PUB_KEY],
+                             ["Duck's stuck!", "Duck's Stuck!"],
+                             ['42', '42']];
+                for (var i = 0; i < tests.length; i++) {
+                    assert.ok(ns.constTimeStringCmp(tests[0][0], tests[0][1]),
+                              'case ' + (i + 1));
+                }
+            });
+
+            it('tests for inequality', function() {
+                var tests = [['', '\u0000'],
+                             ['\u0000', '\u0001'],
+                             [_td.ED25519_PUB_KEY, _td.ED25519_PRIV_KEY],
+                             ["Duck's stuck!", "Duck's Stuck"],
+                             ["Duck's stuck", "Duck's Stuck!"],
+                             ['42', '43']];
+                for (var i = 0; i < tests.length; i++) {
+                    assert.notOk(ns.constTimeStringCmp(tests[0][0], tests[0][1]),
+                                 'case ' + (i + 1));
+                }
+            });
+        });
+
         describe('checkInvariants()', function() {
             it('inheritance test', function() {
                 // define invariant functions

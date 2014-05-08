@@ -284,7 +284,7 @@ define([
         var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return (decrypted === hashValue);
+        return utils.constTimeStringCmp(decrypted, hashValue);
     };
 
 

@@ -395,6 +395,30 @@ define([
 
 
     /**
+     * Constant time string comparison of two strings.
+     *
+     * @param str1 {string}
+     *     The first string to be compared against the second.
+     * @param str2 {string}
+     *     The second string to be compared against the first.
+     * @returns
+     *     A true on equality.
+     */
+    ns.constTimeStringCmp = function(str1, str2) {
+        // Compare lengths - can save a lot of time.
+        if (str1.length !== str2.length) {
+            return false;
+        }
+
+        var diff = 0;
+        for (var i = 0, l = str1.length; i < l; i++) {
+            diff |= (str1[i] ^ str2[i]);
+        }
+        return !diff;
+    };
+
+
+    /**
      * (Deep) compares two JavaScript arrays.
      *
      * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
@@ -432,6 +456,7 @@ define([
         return true;
     };
 
+
     /**
      * Check an object's invariants.
      *
@@ -451,6 +476,7 @@ define([
             parent = Object.getPrototypeOf(parent);
         }
     };
+
 
     /**
      * (Deep) compares two JavaScript objects.
