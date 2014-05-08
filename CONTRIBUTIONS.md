@@ -9,9 +9,9 @@ Code Contributions
 ** http://crypto.stanford.edu/sjcl/
 ** File: `sjcl.js`
 ** License: 2-clause BSD license or GNU GPL >= version 2.0
-* Ron Garret's Edwards25519 ECDSA code
-** http://www.flownet.com/ron/code/
-** File: `djbec.js` and `fast-djbec.js`
+* Ron Garret's and Mega's Ed25519 EdDSA code
+** https://github.com/meganz/ed25519js
+** File: `ed25519.js`
 ** License: MIT license
 * Tom Wu's BigInteger implementation
 ** http://www-cs-students.stanford.edu/~tjw/jsbn/
@@ -31,7 +31,3 @@ Code Contributions
 * Artem Vybornov's asmCrypto.js
 ** https://github.com/vibornoff/asmcrypto.js
 ** License: MIT
-
-
-maybe try to use the slightly slower djbec.js instead:
-http://www.flownet.com/ron/code/djbec.js

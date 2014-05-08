@@ -7,8 +7,8 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
     "rsa",
-    "djbec",
-], function(assert, utils, rsa, djbec) {
+    "ed25519",
+], function(assert, utils, rsa, ed25519) {
     "use strict";
 
     /**
@@ -205,14 +205,14 @@ define([
         this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = djbec.bytes2string(utils._newKey08(256));
+        this.nonce = ed25519.bytes2string(utils._newKey08(256));
         this.nonces.push(this.nonce);
         if (!this.ephemeralPrivKey) {
             // Only generate a new key if we don't have one.
             // We might want to recover and just re-run the protocol.
-            this.ephemeralPrivKey = djbec.bytes2string(utils._newKey08(512));
+            this.ephemeralPrivKey = ed25519.bytes2string(utils._newKey08(512));
         }
-        this.ephemeralPubKey = djbec.bytes2string(djbec.publickey(this.ephemeralPrivKey));
+        this.ephemeralPubKey = ed25519.publickey(this.ephemeralPrivKey);
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
 
         // Clone message.

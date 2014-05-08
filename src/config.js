@@ -2,16 +2,13 @@ var requirejs_config_mpenc =
 ({
     paths: {
         "curve255": "../lib/curve255",
-        "djbec": "../lib/djbec",
-        "fdjbec": "../lib/fdjbec",
+        "ed25519": "../lib/ed25519",
         "jsbn": "../lib/jsbn",
         "jsbn2": "../lib/jsbn2",
-        "jsSHA": "../lib/sha512",
         "rsa": "../lib/rsa",
-        "sjcl": "../lib/sjcl",
     },
     shim: {
-        // dependencies that we use directly need to be added here
+        // Dependencies that we use directly need to be added here.
         "curve255": {
             exports: "curve255",
             init: function() {
@@ -22,22 +19,11 @@ var requirejs_config_mpenc =
                 };
             },
         },
-        "djbec": {
-            deps: ["jsSHA", "jsbn", "jsbn2"],
-            exports: "djbec",
-            init: function(jsSHA, jsbn, jsbn2) {
-                // djbec refers to a global "jsSHA" variable, so define it here
-                this.jsSHA = jsSHA;
-                this.djbec = djbec;
-            },
-        },
-        "fdjbec": {
-            deps: ["jsSHA", "jsbn", "jsbn2", "curve255"],
-            exports: "fdjbec",
-            init: function(jsSHA, jsbn, jsbn2, curve255) {
-                // djbec refers to a global "jsSHA" variable, so define it here
-                this.jsSHA = jsSHA;
-                this.fdjbec = fdjbec;
+        "ed25519": {
+            deps: ["jsbn", "jsbn2"],
+            exports: "ed25519",
+            init: function(asmCrypto, jsbn, jsbn2) {
+                this.ed25519 = ed25519;
             },
         },
         "rsa": {
@@ -49,11 +35,5 @@ var requirejs_config_mpenc =
                 };
             },
         },
-        "sjcl": {
-            exports: "sjcl",
-            init: function() {
-                this.sjcl = sjcl;
-            },
-        },
     },
-})
+});

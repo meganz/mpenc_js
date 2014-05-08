@@ -4,9 +4,8 @@
  */
 
 define([
-    "djbec",
-    "sjcl"
-], function(djbec, sjcl) {
+    "ed25519",
+], function(ed25519) {
     "use strict";
 
     /**
@@ -342,7 +341,7 @@ define([
      *     Binary string.
      */
     ns.sha256 = function(data) {
-        return djbec.bytes2string(asmCrypto.SHA256.bytes(data));
+        return ed25519.bytes2string(asmCrypto.SHA256.bytes(data));
     };
 
 

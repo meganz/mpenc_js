@@ -372,7 +372,7 @@ define([
 
     describe("encryptDataMessage()", function() {
         it('null equivalents', function() {
-            var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.encryptDataMessage(tests[i], key), null);
@@ -381,7 +381,7 @@ define([
 
         it('data messages', function() {
             var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
-            var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
@@ -396,7 +396,7 @@ define([
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
-                assert.strictEqual(result.iv, djbec.bytes2string(iv));
+                assert.strictEqual(result.iv, ed25519.bytes2string(iv));
                 assert.strictEqual(btoa(result.data), expected[i]);
             }
         });
@@ -404,8 +404,8 @@ define([
 
     describe("decryptDataMessage()", function() {
         it('null equivalents', function() {
-            var iv = djbec.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
-            var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var iv = ed25519.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
+            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.decryptDataMessage(tests[i], key, iv), null);
@@ -413,8 +413,8 @@ define([
         });
 
         it('data messages', function() {
-            var iv = djbec.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
-            var key = djbec.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var iv = ed25519.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
+            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = ['ZZBBd/VfkkxbQjQnJs2XVw==',
                          'hPZ6wa6Sco8iO4tJUfiQwQ==',
                          'IGX/B9/06eKjM/v2xiXPaA==',
@@ -436,7 +436,7 @@ define([
     describe("encryptDataMessage()/decryptDataMessage()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var key = djbec.bytes2string(utils._newKey08(128));
+                var key = ed25519.bytes2string(utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var encryptResult = ns.encryptDataMessage(message, key);
@@ -464,16 +464,14 @@ define([
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
-            var expected = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHahza0DgAZt9A7wmIsiMwfKodGbikDRorV6i3ANAorUCg==',
-                            'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYnpX+D4XxyUmPuGIg19Lm+xl1Jz5YaYVfRvW7GWtA4iDA==',
-                            'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40YrOHOQlNP7tgMZNIH7WNPNoZsln4CKuKOJPiIVABS3LCA==',
-                            'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNULI/k3/rh0HMaYNzOHL0rAgWa0s85LjeH8IoLrkoyiFCw==',
-                            '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa79u2bg3awNqNncdICIlzZJbLtxJvd9wzGalgaJWMARDw==',
-                            'kqboV9HDTE2LDzaWUQti+t7cqfE9+EE33vEoZbYT15NX9CifbPouEDeTNkc8fvhPRx/SN4Jlsm+hE/fS8RpjCA=='];
+            var expected = ['0Xq2R0hMtNtwIKYgpxjwRT8YX4WzrKmpCykfzccNivR1bjJNazoumk1hNq1vwL5OZZ4FazKiBcs8p94JlYRtDA==',
+                            'SoI+R/PV5E4P0yUA+Vs8RF4+2jcMkBTRgoQ+pKhVupvFRPUVpmbwcYgUJVugjUxUiaXGHn0R/+uwgDr/ji1gBA==',
+                            '2eq4dk+NgJoNV8rfK6VxteUpOLZnCVpMlmcgThzPpKL3+TiBS3rBZzhgVFzvRTtgmyQM1IUSDdo1QYdl9cjLAQ==',
+                            'cKReL7bmTcen2LXLtnJlzmSbshOGeyL8rYskKUgKq3+26daLXh+JEmnRSmNCLngtL8KbPZ5LDIaH4v6Siv1ACQ==',
+                            'PNhKNQSxV8DstGtRrd+fbw4BXGdXfX+BFFizGAhpiS4JVgZmSa7fxNpk4jV999Ilzm+7doEZSm6Ifb5l5a0fBQ==',
+                            'zqpYaxlpefe+0d/tu+9p7qc4qdT1f75ejAtDs/R6jYLFCafvZiAvY/QFhdAPML5Gl4h355xg8w8v6QI8IvIHDQ=='];
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signDataMessage(tests[i],
-                                                _td.ED25519_PRIV_KEY,
-                                                _td.ED25519_PUB_KEY);
+                var result = ns.signDataMessage(tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
         });
@@ -486,16 +484,15 @@ define([
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
-            var signatures = ['WM25YKP1V5rsbnwSKe7SMpN4RW8FfX7oKWXbv8MhYHahza0DgAZt9A7wmIsiMwfKodGbikDRorV6i3ANAorUCg==',
-                              'Dvr8GE1EfDSmFJV0tGmKPyqi3gDs5zzEmJ+TUOymPYnpX+D4XxyUmPuGIg19Lm+xl1Jz5YaYVfRvW7GWtA4iDA==',
-                              'ylBpM83w+x0Fo6MUcJZ9sBceVEr6Y97Dn3VV/fM40YrOHOQlNP7tgMZNIH7WNPNoZsln4CKuKOJPiIVABS3LCA==',
-                              'Y9H9ShhipxQlySmQ8b9r93Dqwdp+oZyAUShk2O4kNULI/k3/rh0HMaYNzOHL0rAgWa0s85LjeH8IoLrkoyiFCw==',
-                              '3VcrJCQwmEZgfW54CndYONaCkzDOE6I+A2PmsHRqCa79u2bg3awNqNncdICIlzZJbLtxJvd9wzGalgaJWMARDw==',
-                              'kqboV9HDTE2LDzaWUQti+t7cqfE9+EE33vEoZbYT15NX9CifbPouEDeTNkc8fvhPRx/SN4Jlsm+hE/fS8RpjCA=='];
+            var signatures = ['0Xq2R0hMtNtwIKYgpxjwRT8YX4WzrKmpCykfzccNivR1bjJNazoumk1hNq1vwL5OZZ4FazKiBcs8p94JlYRtDA==',
+                              'SoI+R/PV5E4P0yUA+Vs8RF4+2jcMkBTRgoQ+pKhVupvFRPUVpmbwcYgUJVugjUxUiaXGHn0R/+uwgDr/ji1gBA==',
+                              '2eq4dk+NgJoNV8rfK6VxteUpOLZnCVpMlmcgThzPpKL3+TiBS3rBZzhgVFzvRTtgmyQM1IUSDdo1QYdl9cjLAQ==',
+                              'cKReL7bmTcen2LXLtnJlzmSbshOGeyL8rYskKUgKq3+26daLXh+JEmnRSmNCLngtL8KbPZ5LDIaH4v6Siv1ACQ==',
+                              'PNhKNQSxV8DstGtRrd+fbw4BXGdXfX+BFFizGAhpiS4JVgZmSa7fxNpk4jV999Ilzm+7doEZSm6Ifb5l5a0fBQ==',
+                              'zqpYaxlpefe+0d/tu+9p7qc4qdT1f75ejAtDs/R6jYLFCafvZiAvY/QFhdAPML5Gl4h355xg8w8v6QI8IvIHDQ=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyDataMessage(tests[i],
-                                               atob(signatures[i]),
-                                               _td.ED25519_PUB_KEY));
+                assert.ok(ns.verifyDataMessage(tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
+                          'case ' + (i + 1));
             }
         });
 
@@ -522,8 +519,8 @@ define([
     describe("signDataMessage()/verifyDataMessage()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var privKey = djbec.bytes2string(utils._newKey08(512));
-                var pubKey = djbec.bytes2string(djbec.publickey(privKey));
+                var privKey = ed25519.bytes2string(utils._newKey08(512));
+                var pubKey = ed25519.publickey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var signature = ns.signDataMessage(message, privKey, pubKey);

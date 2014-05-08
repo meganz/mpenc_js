@@ -144,7 +144,7 @@ define([
                 var nonces = ['3333', '1111', '2222', '4444', '5555'];
 
                 sandbox.stub(utils, 'sha256', _echo);
-                sandbox.stub(djbec, 'bytes2string', _echo);
+                sandbox.stub(ed25519, 'bytes2string', _echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');
             });
@@ -328,6 +328,7 @@ define([
                 assert.deepEqual(message.members, members);
                 assert.lengthOf(message.nonces, 1);
                 assert.lengthOf(message.pubKeys, 1);
+                assert.ok(ed25519.isoncurve(participant.ephemeralPubKey));
             });
 
             it('upflow on completed upflow, too many nonces', function() {

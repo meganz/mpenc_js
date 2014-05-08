@@ -8,8 +8,8 @@ define([
     "mpenc/messages",
     "mpenc/helper/utils",
     "mpenc/version",
-    "djbec",
-], function(assert, messages, utils, version, djbec) {
+    "ed25519",
+], function(assert, messages, utils, version, ed25519) {
     "use strict";
 
     /**
@@ -518,13 +518,13 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        var keyBytes = new Uint8Array(djbec.string2bytes(key));
+        var keyBytes = new Uint8Array(ed25519.string2bytes(key));
         var ivBytes = new Uint8Array(utils._newKey08(128));
         // Protect multi-byte characters.
         var dataBytes = unescape(encodeURIComponent(data));
         var cipherBytes = asmCrypto.AES_CBC.encrypt(dataBytes, keyBytes, true, ivBytes);
-        return { data: djbec.bytes2string(cipherBytes),
-                 iv: djbec.bytes2string(ivBytes) };
+        return { data: ed25519.bytes2string(cipherBytes),
+                 iv: ed25519.bytes2string(ivBytes) };
     };
 
 
@@ -546,11 +546,11 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        var keyBytes = new Uint8Array(djbec.string2bytes(key));
-        var ivBytes = new Uint8Array(djbec.string2bytes(iv));
+        var keyBytes = new Uint8Array(ed25519.string2bytes(key));
+        var ivBytes = new Uint8Array(ed25519.string2bytes(iv));
         var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
         // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(djbec.bytes2string(clearBytes)));
+        return decodeURIComponent(escape(ed25519.bytes2string(clearBytes)));
     };
 
 
@@ -573,10 +573,7 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-
-        var pubKeyBytes = djbec.string2bytes(pubKey);
-        var signatureBytes = djbec.signature(data, privKey, pubKeyBytes);
-        return djbec.bytes2string(signatureBytes);
+        return ed25519.signature(data, privKey, pubKey);
     };
 
 
@@ -599,10 +596,7 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-
-        var pubKeyBytes = djbec.string2bytes(pubKey);
-        var signatureBytes = djbec.string2bytes(signature);
-        return signatureBytes = djbec.checksig(signatureBytes, data, pubKeyBytes);
+        return ed25519.checksig(signature, data, pubKey);
     };
 
 
@@ -618,16 +612,6 @@ define([
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
     };
-
-
-//    ns.test = function() {
-//        dump(djbec.sig_test('msg','key'));
-//        dump(djbec.sig_test('foo','baz'));
-//        dump(djbec.sig_test());
-//        dump(djbec.dh_test());
-//    };
-
-
 
     return ns;
 });

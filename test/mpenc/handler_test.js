@@ -58,7 +58,7 @@ define([
         if (!message) {
             return null;
         }
-        return atob(message.substring(_PROTO_STRING.length, message.length -1));
+        return atob(message.substring(_PROTO_STRING.length, message.length - 1));
     }
 
     function _getPayload(message, senderParticipant) {
