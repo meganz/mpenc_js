@@ -277,11 +277,17 @@ define([
                 var index = out.members.indexOf(out.source);
                 pubKey = out.pubKeys[index];
             }
-            out.signatureOk = ns.verifyDataMessage(out.rawMessage,
-                                                   out.signature,
-                                                   pubKey);
-            _assert(out.signatureOk,
-                    'Signature of message does not verify!');
+            try {
+                out.signatureOk = ns.verifyDataMessage(out.rawMessage,
+                                                       out.signature,
+                                                       pubKey);
+                _assert(out.signatureOk,
+                        'Signature of message does not verify!');
+            } catch (e) {
+                out.signatureOk = false;
+                _assert(out.signatureOk,
+                        'Signature of message does not verify: ' + e + '!');
+            }
         }
 
         _assert(out.protocol === version.PROTOCOL_VERSION,

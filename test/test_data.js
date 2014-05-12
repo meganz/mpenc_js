@@ -116,16 +116,15 @@ _td.RSA_PUB_KEY = [[230365881, 209576468, 15544222, 146241808, 252079570,
 //7F36EC4982FD15B4409D18C954F8F6B20083BFB30BFFF8BAFB5DCFEB7495F19";
 //_td.RSA_EXPONENT = 0x10001;
 
-_td.ED25519_PRIV_KEY = atob('bDDSqoc56NfaeIWM47kxxbIqiOtXp7v/AwVvdJfiWWrMgd/RM'
-                            + 'oH7ieTQJNvf0RrstXm9yt9HBTji9y/jnIyZ3Q==');
-_td.ED25519_PUB_KEY = atob('EDL92rX1mELtcwJ088x4XyWcQyQZ6NgLAftmn8yb1YM=');
-_td.SIGNATURE = atob('LqJkBMhnI62aUQRaaHKhI83JyArSDaXJFmij+tNF9y7lxSQwz2LiqoWH'
-                     + 'zLGwpOqmD1Sgs+YrAIJp4KORni6bo58qqVSwPz/VbAmRQyGxuaTcl2'
-                     + 'jqKLqerVjzTh39T1EYwNZL8bxZj8BoL32xIkuZhibhvOrGxUt68MR2'
-                     + '8yDdLQVZqawrY+hN3hgLIO22jp6TGlMx32jlP4pPTFHyq1XuaMyrn4'
-                     + 'A7kLKG4vEBFQSTOr08VGHojs0vKH/4tp6rHXylbv7p8oMMx8AbP9GL'
-                     + 'AeemsPRiYnK1HiduGk1DF5KHbwElVkgklASpGedhId03luZAkedX4J'
-                     + 'R84S3KuESZvXjsuA==');
+_td.ED25519_PRIV_KEY = atob('bDDSqoc56NfaeIWM47kxxbIqiOtXp7v/AwVvdJfiWWr=');
+_td.ED25519_PUB_KEY = atob('h115tJ66YIVwnv35VAI99LRSX7nwVE5o2AOZz+sQEgA=');
+_td.SIGNATURE = atob('S0HqdYkW2VTn02TIDY2fg/YaxKWh4M0TGXeZGMYL3WcL7Cj/LQXaaJti'
+                     + 'VcF9+19zcYYdClld+0zYasCubl/2lnjkYqNaN2lkYcx98nMZXiahvp'
+                     + 'm6f9JY/tF3xOnqYzo/ZHeV83zgnNqX8x1HrqRlIpHsGFYp/TioJDyw'
+                     + 'C4MhPcoWiNc3jGi5YCjCztdaf3aguQSfRK3eZ/Yjv0D2sTa/oZ1v34'
+                     + '8g6gMlACPHiXKMg8mvOWQzMurBgBwoQh69PqpS2+lWb/DJwWiTNOeT'
+                     + '1B2v2sqqMTXNPF/4K58smyUUREbE3iGaPovnUz7qqwFMI6p5NoDO31'
+                     + '9SVu6EXg9LF4vS8Q==');
 _td.SESSION_ID = atob('tmfwrDEJQq2dGb+yv1OVC6SIPOdqaEwju1J9++G/fJ8=');
 _td.STATIC_PUB_KEY_DIR = {
     'get': function(key) { return _td.RSA_PUB_KEY; }
@@ -134,14 +133,14 @@ _td.STATIC_PUB_KEY_DIR = {
 /* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
-_td.UPFLOW_MESSAGE_STRING = atob('AAMAQCMhGI9aTMKlNF2aqFWqwN/xddsdB/xWhfi3Kfu'
-                                 + 'w/LNozWpVAeAOAUIjjxAtOBlihgp8905bR6WOnHfI'
-                                 + 'IcE3gQUAAQABAQEAAAExAQEAATIBAgABAAEDAAExA'
+_td.UPFLOW_MESSAGE_STRING = atob('AAMAQCG+pvmA/SX2/GNk3qkmWQgrEIc3BniawboqrTr'
+                                 + 'Hk/jiP0sLrnpUaTGi3uUiO4Qf5ERyXUv39KLBaUjj'
+                                 + '+BKMIAoAAQABAQEAAAExAQEAATIBAgABAAEDAAExA'
                                  + 'QMAATIBAwABMwEDAAE0AQMAATUBAwABNgEEAAABBA'
                                  + 'AgapmKOMPxie1bZGNgUSoTlXxNh9+T7TSzO18YfqF'
                                  + 'RCU0BBQAgapmKOMPxie1bZGNgUSoTlXxNh9+T7TSz'
-                                 + 'O18YfqFRCU0BBgAgEDL92rX1mELtcwJ088x4XyWcQ'
-                                 + 'yQZ6NgLAftmn8yb1YM=');
+                                 + 'O18YfqFRCU0BBgAgh115tJ66YIVwnv35VAI99LRSX'
+                                 + '7nwVE5o2AOZz+sQEgA=');
 _td.UPFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '2',
@@ -161,18 +160,17 @@ _td.DOWNFLOW_MESSAGE_CONTENT = {
     flow: 'downflow',
     signingKey: _td.ED25519_PRIV_KEY,
 };
-_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQOYZQKMS4zuoT8OeQhsOLsrvbSN5So4twpwKJE'
-                                   + 'Wc5yQ4uMYza4jIgmmd7XlB9hxYhJEETHCoxKAmCl'
-                                   + 'BPZ9KKuQwAAQABAQEAAAExAQEAAAECAAEBAQgAQG'
+_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQI+4+ywTxMQ5giEPU55Div9oWfr5IJdDXwP3rT'
+                                   + 'HrBjyoa6mj2nZDedMdnQpZR9wPfGaCTQjq4FQ6PO'
+                                   + 'dAwUl9nA4AAQABAQEAAAExAQEAAAECAAEBAQgAIG'
                                    + 'ww0qqHOejX2niFjOO5McWyKojrV6e7/wMFb3SX4l'
-                                   + 'lqzIHf0TKB+4nk0CTb39Ea7LV5vcrfRwU44vcv45'
-                                   + 'yMmd0=');
+                                   + 'lq');
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
-_td.DATA_MESSAGE_STRING = atob('AAMAQP6VJ5FAlGZ4s2CYA5GvFT+0eyvtMOzUoWrG2zzW4O'
-                               + 'A2wMm9k8VMx4FozfLc4qcK26Up1SClCHCgz+2rf10mgg'
-                               + 'MAAQABAQAEABAjCqj12RkWXa9KUmTmLaa3AAIAEPRldg'
-                               + 'uOvOpPICwWUhzApic=');
+_td.DATA_MESSAGE_STRING = atob('AAMAQBbZH7g8RwA5uBY5jpCZEfq1uswpMy19w3u3mYYgVx'
+                               + 'kgZUDkHhInbpcPkzg2Y+LMIIuF+gNq+QJm6KiLWZt7vw'
+                               + 'EAAQABAQAEABCOz5FOWLlL1lqToMcPR+FdAAIAEPtZnp'
+                               + 'dMqulL8kJ6D+pHRW4=');
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',

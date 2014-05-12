@@ -205,12 +205,12 @@ define([
         this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = ed25519.bytes2string(utils._newKey08(256));
+        this.nonce = ed25519.genkeyseed();
         this.nonces.push(this.nonce);
         if (!this.ephemeralPrivKey) {
             // Only generate a new key if we don't have one.
             // We might want to recover and just re-run the protocol.
-            this.ephemeralPrivKey = ed25519.bytes2string(utils._newKey08(512));
+            this.ephemeralPrivKey = ed25519.genkeyseed();
         }
         this.ephemeralPubKey = ed25519.publickey(this.ephemeralPrivKey);
         this.ephemeralPubKeys.push(this.ephemeralPubKey);

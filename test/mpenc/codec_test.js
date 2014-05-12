@@ -287,7 +287,7 @@ define([
                 assert.throws(function() { ns.decodeMessageContent(message,
                                                                    _td.GROUP_KEY,
                                                                    _td.ED25519_PUB_KEY); },
-                              'Signature of message does not verify!');
+                              'Signature of message does not verify');
             });
         });
     });
@@ -464,12 +464,12 @@ define([
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
-            var expected = ['0Xq2R0hMtNtwIKYgpxjwRT8YX4WzrKmpCykfzccNivR1bjJNazoumk1hNq1vwL5OZZ4FazKiBcs8p94JlYRtDA==',
-                            'SoI+R/PV5E4P0yUA+Vs8RF4+2jcMkBTRgoQ+pKhVupvFRPUVpmbwcYgUJVugjUxUiaXGHn0R/+uwgDr/ji1gBA==',
-                            '2eq4dk+NgJoNV8rfK6VxteUpOLZnCVpMlmcgThzPpKL3+TiBS3rBZzhgVFzvRTtgmyQM1IUSDdo1QYdl9cjLAQ==',
-                            'cKReL7bmTcen2LXLtnJlzmSbshOGeyL8rYskKUgKq3+26daLXh+JEmnRSmNCLngtL8KbPZ5LDIaH4v6Siv1ACQ==',
-                            'PNhKNQSxV8DstGtRrd+fbw4BXGdXfX+BFFizGAhpiS4JVgZmSa7fxNpk4jV999Ilzm+7doEZSm6Ifb5l5a0fBQ==',
-                            'zqpYaxlpefe+0d/tu+9p7qc4qdT1f75ejAtDs/R6jYLFCafvZiAvY/QFhdAPML5Gl4h355xg8w8v6QI8IvIHDQ=='];
+            var expected = ['qwg/Nzcb6AEiR+WqucUW8va25gsM9hUgPwjC30vCF6efLs4YLxR1q6Kb8P9tv3UNalMrvNjlQQozJj/kSuzxCg==',
+                            'qoNzsVnE/WcWQ6zSdX6DbeTZTV9tpwkYstsz0t7KPVlD/+eShkO6uk3qeFzpDRksWDIdGcMd6IPOksuU20zIBg==',
+                            'gii/JMll7l1g8WpD/7RcjtNa00mBw7ROHt8SE525whOkbKBGqAPRaJlBZt3OK7af/q2XXSy8WMr6XkYOE1YCBw==',
+                            'J4xfKuVWO5UmhXdIgEVbSJQjRmIXfiuk2rAsi2mkqjr7EgBYDreMPP+98A9QiMmbv1XkPkJWvZWcYOibdLC4Dw==',
+                            '5AbtC83XmwqjVXFYVnzma7U7RlAUVCKN4WTPyI7hxXIi8xHo7cUTQt50KssNQF0Hd6yt0jdGpgPGA7nOoXM8Ag==',
+                            'kMZ8Rr4gLmJbSmaPr8TSNU9uennVwR1a+1spkRfyGqLHvmnBS5BFAadG3dAmij2+4nRgIF3NQJtL7efES1nrBA=='];
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.signDataMessage(tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
@@ -484,12 +484,12 @@ define([
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
-            var signatures = ['0Xq2R0hMtNtwIKYgpxjwRT8YX4WzrKmpCykfzccNivR1bjJNazoumk1hNq1vwL5OZZ4FazKiBcs8p94JlYRtDA==',
-                              'SoI+R/PV5E4P0yUA+Vs8RF4+2jcMkBTRgoQ+pKhVupvFRPUVpmbwcYgUJVugjUxUiaXGHn0R/+uwgDr/ji1gBA==',
-                              '2eq4dk+NgJoNV8rfK6VxteUpOLZnCVpMlmcgThzPpKL3+TiBS3rBZzhgVFzvRTtgmyQM1IUSDdo1QYdl9cjLAQ==',
-                              'cKReL7bmTcen2LXLtnJlzmSbshOGeyL8rYskKUgKq3+26daLXh+JEmnRSmNCLngtL8KbPZ5LDIaH4v6Siv1ACQ==',
-                              'PNhKNQSxV8DstGtRrd+fbw4BXGdXfX+BFFizGAhpiS4JVgZmSa7fxNpk4jV999Ilzm+7doEZSm6Ifb5l5a0fBQ==',
-                              'zqpYaxlpefe+0d/tu+9p7qc4qdT1f75ejAtDs/R6jYLFCafvZiAvY/QFhdAPML5Gl4h355xg8w8v6QI8IvIHDQ=='];
+            var signatures = ['qwg/Nzcb6AEiR+WqucUW8va25gsM9hUgPwjC30vCF6efLs4YLxR1q6Kb8P9tv3UNalMrvNjlQQozJj/kSuzxCg==',
+                              'qoNzsVnE/WcWQ6zSdX6DbeTZTV9tpwkYstsz0t7KPVlD/+eShkO6uk3qeFzpDRksWDIdGcMd6IPOksuU20zIBg==',
+                              'gii/JMll7l1g8WpD/7RcjtNa00mBw7ROHt8SE525whOkbKBGqAPRaJlBZt3OK7af/q2XXSy8WMr6XkYOE1YCBw==',
+                              'J4xfKuVWO5UmhXdIgEVbSJQjRmIXfiuk2rAsi2mkqjr7EgBYDreMPP+98A9QiMmbv1XkPkJWvZWcYOibdLC4Dw==',
+                              '5AbtC83XmwqjVXFYVnzma7U7RlAUVCKN4WTPyI7hxXIi8xHo7cUTQt50KssNQF0Hd6yt0jdGpgPGA7nOoXM8Ag==',
+                              'kMZ8Rr4gLmJbSmaPr8TSNU9uennVwR1a+1spkRfyGqLHvmnBS5BFAadG3dAmij2+4nRgIF3NQJtL7efES1nrBA=='];
             for (var i = 0; i < tests.length; i++) {
                 assert.ok(ns.verifyDataMessage(tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                           'case ' + (i + 1));

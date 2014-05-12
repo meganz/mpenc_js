@@ -375,7 +375,7 @@ define([
                 for (var i = 0; i < numMembers - 1; i++) {
                     message = participants[i].upflow(message);
                     assert.deepEqual(participants[i].members, members);
-                    assert.strictEqual(_tu.keyBits(participants[i].ephemeralPrivKey, 8), 512);
+                    assert.strictEqual(_tu.keyBits(participants[i].ephemeralPrivKey, 8), 256);
                     assert.strictEqual(_tu.keyBits(participants[i].ephemeralPubKey, 8), 256);
                     assert.strictEqual(message.flow, 'upflow');
                     assert.lengthOf(message.pubKeys, i + 1);
@@ -391,7 +391,7 @@ define([
                 participants[lastid].staticPrivKey = _td.RSA_PRIV_KEY;
                 message = participants[lastid].upflow(message);
                 assert.deepEqual(participants[lastid].members, members);
-                assert.strictEqual(_tu.keyBits(participants[lastid].ephemeralPrivKey, 8), 512);
+                assert.strictEqual(_tu.keyBits(participants[lastid].ephemeralPrivKey, 8), 256);
                 assert.strictEqual(_tu.keyBits(participants[lastid].ephemeralPubKey, 8), 256);
                 assert.deepEqual(participants[lastid].authenticatedMembers,
                                  [false, false, false, false, true]);
@@ -426,7 +426,7 @@ define([
                 participant.staticPrivKey = _td.RSA_PRIV_KEY;
                 var message = participant.upflow(startMessage);
                 assert.deepEqual(participant.members, message.members);
-                assert.strictEqual(_tu.keyBits(participant.ephemeralPrivKey, 8), 512);
+                assert.strictEqual(_tu.keyBits(participant.ephemeralPrivKey, 8), 256);
                 assert.strictEqual(_tu.keyBits(participant.ephemeralPubKey, 8), 256);
                 assert.deepEqual(participant.authenticatedMembers,
                                  [false, false, false, false, false, true]);
