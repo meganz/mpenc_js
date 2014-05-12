@@ -13,6 +13,7 @@ var requirejs_config_mpenc =
             exports: "curve255",
             init: function() {
                 this.curve255 = {
+                    c255lhexdecode: c255lhexdecode,
                     curve25519: curve25519,
                     base32decode: c255lbase32decode,
                     base32encode: c255lbase32encode,
@@ -20,7 +21,7 @@ var requirejs_config_mpenc =
             },
         },
         "ed25519": {
-            deps: ["jsbn", "jsbn2"],
+            deps: ["jsbn", "jsbn2", "curve255"],
             exports: "ed25519",
             init: function(asmCrypto, jsbn, jsbn2) {
                 this.ed25519 = ed25519;
@@ -36,4 +37,4 @@ var requirejs_config_mpenc =
             },
         },
     },
-});
+})
