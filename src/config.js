@@ -5,7 +5,6 @@ var requirejs_config_mpenc =
         "ed25519": "../lib/ed25519",
         "jsbn": "../lib/jsbn",
         "jsbn2": "../lib/jsbn2",
-        "rsa": "../lib/rsa",
     },
     shim: {
         // Dependencies that we use directly need to be added here.
@@ -25,15 +24,6 @@ var requirejs_config_mpenc =
             exports: "ed25519",
             init: function(asmCrypto, jsbn, jsbn2) {
                 this.ed25519 = ed25519;
-            },
-        },
-        "rsa": {
-            exports: "rsa",
-            init: function() {
-                return this.rsa = {
-                    RSAencrypt: RSAencrypt,
-                    RSAdecrypt: RSAdecrypt,
-                };
             },
         },
     },

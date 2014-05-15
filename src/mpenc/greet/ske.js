@@ -6,9 +6,8 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
-    "rsa",
     "ed25519",
-], function(assert, utils, rsa, ed25519) {
+], function(assert, utils, ed25519) {
     "use strict";
 
     /**
@@ -255,7 +254,8 @@ define([
         var sessionAck = MAGIC_NUMBER + this.id + this.ephemeralPubKey
                        + this.nonce + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return ns._smallrsasign(hashValue, this.staticPrivKey);
+        return ed25519.signature(hashValue, this.staticPrivKey,
+                                 this.staticPubKeyDir.get(this.id));
     };
 
 
@@ -279,12 +279,11 @@ define([
                 "Member's ephemeral pub key missing.");
         _assert(this.staticPubKeyDir.get(memberId),
                 "Member's static pub key missing.");
-        var decrypted = ns._smallrsaverify(signature,
-                                           this.staticPubKeyDir.get(memberId));
         var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return utils.constTimeStringCmp(decrypted, hashValue);
+        return ed25519.checksig(signature, hashValue,
+                                this.staticPubKeyDir.get(memberId));
     };
 
 
@@ -532,173 +531,7 @@ define([
 
 
     /**
-     * Converts a (binary) string to a multi-precision integer (MPI).
-     *
-     * @param binstring
-     *     Binary string representation of data.
-     * @returns
-     *     MPI representation.
-     */
-    ns._binstring2mpi = function(binstring) {
-        var contentLength = binstring.length * 8;
-        var data = String.fromCharCode(contentLength >> 8)
-                 + String.fromCharCode(contentLength & 255) + binstring;
-        return mpi2b(data);
-    };
-
-
-    /**
-     * Converts a multi-precision integer (MPI) to a (binary) string.
-     *
-     * @param mpi
-     *     MPI representation.
-     * @returns
-     *     Binary string representation of data.
-     */
-    ns._mpi2binstring = function(mpi) {
-        return b2mpi(mpi).slice(2);
-    };
-
-    /**
-     * Encodes the message according to the EME-PKCS1-V1_5 encoding scheme in
-     * RFC 2437, section 9.1.2.
-     *
-     * see: http://tools.ietf.org/html/rfc2437#section-9.1.2
-     *
-     * @param message
-     *     Message to encode.
-     * @param length
-     *     Destination length of the encoded message in bytes.
-     * @returns
-     *     Encoded message as binary string.
-     */
-    ns._pkcs1v15_encode = function(message, length) {
-        _assert(message.length < length - 10,
-                'message too long for encoding scheme');
-
-        // Padding string.
-        var paddingString = '';
-        var paddingLength = length - message.length - 2;
-        var paddingByte = new Uint8Array(1);
-        asmCrypto.getRandomValues(paddingByte);
-        for (var i = 0; i < paddingLength; i++) {
-            while (paddingByte[0] === 0) {
-                asmCrypto.getRandomValues(paddingByte);
-            }
-            paddingString += String.fromCharCode(paddingByte[0]);
-        }
-
-        return String.fromCharCode(2) + paddingString + String.fromCharCode(0) + message;
-    };
-
-
-    /**
-     * Decodes the message according to the EME-PKCS1-V1_5 encoding scheme in
-     * RFC 2437, section 9.1.2.
-     *
-     * see: http://tools.ietf.org/html/rfc2437#section-9.1.2
-     *
-     * @param message
-     *     Message to decode.
-     * @returns
-     *     Decoded message as binary string.
-     */
-    ns._pkcs1v15_decode = function(message) {
-        _assert(message.length > 10, 'message decoding error');
-        return message.slice(message.indexOf(String.fromCharCode(0)) + 1);
-    };
-
-
-    /**
-     * Encrypts a binary string using an RSA public key. The data to be encrypted
-     * must be encryptable <em>directly</em> using the key.
-     *
-     * For secure random padding, the max. size of message = key size in bytes - 10.
-     *
-     * @param cleartext
-     *     Cleartext to encrypt.
-     * @param pubkey
-     *     Public RSA key.
-     * @returns
-     *     Ciphertext encoded as binary string.
-     */
-    ns._smallrsaencrypt = function(cleartext, pubkey) {
-        // pubkey[2] is length of key in bits.
-        var keyLength = pubkey[2] >> 3;
-
-        // Convert to MPI format and return cipher as binary string.
-        var data = ns._binstring2mpi(ns._pkcs1v15_encode(cleartext, keyLength));
-        return ns._mpi2binstring(rsa.RSAencrypt(data, pubkey[1], pubkey[0]));
-    };
-
-
-    /**
-     * Decrypts a binary string using an RSA private key. The data to be decrypted
-     * must be decryptable <em>directly</em> using the key.
-     *
-     * @param ciphertext
-     *     Ciphertext to decrypt.
-     * @param privkey
-     *     Private RSA key.
-     * @returns
-     *     Cleartext encoded as binary string.
-     */
-    ns._smallrsadecrypt = function(ciphertext, privkey) {
-        var cleartext = rsa.RSAdecrypt(ns._binstring2mpi(ciphertext),
-                                       privkey[2], privkey[0], privkey[1], privkey[3]);
-        var data = ns._mpi2binstring(cleartext);
-        return ns._pkcs1v15_decode(data);
-    };
-
-
-    /**
-     * Encrypts a binary string using an RSA private key for the purpose of signing
-     * (authenticating). The data to be encrypted must be decryptable
-     * <em>directly</em> using the key.
-     *
-     * For secure random padding, the max. size of message = key size in bytes - 10.
-     *
-     * @param cleartext
-     *     Message to encrypt.
-     * @param privkey
-     *     Private RSA key.
-     * @returns
-     *     Encrypted message encoded as binary string.
-     */
-    ns._smallrsasign = function(cleartext, privkey) {
-        var keyLength = (privkey[2].length * 28 - 1) >> 5 << 2;
-
-        // Convert to MPI format and return cipher as binary string.
-        var data = ns._pkcs1v15_encode(cleartext, keyLength);
-        // Decrypt ciphertext.
-        var cipher = rsa.RSAdecrypt(ns._binstring2mpi(data),
-                                    privkey[2], privkey[0], privkey[1], privkey[3]);
-        return ns._mpi2binstring(cipher);
-    };
-
-
-    /**
-     * Encrypts a binary string using an RSA public key. The data to be encrypted
-     * must be encryptable <em>directly</em> using the key.
-     *
-     * @param ciphertext
-     *     Ciphertext to encrypt.
-     * @param pubkey
-     *     Public RSA key.
-     * @returns
-     *     Cleartext encoded as binary string.
-     */
-    ns._smallrsaverify = function(ciphertext, pubkey) {
-        // Convert to MPI format and return cleartext as binary string.
-        var data = ns._binstring2mpi(ciphertext);
-        var cleartext = ns._mpi2binstring(rsa.RSAencrypt(data, pubkey[1], pubkey[0]));
-        return ns._pkcs1v15_decode(cleartext);
-    };
-
-
-    /**
-     * Encrypts a binary string using an RSA public key. The data to be encrypted
-     * must be encryptable <em>directly</em> using the key.
+     * Computes the session ID..
      *
      * @param members
      *     Members participating in protocol.

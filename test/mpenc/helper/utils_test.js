@@ -92,6 +92,22 @@ define([
             });
         });
 
+//        describe('sha1()', function() {
+//            it('hash some values', function() {
+//                var values = ['42', "Don't panic!", 'Flying Spaghetti Monster',
+//                              "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
+//                var expected = ['',
+//                                '',
+//                                '',
+//                                ''];
+//                for (var i = 0; i < values.length; i++) {
+//                    var result = ns.sha1(values[i]);
+//                    dump('***', btoa(result));
+////                    assert.strictEqual(result, atob(expected[i]));
+//                }
+//            });
+//        });
+
         describe('hex2bytearray()', function() {
             it('simple conversion test', function() {
                 var values = ['477579', '61339391d56552dad72495a71a47b0f11ba3ebaf'];

@@ -47,85 +47,6 @@ define([
     });
 
     describe("module level", function() {
-        describe('_binstring2mpi()', function() {
-            it('convert message to MPI representation', function() {
-                var messages = ['foo', 'The answer is 42!'];
-                var expected = [[6713199],
-                                [3420705, 33986354, 58156402, 33953511, 5531749]];
-                for (var i = 0; i < messages.length; i++) {
-                    var result = ns._binstring2mpi(messages[i]);
-                    assert.deepEqual(result, expected[i]);
-                }
-            });
-        });
-
-        describe('_mpi2binstring()', function() {
-            it('convert message from MPI representation', function() {
-                var messages = [[6713199],
-                                [3420705, 33986354, 58156402, 33953511, 5531749]];
-                var expected = ['foo', 'The answer is 42!'];
-                for (var i = 0; i < messages.length; i++) {
-                    var result = ns._mpi2binstring(messages[i]);
-                    assert.strictEqual(result, expected[i]);
-                }
-            });
-        });
-
-        describe('_pkcs1v15_encode()', function() {
-            it('convert message to PKCS#1 v1.5 encoding', function() {
-                var messages = ['foo', 'Klaatu barada nikto.', _td.SESSION_ID];
-                for (var i = 0; i < messages.length; i++) {
-                    var result = ns._pkcs1v15_encode(messages[i], 256);
-                    assert.lengthOf(result, 256);
-                }
-            });
-
-            it('encoding fail on too big message', function() {
-                var message = ns._mpi2binstring(_td.RSA_PUB_KEY[0]);
-                assert.throws(function() { ns._pkcs1v15_encode(message, 256); },
-                              'message too long for encoding scheme');
-            });
-        });
-
-        describe('_pkcs1v15_decode()', function() {
-            it('decoding fail on too small message', function() {
-                assert.throws(function() { ns._pkcs1v15_decode('foo'); },
-                              'message decoding error');
-            });
-        });
-
-        describe('_pkcs1v15_encode()/_pkcs1v15_decode()', function() {
-            it('roundtrip convert message with PKCS#1 v1.5 encoding', function() {
-                var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
-                for (var i = 0; i < messages.length; i++) {
-                    var result = ns._pkcs1v15_decode(ns._pkcs1v15_encode(messages[i], 256));
-                    assert.strictEqual(result, messages[i]);
-                }
-            });
-        });
-
-        describe('_smallrsaencrypt()/_smallrsadecrypt()', function() {
-            it('RSA encryption and decryption round trip', function() {
-                var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
-                for (var i = 0; i < messages.length; i++) {
-                    var cipher = ns._smallrsaencrypt(messages[i], _td.RSA_PUB_KEY);
-                    var clear = ns._smallrsadecrypt(cipher, _td.RSA_PRIV_KEY);
-                    assert.strictEqual(clear, messages[i]);
-                }
-            });
-        });
-
-        describe('_smallrsaensign()/_smallrsaverify()', function() {
-            it('RSA signing and verification round trip', function() {
-                var messages = ['foo', 'The answer is 42!', _td.SESSION_ID];
-                for (var i = 0; i < messages.length; i++) {
-                    var cipher = ns._smallrsasign(messages[i], _td.RSA_PRIV_KEY);
-                    var clear = ns._smallrsaverify(cipher, _td.RSA_PUB_KEY);
-                    assert.strictEqual(clear, messages[i]);
-                }
-            });
-        });
-
         describe('_computeSid()', function() {
             it('compute SID', function() {
                 var members = ['3', '1', '2', '4', '5'];
@@ -190,14 +111,13 @@ define([
         describe('#_computeSessionSig() method', function() {
             it('sign something', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 participant.sessionId = _td.SESSION_ID;
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var signature = participant._computeSessionSig();
-                assert.ok(_tu.keyBits(signature, 8) <= 2048);
-                assert.ok(_tu.keyBits(signature, 8) >= 2040);
-                assert.strictEqual(_tu.keyBits(ns._smallrsaverify(signature, _td.RSA_PUB_KEY), 8), 256);
+                assert.strictEqual(signature, _td.SIGNATURE);
             });
         });
 
@@ -205,7 +125,7 @@ define([
             it('verification fail on invalid member', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant.sessionId = _td.SESSION_ID;
                 participant.ephemeralPubKeys = [];
@@ -221,7 +141,7 @@ define([
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKeys = [];
                 for (var i = 0; i < 5; i++) {
                     participant.ephemeralPubKeys.push(_td.ED25519_PUB_KEY);
@@ -234,7 +154,7 @@ define([
             it('verification fail on missing ephemeral key', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant.sessionId = _td.SESSION_ID;
                 participant.ephemeralPubKeys = [];
@@ -246,7 +166,7 @@ define([
             it('verification fail on missing static key', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant.sessionId = _td.SESSION_ID;
                 participant.ephemeralPubKeys = [];
@@ -261,7 +181,7 @@ define([
             it('verify a signature', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = ['1', '2', '3', '4', '5'];
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.sessionId = _td.SESSION_ID;
                 participant.ephemeralPubKeys = [];
                 participant.nonces = [];
@@ -280,7 +200,8 @@ define([
                 participant1.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant1.sessionId = _td.SESSION_ID;
                 participant1.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant1.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant1.staticPrivKey = _td.ED25519_PRIV_KEY;
+                participant1.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var signature = participant1._computeSessionSig();
                 var participant3 = new ns.SignatureKeyExchangeMember('3');
                 participant3.sessionId = _td.SESSION_ID;
@@ -300,6 +221,7 @@ define([
         describe('#upflow() method', function() {
             it('upflow duplicates in member list', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['3', '1', '2', '3', '4', '5', '6'];
                 var startMessage = new ns.SignatureKeyExchangeMessage();
                 startMessage.members = members;
@@ -309,6 +231,7 @@ define([
 
             it('upflow not in member list', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['2', '3', '4', '5', '6'];
                 var startMessage = new ns.SignatureKeyExchangeMessage();
                 startMessage.members = members;
@@ -318,6 +241,7 @@ define([
 
             it('upflow, for initiator', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var startMessage = new ns.SignatureKeyExchangeMessage('1', '',
                                                                       'upflow',
@@ -333,6 +257,7 @@ define([
 
             it('upflow on completed upflow, too many nonces', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                                  'upflow',
@@ -348,6 +273,7 @@ define([
 
             it('upflow on completed upflow, too many nonces', function() {
                 var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                                  'upflow',
@@ -367,7 +293,9 @@ define([
                 var participants = [];
                 for (var i = 1; i <= numMembers; i++) {
                     members.push(i.toString());
-                    participants.push(new ns.SignatureKeyExchangeMember(i.toString()));
+                    var participant = new ns.SignatureKeyExchangeMember(i.toString());
+                    participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
+                    participants.push(participant);
                 }
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
                                                                  'upflow',
@@ -388,7 +316,7 @@ define([
 
                 // The last member behaves differently.
                 var lastid = numMembers - 1;
-                participants[lastid].staticPrivKey = _td.RSA_PRIV_KEY;
+                participants[lastid].staticPrivKey = _td.ED25519_PRIV_KEY;
                 message = participants[lastid].upflow(message);
                 assert.deepEqual(participants[lastid].members, members);
                 assert.strictEqual(_tu.keyBits(participants[lastid].ephemeralPrivKey, 8), 256);
@@ -403,8 +331,7 @@ define([
                 assert.strictEqual(message.source, members[lastid]);
                 assert.strictEqual(message.dest, '');
                 assert.strictEqual(_tu.keyBits(participants[lastid].sessionId, 8), 256);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) >= 2040);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
+                assert.lengthOf(message.sessionSignature, 64);
             });
 
             it('upflow after a join', function() {
@@ -423,7 +350,8 @@ define([
 
                 var participant = new ns.SignatureKeyExchangeMember('6');
                 participant.members = utils.clone(members);
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var message = participant.upflow(startMessage);
                 assert.deepEqual(participant.members, message.members);
                 assert.strictEqual(_tu.keyBits(participant.ephemeralPrivKey, 8), 256);
@@ -438,8 +366,7 @@ define([
                 assert.lengthOf(message.nonces, 6);
                 assert.strictEqual(_tu.keyBits(message.nonces[5], 8), 256);
                 assert.strictEqual(_tu.keyBits(participant.sessionId, 8), 256);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) >= 2040);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
+                assert.lengthOf(message.sessionSignature, 64);
             });
         });
 
@@ -456,7 +383,7 @@ define([
             it('downflow, failed authentication', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
@@ -479,7 +406,7 @@ define([
             it('downflow, still unacknowledged', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
@@ -497,14 +424,13 @@ define([
                 assert.deepEqual(participant.authenticatedMembers,
                                  [true, false, true, false, false]);
                 assert.ok(newMessage !== null);
-                assert.ok(_tu.keyBits(newMessage.sessionSignature, 8) <= 2048);
-                assert.ok(_tu.keyBits(newMessage.sessionSignature, 8) >= 2040);
+                assert.lengthOf(message.sessionSignature, 64);
             });
 
             it('downflow, already acknowledged', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
@@ -619,7 +545,8 @@ define([
                 participant.nonces = [];
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant.staticPrivKey = _td.RSA_PRIV_KEY;
+                participant.staticPrivKey = _td.ED25519_PRIV_KEY;
+                participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 participant.ephemeralPubKeys = [];
                 participant.authenticatedMembers = [];
                 for (var i = 0; i < members.length; i++) {
@@ -644,8 +571,7 @@ define([
                 assert.strictEqual(message.flow, 'downflow');
                 assert.lengthOf(message.nonces, 3);
                 assert.lengthOf(message.pubKeys, 3);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) >= 2040);
-                assert.ok(_tu.keyBits(message.sessionSignature, 8) <= 2048);
+                assert.lengthOf(message.sessionSignature, 64);
             });
         });
 
@@ -738,7 +664,7 @@ define([
                 for (var i = 1; i <= numMembers; i++) {
                     members.push(i.toString());
                     var newMember = new ns.SignatureKeyExchangeMember(i.toString());
-                    newMember.staticPrivKey = _td.RSA_PRIV_KEY;
+                    newMember.staticPrivKey = _td.ED25519_PRIV_KEY;
                     newMember.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                     participants.push(newMember);
                 }
@@ -790,7 +716,7 @@ define([
                 for (var i = 0; i < newMembers.length; i++) {
                     var newMember = new ns.SignatureKeyExchangeMember(newMembers[i]);
                     newMember.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
-                    newMember.staticPrivKey = _td.RSA_PRIV_KEY;
+                    newMember.staticPrivKey = _td.ED25519_PRIV_KEY;
                     participants.push(newMember);
                 }
 

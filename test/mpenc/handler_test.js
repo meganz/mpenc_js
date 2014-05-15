@@ -85,18 +85,18 @@ define([
     describe("ProtocolHandler class", function() {
         describe('constructor', function() {
             it('fails for missing params', function() {
-                assert.throws(function() { new ns.ProtocolHandler('42', _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY); },
+                assert.throws(function() { new ns.ProtocolHandler('42', _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY); },
                               "Constructor call missing required parameters.");
             });
 
             it('just make an instance', function() {
                 var handler = new ns.ProtocolHandler('42',
-                                                     _td.RSA_PRIV_KEY,
-                                                     _td.RSA_PUB_KEY,
+                                                     _td.ED25519_PRIV_KEY,
+                                                     _td.ED25519_PUB_KEY,
                                                      _td.STATIC_PUB_KEY_DIR);
                 assert.strictEqual(handler.id, '42');
                 assert.ok(handler.staticPubKeyDir.get('3'));
-                assert.deepEqual(handler.askeMember.staticPrivKey, _td.RSA_PRIV_KEY);
+                assert.deepEqual(handler.askeMember.staticPrivKey, _td.ED25519_PRIV_KEY);
                 assert.ok(handler.askeMember.staticPubKeyDir);
                 assert.ok(handler.cliquesMember);
             });
@@ -105,7 +105,7 @@ define([
         describe('#_mergeMessages() method', function() {
             it('fail for mismatching senders', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = {source: '1', dest: '2', agreement: 'ika', flow: 'upflow',
                                       members: ['1', '2', '3', '4', '5', '6'], intKeys: null};
@@ -118,7 +118,7 @@ define([
 
             it('fail for mismatching receivers', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = {source: '1', dest: '2', agreement: 'ika', flow: 'upflow',
                                       members: ['1', '2', '3', '4', '5', '6'], intKeys: null};
@@ -131,7 +131,7 @@ define([
 
             it('merge the messages', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = {source: '1', dest: '2', agreement: 'ika', flow: 'upflow',
                                       members: ['1', '2', '3', '4', '5', '6'], intKeys: null};
@@ -152,7 +152,7 @@ define([
 
             it('merge the messages for ASKE only', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var askeMessage = {source: '3', dest: '', flow: 'downflow',
                                    members: ['1', '2', '3', '4', '5', '6'],
@@ -172,7 +172,7 @@ define([
 
             it('merge the messages for CLIQUES only', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = {source: '1', dest: '', agreement: 'aka', flow: 'downflow',
                                       members: ['1', '2', '3', '4', '5'], intKeys: null};
@@ -187,7 +187,7 @@ define([
 
             it('merge the messages for final case (no messages)', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = participant._mergeMessages(null, undefined);
                 assert.strictEqual(message, null);
@@ -209,7 +209,7 @@ define([
                 };
 
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var compare = {source: '1', dest: '2', agreement: 'ika', flow: 'upflow',
                                members: ['1', '2', '3', '4', '5', '6'], intKeys: null};
@@ -239,7 +239,7 @@ define([
                 };
 
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var compare = {source: '1', dest: '2', flow: 'upflow',
                                members: ['1', '2', '3', '4', '5', '6'],
@@ -258,7 +258,7 @@ define([
 
             it('auxilliary downflow case for a quit', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY, _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var compare = {source: '1', dest: '', flow: 'downflow',
                                signingKey: _td.ED25519_PRIV_KEY};
@@ -273,8 +273,8 @@ define([
         describe('#_start() method', function() {
             it('start/initiate a group session', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 sandbox.spy(participant.cliquesMember, 'ika');
                 sandbox.spy(participant.askeMember, 'commit');
@@ -291,8 +291,8 @@ define([
         describe('#start() method', function() {
             it('start/initiate a group session', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: "I'm puttin' the band back together!",
                                dest: 'elwood@blues.org/ios1234'};
@@ -312,8 +312,8 @@ define([
 
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.INIT_UPFLOW,
                                      ns.STATE.INIT_DOWNFLOW,
@@ -331,8 +331,8 @@ define([
         describe('#_join() method', function() {
             it('join empty member list', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 assert.throws(function() { participant._join([]); },
                               'No members to add.');
@@ -340,8 +340,8 @@ define([
 
             it('add members to group', function() {
                 var participant = new ns.ProtocolHandler('1',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaJoin = sinon_spy();
                 participant.askeMember.join = sinon_spy();
@@ -358,8 +358,8 @@ define([
         describe('#join() method', function() {
             it('add members to group', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
                 var message = {message: "I'm puttin' the band back together!",
@@ -380,8 +380,8 @@ define([
 
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.NULL,
                                      ns.STATE.INIT_UPFLOW,
@@ -399,8 +399,8 @@ define([
         describe('#_exclude() method', function() {
             it('exclude empty member list', function() {
                 var participant = new ns.ProtocolHandler('3',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 assert.throws(function() { participant._exclude([]); },
                               'No members to exclude.');
@@ -408,8 +408,8 @@ define([
 
             it('exclude self', function() {
                 var participant = new ns.ProtocolHandler('3',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 assert.throws(function() { participant._exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
@@ -417,8 +417,8 @@ define([
 
             it('exclude members', function() {
                 var participant = new ns.ProtocolHandler('3',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaExclude = sinon_spy();
                 participant.askeMember.exclude = sinon_spy();
@@ -434,8 +434,8 @@ define([
         describe('#exclude() method', function() {
             it('exclude members', function() {
                 var participant = new ns.ProtocolHandler('a.dumbledore@hogwarts.ac.uk/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
                 var message = {message: "You're fired!",
@@ -456,8 +456,8 @@ define([
 
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.NULL,
                                      ns.STATE.INIT_UPFLOW,
@@ -473,8 +473,8 @@ define([
 
             it('exclude last peer', function() {
                 var participant = new ns.ProtocolHandler('chingachgook@mohicans.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
                 participant.members = ['chingachgook@mohicans.org/android123',
@@ -501,8 +501,8 @@ define([
         describe('#_quit() method', function() {
             it('not a member any more', function() {
                 var participant = new ns.ProtocolHandler('3',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 assert.throws(function() { participant._quit(); },
                               'Not participating.');
@@ -510,8 +510,8 @@ define([
 
             it('simple test', function() {
                 var participant = new ns.ProtocolHandler('Peter',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 sandbox.spy(participant.askeMember, 'quit');
@@ -528,8 +528,8 @@ define([
         describe('#quit() method', function() {
             it('simple test', function() {
                 var participant = new ns.ProtocolHandler('Peter@genesis.co.uk/android4711',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.INITIALISED;
                 var message = {signingKey: 'Sledge Hammer',
@@ -551,8 +551,8 @@ define([
 
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.NULL,
                                      ns.STATE.INIT_UPFLOW,
@@ -570,8 +570,8 @@ define([
         describe('#_refresh() method', function() {
             it('refresh own private key using aka', function() {
                 var participant = new ns.ProtocolHandler('3',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant._mergeMessages = stub().returns(null);
                 participant.cliquesMember.akaRefresh = sinon_spy();
@@ -585,8 +585,8 @@ define([
         describe('#refresh() method', function() {
             it('refresh own private key using aka', function() {
                 var participant = new ns.ProtocolHandler('dj.jazzy.jeff@rapper.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.INITIALISED;
                 var message = {message: "Fresh Prince",
@@ -607,8 +607,8 @@ define([
 
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var illegalStates = [ns.STATE.NULL,
                                      ns.STATE.INIT_UPFLOW,
@@ -624,8 +624,8 @@ define([
         describe('#fullRefresh() method', function() {
             it('refresh all using ika', function() {
                 var participant = new ns.ProtocolHandler('Earth',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_UPFLOW;
                 var members = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
@@ -657,8 +657,8 @@ define([
         describe('#recover() method', function() {
             it('simplest recover', function() {
                 var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_DOWNFLOW;
                 sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
@@ -670,8 +670,8 @@ define([
 
             it('full recover', function() {
                 var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_UPFLOW;
                 sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(false);
@@ -683,8 +683,8 @@ define([
 
             it('recover with members to keep', function() {
                 var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_UPFLOW;
                 var message = {message: "You're dead!",
@@ -720,8 +720,8 @@ define([
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
                                 sessionSignature: null };
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
@@ -754,8 +754,8 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
                 var participant = new ns.ProtocolHandler('5',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.NULL;
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
@@ -783,8 +783,8 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
                 var participant = new ns.ProtocolHandler('2',
-                                                       _td.RSA_PRIV_KEY,
-                                                       _td.RSA_PUB_KEY,
+                                                       _td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INIT_UPFLOW;
                 sandbox.spy(participant.cliquesMember, 'upflow');
@@ -811,8 +811,8 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
                 var participant = new ns.ProtocolHandler('2',
-                                                       _td.RSA_PRIV_KEY,
-                                                       _td.RSA_PUB_KEY,
+                                                       _td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INIT_DOWNFLOW;
                 sandbox.spy(participant.cliquesMember, 'upflow');
@@ -835,8 +835,8 @@ define([
 
             it('processing for a downflow quit message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                       _td.RSA_PRIV_KEY,
-                                                       _td.RSA_PUB_KEY,
+                                                       _td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
@@ -849,8 +849,8 @@ define([
         describe('#send() method', function() {
             it('send a message confidentially', function() {
                 var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.groupKey = _td.COMP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
@@ -868,8 +868,8 @@ define([
 
             it('on uninitialised state', function() {
                 var participant = new ns.ProtocolHandler('kenny@southpark.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INIT_DOWNFLOW;
                 assert.throws(function() { participant.send('Wassup?'); },
@@ -880,8 +880,8 @@ define([
         describe('#sendTo() method', function() {
             it('send a directed message confidentially', function() {
                 var participant = new ns.ProtocolHandler('jennifer@rush.com/android123',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.groupKey = _td.COMP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
@@ -901,8 +901,8 @@ define([
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
                                from: 'kiri@singer.org.nz/waiata42'};
@@ -923,8 +923,8 @@ define([
 
             it('on error message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: '?mpENC Error:Hatschi!',
                                from: 'common@cold.govt.nz/flu2'};
@@ -939,8 +939,8 @@ define([
 
             it('on keying message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var groupKey = _td.COMP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
@@ -963,8 +963,8 @@ define([
 
             it('on data message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
                 var groupKey = _td.COMP_KEY.substring(0, 16);
@@ -991,8 +991,8 @@ define([
 
             it('on data message, invalid signature', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.INITIALISED;
                 var groupKey = _td.COMP_KEY.substring(0, 16);
@@ -1015,8 +1015,8 @@ define([
 
             it('on query message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
@@ -1027,8 +1027,8 @@ define([
 
             it('on quit message', function() {
                 var participant = new ns.ProtocolHandler('2',
-                                                         _td.RSA_PRIV_KEY,
-                                                         _td.RSA_PUB_KEY,
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
@@ -1045,8 +1045,8 @@ define([
                 for (var i = 1; i <= numMembers; i++) {
                     members.push(i.toString());
                     var newMember = new ns.ProtocolHandler(i.toString(),
-                                                           _td.RSA_PRIV_KEY,
-                                                           _td.RSA_PUB_KEY,
+                                                           _td.ED25519_PRIV_KEY,
+                                                           _td.ED25519_PUB_KEY,
                                                            _td.STATIC_PUB_KEY_DIR);
                     participants.push(newMember);
                 }
@@ -1127,8 +1127,8 @@ define([
                 members = members.concat(newMembers);
                 for (var i = 0; i < newMembers.length; i++) {
                     var newMember = new ns.ProtocolHandler(newMembers[i],
-                                                           _td.RSA_PRIV_KEY,
-                                                           _td.RSA_PUB_KEY,
+                                                           _td.ED25519_PRIV_KEY,
+                                                           _td.ED25519_PUB_KEY,
                                                            _td.STATIC_PUB_KEY_DIR);
                     participants.push(newMember);
                 }
@@ -1414,8 +1414,8 @@ define([
                 for (var i = 1; i <= numMembers; i++) {
                     members.push(i.toString());
                     var newMember = new ns.ProtocolHandler(i.toString(),
-                                                           _td.RSA_PRIV_KEY,
-                                                           _td.RSA_PUB_KEY,
+                                                           _td.ED25519_PRIV_KEY,
+                                                           _td.ED25519_PUB_KEY,
                                                            _td.STATIC_PUB_KEY_DIR);
                     participants.push(newMember);
                 }
