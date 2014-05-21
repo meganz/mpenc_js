@@ -25,10 +25,11 @@ define([
     "mpenc/codec",
     "mpenc/version",
     "mpenc/helper/utils",
+    "asmcrypto",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, asmCrypto, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;

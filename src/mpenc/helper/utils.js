@@ -4,8 +4,9 @@
  */
 
 define([
+    "asmcrypto",
     "ed25519",
-], function(ed25519) {
+], function(asmCrypto, ed25519) {
     "use strict";
 
     /**
