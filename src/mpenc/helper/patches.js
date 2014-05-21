@@ -53,9 +53,9 @@ define([
             var value = key[i];
             var remainder = 0;
             for (var j = 0; j < 4; j++) {
-                remainder = value % 16;
-                out = utils._HEX_CHARS[remainder % 0x0f] + out;
-                value = value >> 4;
+                remainder = value & 0x0f;
+                out = utils._HEX_CHARS[remainder & 0x0f] + out;
+                value = value >>> 4;
             }
         }
         return out;
@@ -73,7 +73,7 @@ define([
      */
     curve255.fromHex = function(key) {
         var out = [];
-        var padding = 4 - ((key.length % 4) || 4);
+        var padding = 4 - ((key.length & 3) || 4);
         for (var i = 0; i < padding; i++) {
             key = '0' + key;
         }
@@ -81,7 +81,7 @@ define([
         while (i < key.length) {
             var value = 0;
             for (var j = 0; j < 4; j++) {
-                value = (value << 4) + utils._HEX_CHARS.indexOf(key[i + j]);
+                value = (value << 4) | utils._HEX_CHARS.indexOf(key[i + j]);
             }
             out.unshift(value);
             i += 4;
@@ -105,9 +105,9 @@ define([
             var value = key[i];
             var remainder = 0;
             for (var j = 0; j < 2; j++) {
-                remainder = value % 256;
+                remainder = value & 0xff;
                 out = String.fromCharCode(remainder) + out;
-                value = value >> 8;
+                value = value >>> 8;
             }
         }
         return out;
@@ -126,11 +126,11 @@ define([
     curve255.fromString = function(key) {
         var out = [];
         var i = 0;
-        if (key.length % 2) {
+        if (key.length & 1) {
             key = '\u0000' + key;
         }
         while (i < key.length) {
-            out.unshift(key.charCodeAt(i) * 256 + key.charCodeAt(i + 1));
+            out.unshift((key.charCodeAt(i) << 8) | key.charCodeAt(i + 1));
             i += 2;
         }
         return out;
