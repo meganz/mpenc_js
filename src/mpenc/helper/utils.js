@@ -334,6 +334,53 @@ define([
 
 
     /**
+     * Converts an 16-bit word element (unsigned) array a binary string representation.
+     *
+     * @param key
+     *     The key as an 16-bit word element (unsigned) integer array.
+     * @returns
+     *     Binary string representation of key (big endian).
+     * @private
+     */
+    ns.shortarray2bytestr = function(key) {
+        var out = '';
+        for (var i = 0; i < key.length; i++) {
+            var value = key[i];
+            var remainder = 0;
+            for (var j = 0; j < 2; j++) {
+                remainder = value % 256;
+                out = String.fromCharCode(remainder) + out;
+                value = value >> 8;
+            }
+        }
+        return out;
+    };
+
+
+    /**
+     * Converts a binary string to a 16-bit word element (unsigned) array representation.
+     *
+     * @param key
+     *     Binary string representation of key (big endian).
+     * @returns
+     *     The key as an 16-bit word element (unsigned) integer array.
+     * @private
+     */
+    ns.bytestr2shortarray = function(key) {
+        var out = [];
+        var i = 0;
+        if (key.length % 2) {
+            key = '\u0000' + key;
+        }
+        while (i < key.length) {
+            out.unshift(key.charCodeAt(i) * 256 + key.charCodeAt(i + 1));
+            i += 2;
+        }
+        return out;
+    };
+
+
+    /**
      * Returns a binary string representation of the SHA-256 hash function.
      *
      * @param data
