@@ -6,9 +6,10 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
+    "asmcrypto",
     "rsa",
     "ed25519",
-], function(assert, utils, rsa, ed25519) {
+], function(assert, utils, asmCrypto, rsa, ed25519) {
     "use strict";
 
     /**

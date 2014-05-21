@@ -5,10 +5,9 @@
 
 define([
     "mpenc/helper/assert",
-    "mpenc/helper/patches",
     "mpenc/helper/utils",
     "curve255"
-], function(assert, patches, utils, curve255) {
+], function(assert, utils, curve255) {
     "use strict";
 
     /**
@@ -389,7 +388,7 @@ define([
         }
 
         // Make a new private key.
-        this.privKey = curve255.toString(utils._newKey16(256));
+        this.privKey = utils.shortarray2bytestr(utils._newKey16(256));
         this.privKeyId++;
         this.keyTimestamp = Math.round(Date.now() / 1000);
         if (this._debugPrivKey) {
@@ -482,12 +481,12 @@ define([
     ns._scalarMultiply = function(privKey, intKey) {
         var value = null;
         if (intKey) {
-            value = curve255.curve25519(curve255.fromString(privKey),
-                                        curve255.fromString(intKey));
+            value = curve255.curve25519(utils.bytestr2shortarray(privKey),
+                                        utils.bytestr2shortarray(intKey));
         } else {
-            value = curve255.curve25519(curve255.fromString(privKey));
+            value = curve255.curve25519(utils.bytestr2shortarray(privKey));
         }
-        return curve255.toString(value);
+        return utils.shortarray2bytestr(value);
     };
 
 

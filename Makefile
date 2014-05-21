@@ -1,9 +1,17 @@
+# build directory
+BUILDDIR = build
+
+# libraries to omit when building mpenc-partial.js
+PARTIAL_OMIT = asmcrypto curve255 jsbn jsbn2 rsa ed25519
+
+# set to none for a non-minified build, for easier debugging
+OPTIMIZE = uglify
+
 KARMA  = ./node_modules/.bin/karma
 JSDOC  = ./node_modules/.bin/jsdoc
 R_JS   = ./node_modules/.bin/r.js
 ALMOND = ./node_modules/almond/almond
-
-BUILDDIR = build
+R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND) wrap.startFile=almond.0 wrap.endFile=almond.1
 
 all: test build-test
 
@@ -15,17 +23,32 @@ api-doc: $(JSDOC)
                  --configure jsdoc.json \
                  --recurse src/
 
-$(BUILDDIR)/build-config.js: src/config.js
+$(BUILDDIR)/build-config-full.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
 	tail -n+2 "$<" > "$@"
 
-build: $(R_JS) $(BUILDDIR)/build-config.js
-	$(R_JS) -o $(BUILDDIR)/build-config.js out="$(BUILDDIR)/mpenc.js" \
-	    baseUrl=src name=../$(ALMOND) include=mpenc \
-	    wrap.startFile=almond.0 wrap.endFile=almond.1 optimize=none
+$(BUILDDIR)/build-config-partial.js: src/config.js Makefile
+	mkdir -p $(BUILDDIR)
+	tail -n+2 "$<" > "$@.tmp"
+	for i in $(PARTIAL_OMIT); do \
+		sed -i -e "s,lib/$$i\",build/$$i-dummy\"," "$@.tmp"; \
+		touch $(BUILDDIR)/$$i-dummy.js; \
+	done
+	mv "$@.tmp" "$@"
 
-build-test: compile-test.js build
-	./$< ./$(BUILDDIR)/mpenc.js
+build-full: $(R_JS) $(BUILDDIR)/build-config-full.js
+	$(R_JS) -o $(BUILDDIR)/build-config-full.js out="$(BUILDDIR)/mpenc-full.js" \
+	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=$(OPTIMIZE)
+
+build-partial: $(R_JS) $(BUILDDIR)/build-config-partial.js
+	$(R_JS) -o $(BUILDDIR)/build-config-partial.js out="$(BUILDDIR)/mpenc-partial.js" \
+	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=$(OPTIMIZE)
+
+build-test-full: test/build-test-full.js build-full
+	./$< ../$(BUILDDIR)/mpenc-full.js
+
+build-test-partial: test/build-test-partial.js build-partial
+	./$< ../$(BUILDDIR)/mpenc-partial.js $(PARTIAL_OMIT)
 
 $(KARMA) $(JSDOC) $(R_JS):
 	npm install
@@ -33,4 +56,5 @@ $(KARMA) $(JSDOC) $(R_JS):
 clean:
 	rm -rf doc/api/ coverage/ build/
 
-.PHONY: test api-doc build clean
+.PHONY: test api-doc clean
+.PHONY: build-full build-partial build-test-full build-test-partial

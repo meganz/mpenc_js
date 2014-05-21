@@ -8,8 +8,9 @@ define([
     "mpenc/messages",
     "mpenc/helper/utils",
     "mpenc/version",
+    "asmcrypto",
     "ed25519",
-], function(assert, messages, utils, version, ed25519) {
+], function(assert, messages, utils, version, asmCrypto, ed25519) {
     "use strict";
 
     /**
