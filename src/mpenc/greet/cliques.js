@@ -277,7 +277,6 @@ define([
             this.intKeys = [];
             this._debugIntKeys = [];
             this.privKey = null;
-            this.pubKey = null;
         }
     };
 
