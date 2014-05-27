@@ -134,6 +134,30 @@ define([
             });
         });
 
+        describe('shortarray2bytestr', function() {
+            it('simple conversion test', function() {
+                var values = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
+                              [25187, 97], []];
+                var expected = ['Slartibartfast', '\u0000abc', ''];
+                for (var i = 0; i < values.length; i++) {
+                    var result = ns.shortarray2bytestr(values[i]);
+                    assert.strictEqual(result, expected[i]);
+                }
+            });
+        });
+
+        describe('bytestr2shortarray', function() {
+            it('simple conversion test', function() {
+                var values = ['Slartibartfast', '\u0000abc', 'abc', ''];
+                var expected = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
+                                [25187, 97], [25187, 97], []];
+                for (var i = 0; i < values.length; i++) {
+                    var result = ns.bytestr2shortarray(values[i]);
+                    assert.deepEqual(result, expected[i]);
+                }
+            });
+        });
+
         describe('constTimeStringCmp()', function() {
             it('tests for equality', function() {
                 var tests = [['', ''],

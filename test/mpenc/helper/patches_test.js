@@ -24,7 +24,8 @@
 define([
     "mpenc/helper/patches",
     "chai",
-], function(ns, chai) {
+    "curve255",
+], function(ns, chai, curve255) {
     "use strict";
 
     var assert = chai.assert;
