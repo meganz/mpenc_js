@@ -5,8 +5,8 @@
 
 define([
     "asmcrypto",
-    "ed25519",
-], function(asmCrypto, ed25519) {
+    "jodid25519",
+], function(asmCrypto, jodid25519) {
     "use strict";
 
     /**
@@ -389,7 +389,7 @@ define([
      *     Binary string.
      */
     ns.sha256 = function(data) {
-        return ed25519.bytes2string(asmCrypto.SHA256.bytes(data));
+        return jodid25519.eddsa.bytes2string(asmCrypto.SHA256.bytes(data));
     };
 
 
@@ -402,7 +402,7 @@ define([
      *     Binary string.
      */
     ns.sha1 = function(data) {
-        return ed25519.bytes2string(asmCrypto.SHA1.bytes(data));
+        return jodid25519.eddsa.bytes2string(asmCrypto.SHA1.bytes(data));
     };
 
 

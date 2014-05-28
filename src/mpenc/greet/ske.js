@@ -6,8 +6,8 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
-    "ed25519",
-], function(assert, utils, ed25519) {
+    "jodid25519",
+], function(assert, utils, jodid25519) {
     "use strict";
 
     /**
@@ -204,14 +204,14 @@ define([
         this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = ed25519.genkeyseed();
+        this.nonce = jodid25519.eddsa.genkeyseed();
         this.nonces.push(this.nonce);
         if (!this.ephemeralPrivKey) {
             // Only generate a new key if we don't have one.
             // We might want to recover and just re-run the protocol.
-            this.ephemeralPrivKey = ed25519.genkeyseed();
+            this.ephemeralPrivKey = jodid25519.eddsa.genkeyseed();
         }
-        this.ephemeralPubKey = ed25519.publickey(this.ephemeralPrivKey);
+        this.ephemeralPubKey = jodid25519.eddsa.publickey(this.ephemeralPrivKey);
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
 
         // Clone message.
@@ -254,8 +254,8 @@ define([
         var sessionAck = MAGIC_NUMBER + this.id + this.ephemeralPubKey
                        + this.nonce + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return ed25519.signature(hashValue, this.staticPrivKey,
-                                 this.staticPubKeyDir.get(this.id));
+        return jodid25519.eddsa.signature(hashValue, this.staticPrivKey,
+                                          this.staticPubKeyDir.get(this.id));
     };
 
 
@@ -282,8 +282,8 @@ define([
         var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return ed25519.checksig(signature, hashValue,
-                                this.staticPubKeyDir.get(memberId));
+        return jodid25519.eddsa.checksig(signature, hashValue,
+                                         this.staticPubKeyDir.get(memberId));
     };
 
 

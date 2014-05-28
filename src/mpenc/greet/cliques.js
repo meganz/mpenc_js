@@ -6,8 +6,8 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
-    "curve255"
-], function(assert, utils, curve255) {
+    "jodid25519"
+], function(assert, utils, jodid25519) {
     "use strict";
 
     /**
@@ -478,14 +478,11 @@ define([
      * @private
      */
     ns._scalarMultiply = function(privKey, intKey) {
-        var value = null;
         if (intKey) {
-            value = curve255.curve25519(utils.bytestr2shortarray(privKey),
-                                        utils.bytestr2shortarray(intKey));
+            return jodid25519.dh.curve25519(privKey, intKey);
         } else {
-            value = curve255.curve25519(utils.bytestr2shortarray(privKey));
+            return jodid25519.dh.curve25519(privKey);
         }
-        return utils.shortarray2bytestr(value);
     };
 
 

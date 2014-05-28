@@ -25,11 +25,12 @@ define([
     "mpenc/codec",
     "mpenc/version",
     "mpenc/helper/utils",
+    "jodid25519",
     "asmcrypto",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, asmCrypto, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
@@ -373,7 +374,7 @@ define([
 
     describe("encryptDataMessage()", function() {
         it('null equivalents', function() {
-            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var key = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.encryptDataMessage(tests[i], key), null);
@@ -382,7 +383,7 @@ define([
 
         it('data messages', function() {
             var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
-            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var key = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
@@ -397,7 +398,7 @@ define([
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
-                assert.strictEqual(result.iv, ed25519.bytes2string(iv));
+                assert.strictEqual(result.iv, jodid25519.eddsa.bytes2string(iv));
                 assert.strictEqual(btoa(result.data), expected[i]);
             }
         });
@@ -405,8 +406,8 @@ define([
 
     describe("decryptDataMessage()", function() {
         it('null equivalents', function() {
-            var iv = ed25519.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
-            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var iv = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
+            var key = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.decryptDataMessage(tests[i], key, iv), null);
@@ -414,8 +415,8 @@ define([
         });
 
         it('data messages', function() {
-            var iv = ed25519.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
-            var key = ed25519.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var iv = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
+            var key = jodid25519.eddsa.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
             var tests = ['ZZBBd/VfkkxbQjQnJs2XVw==',
                          'hPZ6wa6Sco8iO4tJUfiQwQ==',
                          'IGX/B9/06eKjM/v2xiXPaA==',
@@ -437,7 +438,7 @@ define([
     describe("encryptDataMessage()/decryptDataMessage()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var key = ed25519.bytes2string(utils._newKey08(128));
+                var key = jodid25519.eddsa.bytes2string(utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var encryptResult = ns.encryptDataMessage(message, key);
@@ -520,8 +521,8 @@ define([
     describe("signDataMessage()/verifyDataMessage()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var privKey = ed25519.bytes2string(utils._newKey08(512));
-                var pubKey = ed25519.publickey(privKey);
+                var privKey = jodid25519.eddsa.bytes2string(utils._newKey08(512));
+                var pubKey = jodid25519.eddsa.publickey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var signature = ns.signDataMessage(message, privKey, pubKey);

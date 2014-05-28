@@ -1,10 +1,10 @@
-# build directory
+# Build directory.
 BUILDDIR = build
 
-# libraries to omit when building mpenc-partial.js
+# Libraries to omit when building mpenc-partial.js.
 PARTIAL_OMIT = asmcrypto curve255 jsbn jsbn2 ed25519
 
-# set to none for a non-minified build, for easier debugging
+# Set to none for a non-minified build, for easier debugging.
 OPTIMIZE = uglify
 
 KARMA  = ./node_modules/.bin/karma
@@ -13,7 +13,7 @@ R_JS   = ./node_modules/.bin/r.js
 ALMOND = ./node_modules/almond/almond
 R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND) wrap.startFile=almond.0 wrap.endFile=almond.1
 
-all: test build-test
+all: test build-full build-test-full
 
 test: $(KARMA)
 	$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
