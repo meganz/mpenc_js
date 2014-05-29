@@ -525,13 +525,13 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        var keyBytes = new Uint8Array(jodid25519.eddsa.string2bytes(key));
+        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
         var ivBytes = new Uint8Array(utils._newKey08(128));
         // Protect multi-byte characters.
         var dataBytes = unescape(encodeURIComponent(data));
         var cipherBytes = asmCrypto.AES_CBC.encrypt(dataBytes, keyBytes, true, ivBytes);
-        return { data: jodid25519.eddsa.bytes2string(cipherBytes),
-                 iv: jodid25519.eddsa.bytes2string(ivBytes) };
+        return { data: jodid25519.utils.bytes2string(cipherBytes),
+                 iv: jodid25519.utils.bytes2string(ivBytes) };
     };
 
 
@@ -553,11 +553,11 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        var keyBytes = new Uint8Array(jodid25519.eddsa.string2bytes(key));
-        var ivBytes = new Uint8Array(jodid25519.eddsa.string2bytes(iv));
+        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
+        var ivBytes = new Uint8Array(jodid25519.utils.string2bytes(iv));
         var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
         // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(jodid25519.eddsa.bytes2string(clearBytes)));
+        return decodeURIComponent(escape(jodid25519.utils.bytes2string(clearBytes)));
     };
 
 
@@ -603,7 +603,7 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        return jodid25519.eddsa.checksig(signature, data, pubKey);
+        return jodid25519.eddsa.checkSig(signature, data, pubKey);
     };
 
 

@@ -35,28 +35,15 @@ define([
     var _echo = function(x) { return x; };
 
     describe("module level", function() {
-        describe('_scalarMultiplyDebug()', function() {
+        describe('_computeKeyDebug()', function() {
             it('should multiply debug with base point if no key given', function() {
-                assert.strictEqual(ns._scalarMultiplyDebug('1'), '1*G');
-                assert.strictEqual(ns._scalarMultiplyDebug('2'), '2*G');
+                assert.strictEqual(ns._computeKeyDebug('1'), '1*G');
+                assert.strictEqual(ns._computeKeyDebug('2'), '2*G');
             });
 
             it('should multiply debug priv key with intermediate key', function() {
-                assert.deepEqual(ns._scalarMultiplyDebug('1', '2*G'), '1*2*G');
-                assert.deepEqual(ns._scalarMultiplyDebug('2', '3*4*5*G'), '2*3*4*5*G');
-            });
-        });
-
-        describe('_scalarMultiply()', function() {
-            it('should multiply with base point if no key given', function() {
-                var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY);
-                assert.strictEqual(compPubKey, _td.C25519_PUB_KEY);
-            });
-
-            it('should multiply priv key with intermediate key', function() {
-                var compPubKey = ns._scalarMultiply(_td.C25519_PRIV_KEY,
-                                                    _td.C25519_PRIV_KEY);
-                assert.strictEqual(compPubKey, _td.COMP_KEY);
+                assert.deepEqual(ns._computeKeyDebug('1', '2*G'), '1*2*G');
+                assert.deepEqual(ns._computeKeyDebug('2', '3*4*5*G'), '2*3*4*5*G');
             });
         });
     });

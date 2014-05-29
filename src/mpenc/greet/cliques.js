@@ -379,10 +379,10 @@ define([
         var myPos = this.members.indexOf(this.id);
         if (this.privKey) {
             // Patch our old private key into intermediate keys.
-            this.intKeys[myPos] = ns._scalarMultiply(this.privKey,
-                                                     this.intKeys[myPos]);
-            this._debugIntKeys[myPos] = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                this._debugIntKeys[myPos]);
+            this.intKeys[myPos] = jodid25519.dh.computeKey(this.privKey,
+                                                           this.intKeys[myPos]);
+            this._debugIntKeys[myPos] = ns._computeKeyDebug(this._debugPrivKey,
+                                                            this._debugIntKeys[myPos]);
             this.privKey = null;
         }
 
@@ -399,19 +399,20 @@ define([
         // Update intermediate keys.
         for (var i = 0; i < this.intKeys.length; i++) {
             if (i !== myPos) {
-                this.intKeys[i] = ns._scalarMultiply(this.privKey,
-                                                     this.intKeys[i]);
-                this._debugIntKeys[i] = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                                this._debugIntKeys[i]);
+                this.intKeys[i] = jodid25519.dh.computeKey(this.privKey,
+                                                           this.intKeys[i]);
+                this._debugIntKeys[i] = ns._computeKeyDebug(this._debugPrivKey,
+                                                            this._debugIntKeys[i]);
             }
         }
 
         // New cardinal is "own" intermediate scalar multiplied with our private.
-        var cardinalKey = ns._scalarMultiply(this.privKey, this.intKeys[myPos]);
+        var cardinalKey = jodid25519.dh.computeKey(this.privKey,
+                                                   this.intKeys[myPos]);
         return {
             cardinalKey: '' + cardinalKey,
-            cardinalDebugKey: ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                      this._debugIntKeys[myPos])
+            cardinalDebugKey: ns._computeKeyDebug(this._debugPrivKey,
+                                                  this._debugIntKeys[myPos])
         };
     };
 
@@ -456,15 +457,15 @@ define([
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;
         this._debugIntKeys = debugKeys;
-        this.groupKey = ns._scalarMultiply(this.privKey,
-                                           this.intKeys[myPos]);
-        this._debugGroupKey = ns._scalarMultiplyDebug(this._debugPrivKey,
-                                                      this._debugIntKeys[myPos]);
+        this.groupKey = jodid25519.dh.computeKey(this.privKey,
+                                                 this.intKeys[myPos]);
+        this._debugGroupKey = ns._computeKeyDebug(this._debugPrivKey,
+                                                  this._debugIntKeys[myPos]);
     };
 
 
     /**
-     * Perform scalar product of a private key with an intermediate key..
+     * Debug version of `jodid25519.dh.computeKey()`.
      *
      * In case intKey is undefined, privKey will be multiplied with the curve's
      * base point.
@@ -477,30 +478,7 @@ define([
      *     Scalar product of keys.
      * @private
      */
-    ns._scalarMultiply = function(privKey, intKey) {
-        if (intKey) {
-            return jodid25519.dh.curve25519(privKey, intKey);
-        } else {
-            return jodid25519.dh.curve25519(privKey);
-        }
-    };
-
-
-    /**
-     * Debug version of `_scalarMultiply()`.
-     *
-     * In case intKey is undefined, privKey will be multiplied with the curve's
-     * base point.
-     *
-     * @param privKey
-     *     Private key.
-     * @param intKey
-     *     Intermediate key.
-     * @returns
-     *     Scalar product of keys.
-     * @private
-     */
-    ns._scalarMultiplyDebug = function(privKey, intKey) {
+    ns._computeKeyDebug = function(privKey, intKey) {
         if (intKey) {
             return privKey + '*' + intKey;
         } else {
