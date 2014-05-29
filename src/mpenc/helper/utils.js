@@ -38,52 +38,6 @@ define([
 
     ns._HEX_CHARS = '0123456789abcdef';
 
-    /**
-     * Generates a new random key as an array of 32 bit words.
-     *
-     * @param bits
-     *     Number of bits of key strength (must be a multiple of 32).
-     * @returns
-     *     32 bit word array of the key.
-     * @private
-     */
-    ns._newKey32 = function(bits) {
-        var buffer = ns._newKey08(bits);
-        var result = [];
-        var value = 0;
-        for (var i = 0; i < buffer.length; i += 4) {
-            value = buffer[i];
-            value += buffer[i + 1] << 8;
-            value += buffer[i + 2] << 16;
-            value += buffer[i + 3] << 24;
-            result.push(value);
-        }
-        return result;
-    };
-
-
-    /**
-     * Generates a new random key, and converts it into a format that
-     * the Curve25519 implementation understands.
-     *
-     * @param bits
-     *     Number of bits of key strength (must be a multiple of 32).
-     * @returns
-     *     16 bit word array of the key.
-     * @private
-     */
-    ns._newKey16 = function(bits) {
-        var buffer = ns._newKey08(bits);
-        var result = [];
-        var value = 0;
-        for (var i = 0; i < buffer.length; i += 2) {
-            value = buffer[i];
-            value += buffer[i + 1] << 8;
-            result.push(value);
-        }
-        return result;
-    };
-
 
     /**
      * Generates a new random key, and converts it into a format that
@@ -103,86 +57,6 @@ define([
             result.push(buffer[i]);
         }
         return result;
-    };
-
-
-    /**
-     * Converts a key representation to an array with 8 bit chunks.
-     *
-     * @param key
-     *     The key as a 32 bit word array.
-     * @returns
-     *     8 bit value array of the key.
-     * @private
-     */
-    ns._key32to08 = function(key) {
-        var keyOut = [];
-        for (var i = 0; i < key.length; i++) {
-            var value = key[i];
-            for (var j = 0; j < 4; j++) {
-                keyOut.push(value % 0xff & 0xff);
-                value = value >> 8;
-            }
-        }
-        return keyOut;
-    };
-
-
-    /**
-     * Converts a key representation to an array with 16 bit chunks.
-     *
-     * @param key
-     *     The key as a 32 bit word array.
-     * @returns
-     *     16 bit value array of the key.
-     * @private
-     */
-    ns._key32to16 = function(key) {
-        var keyOut = [];
-        for (var i = 0; i < key.length; i++) {
-            var value = key[i];
-            for (var j = 0; j < 2; j++) {
-                keyOut.push(value % 0xffff & 0xffff);
-                value = value >> 16;
-            }
-        }
-        return keyOut;
-    };
-
-
-    /**
-     * Converts an 8-bit element (unsigned) array a hex string representation.
-     *
-     * @param key
-     *     The key as an 8 bit (unsigned) integer array.
-     * @returns
-     *     Hex string representation of key (little endian).
-     * @private
-     */
-    ns._key08toHex = function(key) {
-        var out = '';
-        for (var i = 0; i < key.length; i++) {
-            var value = key[i];
-            for (var j = 0; j < 2; j++) {
-                out += ns._HEX_CHARS[value % 0x0f];
-                value = value >> 4;
-            }
-        }
-        return out;
-    };
-
-
-    /**
-     * Clears the memory of a secret key array.
-     *
-     * @param key
-     *     The key to clear.
-     * @private
-     */
-    ns._clearmem = function(key) {
-        for (var i = 0; i < key.length; i++) {
-            key[i] = 0;
-        }
     };
 
 
@@ -289,94 +163,6 @@ define([
             }
         }
         return ns._arrayIsSet(listCheck);
-    };
-
-
-    /**
-     * Converts a hex string to a a byte array (array of Uint8, retains endianness).
-     *
-     * Note: No sanity or error checks are performed.
-     *
-     * @param hexstring
-     *     Hexadecimal string.
-     * @returns
-     *     Array of byte values (unsigned integers).
-     */
-    ns.hex2bytearray = function(hexstring) {
-        var result = [];
-        var i = 0;
-        while (i < hexstring.length) {
-            result.push((ns._HEX_CHARS.indexOf(hexstring.charAt(i++)) << 4)
-                        + ns._HEX_CHARS.indexOf(hexstring.charAt(i++)));
-        }
-        return result;
-    };
-
-
-    /**
-     * Converts a byte array to a hex string (array of Uint8, retains endianness).
-     *
-     * Note: No sanity or error checks are performed.
-     *
-     * @param arr
-     *     Array of byte values (unsigned integers).
-     * @returns
-     *     Hexadecimal string.
-     */
-    ns.bytearray2hex = function(arr) {
-        var result = '';
-        for (var i = 0; i < arr.length; i++) {
-            result += ns._HEX_CHARS.charAt(arr[i] >> 4)
-                    + ns._HEX_CHARS.charAt(arr[i] & 15);
-        }
-        return result;
-    };
-
-
-    /**
-     * Converts an 16-bit word element (unsigned) array a binary string representation.
-     *
-     * @param key
-     *     The key as an 16-bit word element (unsigned) integer array.
-     * @returns
-     *     Binary string representation of key (big endian).
-     * @private
-     */
-    ns.shortarray2bytestr = function(key) {
-        var out = '';
-        for (var i = 0; i < key.length; i++) {
-            var value = key[i];
-            var remainder = 0;
-            for (var j = 0; j < 2; j++) {
-                remainder = value % 256;
-                out = String.fromCharCode(remainder) + out;
-                value = value >> 8;
-            }
-        }
-        return out;
-    };
-
-
-    /**
-     * Converts a binary string to a 16-bit word element (unsigned) array representation.
-     *
-     * @param key
-     *     Binary string representation of key (big endian).
-     * @returns
-     *     The key as an 16-bit word element (unsigned) integer array.
-     * @private
-     */
-    ns.bytestr2shortarray = function(key) {
-        var out = [];
-        var i = 0;
-        if (key.length % 2) {
-            key = '\u0000' + key;
-        }
-        while (i < key.length) {
-            out.unshift(key.charCodeAt(i) * 256 + key.charCodeAt(i + 1));
-            i += 2;
-        }
-        return out;
     };
 
 
@@ -528,7 +314,7 @@ define([
         var parent = obj;
         while (parent !== Object.prototype) {
             if (parent.hasOwnProperty("__invariants")) {
-                var invariants = parent.__invariants
+                var invariants = parent.__invariants;
                 for (var k in invariants) {
                     console.log("checking " + k + " on " + obj);
                     invariants[k](obj);

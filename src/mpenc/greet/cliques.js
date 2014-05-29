@@ -387,7 +387,7 @@ define([
         }
 
         // Make a new private key.
-        this.privKey = utils.shortarray2bytestr(utils._newKey16(256));
+        this.privKey = jodid25519.utils.bytes2string(utils._newKey08(256));
         this.privKeyId++;
         this.keyTimestamp = Math.round(Date.now() / 1000);
         if (this._debugPrivKey) {

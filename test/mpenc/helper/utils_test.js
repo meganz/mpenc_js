@@ -47,26 +47,6 @@ define([
             });
         });
 
-        describe('_newKey32()', function() {
-            it('properly sized keys', function() {
-                var keySizes = [128, 256, 512];
-                for (var i = 0; i < keySizes.length; i++) {
-                    var newKey = ns._newKey32(keySizes[i]);
-                    assert.strictEqual(_tu.keyBits(newKey), keySizes[i]);
-                }
-            });
-        });
-
-        describe('_newKey16()', function() {
-            it('properly sized keys', function() {
-                var keySizes = [128, 256, 512];
-                for (var i = 0; i < keySizes.length; i++) {
-                    var newKey = ns._newKey16(keySizes[i]);
-                    assert.strictEqual(_tu.keyBits(newKey, 16), keySizes[i]);
-                }
-            });
-        });
-
         describe('_newKey08()', function() {
             it('properly sized keys', function() {
                 var keySizes = [128, 256, 512];
@@ -88,72 +68,6 @@ define([
                 for (var i = 0; i < values.length; i++) {
                     var result = ns.sha256(values[i]);
                     assert.strictEqual(result, atob(expected[i]));
-                }
-            });
-        });
-
-//        describe('sha1()', function() {
-//            it('hash some values', function() {
-//                var values = ['42', "Don't panic!", 'Flying Spaghetti Monster',
-//                              "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn"];
-//                var expected = ['',
-//                                '',
-//                                '',
-//                                ''];
-//                for (var i = 0; i < values.length; i++) {
-//                    var result = ns.sha1(values[i]);
-//                    dump('***', btoa(result));
-////                    assert.strictEqual(result, atob(expected[i]));
-//                }
-//            });
-//        });
-
-        describe('hex2bytearray()', function() {
-            it('simple conversion test', function() {
-                var values = ['477579', '61339391d56552dad72495a71a47b0f11ba3ebaf'];
-                var expected = [[71, 117, 121],
-                                [97, 51, 147, 145, 213, 101, 82, 218, 215, 36,
-                                 149, 167, 26, 71, 176, 241, 27, 163, 235, 175]];
-                for (var i = 0; i < values.length; i++) {
-                    var result = ns.hex2bytearray(values[i]);
-                    assert.deepEqual(result, expected[i]);
-                }
-            });
-        });
-
-        describe('bytearray2hex()', function() {
-            it('simple conversion test', function() {
-                var values = [[71, 117, 121],
-                              [97, 51, 147, 145, 213, 101, 82, 218, 215, 36,
-                               149, 167, 26, 71, 176, 241, 27, 163, 235, 175]];
-                var expected = ['477579', '61339391d56552dad72495a71a47b0f11ba3ebaf'];
-                for (var i = 0; i < values.length; i++) {
-                    var result = ns.bytearray2hex(values[i]);
-                    assert.strictEqual(result, expected[i]);
-                }
-            });
-        });
-
-        describe('shortarray2bytestr', function() {
-            it('simple conversion test', function() {
-                var values = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
-                              [25187, 97], []];
-                var expected = ['Slartibartfast', '\u0000abc', ''];
-                for (var i = 0; i < values.length; i++) {
-                    var result = ns.shortarray2bytestr(values[i]);
-                    assert.strictEqual(result, expected[i]);
-                }
-            });
-        });
-
-        describe('bytestr2shortarray', function() {
-            it('simple conversion test', function() {
-                var values = ['Slartibartfast', '\u0000abc', 'abc', ''];
-                var expected = [[29556, 26209, 29300, 25185, 29801, 24946, 21356],
-                                [25187, 97], [25187, 97], []];
-                for (var i = 0; i < values.length; i++) {
-                    var result = ns.bytestr2shortarray(values[i]);
-                    assert.deepEqual(result, expected[i]);
                 }
             });
         });
