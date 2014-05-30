@@ -60,16 +60,19 @@ define([
      *     Plain text message (not using mpENC).
      * @property MPENC_QUERY {integer}
      *     Query to initiate an mpENC session.
-     * @property MPENC_MESSAGE {integer}
-     *     mpENC message.
+     * @property MPENC_GREET_MESSAGE {integer}
+     *     mpENC greet message.
+     * @property MPENC_DATA_MESSAGE {integer}
+     *     mpENC data message.
      * @property MPENC_ERROR {integer}
      *     Message for error in mpENC protocol.
      */
     ns.MESSAGE_CATEGORY = {
-        PLAIN:             0x00,
-        MPENC_QUERY:       0x01,
-        MPENC_MESSAGE:     0x02,
-        MPENC_ERROR:       0x03,
+        PLAIN:               0x00,
+        MPENC_QUERY:         0x01,
+        MPENC_GREET_MESSAGE: 0x02,
+        MPENC_DATA_MESSAGE:  0x03,
+        MPENC_ERROR:         0x04,
     };
 
 
@@ -299,6 +302,38 @@ define([
 
 
     /**
+     * Determines whether a message content is of an mpENC data message.
+     *
+     * If `false`, it is usually an mpENC greet message.
+     *
+     * @param message {string}
+     *     A wire protocol message representation.
+     * @returns {bool}
+     *     True if it is a data message.
+     */
+    ns.isDataContent = function(message) {
+        if (!message) {
+            return false;
+        }
+
+        // Data messages contain this TLV sequence at the start:
+        var dataMessageSequence = [ns.TLV_TYPE.MESSAGE_SIGNATURE,
+                                   ns.TLV_TYPE.PROTOCOL_VERSION,
+                                   ns.TLV_TYPE.MESSAGE_IV,
+                                   ns.TLV_TYPE.DATA_MESSAGE];
+        var result = true;
+        for (var i = 0; (i < dataMessageSequence.length) && (message.length > 0); i++) {
+            var tlv = ns.decodeTLV(message);
+            if (tlv.type !== dataMessageSequence[i]) {
+                result = false;
+            }
+            message = tlv.rest;
+        }
+        return result;
+    };
+
+
+    /**
      * Detects the category of a given message.
      *
      * @param message {string}
@@ -325,10 +360,16 @@ define([
                      content: message.substring(_PROTOCOL_PREFIX.length + 1) };
         }
 
-        // Check for message.
+        // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
-            return { category: ns.MESSAGE_CATEGORY.MPENC_MESSAGE,
-                     content: atob(message.substring(1, message.length - 1)) };
+            message = atob(message.substring(1, message.length - 1));
+            if (ns.isDataContent(message)) {
+                return { category: ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                         content: message };
+            } else {
+                return { category: ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                         content: message };
+            }
         }
 
         // Check for query.
@@ -503,7 +544,7 @@ define([
      *     A 16-bit unsigned integer.
      */
     ns._bin2short= function(value) {
-        return (value.charCodeAt(0) << 8) + value.charCodeAt(1);
+        return (value.charCodeAt(0) << 8) | value.charCodeAt(1);
     };
 
 

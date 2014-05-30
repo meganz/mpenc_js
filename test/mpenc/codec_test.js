@@ -159,15 +159,34 @@ define([
             });
         });
 
+        describe("isDataContent()", function() {
+            it('empty content', function() {
+                var tests = [null, undefined, ''];
+                for (var i = 0; i < tests.length; i++) {
+                    assert.notOk(ns.isDataContent(tests[i]));
+                }
+            });
+
+            it('greet message', function() {
+                assert.notOk(ns.isDataContent(_td.DOWNFLOW_MESSAGE_STRING));
+            });
+
+            it('data message', function() {
+                assert.ok(ns.isDataContent(_td.DATA_MESSAGE_STRING));
+            });
+        });
+
         describe("categoriseMessage()", function() {
             it('normal categories', function() {
                 var tests = ['Klaatu barada nikto.',
                              '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
-                             '?mpENC:Zm9v.',
+                             _td.DOWNFLOW_MESSAGE_PAYLOAD,
+                             _td.DATA_MESSAGE_PAYLOAD,
                              '?mpENC Error:foo.'];
                 var expected = [[ns.MESSAGE_CATEGORY.PLAIN, 'Klaatu barada nikto.'],
                                 [ns.MESSAGE_CATEGORY.MPENC_QUERY, version.PROTOCOL_VERSION],
-                                [ns.MESSAGE_CATEGORY.MPENC_MESSAGE, 'foo'],
+                                [ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
+                                [ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
                                 [ns.MESSAGE_CATEGORY.MPENC_ERROR, 'foo.']];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.categoriseMessage(tests[i]);

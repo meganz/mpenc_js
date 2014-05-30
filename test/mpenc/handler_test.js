@@ -945,17 +945,17 @@ define([
                 var groupKey = _td.COMP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                var message = {message: '?mpENC:Zm9v.',
+                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
-                sandbox.stub(codec, 'decodeMessageContent').returns('foo');
-                participant._processKeyingMessage = stub().returns('foo');
+                sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                participant._processKeyingMessage = stub().returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 sinon_assert.calledOnce(participant._processKeyingMessage);
                 sinon_assert.calledOnce(codec.encodeMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].message, 'foo');
+                assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(participant.protocolOutQueue[0].from, '2');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
@@ -994,7 +994,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.INITIALISED;
+                participant.state = ns.STATE.INITIALISED;
                 var groupKey = _td.COMP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -1496,6 +1496,42 @@ define([
                     assert.lengthOf(participant.messageOutQueue, 0);
                 }
             });
+        });
+
+        it('flow with delayed message arrival on initialisation', function() {
+            // Initialise members.
+            var numMembers = 2;
+            var participants = {};
+            for (var i = 1; i <= numMembers; i++) {
+                participants[i.toString()] = new ns.ProtocolHandler(i.toString(),
+                                                                    _td.ED25519_PRIV_KEY,
+                                                                    _td.ED25519_PUB_KEY,
+                                                                    _td.STATIC_PUB_KEY_DIR);
+            }
+
+            // Start.
+            participants['1'].start(['2']);
+            var protocolMessage = participants['1'].protocolOutQueue.shift();
+            assert.strictEqual(participants['1'].state, ns.STATE.INIT_UPFLOW);
+
+            // Processing start/upflow message.
+            participants['2'].processMessage(protocolMessage);
+            protocolMessage = participants['2'].protocolOutQueue.shift();
+            assert.strictEqual(participants['2'].state, ns.STATE.INIT_DOWNFLOW);
+
+            // Process first downflow message.
+            participants['1'].processMessage(protocolMessage);
+            protocolMessage = participants['1'].protocolOutQueue.shift();
+            assert.strictEqual(participants['1'].state, ns.STATE.INITIALISED);
+
+            // Final downflow for '2' is still missing ...
+            // ... but '1' is already sending.
+            participants['1'].send("Harry, fahr' schon mal den Wagen vor!");
+            var dataMessage = participants['1'].messageOutQueue.shift();
+
+            // Now '2' is receiving before being initialised.
+            assert.throws(function() { participants['2'].processMessage(dataMessage); },
+                          'Data messages can only be decrypted from an initialised state.');
         });
     });
 });

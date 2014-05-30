@@ -521,49 +521,57 @@ define([
                 // Initiate keying protocol flow.
                 this.start(wireMessage.from);
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_MESSAGE:
+            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 var decodedMessage = null;
-                if (this.state === ns.STATE.INITIALISED) {
-                    // We've been through a key agreement, so we've got keys.
+                if (this.cliquesMember.groupKey) {
+                    // In case of a key refresh (groupKey existent),
+                    // the signing pubKeys won't be part of the message.
                     var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
                     decodedMessage = codec.decodeMessageContent(classify.content,
                                                                 this.cliquesMember.groupKey.substring(0, 16),
                                                                 signingPubKey);
                 } else {
-                    // We're still running the key agreement.
                     decodedMessage = codec.decodeMessageContent(classify.content);
                 }
 
-                if (decodedMessage.data) {
-                    // This is a normal communication/data message.
-                    if (decodedMessage.signatureOk === false) {
-                        // Signature failed, abort!
-                        wireMessage.type = 'error';
-                        wireMessage.message = 'Signature of received message invalid.';
-                        this.uiQueue.push(wireMessage);
-                    } else {
-                        wireMessage.type = 'message';
-                        wireMessage.message = decodedMessage.data;
-                        this.uiQueue.push(wireMessage);
-                    }
+                // This is an mpenc.greet message.
+                var outContent = this._processKeyingMessage(decodedMessage);
+                if (outContent) {
+                    var outMessage = {
+                        from: this.id,
+                        to: outContent.dest,
+                        message: codec.encodeMessage(outContent, null,
+                                                     this.askeMember.ephemeralPrivKey,
+                                                     this.askeMember.ephemeralPubKey),
+                    };
+                    this.protocolOutQueue.push(outMessage);
                     this.queueUpdatedCallback(this);
                 } else {
-                    // This is an mpenc.greet message.
-                    var outContent = this._processKeyingMessage(decodedMessage);
-                    if (outContent) {
-                        var outMessage = {
-                            from: this.id,
-                            to: outContent.dest,
-                            message: codec.encodeMessage(outContent, null,
-                                                         this.askeMember.ephemeralPrivKey,
-                                                         this.askeMember.ephemeralPubKey),
-                        };
-                        this.protocolOutQueue.push(outMessage);
-                        this.queueUpdatedCallback(this);
-                    } else {
-                        // Nothing to do, we're done here.
-                    }
+                    // Nothing to do, we're done here.
                 }
+                break;
+            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
+                var decodedMessage = null;
+                _assert(this.state === ns.STATE.INITIALISED,
+                        'Data messages can only be decrypted from an initialised state.');
+
+                // Let's crack this baby open.
+                var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
+                decodedMessage = codec.decodeMessageContent(classify.content,
+                                                            this.cliquesMember.groupKey.substring(0, 16),
+                                                            signingPubKey);
+
+                if (decodedMessage.signatureOk === false) {
+                    // Signature failed, abort!
+                    wireMessage.type = 'error';
+                    wireMessage.message = 'Signature of received message invalid.';
+                    this.uiQueue.push(wireMessage);
+                } else {
+                    wireMessage.type = 'message';
+                    wireMessage.message = decodedMessage.data;
+                    this.uiQueue.push(wireMessage);
+                }
+                this.queueUpdatedCallback(this);
                 break;
             default:
                 _assert(false, 'Received unknown message category: ' + classify.category);
