@@ -2,7 +2,7 @@
 BUILDDIR = build
 
 # Libraries to omit when building mpenc-partial.js.
-PARTIAL_OMIT = asmcrypto curve255 jsbn jsbn2 ed25519
+PARTIAL_OMIT = asmcrypto jsbn jsbn2 jodid25519-partial
 
 # Set to none for a non-minified build, for easier debugging.
 OPTIMIZE = uglify
