@@ -535,7 +535,9 @@ define([
                 }
 
                 // This is an mpenc.greet message.
-                var outContent = this._processKeyingMessage(decodedMessage);
+                var keyingMessageResult = this._processKeyingMessage(decodedMessage);
+                var outContent = keyingMessageResult[0];
+
                 if (outContent) {
                     var outMessage = {
                         from: this.id,
@@ -548,6 +550,11 @@ define([
                     this.queueUpdatedCallback(this);
                 } else {
                     // Nothing to do, we're done here.
+                }
+                if(keyingMessageResult[1]) {
+                    // update of the state is required.
+                    this.state = keyingMessageResult[1];
+                    this.stateUpdatedCallback(this);
                 }
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
@@ -655,8 +662,8 @@ define([
      * @method
      * @param message {mpenc.messages.ProtocolMessage}
      *     Received message (decoded). See {@link mpenc.messages.ProtocolMessage}.
-     * @returns {mpenc.messages.ProtocolMessage}
-     *     Un-encoded message content.
+     * @returns [{mpenc.messages.ProtocolMessage}, newState]
+     *     Array containing the Un-encoded message content and optional (null if not used) the new the ProtocolHandler
      */
     ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(utils.clone(message));
@@ -664,6 +671,7 @@ define([
         var outCliquesMessage = null;
         var outAskeMessage = null;
         var outMessage = null;
+        var newState = null;
 
         if (message.dest === null || message.dest === '') {
             // Dealing with a broadcast downflow message.
@@ -701,16 +709,14 @@ define([
             // Handle state transitions.
             if (outMessage) {
                 if (outMessage.agreement === 'initial') {
-                    this.state = ns.STATE.INIT_DOWNFLOW;
+                    newState = ns.STATE.INIT_DOWNFLOW;
                 } else {
-                    this.state = ns.STATE.AUX_DOWNFLOW;
+                    newState = ns.STATE.AUX_DOWNFLOW;
                 }
-                this.stateUpdatedCallback(this);
             }
             if (this.askeMember.isSessionAcknowledged()) {
                 // We have seen and verified all broadcasts from others.
-                this.state = ns.STATE.INITIALISED;
-                this.stateUpdatedCallback(this);
+                newState = ns.STATE.INITIALISED;
             }
         } else {
             // Dealing with a directed upflow message.
@@ -724,21 +730,19 @@ define([
             // Handle state transitions.
             if (message.agreement === 'initial') {
                 if (outMessage.dest === '') {
-                    this.state = ns.STATE.INIT_DOWNFLOW;
+                    newState = ns.STATE.INIT_DOWNFLOW;
                 } else {
-                    this.state = ns.STATE.INIT_UPFLOW;
+                    newState = ns.STATE.INIT_UPFLOW;
                 }
-                this.stateUpdatedCallback(this);
             } else {
                 if (outMessage.dest === '') {
-                    this.state = ns.STATE.AUX_DOWNFLOW;
+                    newState = ns.STATE.AUX_DOWNFLOW;
                 } else {
-                    this.state = ns.STATE.AUX_UPFLOW;
+                    newState = ns.STATE.AUX_UPFLOW;
                 }
-                this.stateUpdatedCallback(this);
             }
         }
-        return outMessage;
+        return [outMessage, newState];
     };
 
 
