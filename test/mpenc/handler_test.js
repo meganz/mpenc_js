@@ -726,10 +726,10 @@ define([
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 var result = participant._processKeyingMessage(message);
-                if(result[1]) {
-                    participant.state = result[1];
+                if(result.newState) {
+                    participant.state = result.newState;
                 }
-                var output = result[0];
+                var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
                 assert.strictEqual(output.agreement, compare.agreement);
@@ -766,10 +766,10 @@ define([
                 sandbox.stub(codec, 'encodeMessage', _echo);
 
                 var result = participant._processKeyingMessage(message);
-                if(result[1]) {
-                    participant.state = result[1];
+                if(result.newState) {
+                    participant.state = result.newState;
                 }
-                var output = result[0];
+                var output = result.decodedMessage;
 
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
@@ -805,8 +805,8 @@ define([
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 var result = participant._processKeyingMessage(message);
-                if(result[1]) {
-                    participant.state = result[1];
+                if(result.newState) {
+                    participant.state = result.newState;
                 }
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -837,8 +837,8 @@ define([
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
                 var result = participant._processKeyingMessage(message);
-                if(result[1]) {
-                    participant.state = result[1];
+                if(result.newState) {
+                    participant.state = result.newState;
                 }
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -858,13 +858,12 @@ define([
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 assert.throws(function() {
-                        var result = participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
-                        // manually update the state
-                        if(result[1]) {
-                            participant.state = result[1];
-                        }
-                    },
-                              'Key refresh for quitting is not implemented, yet!');
+                                  var result = participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
+                                  // Manually update the state.
+                                  if(result.newState) {
+                                      participant.state = result.newState;
+                                  }
+                              }, 'Key refresh for quitting is not implemented, yet!');
             });
         });
 
@@ -970,7 +969,9 @@ define([
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
-                participant._processKeyingMessage = [stub().returns(_td.DOWNFLOW_MESSAGE_STRING), mpenc.STATE.INITIALISED];
+                sandbox.stub(participant, '_processKeyingMessage').returns(
+                        { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
+                          newState: ns.STATE.INITIALISED });
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);

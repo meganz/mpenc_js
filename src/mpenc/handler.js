@@ -536,7 +536,7 @@ define([
 
                 // This is an mpenc.greet message.
                 var keyingMessageResult = this._processKeyingMessage(decodedMessage);
-                var outContent = keyingMessageResult[0];
+                var outContent = keyingMessageResult.decodedMessage;
 
                 if (outContent) {
                     var outMessage = {
@@ -551,9 +551,9 @@ define([
                 } else {
                     // Nothing to do, we're done here.
                 }
-                if(keyingMessageResult[1]) {
-                    // update of the state is required.
-                    this.state = keyingMessageResult[1];
+                if(keyingMessageResult.newState) {
+                    // Update the state if required.
+                    this.state = keyingMessageResult.newState;
                     this.stateUpdatedCallback(this);
                 }
                 break;
@@ -662,8 +662,9 @@ define([
      * @method
      * @param message {mpenc.messages.ProtocolMessage}
      *     Received message (decoded). See {@link mpenc.messages.ProtocolMessage}.
-     * @returns [{mpenc.messages.ProtocolMessage}, newState]
-     *     Array containing the Un-encoded message content and optional (null if not used) the new the ProtocolHandler
+     * @returns {decodedMessage: {mpenc.messages.ProtocolMessage}, newState: newState}
+     *     Object containing the decoded message content and optional
+     *     (null if not used) the new the ProtocolHandler state.
      */
     ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(utils.clone(message));
@@ -742,7 +743,8 @@ define([
                 }
             }
         }
-        return [outMessage, newState];
+        return { decodedMessage: outMessage,
+                 newState: newState };
     };
 
 
