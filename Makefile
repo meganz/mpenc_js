@@ -13,7 +13,7 @@ R_JS   = ./node_modules/.bin/r.js
 ALMOND = ./node_modules/almond/almond
 R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND) wrap.startFile=almond.0 wrap.endFile=almond.1
 
-all: test build-full build-test-full
+all: test build-partial build-test-partial
 
 test: $(KARMA)
 	$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS

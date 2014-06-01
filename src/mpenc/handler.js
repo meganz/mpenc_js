@@ -662,9 +662,11 @@ define([
      * @method
      * @param message {mpenc.messages.ProtocolMessage}
      *     Received message (decoded). See {@link mpenc.messages.ProtocolMessage}.
-     * @returns {decodedMessage: {mpenc.messages.ProtocolMessage}, newState: newState}
-     *     Object containing the decoded message content and optional
-     *     (null if not used) the new the ProtocolHandler state.
+     * @returns {object}
+     *     Object containing the decoded message content as
+     *     {mpenc.messages.ProtocolMessage} in attribute `decodedMessage` and
+     *     optional (null if not used) the new the ProtocolHandler state in
+     *     attribute `newState`.
      */
     ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
         var inCliquesMessage = this._getCliquesMessage(utils.clone(message));
