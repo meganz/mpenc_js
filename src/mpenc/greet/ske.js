@@ -204,12 +204,12 @@ define([
         this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = jodid25519.eddsa.genKeySeed();
+        this.nonce = jodid25519.eddsa.generateKeySeed();
         this.nonces.push(this.nonce);
         if (!this.ephemeralPrivKey) {
             // Only generate a new key if we don't have one.
             // We might want to recover and just re-run the protocol.
-            this.ephemeralPrivKey = jodid25519.eddsa.genKeySeed();
+            this.ephemeralPrivKey = jodid25519.eddsa.generateKeySeed();
         }
         this.ephemeralPubKey = jodid25519.eddsa.publicKey(this.ephemeralPrivKey);
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
@@ -254,8 +254,8 @@ define([
         var sessionAck = MAGIC_NUMBER + this.id + this.ephemeralPubKey
                        + this.nonce + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return jodid25519.eddsa.signature(hashValue, this.staticPrivKey,
-                                          this.staticPubKeyDir.get(this.id));
+        return jodid25519.eddsa.sign(hashValue, this.staticPrivKey,
+                                     this.staticPubKeyDir.get(this.id));
     };
 
 
@@ -282,8 +282,8 @@ define([
         var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return jodid25519.eddsa.checkSig(signature, hashValue,
-                                         this.staticPubKeyDir.get(memberId));
+        return jodid25519.eddsa.verify(signature, hashValue,
+                                       this.staticPubKeyDir.get(memberId));
     };
 
 

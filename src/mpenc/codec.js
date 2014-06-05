@@ -621,7 +621,7 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        return jodid25519.eddsa.signature(data, privKey, pubKey);
+        return jodid25519.eddsa.sign(data, privKey, pubKey);
     };
 
 
@@ -644,7 +644,7 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        return jodid25519.eddsa.checkSig(signature, data, pubKey);
+        return jodid25519.eddsa.verify(signature, data, pubKey);
     };
 
 
