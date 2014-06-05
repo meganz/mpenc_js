@@ -4,7 +4,7 @@ var requirejs_config_mpenc =
         "jsbn1": "../lib/jsbn",
         "jsbn": "../lib/jsbn2",
         "asmcrypto": "../lib/asmcrypto",
-        "jodid25519": "../lib/jodid25519-partial",
+        "jodid25519": "../lib/jodid25519-shared",
         },
     shim: {
         // Dependencies that we use directly need to be added here.

@@ -1,19 +1,17 @@
 # Build directory.
 BUILDDIR = build
 
-# Libraries to omit when building mpenc-partial.js.
-PARTIAL_OMIT = asmcrypto jsbn jsbn2 jodid25519-partial
-
-# Set to none for a non-minified build, for easier debugging.
-OPTIMIZE = uglify
+# Libraries to omit when building mpenc-shared.js.
+PARTIAL_OMIT = asmcrypto jsbn jsbn2 jodid25519-shared
 
 KARMA  = ./node_modules/.bin/karma
 JSDOC  = ./node_modules/.bin/jsdoc
 R_JS   = ./node_modules/.bin/r.js
 ALMOND = ./node_modules/almond/almond
 R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND) wrap.startFile=almond.0 wrap.endFile=almond.1
+UGLIFY = ./node_modules/.bin/uglifyjs
 
-all: test build-partial build-test-partial
+all: test test-shared dist
 
 test: $(KARMA)
 	$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
@@ -23,11 +21,11 @@ api-doc: $(JSDOC)
                  --configure jsdoc.json \
                  --recurse src/
 
-$(BUILDDIR)/build-config-full.js: src/config.js Makefile
+$(BUILDDIR)/build-config-static.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
 	tail -n+2 "$<" > "$@"
 
-$(BUILDDIR)/build-config-partial.js: src/config.js Makefile
+$(BUILDDIR)/build-config-shared.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
 	tail -n+2 "$<" > "$@.tmp"
 	for i in $(PARTIAL_OMIT); do \
@@ -36,25 +34,32 @@ $(BUILDDIR)/build-config-partial.js: src/config.js Makefile
 	done
 	mv "$@.tmp" "$@"
 
-build-full: $(R_JS) $(BUILDDIR)/build-config-full.js
-	$(R_JS) -o $(BUILDDIR)/build-config-full.js out="$(BUILDDIR)/mpenc-full.js" \
-	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=$(OPTIMIZE)
+$(BUILDDIR)/mpenc-static.js: build-static
+build-static: $(R_JS) $(BUILDDIR)/build-config-static.js
+	$(R_JS) -o $(BUILDDIR)/build-config-static.js out="$(BUILDDIR)/mpenc-static.js" \
+	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=none
 
-build-partial: $(R_JS) $(BUILDDIR)/build-config-partial.js
-	$(R_JS) -o $(BUILDDIR)/build-config-partial.js out="$(BUILDDIR)/mpenc-partial.js" \
-	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=$(OPTIMIZE)
+$(BUILDDIR)/mpenc-shared.js: build-shared
+build-shared: $(R_JS) $(BUILDDIR)/build-config-shared.js
+	$(R_JS) -o $(BUILDDIR)/build-config-shared.js out="$(BUILDDIR)/mpenc-shared.js" \
+	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=none
 
-build-test-full: test/build-test-full.js build-full
-	./$< ../$(BUILDDIR)/mpenc-full.js
+test-static: test/build-test-static.js build-static
+	./$< ../$(BUILDDIR)/mpenc-static.js
 
-build-test-partial: test/build-test-partial.js build-partial
-	./$< ../$(BUILDDIR)/mpenc-partial.js $(PARTIAL_OMIT)
+test-shared: test/build-test-shared.js build-shared
+	./$< ../$(BUILDDIR)/mpenc-shared.js $(PARTIAL_OMIT)
 
-$(KARMA) $(JSDOC) $(R_JS):
+$(BUILDDIR)/%.min.js: $(BUILDDIR)/%.js
+	$(UGLIFY) $< -o $@ --source-map $@.map --mangle --compress --lint
+
+dist: $(BUILDDIR)/mpenc-shared.min.js $(BUILDDIR)/mpenc-static.js
+
+$(KARMA) $(JSDOC) $(R_JS) $(UGLIFY):
 	npm install
 
 clean:
 	rm -rf doc/api/ coverage/ build/
 
-.PHONY: test api-doc clean
-.PHONY: build-full build-partial build-test-full build-test-partial
+.PHONY: all test api-doc clean
+.PHONY: build-static build-shared test-static test-shared dist
