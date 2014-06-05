@@ -15,7 +15,7 @@ module.exports = function(config) {
         'lib/asmcrypto.js',
         'lib/jsbn.js',
         'lib/jsbn2.js',
-        {pattern: 'lib/jodid25519-partial.js', included: false},
+        {pattern: 'lib/jodid25519-shared.js', included: false},
         // karma-sinon does not yet integrate with requirejs, so we have to do this hack
         {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 
