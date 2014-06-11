@@ -10,8 +10,10 @@
     "doc": "doc"
   },
   "scripts": {
-    "test": "karma start --singleRun=true karma.conf.js",
-    "api-doc": "./node_modules/.bin/jsdoc --destination doc/api/ --private --configure jsdoc.json --recurse src/"
+    "test": "make dependencies && karma start --singleRun=true karma.conf.js",
+    "api-doc": "jsdoc --destination doc/api/ --private --configure jsdoc.json --recurse src/",
+    "build-shared": "make build-shared",
+    "build-static": "make build-static"
   },
   "homepage": "https://code.developers.mega.co.nz/gk/mpenc_js",
   "repository": {
@@ -29,6 +31,11 @@
   "author": "Guy K. Kloss <gk@mega.co.nz>",
   "license": "AGPL-3",
   "readmeFilename": "README.md",
+  "dependencies": {
+    "jsbn": "*",
+    "asmcrypto": "vibornoff/asmcrypto.js",
+    "jodid25519": "meganz/jodid25519"
+  },
   "devDependencies": {
     "almond": "~0.2.9",
     "karma-script-launcher": "~0.1.0",

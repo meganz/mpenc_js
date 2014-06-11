@@ -2,7 +2,10 @@
 BUILDDIR = build
 
 # Libraries to omit when building mpenc-shared.js.
-PARTIAL_OMIT = asmcrypto jsbn jsbn2 jodid25519-shared
+PARTIAL_OMIT = asmcrypto jsbn jodid25519-shared
+
+# Set to none for a non-minified build, for easier debugging.
+OPTIMIZE = none
 
 KARMA  = ./node_modules/.bin/karma
 JSDOC  = ./node_modules/.bin/jsdoc
@@ -10,6 +13,7 @@ R_JS   = ./node_modules/.bin/r.js
 ALMOND = ./node_modules/almond/almond
 R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND) wrap.startFile=almond.0 wrap.endFile=almond.1
 UGLIFY = ./node_modules/.bin/uglifyjs
+ASMCRYPTO_MODULES = utils,aes-cbc,aes-ccm,sha1,sha256,sha512,hmac-sha1,hmac-sha256,hmac-sha512,pbkdf2-hmac-sha1,pbkdf2-hmac-sha256,pbkdf2-hmac-sha512,rng,bn,rsa-pkcs1,globals-rng,globals
 
 all: test test-shared dist
 
@@ -55,8 +59,14 @@ $(BUILDDIR)/%.min.js: $(BUILDDIR)/%.js
 
 dist: $(BUILDDIR)/mpenc-shared.min.js $(BUILDDIR)/mpenc-static.js
 
-$(KARMA) $(JSDOC) $(R_JS) $(UGLIFY):
+dependencies:
 	npm install
+	cd node_modules/asmcrypto.js && npm install && node_modules/.bin/grunt --with=$(ASMCRYPTO_MODULES)
+	cd ../..
+	cd node_modules/jodid25519 && make build-shared
+	cd ../..
+
+$(KARMA) $(JSDOC) $(R_JS) $(UGLIFY): dependencies
 
 clean:
 	rm -rf doc/api/ coverage/ build/
