@@ -80,6 +80,9 @@ define([
     };
 
 
+    /** Default size in bytes for the exponential padding to pad to. */
+    ns.DEFAULT_EXPONENTIAL_PADDING = 128;
+
     /**
      * Implementation of a protocol handler with its state machine.
      *
@@ -99,6 +102,11 @@ define([
      * @param stateUpdatedCallback {Function}
      *      A callback function, that will be called every time the `state` is
      *      changed.
+     * @param exponentialPadding {integer}
+     *     Number of bytes to pad the cipher text to come out as (0 to turn off
+     *     padding). If the clear text will result in a larger cipher text than
+     *     exponentialPadding, power of two exponential padding sizes will be
+     *     used.
      * @returns {ProtocolHandler}
      *
      * @property id {string}
@@ -126,9 +134,15 @@ define([
      *     Reference to CLIQUES protocol handler with the same participant ID.
      * @property state {integer}
      *     Current state of the mpEnc protocol handler according to {STATE}.
+     * @property exponentialPadding {integer}
+     *     Number of bytes to pad the cipher text to come out as (0 to turn off
+     *     padding). If the clear text will result in a larger cipher text than
+     *     exponentialPadding, power of two exponential padding sizes will be
+     *     used.
      */
     ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir,
-                                  queueUpdatedCallback, stateUpdatedCallback) {
+                                  queueUpdatedCallback, stateUpdatedCallback,
+                                  exponentialPadding) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -139,6 +153,7 @@ define([
         this.queueUpdatedCallback = queueUpdatedCallback || function() {};
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.state = ns.STATE.NULL;
+        this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
@@ -607,7 +622,8 @@ define([
             message: codec.encodeMessage(messageContent,
                                          this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
-                                         this.askeMember.ephemeralPubKey),
+                                         this.askeMember.ephemeralPubKey,
+                                         this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -649,7 +665,8 @@ define([
             message: codec.encodeMessage(messageContent,
                                          this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
-                                         this.askeMember.ephemeralPubKey),
+                                         this.askeMember.ephemeralPubKey,
+                                         this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);

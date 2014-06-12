@@ -873,6 +873,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
+                participant.exponentialPadding = 0;
                 participant.cliquesMember.groupKey = _td.COMP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -881,6 +882,25 @@ define([
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
                 assert.lengthOf(participant.messageOutQueue[0].message, 180);
+                assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
+                assert.strictEqual(participant.messageOutQueue[0].to, '');
+                assert.lengthOf(participant.protocolOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+
+            it('send a message confidentially with exponential padding', function() {
+                var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.INITIALISED;
+                var message = 'Shout, shout, let it all out!';
+                participant.send(message);
+                assert.lengthOf(participant.messageOutQueue, 1);
+                assert.lengthOf(participant.messageOutQueue[0].message, 308);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -904,6 +924,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
+                participant.exponentialPadding = 0;
                 participant.cliquesMember.groupKey = _td.COMP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -912,6 +933,25 @@ define([
                 participant.sendTo(message, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.messageOutQueue, 1);
                 assert.lengthOf(participant.messageOutQueue[0].message, 180);
+                assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
+                assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
+                assert.lengthOf(participant.protocolOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+
+            it('send a directed message confidentially with exponential padding', function() {
+                var participant = new ns.ProtocolHandler('jennifer@rush.com/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.INITIALISED;
+                var message = 'Whispers in the morning ...';
+                participant.sendTo(message, 'my_man@rush.com/ios12345');
+                assert.lengthOf(participant.messageOutQueue, 1);
+                assert.lengthOf(participant.messageOutQueue[0].message, 308);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.protocolOutQueue, 0);

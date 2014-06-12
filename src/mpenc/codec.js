@@ -443,14 +443,19 @@ define([
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
      * @returns {string}
      *     A binary message representation.
      */
-    ns.encodeMessageContent = function(message, groupKey, privKey, pubKey) {
+    ns.encodeMessageContent = function(message, groupKey, privKey, pubKey, paddingSize) {
         var out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
         if (typeof(message) === 'string' || message instanceof String) {
             // We're dealing with a message containing user content.
-            var encrypted = ns.encryptDataMessage(message, groupKey);
+            var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
 
             // We want message attributes in this order:
             // signature, protocol version, iv, message data
@@ -510,14 +515,21 @@ define([
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
      * @returns {string}
      *     A wire ready message representation.
      */
-    ns.encodeMessage = function(message, groupKey, privKey, pubKey) {
+    ns.encodeMessage = function(message, groupKey, privKey, pubKey, paddingSize) {
         if (message === null || message === undefined) {
             return null;
         }
-        var content = ns.encodeMessageContent(message, groupKey, privKey, pubKey);
+        paddingSize = paddingSize | 0;
+        var content = ns.encodeMessageContent(message, groupKey, privKey,
+                                              pubKey, paddingSize);
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
 
@@ -552,24 +564,44 @@ define([
      * Encrypts a given data message.
      *
      * The data message is encrypted using AES-128-CBC, and a new random IV is
-     * generated and returned.
+     * generated and returned. The current encryption scheme works for messages
+     * up to 2^16 bytes (64 KiB) in size.
      *
      * @param data {string}
      *     Binary string data message.
      * @param key {string}
      *     Binary string representation of 128-bit encryption key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
      * @returns {Object}
      *     An object containing the message (in `data`, binary string) and
      *     the IV used (in `iv`, binary string).
      */
-    ns.encryptDataMessage = function(data, key) {
+    ns.encryptDataMessage = function(data, key, paddingSize) {
         if (data === null || data === undefined) {
             return null;
         }
+        paddingSize = paddingSize | 0;
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
         var ivBytes = new Uint8Array(utils._newKey08(128));
         // Protect multi-byte characters.
         var dataBytes = unescape(encodeURIComponent(data));
+        // Prepend length in bytes to message.
+        _assert(dataBytes.length < 0xffff,
+                'Message size too large for encryption scheme.');
+        dataBytes = ns._short2bin(dataBytes.length) + dataBytes;
+        if (paddingSize) {
+            // Compute exponential padding size, leaving one extra byte for
+            // AES-CBC PKCS#5 padding.
+            var exponentialPaddingSize = paddingSize
+                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length + 1) / paddingSize))
+                                                         / Math.log(2)));
+            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
+            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
+        }
         var cipherBytes = asmCrypto.AES_CBC.encrypt(dataBytes, keyBytes, true, ivBytes);
         return { data: jodid25519.utils.bytes2string(cipherBytes),
                  iv: jodid25519.utils.bytes2string(ivBytes) };
@@ -597,8 +629,12 @@ define([
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
         var ivBytes = new Uint8Array(jodid25519.utils.string2bytes(iv));
         var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
+        // Strip off message size and zero padding.
+        var clearString = jodid25519.utils.bytes2string(clearBytes);
+        var messageSize = ns._bin2short(clearString.slice(0, 2));
+        clearString = clearString.slice(2, messageSize + 2);
         // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(jodid25519.utils.bytes2string(clearBytes)));
+        return decodeURIComponent(escape(clearString));
     };
 
 

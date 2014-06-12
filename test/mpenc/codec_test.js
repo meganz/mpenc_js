@@ -251,6 +251,15 @@ define([
                 // signature (4 + 64), protocol v (4 + 1), IV (4 + 16), encr. message (4 + 16)
                 assert.lengthOf(result, 113);
             });
+
+            it('data message with exponential padding', function() {
+                var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
+                                                     _td.ED25519_PRIV_KEY,
+                                                     _td.ED25519_PUB_KEY, 32);
+                // 4 TLVs with 113 bytes:
+                // signature (4 + 64), protocol v (4 + 1), IV (4 + 16), encr. message (4 + 32)
+                assert.lengthOf(result, 129);
+            });
         });
 
         describe("decodeMessageContent()", function() {
@@ -291,6 +300,17 @@ define([
 
             it('data message', function() {
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
+                                                     _td.GROUP_KEY,
+                                                     _td.ED25519_PUB_KEY);
+                assert.lengthOf(result.signature, 64);
+                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
+                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
+                assert.lengthOf(result.iv, 16);
+                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
+            });
+
+            it('data message with exponential padding', function() {
+                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
                                                      _td.GROUP_KEY,
                                                      _td.ED25519_PUB_KEY);
                 assert.lengthOf(result.signature, 64);
@@ -378,7 +398,7 @@ define([
             var groupKey = _td.COMP_KEY.substring(0, 16);
             var result = ns.encodeMessage(message, groupKey, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
             sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 4);
+            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 5);
             assert.strictEqual(ns.encodeMessageContent.getCall(0).args[0],
                                message);
             assert.strictEqual(ns.encodeMessageContent.getCall(0).args[1],
@@ -387,6 +407,26 @@ define([
                                _td.ED25519_PRIV_KEY);
             assert.strictEqual(ns.encodeMessageContent.getCall(0).args[3],
                                _td.ED25519_PUB_KEY);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[4], 0);
+            assert.strictEqual(result, '?mpENC:NDI=.');
+        });
+
+        it('data message with exponential padding', function() {
+            var message = 'wha tekau ma rua';
+            sandbox.stub(ns, 'encodeMessageContent').returns('42');
+            var groupKey = _td.COMP_KEY.substring(0, 16);
+            var result = ns.encodeMessage(message, groupKey, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, 32);
+            sinon_assert.calledOnce(ns.encodeMessageContent);
+            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 5);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[0],
+                               message);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[1],
+                               groupKey);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[2],
+                               _td.ED25519_PRIV_KEY);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[3],
+                               _td.ED25519_PUB_KEY);
+            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[4], 32);
             assert.strictEqual(result, '?mpENC:NDI=.');
         });
     });
@@ -406,17 +446,64 @@ define([
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['ZZBBd/VfkkxbQjQnJs2XVw==',
-                            'hPZ6wa6Sco8iO4tJUfiQwQ==',
-                            'IGX/B9/06eKjM/v2xiXPaA==',
-                            'fSeQGNTTe+eUismz9dhnAgwyJjA/dUBmkgwuX/aB6Vc=',
-                            'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ==',
-                            '+1YLHea/yTdsdBbKdQCTvA==',
-                            'A8PaLxNIrYKkA6GKziGXnoHciUR/DvhDIQmgL+QGgM4=',
-                            'DNiVaSUaU/t0629NVDEnmPXmZ6zJKq7IFx5DH3UtB50='];
+            var expected = ['VuuhjX/Tv+izxDqav8aZkw==',
+                            '+DY4ThyAs+EDFQZGSK1BWQ==',
+                            'LCXI34/Fou4+aewRq+WSIw==',
+                            'QyfKqgn9g0A6LZDpjLTupIJz9I4WfkHPDgRu3VYVipY=',
+                            'VtT8MtqFepiSohOU2RiikNw75ts+DzWmzM5n9NOwPRrlFQ1xxTCP5eVzFNt+ZBCpNzH2u9ZfXZJYysgADgQLNg==',
+                            'SC5vp2Ml4w7vcnT/gHgTbA==',
+                            'vXWdTN0pKmL9W7TRZN4nfcy0fmXk1lSWr5JFbzg+yeA=',
+                            'gsou4Ncoykbkg4NHm19CMSUISmfi8eCVHWM0E9yxDaw='];
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
+                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
+                assert.strictEqual(btoa(result.data), expected[i]);
+            }
+        });
+
+        it('data messages with exponential padding', function() {
+            var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
+            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var paddingSize = 32;
+            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
+            var expected = ['6XKTgeuvwFtdRmFP7IaF4rSVaXJMqW8OETTe9B9AZwY=',
+                            'M5HrNJxP+snqy6OuVNQvYAe6SSvZaAF0Kef3eysHGU4=',
+                            'tMj2YWriiLT1pzthGVly/oBScpN7XraZ2byXvJTfA98=',
+                            'QyfKqgn9g0A6LZDpjLTupLwnw0UYldJyHx2uOOMhNVI=',
+                            'VtT8MtqFepiSohOU2RiikNw75ts+DzWmzM5n9NOwPRrlFQ1xxTCP5eVzFNt+ZBCpmYJojdVrVsIM714z8QsI5g==',
+                            'NrTBK7A3vRIpKuN9SMw8uMPFUXuznTB+/nSx4MFJ2do=',
+                            'vXWdTN0pKmL9W7TRZN4nfcZkoAAlGcuRJpdupKe34wk=',
+                            'gsou4Ncoykbkg4NHm19CMUNzO0YA/BEwAzNqdCJxkbc='];
+            sandbox.stub(utils, '_newKey08').returns(iv);
+            for (var i = 0; i < tests.length; i++) {
+                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
+                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
+                assert.strictEqual(result.data.length % paddingSize, 0);
+                assert.strictEqual(btoa(result.data), expected[i]);
+            }
+        });
+
+        it('data messages explicitly without padding', function() {
+            var iv = asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f');
+            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var paddingSize = 0;
+            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
+            var expected = ['VuuhjX/Tv+izxDqav8aZkw==',
+                            '+DY4ThyAs+EDFQZGSK1BWQ==',
+                            'LCXI34/Fou4+aewRq+WSIw==',
+                            'QyfKqgn9g0A6LZDpjLTupIJz9I4WfkHPDgRu3VYVipY=',
+                            'VtT8MtqFepiSohOU2RiikNw75ts+DzWmzM5n9NOwPRrlFQ1xxTCP5eVzFNt+ZBCpNzH2u9ZfXZJYysgADgQLNg==',
+                            'SC5vp2Ml4w7vcnT/gHgTbA==',
+                            'vXWdTN0pKmL9W7TRZN4nfcy0fmXk1lSWr5JFbzg+yeA=',
+                            'gsou4Ncoykbkg4NHm19CMSUISmfi8eCVHWM0E9yxDaw='];
+            sandbox.stub(utils, '_newKey08').returns(iv);
+            for (var i = 0; i < tests.length; i++) {
+                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
                 assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
                 assert.strictEqual(btoa(result.data), expected[i]);
             }
@@ -436,14 +523,34 @@ define([
         it('data messages', function() {
             var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
             var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['ZZBBd/VfkkxbQjQnJs2XVw==',
-                         'hPZ6wa6Sco8iO4tJUfiQwQ==',
-                         'IGX/B9/06eKjM/v2xiXPaA==',
-                         'fSeQGNTTe+eUismz9dhnAgwyJjA/dUBmkgwuX/aB6Vc=',
-                         'XmawppTzWIAuwn5sNffET4Dzbk86g4NQ6ySQO+baKwzsZGjIqxlRTz0jdufBUN6deCOG1yKZUOsskk1hcpzTzQ==',
-                         '+1YLHea/yTdsdBbKdQCTvA==',
-                         'A8PaLxNIrYKkA6GKziGXnoHciUR/DvhDIQmgL+QGgM4=',
-                         'DNiVaSUaU/t0629NVDEnmPXmZ6zJKq7IFx5DH3UtB50='];
+            var tests = ['VuuhjX/Tv+izxDqav8aZkw==',
+                         '+DY4ThyAs+EDFQZGSK1BWQ==',
+                         'LCXI34/Fou4+aewRq+WSIw==',
+                         'QyfKqgn9g0A6LZDpjLTupIJz9I4WfkHPDgRu3VYVipY=',
+                         'VtT8MtqFepiSohOU2RiikNw75ts+DzWmzM5n9NOwPRrlFQ1xxTCP5eVzFNt+ZBCpNzH2u9ZfXZJYysgADgQLNg==',
+                         'SC5vp2Ml4w7vcnT/gHgTbA==',
+                         'vXWdTN0pKmL9W7TRZN4nfcy0fmXk1lSWr5JFbzg+yeA=',
+                         'gsou4Ncoykbkg4NHm19CMSUISmfi8eCVHWM0E9yxDaw='];
+            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
+            for (var i = 0; i < tests.length; i++) {
+                var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
+                assert.strictEqual(result, expected[i]);
+            }
+        });
+
+        it('data messages with exponential padding', function() {
+            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b0c0d0e0f'));
+            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
+            var tests = ['6XKTgeuvwFtdRmFP7IaF4rSVaXJMqW8OETTe9B9AZwY=',
+                         'M5HrNJxP+snqy6OuVNQvYAe6SSvZaAF0Kef3eysHGU4=',
+                         'tMj2YWriiLT1pzthGVly/oBScpN7XraZ2byXvJTfA98=',
+                         'QyfKqgn9g0A6LZDpjLTupLwnw0UYldJyHx2uOOMhNVI=',
+                         'VtT8MtqFepiSohOU2RiikNw75ts+DzWmzM5n9NOwPRrlFQ1xxTCP5eVzFNt+ZBCpmYJojdVrVsIM714z8QsI5g==',
+                         'NrTBK7A3vRIpKuN9SMw8uMPFUXuznTB+/nSx4MFJ2do=',
+                         'vXWdTN0pKmL9W7TRZN4nfcZkoAAlGcuRJpdupKe34wk=',
+                         'gsou4Ncoykbkg4NHm19CMUNzO0YA/BEwAzNqdCJxkbc='];
             var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                             "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                             'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
