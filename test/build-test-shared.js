@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// shim in browser global vars that some libs assume the existence of
+// Shim in browser global vars that some libs assume the existence of.
 navigator = { appName: "nodejs" };
 
 var fs = require("fs");
@@ -25,13 +25,13 @@ function loadInlineModule(filepath) {
     return exports;
 }
 
-// load our dependencies that we didn't link into our lib
+// Load our dependencies that we didn't link into our library.
 for (var i=3; i<process.argv.length; i++) {
-    eval(loadContents("../lib/" + process.argv[i] + ".js"));
+    eval(loadContents("../" + process.argv[i]));
 }
 
-// load our library
+// Load our library.
 var mpenc = loadInlineModule(process.argv[2]);
 
-// debug print our public API
+// Debug print our public API.
 console.log(mpenc);

@@ -2,7 +2,8 @@
 BUILDDIR = build
 
 # Libraries to omit when building mpenc-shared.js.
-PARTIAL_OMIT = asmcrypto jsbn jodid25519-shared
+PARTIAL_OMIT = asmcrypto.js jsbn jodid25519
+SHARED_JS_FILES = node_modules/asmcrypto.js/asmcrypto.js node_modules/jsbn/index.js node_modules/jodid25519/build/jodid25519-shared.js
 
 # Set to none for a non-minified build, for easier debugging.
 OPTIMIZE = none
@@ -33,7 +34,7 @@ $(BUILDDIR)/build-config-shared.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
 	tail -n+2 "$<" > "$@.tmp"
 	for i in $(PARTIAL_OMIT); do \
-		sed -i -e "s,lib/$$i\",build/$$i-dummy\"," "$@.tmp"; \
+		sed -i -e "s,node_modules/$$i/.*\",build/$$i-dummy\"," "$@.tmp"; \
 		touch $(BUILDDIR)/$$i-dummy.js; \
 	done
 	mv "$@.tmp" "$@"
@@ -52,7 +53,7 @@ test-static: test/build-test-static.js build-static
 	./$< ../$(BUILDDIR)/mpenc-static.js
 
 test-shared: test/build-test-shared.js build-shared
-	./$< ../$(BUILDDIR)/mpenc-shared.js $(PARTIAL_OMIT)
+	./$< ../$(BUILDDIR)/mpenc-shared.js $(SHARED_JS_FILES)
 
 $(BUILDDIR)/%.min.js: $(BUILDDIR)/%.js
 	$(UGLIFY) $< -o $@ --source-map $@.map --mangle --compress --lint
