@@ -10,8 +10,8 @@
     "doc": "doc"
   },
   "scripts": {
-    "test": "make dependencies && karma start --singleRun=true karma.conf.js",
-    "api-doc": "jsdoc --destination doc/api/ --private --configure jsdoc.json --recurse src/",
+    "test": "make test test-shared",
+    "api-doc": "make api-doc",
     "build-shared": "make build-shared",
     "build-static": "make build-static"
   },
@@ -34,7 +34,7 @@
   "dependencies": {
     "jsbn": "*",
     "asmcrypto": "vibornoff/asmcrypto.js",
-    "jodid25519": "meganz/jodid25519"
+    "jodid25519": "infinity0/jodid25519"
   },
   "devDependencies": {
     "almond": "~0.2.9",
