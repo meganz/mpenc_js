@@ -5,9 +5,6 @@ BUILDDIR = build
 PARTIAL_OMIT = asmcrypto.js jsbn jodid25519
 SHARED_JS_FILES = node_modules/asmcrypto.js/asmcrypto.js node_modules/jsbn/index.js node_modules/jodid25519/build/jodid25519-shared.js
 
-# Set to none for a non-minified build, for easier debugging.
-OPTIMIZE = none
-
 KARMA  = ./node_modules/.bin/karma
 JSDOC  = ./node_modules/.bin/jsdoc
 R_JS   = ./node_modules/.bin/r.js
