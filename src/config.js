@@ -16,8 +16,9 @@ var requirejs_config_mpenc =
         "jsbn": {
             exports: "jsbn",
             init: function(jsbn) {
+                // first case is for plain jsbn, second case is for jsbn node module
                 return {
-                    BigInteger: BigInteger,
+                    BigInteger: (typeof BigInteger !== "undefined") ? BigInteger : module.exports,
                 };
             },
         },
