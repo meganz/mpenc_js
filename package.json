@@ -34,7 +34,7 @@
   "dependencies": {
     "jsbn": "*",
     "asmcrypto": "vibornoff/asmcrypto.js",
-    "jodid25519": "infinity0/jodid25519"
+    "jodid25519": "meganz/jodid25519"
   },
   "devDependencies": {
     "almond": "~0.2.9",
