@@ -24,10 +24,14 @@
 define([
     "mpenc/helper/utils",
     "chai",
-], function(ns, chai) {
+    "asmcrypto",
+], function(ns, chai, asmCrypto) {
     "use strict";
 
     var assert = chai.assert;
+
+    // Shut up warning messages on random number generation for unit tests.
+    asmCrypto.random.skipSystemRNGWarning = true;
 
     describe("module level", function() {
         describe('_arrayIsSubSet()', function() {

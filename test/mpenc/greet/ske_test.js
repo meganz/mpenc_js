@@ -11,7 +11,8 @@ define([
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
-], function(ns, utils, jodid25519, chai, sinon_assert, sinon_sandbox, sinon_spy) {
+    "asmcrypto",
+], function(ns, utils, jodid25519, chai, sinon_assert, sinon_sandbox, sinon_spy, asmCrypto) {
     "use strict";
 
     /*
@@ -35,6 +36,9 @@ define([
     var assert = chai.assert;
 
     var _echo = function(x) { return x; };
+
+    // Shut up warning messages on random number generation for unit tests.
+    asmCrypto.random.skipSystemRNGWarning = true;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;

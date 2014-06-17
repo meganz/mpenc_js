@@ -28,11 +28,15 @@ define([
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
-], function(ns, utils, chai, sinon_assert, sinon_sandbox, sinon_spy) {
+    "asmcrypto",
+], function(ns, utils, chai, sinon_assert, sinon_sandbox, sinon_spy, asmCrypto) {
     "use strict";
     var assert = chai.assert;
 
     var _echo = function(x) { return x; };
+
+    // Shut up warning messages on random number generation for unit tests.
+    asmCrypto.random.skipSystemRNGWarning = true;
 
     describe("module level", function() {
         describe('_computeKeyDebug()', function() {

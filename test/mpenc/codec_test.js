@@ -35,6 +35,9 @@ define([
 
     var assert = chai.assert;
 
+    // Shut up warning messages on random number generation for unit tests.
+    asmCrypto.random.skipSystemRNGWarning = true;
+
     // set test data
     _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
 

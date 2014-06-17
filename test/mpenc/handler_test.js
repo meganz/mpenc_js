@@ -31,13 +31,17 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
+    "asmcrypto",
 ], function(ns, utils, codec, version,
-        chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
+        chai, sinon_assert, sinon_sandbox, sinon_spy, stub, asmCrypto) {
     "use strict";
 
     var assert = chai.assert;
 
     var _echo = function(x) { return x; };
+
+    // Shut up warning messages on random number generation for unit tests.
+    asmCrypto.random.skipSystemRNGWarning = true;
 
     // set test data
     _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
