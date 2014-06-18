@@ -1600,5 +1600,66 @@ define([
             assert.throws(function() { participants['2'].processMessage(dataMessage); },
                           'Data messages can only be decrypted from an initialised state.');
         });
+
+        it('bug 183 - out of order flow (caused by callbacks which were triggered before the state was set to INITIALISED)', function() {
+            // Initialise members.
+            var numMembers = 2;
+            var participants = {};
+            for (var i = 1; i <= numMembers; i++) {
+                participants[i.toString()] = new ns.ProtocolHandler(i.toString(),
+                                                                    _td.ED25519_PRIV_KEY,
+                                                                    _td.ED25519_PUB_KEY,
+                                                                    _td.STATIC_PUB_KEY_DIR);
+            }
+
+            // Start.
+            participants['1'].start(['2']);
+            var protocolMessage = participants['1'].protocolOutQueue.shift();
+            assert.strictEqual(participants['1'].state, ns.STATE.INIT_UPFLOW);
+
+            // Processing start/upflow message.
+            participants['2'].processMessage(protocolMessage);
+            protocolMessage = participants['2'].protocolOutQueue.shift();
+            assert.strictEqual(participants['2'].state, ns.STATE.INIT_DOWNFLOW);
+
+            // *new* by patching the 'stateUpdatedCallback' we will add a assert() to be sure that the .state is set to
+            // READY, after the protocolOutQueue got a new message added (not before!)
+            participants['1'].stateUpdatedCallback = function(h) {
+                if(this.state == 3) {
+                    assert.strictEqual(participants['1'].protocolOutQueue.length, 1);
+                }
+            };
+
+            // ...now we can process the first downflow message.
+            participants['1'].processMessage(protocolMessage);  // <- this will also trigger the .statusUpdateCallback,
+                                                                // which will guarantee that the .protocolOutQueue
+                                                                // contains exactly 1 msg in the queue
+            protocolMessage = participants['1'].protocolOutQueue.shift();
+            assert.strictEqual(participants['1'].state, ns.STATE.INITIALISED);
+
+            participants['1'].stateUpdatedCallback = function(h) {}; // ok, we don't need this check anymore
+
+            participants['2'].processMessage(protocolMessage);   // participant 2 should process the new protocolOut msg
+
+            assert.strictEqual(participants['2'].state, ns.STATE.INITIALISED); // participant 2 is also ready
+
+
+            // this was the problematic part..1 (room owner, who started the enc flow) sees he is at state == READY
+            // so he tries to send a message to 2, meanwhile 2 is STILL not in ready state
+
+            // Note: the correct state/protocolOutQueue is now verified with the .statusUpdateCallback callback few lines
+            // above
+
+            // test message sending - jid1 -> jid2
+            participants['1'].send("a", {});
+
+            participants['2'].processMessage(
+                participants['1'].messageOutQueue.shift()
+            );
+
+            assert.strictEqual(participants['2'].uiQueue[0].message, "a");
+            assert.strictEqual(participants['2'].uiQueue[0].from, "1");
+            assert.strictEqual(participants['2'].uiQueue[0].type, "message");
+        });
     });
 });
