@@ -14,7 +14,7 @@ module.exports = function(config) {
         // Dependency-based load order of library modules.
         'node_modules/jsbn/index.js',
         'node_modules/asmcrypto.js/asmcrypto.js',
-        {pattern: 'node_modules/jodid25519/build/jodid25519-shared.js', included: false},
+        {pattern: 'node_modules/jodid25519/jodid25519.js', included: false},
         // karma-sinon does not yet integrate with requirejs, so we have to do this hack
         {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 

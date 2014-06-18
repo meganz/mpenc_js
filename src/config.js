@@ -3,7 +3,7 @@ var requirejs_config_mpenc =
     paths: {
         "jsbn": "../node_modules/jsbn/index",
         "asmcrypto": "../node_modules/asmcrypto.js/asmcrypto",
-        "jodid25519": "../node_modules/jodid25519/build/jodid25519-shared",
+        "jodid25519": "../node_modules/jodid25519/jodid25519",
         },
     shim: {
         // Dependencies that we use directly need to be added here.

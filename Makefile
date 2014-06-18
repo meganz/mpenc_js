@@ -1,11 +1,13 @@
-# Build directory.
+# Site-dependent variables
 BUILDDIR = build
 NODE_PATH = ./node_modules
+NPM = npm
+NODE = node
 
 # Dependencies - make sure you keep DEP_ALL and DEP_ALL_NAMES up-to-date
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
 DEP_JSBN = $(NODE_PATH)/jsbn/index.js
-DEP_JODID = $(NODE_PATH)/jodid25519/build/jodid25519-shared.js
+DEP_JODID = $(NODE_PATH)/jodid25519/jodid25519.js
 DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID)
 DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519
 
@@ -23,11 +25,15 @@ ASMCRYPTO_MODULES = utils,aes-cbc,aes-ccm,sha1,sha256,sha512,hmac-sha1,hmac-sha2
 
 all: test api-doc dist test-shared
 
+mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
+	sed -e 's,$<,$@,g' "$<.map" > "$@.map"
+	sed -e 's,$<,$@,g' "$<" > "$@"
+
 test: $(KARMA) $(R_JS) $(DEP_ALL)
-	$(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
+	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
 
 api-doc: $(JSDOC)
-	$(JSDOC) --destination doc/api/ --private \
+	$(NODE) $(JSDOC) --destination doc/api/ --private \
                  --configure jsdoc.json \
                  --recurse src/
 
@@ -46,12 +52,12 @@ $(BUILDDIR)/build-config-shared.js: src/config.js Makefile
 
 $(BUILDDIR)/mpenc-static.js: build-static
 build-static: $(R_JS) $(ALMOND) $(BUILDDIR)/build-config-static.js $(DEP_ALL)
-	$(R_JS) -o $(BUILDDIR)/build-config-static.js out="$(BUILDDIR)/mpenc-static.js" \
+	$(NODE) $(R_JS) -o $(BUILDDIR)/build-config-static.js out="$(BUILDDIR)/mpenc-static.js" \
 	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=none
 
 $(BUILDDIR)/mpenc-shared.js: build-shared
 build-shared: $(R_JS) $(ALMOND) $(BUILDDIR)/build-config-shared.js
-	$(R_JS) -o $(BUILDDIR)/build-config-shared.js out="$(BUILDDIR)/mpenc-shared.js" \
+	$(NODE) $(R_JS) -o $(BUILDDIR)/build-config-shared.js out="$(BUILDDIR)/mpenc-shared.js" \
 	  $(R_JS_ALMOND_OPTS) include=mpenc optimize=none
 
 test-static: test/build-test-static.js build-static
@@ -61,23 +67,27 @@ test-shared: test/build-test-shared.js build-shared $(DEP_ALL)
 	./$< ../$(BUILDDIR)/mpenc-shared.js $(DEP_ALL)
 
 $(BUILDDIR)/%.min.js: $(BUILDDIR)/%.js $(UGLIFY)
-	$(UGLIFY) $< -o $@ --source-map $@.map --mangle --compress --lint
+	$(NODE) $(UGLIFY) $< -o $@ --source-map $@.map --mangle --compress --lint
 
 dist: $(BUILDDIR)/mpenc-shared.min.js $(BUILDDIR)/mpenc-static.js
 
-$(DEP_ASMCRYPTO):
-	npm install
-	cd $(NODE_PATH)/asmcrypto.js && npm install && $(NODE_PATH)/.bin/grunt --with=$(ASMCRYPTO_MODULES)
+# TODO: this may be removed when the default dist of asmcrypto includes sha512
+$(DEP_ASMCRYPTO): $(DEP_ASMCRYPTO).with.sha512
+$(DEP_ASMCRYPTO).with.sha512:
+	$(NPM) install asmcrypto.js
+	cd $(NODE_PATH)/asmcrypto.js &&	$(NPM) install && $(NODE) $(NODE_PATH)/.bin/grunt --with=$(ASMCRYPTO_MODULES)
+	touch $(DEP_ASMCRYPTO).with.sha512
 
+# TODO: this may be removed when jodid25519 gets uploaded to npm repos
 $(DEP_JODID):
-	npm install
-	cd $(NODE_PATH)/jodid25519 && make build-shared
+	$(NPM) install jodid25519
+	cd $(NODE_PATH)/jodid25519 && make jodid25519.js
 
 $(BUILD_DEP_ALL) $(DEP_JSBN):
-	npm install
+	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn
 
 clean:
-	rm -rf doc/api/ coverage/ build/
+	rm -rf doc/api/ coverage/ build/ mpenc.js
 
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
