@@ -963,6 +963,25 @@ define([
             });
         });
 
+        describe('#sendError() method', function() {
+            it('send an mpENC protocol error message', function() {
+                var participant = new ns.ProtocolHandler('asok@dilbertsintern.org/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.AUX_UPFLOW;
+                var message = 'Problem retrieving public key for: PointyHairedBoss';
+                participant.sendError(message);
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.strictEqual(participant.protocolOutQueue[0].message,
+                                   '?mpENC Error:' + message + '.');
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'asok@dilbertsintern.org/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+        });
+
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2',
@@ -999,7 +1018,7 @@ define([
                 assert.lengthOf(participant.uiQueue, 1);
                 assert.strictEqual(participant.uiQueue[0].type, 'error');
                 assert.strictEqual(participant.uiQueue[0].message,
-                                   'Error in mpEnc protocol: Hatschi!');
+                                   'Error in mpENC protocol: Hatschi!');
             });
 
             it('on keying message', function() {
@@ -1501,7 +1520,7 @@ define([
                 assert.strictEqual(uiMessage.message, 'Received unencrypted message, requesting encryption.');
                 assert.strictEqual(participants[1].state, ns.STATE.NULL);
 
-                // Process mpEnc query response.
+                // Process mpENC query response.
                 participants[0].processMessage(message);
                 message = participants[0].protocolOutQueue.shift();
                 payload = _getPayload(message, participants[0]);

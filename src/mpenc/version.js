@@ -1,5 +1,5 @@
 /**
- * @fileOverview Metadata about the mpEnc library
+ * @fileOverview Metadata about the mpENC library
  */
 
 /*
@@ -26,7 +26,7 @@ define([], function() {
     /**
      * @exports mpenc/version
      * @description
-     * Metadata about the mpEnc library
+     * Meta-data about the mpENC library.
      */
     var ns = {};
 

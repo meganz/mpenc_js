@@ -379,7 +379,7 @@ define([
                      content: String.fromCharCode(ver[1]) };
         }
 
-        _assert(false, 'Unknown mpEnc message.');
+        _assert(false, 'Unknown mpENC message.');
     };
 
 
@@ -695,6 +695,20 @@ define([
      */
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
+    };
+
+
+    /**
+     * Returns an mpENC protocol query message ready to be put onto the wire,
+     * including.the given message.
+     *
+     * @param text {string}
+     *     Text message to accompany the mpENC protocol error message.
+     * @returns {string}
+     *     A wire ready message representation.
+     */
+    ns.getErrorMessage = function(text) {
+        return _PROTOCOL_PREFIX + ' Error:' + text + '.';
     };
 
     return ns;

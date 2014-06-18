@@ -36,7 +36,7 @@ define([
      */
 
     /**
-     * Carries message content for the mpEnc protocol flow and data messages.
+     * Carries message content for the mpENC protocol flow and data messages.
      *
      * @constructor
      * @param source {string}
