@@ -8,7 +8,3 @@
 /doc/api
 /build/
 /mpEnc_js-*.tgz
-
-# npm things, don't add these to .npmignore
-/node_modules
-/mpenc.js*

@@ -54,7 +54,7 @@ define([
 
     /**
      * "Enumeration" defining the different stable and intermediate states of
-     * the mpEnc module.
+     * the mpENC module.
      *
      * @property NULL {integer}
      *     Uninitialised (default) state.
@@ -63,7 +63,7 @@ define([
      * @property INIT_DOWNFLOW {integer}
      *     During process of initial protocol downflow.
      * @property INITIALISED {integer}
-     *     Default state during general usage of mpEnc. No protocol/key
+     *     Default state during general usage of mpENC. No protocol/key
      *     negotiation going on, and a valid group key is available.
      * @property AUX_UPFLOW {integer}
      *     During process of auxiliary protocol upflow.
@@ -133,7 +133,7 @@ define([
      * @property cliquesMember {CliquesMember}
      *     Reference to CLIQUES protocol handler with the same participant ID.
      * @property state {integer}
-     *     Current state of the mpEnc protocol handler according to {STATE}.
+     *     Current state of the mpENC protocol handler according to {STATE}.
      * @property exponentialPadding {integer}
      *     Number of bytes to pad the cipher text to come out as (0 to turn off
      *     padding). If the clear text will result in a larger cipher text than
@@ -496,7 +496,7 @@ define([
 
 
     /**
-     * Handles mpEnc protocol message processing.
+     * Handles mpENC protocol message processing.
      *
      * @method
      * @param wireMessage {object}
@@ -515,7 +515,7 @@ define([
             case codec.MESSAGE_CATEGORY.MPENC_ERROR:
                 this.uiQueue.push({
                     type: 'error',
-                    message: 'Error in mpEnc protocol: ' + classify.content
+                    message: 'Error in mpENC protocol: ' + classify.content
                 });
                 this.queueUpdatedCallback(this);
                 break;
@@ -669,6 +669,24 @@ define([
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
+        this.queueUpdatedCallback(this);
+    };
+
+
+    /**
+     * Sends an mpENC protocol error message to the current group.
+     *
+     * @method
+     * @param messageContent {string}
+     *     Error message content to be sent.
+     */
+    ns.ProtocolHandler.prototype.sendError = function(messageContent) {
+        var outMessage = {
+            from: this.id,
+            to: '',
+            message: codec.getErrorMessage(messageContent),
+        };
+        this.protocolOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
     };
 

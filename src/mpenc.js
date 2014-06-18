@@ -1,5 +1,5 @@
 /**
- * @fileOverview JavaScript mpEnc implementation.
+ * @fileOverview JavaScript mpENC implementation.
  */
 
 /*

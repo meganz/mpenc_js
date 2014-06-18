@@ -200,7 +200,7 @@ define([
 
             it('unknown message', function() {
                 assert.throws(function() { ns.categoriseMessage('?mpENC...blah.'); },
-                              'Unknown mpEnc message.');
+                              'Unknown mpENC message.');
             });
 
             it('null message', function() {
@@ -657,6 +657,30 @@ define([
                 var signature = ns.signDataMessage(message, privKey, pubKey);
                 assert.ok(ns.verifyDataMessage(message, signature, pubKey),
                           'iteration ' + (i + 1));
+            }
+        });
+    });
+
+    describe("getQueryMessage()", function() {
+        it('simple invocations', function() {
+            var tests = ['',
+                         'foo'];
+            var expected = ['?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?',
+                            '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo'];
+            for (var i = 0; i < tests.length; i++) {
+                assert.strictEqual(ns.getQueryMessage(tests[i]), expected[i]);
+            }
+        });
+    });
+
+    describe("getErrorMessage()", function() {
+        it('simple invocations', function() {
+            var tests = ['',
+                         'Problem retrieving public key for: PointyHairedBoss'];
+            var expected = ['?mpENC Error:.',
+                            '?mpENC Error:Problem retrieving public key for: PointyHairedBoss.'];
+            for (var i = 0; i < tests.length; i++) {
+                assert.strictEqual(ns.getErrorMessage(tests[i]), expected[i]);
             }
         });
     });
