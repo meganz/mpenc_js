@@ -1620,7 +1620,7 @@ define([
                           'Data messages can only be decrypted from an initialised state.');
         });
 
-        it('bug 183 - out of order flow (caused by callbacks which were triggered before the state was set to INITIALISED)', function() {
+        it('bug 283 - out of order flow (caused by callbacks which were triggered before the state was set to INITIALISED)', function() {
             // Initialise members.
             var numMembers = 2;
             var participants = {};
