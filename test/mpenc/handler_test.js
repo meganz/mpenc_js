@@ -1620,7 +1620,7 @@ define([
                           'Data messages can only be decrypted from an initialised state.');
         });
 
-        it('bug 283 - out of order flow (caused by callbacks which were triggered before the state was set to INITIALISED)', function() {
+        it('out of order flow by callbacks triggered before state is INITIALISED (bug 283)', function() {
             // Initialise members.
             var numMembers = 2;
             var participants = {};
@@ -1641,42 +1641,46 @@ define([
             protocolMessage = participants['2'].protocolOutQueue.shift();
             assert.strictEqual(participants['2'].state, ns.STATE.INIT_DOWNFLOW);
 
-            // *new* by patching the 'stateUpdatedCallback' we will add a assert() to be sure that the .state is set to
-            // READY, after the protocolOutQueue got a new message added (not before!)
+            // This 'stateUpdatedCallback' will add a assert() to ensure that
+            // the .state is set to INITIALISED, after the protocolOutQueue got
+            // a new message added (not before!)
             participants['1'].stateUpdatedCallback = function(h) {
-                if(this.state == 3) {
+                if(this.state === ns.STATE.INITIALISED) {
                     assert.strictEqual(participants['1'].protocolOutQueue.length, 1);
                 }
             };
 
-            // ...now we can process the first downflow message.
-            participants['1'].processMessage(protocolMessage);  // <- this will also trigger the .statusUpdateCallback,
-                                                                // which will guarantee that the .protocolOutQueue
-                                                                // contains exactly 1 msg in the queue
+            // Now process the first downflow message.
+            // This will also trigger the .statusUpdateCallback, which will
+            // guarantee that .protocolOutQueue contains exactly 1 message in
+            // the queue.
+            participants['1'].processMessage(protocolMessage);
             protocolMessage = participants['1'].protocolOutQueue.shift();
             assert.strictEqual(participants['1'].state, ns.STATE.INITIALISED);
+            // We don't need this check anymore, let's remove it.
+            participants['1'].stateUpdatedCallback = function(h) {};
 
-            participants['1'].stateUpdatedCallback = function(h) {}; // ok, we don't need this check anymore
+            // Participant 2 should process the new protocolOut message.
+            participants['2'].processMessage(protocolMessage);
+            // Participant 2 is also initialised.
+            assert.strictEqual(participants['2'].state, ns.STATE.INITIALISED);
 
-            participants['2'].processMessage(protocolMessage);   // participant 2 should process the new protocolOut msg
+            // This was the problematic part:
+            // 1 (room owner, who started the flow) sees he is in INITIALISED
+            // state, so he tries to send a message to 2, meanwhile 2 is still
+            // not initialised, yet.
 
-            assert.strictEqual(participants['2'].state, ns.STATE.INITIALISED); // participant 2 is also ready
+            // Note: the correct state/protocolOutQueue is now verified with
+            //       the .statusUpdateCallback callback (see above).
 
-
-            // this was the problematic part..1 (room owner, who started the enc flow) sees he is at state == READY
-            // so he tries to send a message to 2, meanwhile 2 is STILL not in ready state
-
-            // Note: the correct state/protocolOutQueue is now verified with the .statusUpdateCallback callback few lines
-            // above
-
-            // test message sending - jid1 -> jid2
-            participants['1'].send("a", {});
+            // Test message sending: jid1 -> jid2
+            participants['1'].send("How you doin'?", {});
 
             participants['2'].processMessage(
                 participants['1'].messageOutQueue.shift()
             );
 
-            assert.strictEqual(participants['2'].uiQueue[0].message, "a");
+            assert.strictEqual(participants['2'].uiQueue[0].message, "How you doin'?");
             assert.strictEqual(participants['2'].uiQueue[0].from, "1");
             assert.strictEqual(participants['2'].uiQueue[0].type, "message");
         });
