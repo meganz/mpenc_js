@@ -477,6 +477,7 @@ define([
                     participant.privKey = _PRIV_KEY();
                     participant.goupKey = _PRIV_KEY();
                 }
+                sinon_sandbox.spy(utils, 'sha256');
                 // Exclude members '1' and '4'.
                 var thenMembers = ['2', '3', '5'];
                 participant._debugGroupKey = '1*2*3*4*5*G';
@@ -487,6 +488,8 @@ define([
                 assert.deepEqual(participant.members, thenMembers);
                 assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
                 assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.notDeepEqual(participant.groupKey, undefined);
+                sinon_assert.calledOnce(utils.sha256);
             });
         });
 
