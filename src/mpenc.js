@@ -26,7 +26,7 @@ define([
     "mpenc/messages",
     "mpenc/version",
     "mpenc/debug",
-], function(codec, handler, messages, version) {
+], function(codec, handler, messages, version, debug) {
     "use strict";
 
     /**
