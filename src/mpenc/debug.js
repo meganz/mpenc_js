@@ -1,9 +1,9 @@
 /**
- * @fileOverview JavaScript mpENC implementation.
+ * @fileOverview Debugging configuration.
  */
 
 /*
- * Created: 11 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
+ * Created: 25 Aug 2014 Guy K. Kloss <gk@mega.co.nz>
  *
  * (c) 2014 by Mega Limited, Wellsford, New Zealand
  *     http://mega.co.nz/
@@ -20,32 +20,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-define([
-    "mpenc/codec",
-    "mpenc/handler",
-    "mpenc/messages",
-    "mpenc/version",
-], function(codec, handler, messages, version) {
+define([], function() {
     "use strict";
 
     /**
-     * @exports mpenc
-     * The multi-party encrypted chat protocol, public API.
-     *
+     * @exports mpenc/debug
      * @description
-     * This is eventually to be extended towards the mpOTR standard, currently
-     * under development.
-     *
-     * @property version {string}
-     *     Member's identifier string.
+     * Debugging configuration.
      */
-    var mpenc = {};
+    var ns = {decoder: false};
 
-    mpenc.version = version;
-
-    mpenc.handler = handler;
-
-    mpenc.debug = '*** foo ***';
-
-    return mpenc;
+    return ns;
 });

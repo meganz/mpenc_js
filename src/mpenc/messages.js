@@ -48,7 +48,7 @@ define([
      * @property dest {string}
      *     Message destination (to).
      * @property agreement {string}
-     *     Type of key agreement. "initial" or "auxilliary".
+     *     Type of key agreement. "initial" or "auxiliary".
      * @property flow {string}
      *     Direction of message flow. "upflow" or "downflow".
      * @property members {Array}

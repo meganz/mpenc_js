@@ -25,12 +25,13 @@ define([
     "mpenc/codec",
     "mpenc/version",
     "mpenc/helper/utils",
+    "mpenc/debug",
     "jodid25519",
     "asmcrypto",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, debug, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
@@ -281,13 +282,30 @@ define([
                 assert.strictEqual(result.sessionSignature, _td.UPFLOW_MESSAGE_CONTENT.sessionSignature);
             });
 
+            it('upflow message, debug on', function() {
+                sandbox.stub(window.console, 'log');
+                sandbox.stub(debug, 'decoder', true);
+                ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
+                                        null, _td.ED25519_PUB_KEY);
+                var log = console.log.args[0][0];
+                assert.deepEqual(log, ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
+                                       'protocol: 1',
+                                       'from: 1',
+                                       'to: 2 (upflow)',
+                                       'agreement: undefined',
+                                       'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
+                                       'intKey: bnVsbA==', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                       'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                       'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']);
+            });
+
             it('downflow message for quit', function() {
                 var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
                                                      null,
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.agreement, 'auxilliary');
+                assert.strictEqual(result.agreement, 'auxiliary');
                 assert.strictEqual(result.flow, _td.DOWNFLOW_MESSAGE_CONTENT.flow);
                 assert.strictEqual(result.signingKey, _td.DOWNFLOW_MESSAGE_CONTENT.signingKey);
             });
@@ -310,6 +328,20 @@ define([
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
                 assert.lengthOf(result.iv, 16);
                 assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
+            });
+
+            it('data message, debug on', function() {
+                sandbox.stub(window.console, 'log');
+                sandbox.stub(debug, 'decoder', true);
+                ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
+                                        _td.GROUP_KEY, _td.ED25519_PUB_KEY);
+
+                var log = console.log.args[0][0];
+                assert.deepEqual(log, ['messageSignature: 0Et9tlUIl6SnWWRRF337BqWZvIao/BH4KU7qZeVB3QnL7ls+zfBVl5O3RxsZjibfMdjOsuCu6CsuFCb7mFQsBA==',
+                                       'protocol: 1',
+                                       'messageIV: i4vUqwamDTYp9T1rm4osZg==',
+                                       'rawDataMessage: hy2I5zmItNhJ7S9+QWB6eg==',
+                                       'decryptDataMessage: foo']);
             });
 
             it('data message with exponential padding', function() {

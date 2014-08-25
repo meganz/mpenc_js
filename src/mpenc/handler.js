@@ -828,7 +828,7 @@ define([
         if (cliquesMessage.agreement === 'ika') {
             newMessage.agreement = 'initial';
         } else {
-            newMessage.agreement = 'auxilliary';
+            newMessage.agreement = 'auxiliary';
         }
 
         return newMessage;

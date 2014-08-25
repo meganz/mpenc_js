@@ -8,9 +8,10 @@ define([
     "mpenc/messages",
     "mpenc/helper/utils",
     "mpenc/version",
+    'mpenc/debug',
     "asmcrypto",
     "jodid25519",
-], function(assert, messages, utils, version, asmCrypto, jodid25519) {
+], function(assert, messages, utils, version, debug, asmCrypto, jodid25519) {
     "use strict";
 
     /**
@@ -191,20 +192,23 @@ define([
         if (!message) {
             return null;
         }
-
         var out = new messages.ProtocolMessage();
+        var debugOutput = [];
 
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
             switch (tlv.type) {
                 case ns.TLV_TYPE.PADDING:
                     // Completely ignore this.
+                    debugOutput.push('padding: ' + tlv.value.length);
                     break;
                 case ns.TLV_TYPE.PROTOCOL_VERSION:
                     out.protocol = tlv.value;
+                    debugOutput.push('protocol: ' + tlv.value.charCodeAt(0));
                     break;
                 case ns.TLV_TYPE.SOURCE:
                     out.source = tlv.value;
+                    debugOutput.push('from: ' + tlv.value);
                     break;
                 case ns.TLV_TYPE.DEST:
                     out.dest = tlv.value || '';
@@ -213,45 +217,56 @@ define([
                     } else {
                         out.flow = 'upflow';
                     }
+                    debugOutput.push('to: ' + tlv.value + ' (' + out.flow + ')');
                     break;
                 case ns.TLV_TYPE.AUX_AGREEMENT:
                     if (tlv.value === _ZERO_BYTE) {
                         out.agreement = 'initial';
                     } else if (tlv.value === _ONE_BYTE) {
-                        out.agreement = 'auxilliary';
+                        out.agreement = 'auxiliary';
                     } else {
                         _assert(false,
                                 'Unexpected value for agreement TLV: '
                                 + tlv.value.charCodeAt(0) + '.');
                     }
+                    debugOutput.push('agreement: ' + tlv.agreement);
                     break;
                 case ns.TLV_TYPE.MEMBER:
                     out.members.push(tlv.value);
+                    debugOutput.push('member: ' + tlv.value);
                     break;
                 case ns.TLV_TYPE.INT_KEY:
                     out.intKeys.push(tlv.value);
+                    debugOutput.push('intKey: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.NONCE:
                     out.nonces.push(tlv.value);
+                    debugOutput.push('nonce: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.PUB_KEY:
                     out.pubKeys.push(tlv.value);
+                    debugOutput.push('pubKey: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.SESSION_SIGNATURE:
                     out.sessionSignature = tlv.value;
+                    debugOutput.push('sessionSignature: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.SIGNING_KEY:
                     out.signingKey = tlv.value;
+                    debugOutput.push('signingKey: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.MESSAGE_SIGNATURE:
                     out.signature = tlv.value;
                     out.rawMessage = tlv.rest;
+                    debugOutput.push('messageSignature: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.MESSAGE_IV:
                     out.iv = tlv.value;
+                    debugOutput.push('messageIV: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.DATA_MESSAGE:
                     out.data = tlv.value;
+                    debugOutput.push('rawDataMessage: ' + btoa(out.data));
                     break;
                 default:
                     _assert(false, 'Received unknown TLV type: ' + tlv.type);
@@ -265,6 +280,7 @@ define([
         if (out.data) {
             // Some further crypto processing on data messages.
             out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
+            debugOutput.push('decryptDataMessage: ' + out.data);
         } else {
             // Some sanity checks for keying messages.
             _assert(out.intKeys.length <= out.members.length,
@@ -273,6 +289,11 @@ define([
                     'Number of nonces cannot exceed number of members.');
             _assert(out.pubKeys.length <= out.members.length,
                     'Number of public keys cannot exceed number of members.');
+        }
+
+        // Debugging output.
+        if (debug.decoder) {
+            console.log(debugOutput);
         }
 
         // Check signature, if present.
@@ -339,7 +360,7 @@ define([
      * @param message {string}
      *     A wire protocol message representation.
      * @returns {mpenc.codec.MESSAGE_CATEGORY}
-     *     Message category indicator.
+     *     Object indicating message `category` and extracted message `content`.
      */
     ns.categoriseMessage = function(message) {
         if (!message) {

@@ -184,7 +184,7 @@ define([
                 assert.strictEqual(message.source, '1');
                 assert.strictEqual(message.dest, cliquesMessage.dest);
                 assert.strictEqual(message.flow, cliquesMessage.flow);
-                assert.strictEqual(message.agreement, 'auxilliary');
+                assert.strictEqual(message.agreement, 'auxiliary');
                 assert.deepEqual(message.members, cliquesMessage.members);
                 assert.deepEqual(message.intKeys, cliquesMessage.intKeys);
             });
@@ -260,7 +260,7 @@ define([
                 assert.strictEqual(askeMessage.signingKey, compare.signingKey);
             });
 
-            it('auxilliary downflow case for a quit', function() {
+            it('auxiliary downflow case for a quit', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
