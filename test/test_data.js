@@ -64,7 +64,7 @@ _td.UPFLOW_MESSAGE_CONTENT = {
     agreement: 'initial',
     flow: 'upflow',
     members: ['1', '2', '3', '4', '5', '6'],
-    intKeys: [null, _td.C25519_PUB_KEY],
+    intKeys: ['', _td.C25519_PUB_KEY],
     nonces: [_td.C25519_PUB_KEY],
     pubKeys: [_td.ED25519_PUB_KEY],
     sessionSignature: null,

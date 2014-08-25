@@ -88,11 +88,13 @@ define([
                 var tests = [[0, 'hello'],
                              [42, "Don't panic!"],
                              [21356, _td.SESSION_ID],
+                             [14, ''],
                              [14, null],
                              [1, '\u0001']];
                 var expected = ['\u0000\u0000\u0000\u0005hello',
                                 "\u0000\u002a\u0000\u000cDon't panic!",
                                 'Sl\u0000\u0020' + _td.SESSION_ID,
+                                '\u0000\u000e\u0000\u0000',
                                 '\u0000\u000e\u0000\u0000',
                                 '\u0000\u0001\u0000\u0001\u0001'];
                 for (var i = 0; i < tests.length; i++) {
@@ -137,17 +139,19 @@ define([
             it('null equivalent', function() {
                 var result = ns.decodeTLV('\u0000\u0000\u0000\u0000');
                 assert.strictEqual(result.type, 0);
-                assert.strictEqual(result.value, null);
+                assert.strictEqual(result.value, '');
             });
 
             it('some examples', function() {
                 var tests = ['\u0000\u0000\u0000\u0005hello',
                              "\u0000\u002a\u0000\u000cDon't panic!",
                              'Sl\u0000\u0020' + _td.SESSION_ID,
+                             '\u0000\u000e\u0000\u0000***',
                              '\u0000\u0000\u0000\u0005hello\u0000\u0000\u0000\u0005world'];
                 var expected = [[0, 'hello', ''],
                                 [42, "Don't panic!", ''],
                                 [21356, _td.SESSION_ID, ''],
+                                [14, '', '***'],
                                 [0, 'hello', '\u0000\u0000\u0000\u0005world']];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.decodeTLV(tests[i]);
@@ -290,13 +294,13 @@ define([
                 var log = console.log.args[0][0];
                 assert.deepEqual(log, ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
                                        'protocol: 1',
-                                       'from: 1',
-                                       'to: 2 (upflow)',
-                                       'agreement: undefined',
+                                       'from: 1', 'to: 2 (upflow)',
+                                       'agreement: initial',
                                        'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
-                                       'intKey: bnVsbA==', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                       'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
                                        'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
                                        'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']);
+
             });
 
             it('downflow message for quit', function() {

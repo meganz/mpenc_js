@@ -165,8 +165,8 @@ define([
         var value = tlv.substring(4, 4 + length);
         _assert(length === value.length,
                 'TLV payload length does not match indicated length.');
-        if (value.length === 0) {
-            value = null;
+        if (length === 0) {
+            value = '';
         }
         return {
             type: type,
@@ -229,7 +229,7 @@ define([
                                 'Unexpected value for agreement TLV: '
                                 + tlv.value.charCodeAt(0) + '.');
                     }
-                    debugOutput.push('agreement: ' + tlv.agreement);
+                    debugOutput.push('agreement: ' + out.agreement);
                     break;
                 case ns.TLV_TYPE.MEMBER:
                     out.members.push(tlv.value);
