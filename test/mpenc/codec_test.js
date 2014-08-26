@@ -370,6 +370,26 @@ define([
                               'Signature of message does not verify');
             });
         });
+
+        describe("inspectMessageContent()", function() {
+            it('upflow message', function() {
+                var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
+                assert.deepEqual(result, {protocol: 1, from: '1', to: '2',
+                                          origin: null, type: null,
+                                          greet: {agreement: 'initial', flow: 'upflow',
+                                                  negotiation: null, initiator: null,
+                                                  members: ['1', '2', '3', '4', '5', '6']}});
+            });
+
+            it('downflow message for quit', function() {
+                var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
+                assert.deepEqual(result, {protocol: 1, from: '1', to: '',
+                                          origin: null, type: null,
+                                          greet: {agreement: 'auxiliary', flow: 'downflow',
+                                                  negotiation: null, initiator: null,
+                                                  members: []}});
+            });
+        });
     });
 
     describe("encodeMessage()", function() {

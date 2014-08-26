@@ -603,6 +603,83 @@ define([
 
 
     /**
+     * Inspects a message for its type and some meta-data.
+     *
+     * This is a "cheap" operation, that is not performing any cryptographic
+     * operations, but only looks at the components of the message payload.
+     *
+     * @method
+     * @param wireMessage {object}
+     *     Received message (wire encoded). The message contains an attribute
+     *     `message` carrying either an {@link mpenc.messages.ProtocolMessage}
+     *     or {@link mpenc.messages.DataMessage} payload.
+     * @returns {object}
+     *     Message meta-data.
+     */
+    ns.ProtocolHandler.prototype.inspectMessage = function(wireMessage) {
+        var classify = codec.categoriseMessage(wireMessage.message);
+        var result = {};
+
+        switch (classify.category) {
+            case codec.MESSAGE_CATEGORY.PLAIN:
+                result.type = 'plain';
+                break;
+            case codec.MESSAGE_CATEGORY.MPENC_QUERY:
+                result.type = 'mpEnc query';
+                break;
+            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
+                result = codec.inspectMessageContent(classify.content);
+                result.type = 'mpEnc greet message';
+                if (this.askeMember.members.indexOf(result.from) < 0) {
+                    result.origin = 'outsider';
+                } else {
+                    result.origin = 'participant';
+                }
+                // Now, let's deduce what type of greet protocol was invoked.
+                if (result.greet.members.length === 0) {
+                    // Quit of a member.
+                    if (result.from === this.id) {
+                        result.greet.negotiation = 'I quit';
+                    } else {
+                        result.greet.negotiation = 'somebody else quits';
+                    }
+                } else if (utils.arrayEqual(result.greet.members,
+                                            this.askeMember.members)) {
+                    // Group key refresh.
+                    result.greet.negotiation = 'refresh';
+                } else if (result.greet.members.length < this.askeMember.members.length) {
+                    // Exclusion of a member.
+                    if (result.greet.members.indexOf(this.id) < 0) {
+                        result.greet.negotiation = 'exclude me';
+                    } else {
+                        result.greet.negotiation = 'exclude others';
+                    }
+                } else if (result.greet.members.length > this.askeMember.members.length) {
+                    // Joining of a member.
+                    if (this.askeMember.members.indexOf(this.id) < 0) {
+                        result.greet.negotiation = 'join me';
+                        result.origin = '???';
+                    } else {
+                        result.greet.negotiation = 'join others';
+                    }
+                }
+                break;
+            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
+                result.type = 'mpEnc data message';
+                break;
+            case codec.MESSAGE_CATEGORY.MPENC_ERROR:
+                result.type = 'mpEnc error';
+                break;
+            default:
+                // Ignoring all others.
+                break;
+        }
+
+        return result;
+    };
+
+
+    /**
      * Sends a message confidentially to the current group.
      *
      * @method

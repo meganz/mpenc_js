@@ -323,6 +323,72 @@ define([
 
 
     /**
+     * Inspects a given TLV encoded protocol message to extract information
+     * on the message type.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @returns {object}
+     *     Message meta-data.
+     */
+    ns.inspectMessageContent = function(message) {
+        if (!message) {
+            return null;
+        }
+        var out = {
+            type: null,
+            protocol: null,
+            from: null,
+            to: null,
+            origin: null,
+            greet: {agreement: null,
+                    flow: null,
+                    initiator: null,
+                    negotiation: null,
+                    members: [],
+            },
+        };
+
+        while (message.length > 0) {
+            var tlv = ns.decodeTLV(message);
+            switch (tlv.type) {
+                case ns.TLV_TYPE.PROTOCOL_VERSION:
+                    out.protocol = tlv.value.charCodeAt(0);
+                    break;
+                case ns.TLV_TYPE.SOURCE:
+                    out.from = tlv.value;
+                    break;
+                case ns.TLV_TYPE.DEST:
+                    out.to = tlv.value || '';
+                    if (out.to === '') {
+                        out.greet.flow = 'downflow';
+                    } else {
+                        out.greet.flow = 'upflow';
+                    }
+                    break;
+                case ns.TLV_TYPE.AUX_AGREEMENT:
+                    if (tlv.value === _ZERO_BYTE) {
+                        out.greet.agreement = 'initial';
+                    } else if (tlv.value === _ONE_BYTE) {
+                        out.greet.agreement = 'auxiliary';
+                    }
+                    break;
+                case ns.TLV_TYPE.MEMBER:
+                    out.greet.members.push(tlv.value);
+                    break;
+                default:
+                    // Ignoring all others.
+                    break;
+            }
+
+            message = tlv.rest;
+        }
+
+        return out;
+    };
+
+
+    /**
      * Determines whether a message content is of an mpENC data message.
      *
      * If `false`, it is usually an mpENC greet message.
