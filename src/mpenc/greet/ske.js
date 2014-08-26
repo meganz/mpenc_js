@@ -531,7 +531,7 @@ define([
 
 
     /**
-     * Computes the session ID..
+     * Computes the session ID.
      *
      * @param members
      *     Members participating in protocol.

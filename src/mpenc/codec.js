@@ -292,7 +292,7 @@ define([
         }
 
         // Debugging output.
-        if (debug.decoder) {
+        if (debug.decoder === true) {
             console.log(debugOutput);
         }
 

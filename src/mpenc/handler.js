@@ -170,7 +170,7 @@ define([
 
 
     /**
-     * Mechanism to start the protocol negotiation with the group participants..
+     * Mechanism to start the protocol negotiation with the group participants.
      *
      * @method
      * @param otherMembers {Array}
@@ -189,7 +189,7 @@ define([
 
 
     /**
-     * Start the protocol negotiation with the group participants..
+     * Start the protocol negotiation with the group participants.
      *
      * @method
      * @param otherMembers {Array}
@@ -217,7 +217,7 @@ define([
 
 
     /**
-     * Mechanism to start a new upflow for joining new members..
+     * Mechanism to start a new upflow for joining new members.
      *
      * @method
      * @param newMembers {Array}
@@ -236,7 +236,7 @@ define([
 
 
     /**
-     * Start a new upflow for joining new members..
+     * Start a new upflow for joining new members.
      *
      * @method
      * @param newMembers {Array}
@@ -786,7 +786,7 @@ define([
 
 
     /**
-     * Merges the contents of the messages for ASKE and CLIQUES into one message..
+     * Merges the contents of the messages for ASKE and CLIQUES into one message.
      *
      * @method
      * @param cliquesMessage {mpenc.greet.cliques.CliquesMessage}
