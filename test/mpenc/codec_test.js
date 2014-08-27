@@ -377,8 +377,9 @@ define([
                 assert.deepEqual(result, {protocol: 1, from: '1', to: '2',
                                           origin: null, type: null,
                                           greet: {agreement: 'initial', flow: 'upflow',
-                                                  negotiation: null, initiator: null,
-                                                  members: ['1', '2', '3', '4', '5', '6']}});
+                                                  negotiation: null, fromInitiator: null,
+                                                  members: ['1', '2', '3', '4', '5', '6'],
+                                                  numNonces: 1, numIntKeys: 2, numPubKeys: 1}});
             });
 
             it('downflow message for quit', function() {
@@ -386,8 +387,9 @@ define([
                 assert.deepEqual(result, {protocol: 1, from: '1', to: '',
                                           origin: null, type: null,
                                           greet: {agreement: 'auxiliary', flow: 'downflow',
-                                                  negotiation: null, initiator: null,
-                                                  members: []}});
+                                                  negotiation: null, fromInitiator: null,
+                                                  members: [],
+                                                  numNonces: 0, numIntKeys: 0, numPubKeys: 0}});
             });
         });
     });

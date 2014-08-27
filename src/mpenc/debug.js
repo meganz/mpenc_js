@@ -28,7 +28,10 @@ define([], function() {
      * @description
      * Debugging configuration.
      */
-    var ns = {decoder: false};
+    var ns = {};
+
+    /** Debugging output from message decoder. */
+    ns.decoder = false;
 
     return ns;
 });

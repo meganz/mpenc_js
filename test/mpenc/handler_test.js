@@ -1028,6 +1028,54 @@ define([
                 assert.deepEqual(result, {type: 'mpEnc query'});
             });
 
+            it("initial start message for other", function() {
+                var participant = new ns.ProtocolHandler('3',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                sandbox.stub(codec, 'inspectMessageContent').returns(
+                             {type: null, protocol: 1,
+                              from: '1', to: '2', origin: null,
+                              greet: {agreement: 'initial', flow: 'upflow',
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '2', '3', '4', '5'],
+                                      numNonces: 1, numIntKeys: 2, numPubKeys: 1}});
+                var message = {message: _td.UPFLOW_MESSAGE_PAYLOAD,
+                               from: 'bar@baz.nl/blah123'};
+                var expected = {type: 'mpEnc greet message', protocol: 1,
+                                from: '1', to: '2', origin: '???',
+                                greet: {agreement: 'initial', flow: 'upflow',
+                                        fromInitiator: true, negotiation: 'start other',
+                                        members: ['1', '2', '3', '4', '5'],
+                                        numNonces: 1, numIntKeys: 2, numPubKeys: 1}};
+                var result = participant.inspectMessage(message);
+                assert.deepEqual(result, expected);
+            });
+
+            it("initial start message for me", function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                sandbox.stub(codec, 'inspectMessageContent').returns(
+                             {type: null, protocol: 1,
+                              from: '1', to: '2', origin: null,
+                              greet: {agreement: 'initial', flow: 'upflow',
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '2', '3', '4', '5'],
+                                      numNonces: 1, numIntKeys: 2, numPubKeys: 1}});
+                var message = {message: _td.UPFLOW_MESSAGE_PAYLOAD,
+                               from: 'bar@baz.nl/blah123'};
+                var expected = {type: 'mpEnc greet message', protocol: 1,
+                                from: '1', to: '2', origin: '???',
+                                greet: {agreement: 'initial', flow: 'upflow',
+                                        fromInitiator: true, negotiation: 'start me',
+                                        members: ['1', '2', '3', '4', '5'],
+                                        numNonces: 1, numIntKeys: 2, numPubKeys: 1}};
+                var result = participant.inspectMessage(message);
+                assert.deepEqual(result, expected);
+            });
+
             it('on own quit binary message', function() {
                 var participant = new ns.ProtocolHandler('1',
                                                          _td.ED25519_PRIV_KEY,
@@ -1038,8 +1086,9 @@ define([
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '', origin: 'outsider',
                                 greet: {agreement: 'auxiliary', flow: 'downflow',
-                                        initiator: null, negotiation: 'I quit',
-                                        members: []}};
+                                        fromInitiator: true, negotiation: 'I quit',
+                                        members: [],
+                                        numNonces: 0, numIntKeys: 0, numPubKeys: 0}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1054,8 +1103,9 @@ define([
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '', origin: 'outsider',
                                 greet: {agreement: 'auxiliary', flow: 'downflow',
-                                        initiator: null, negotiation: 'somebody else quits',
-                                        members: []}};
+                                        fromInitiator: true, negotiation: 'somebody else quits',
+                                        members: [],
+                                        numNonces: 0, numIntKeys: 0, numPubKeys: 0}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1068,17 +1118,19 @@ define([
                 participant.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
-                              from: '1', to: '', origin: 'participant',
+                              from: '1', to: '', origin: null,
                               greet: {agreement: 'auxiliary', flow: 'downflow',
-                                      initiator: null, negotiation: null,
-                                      members: ['1', '3', '4', '5']}});
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '3', '4', '5'],
+                                      numNonces: 0, numIntKeys: 4, numPubKeys: 0}});
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '', origin: 'participant',
                                 greet: {agreement: 'auxiliary', flow: 'downflow',
-                                        initiator: null, negotiation: 'exclude me',
-                                        members: ['1', '3', '4', '5']}};
+                                        fromInitiator: true, negotiation: 'exclude me',
+                                        members: ['1', '3', '4', '5'],
+                                        numNonces: 0, numIntKeys: 4, numPubKeys: 0}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1091,17 +1143,19 @@ define([
                 participant.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
-                              from: '1', to: '', origin: 'participant',
+                              from: '1', to: '', origin: null,
                               greet: {agreement: 'auxiliary', flow: 'downflow',
-                                      initiator: null, negotiation: null,
-                                      members: ['1', '3', '4', '5']}});
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '3', '4', '5'],
+                                      numNonces: 0, numIntKeys: 4, numPubKeys: 0}});
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '', origin: 'participant',
                                 greet: {agreement: 'auxiliary', flow: 'downflow',
-                                        initiator: null, negotiation: 'exclude others',
-                                        members: ['1', '3', '4', '5']}};
+                                        fromInitiator: true, negotiation: 'exclude others',
+                                        members: ['1', '3', '4', '5'],
+                                        numNonces: 0, numIntKeys: 4, numPubKeys: 0}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1114,17 +1168,19 @@ define([
                 participant.askeMember.members = [];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
-                              from: '1', to: '5', origin: 'participant',
+                              from: '1', to: '5', origin: null,
                               greet: {agreement: 'auxiliary', flow: 'upflow',
-                                      initiator: null, negotiation: null,
-                                      members: ['1', '2', '3', '4', '5']}});
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '2', '3', '4', '5'],
+                                      numNonces: 4, numIntKeys: 5, numPubKeys: 4}});
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '5', origin: '???',
                                 greet: {agreement: 'auxiliary', flow: 'upflow',
-                                        initiator: null, negotiation: 'join me',
-                                        members: ['1', '2', '3', '4', '5']}};
+                                        fromInitiator: null, negotiation: 'join me',
+                                        members: ['1', '2', '3', '4', '5'],
+                                        numNonces: 4, numIntKeys: 5, numPubKeys: 4}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1137,17 +1193,19 @@ define([
                 participant.askeMember.members = ['1', '2', '3', '4'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
-                              from: '1', to: '5', origin: 'participant',
+                              from: '1', to: '5', origin: null,
                               greet: {agreement: 'auxiliary', flow: 'upflow',
-                                      initiator: null, negotiation: null,
-                                      members: ['1', '2', '3', '4', '5']}});
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '2', '3', '4', '5'],
+                                      numNonces: 4, numIntKeys: 5, numPubKeys: 4}});
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 var expected = {type: 'mpEnc greet message', protocol: 1,
                                 from: '1', to: '5', origin: 'participant',
                                 greet: {agreement: 'auxiliary', flow: 'upflow',
-                                        initiator: null, negotiation: 'join others',
-                                        members: ['1', '2', '3', '4', '5']}};
+                                        fromInitiator: null, negotiation: 'join other',
+                                        members: ['1', '2', '3', '4', '5'],
+                                        numNonces: 4, numIntKeys: 5, numPubKeys: 4}};
                 var result = participant.inspectMessage(message);
                 assert.deepEqual(result, expected);
             });
@@ -1157,22 +1215,24 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.askeMember.members = ['1', '2', '3', '4'];
+                participant.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
-                              from: '1', to: '5', origin: 'participant',
-                              greet: {agreement: 'auxiliary', flow: 'upflow',
-                                      initiator: null, negotiation: null,
-                                      members: ['1', '2', '3', '4', '5']}});
+                              from: '1', to: '', origin: null,
+                              greet: {agreement: 'auxiliary', flow: 'downflow',
+                                      fromInitiator: null, negotiation: null,
+                                      members: ['1', '2', '3', '4', '5'],
+                                      numNonces: 0, numIntKeys: 5, numPubKeys: 0}});
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 var expected = {type: 'mpEnc greet message', protocol: 1,
-                                from: '1', to: '5', origin: 'participant',
-                                greet: {agreement: 'auxiliary', flow: 'upflow',
-                                        initiator: null, negotiation: 'join others',
-                                        members: ['1', '2', '3', '4', '5']}};
+                                from: '1', to: '', origin: 'participant',
+                                greet: {agreement: 'auxiliary', flow: 'downflow',
+                                        fromInitiator: true, negotiation: 'refresh',
+                                        members: ['1', '2', '3', '4', '5'],
+                                        numNonces: 0, numIntKeys: 5, numPubKeys: 0}};
                 var result = participant.inspectMessage(message);
-                assert.deepEqual(result, false);
+                assert.deepEqual(result, expected);
             });
         });
 

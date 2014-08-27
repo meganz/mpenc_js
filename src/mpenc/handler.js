@@ -635,6 +635,7 @@ define([
                 } else {
                     result.origin = 'participant';
                 }
+
                 // Now, let's deduce what type of greet protocol was invoked.
                 if (result.greet.members.length === 0) {
                     // Quit of a member.
@@ -655,12 +656,60 @@ define([
                         result.greet.negotiation = 'exclude others';
                     }
                 } else if (result.greet.members.length > this.askeMember.members.length) {
-                    // Joining of a member.
-                    if (this.askeMember.members.indexOf(this.id) < 0) {
-                        result.greet.negotiation = 'join me';
-                        result.origin = '???';
+                    // Starting or joining of a member.
+                    if (result.greet.agreement === 'initial') {
+                        result.greet.negotiation = 'start';
                     } else {
-                        result.greet.negotiation = 'join others';
+                        result.greet.negotiation = 'join';
+                    }
+                    if (this.askeMember.members.indexOf(this.id) < 0) {
+                        result.origin = '???';
+                        if (result.greet.members.indexOf(this.id) >= 0) {
+                            if (result.to === this.id) {
+                                result.greet.negotiation += ' me';
+                            } else {
+                                result.greet.negotiation += ' other';
+                            }
+                        } else {
+                            result.greet.negotiation += ' (not involved)';
+                        }
+                    } else {
+                        result.greet.negotiation += ' other';
+                    }
+                }
+
+                // Was the message sent by the initiator?
+                if (result.greet.agreement === 'initial'
+                        && result.greet.flow === 'upflow'
+                        && result.greet.numNonces === 1
+                        && result.greet.numIntKeys === 2
+                        && result.greet.numPubKeys === 1) {
+                    // Start of room negotiation.
+                    result.greet.fromInitiator = true;
+                } else if (result.greet.agreement === 'auxiliary') {
+                    if (result.greet.negotiation === 'join others') {
+                        if (result.greet.numNonces === this.askeMember.members.length
+                                && result.greet.numIntKeys === this.askeMember.members.length + 1
+                                && result.greet.numPubKeys === this.askeMember.members.length) {
+                            // Join somebody initial.
+                            result.greet.fromInitiator = true;
+                        } else {
+                            // Chained join message.
+                            result.greet.fromInitiator = false;
+                        }
+                    } else if ((result.greet.negotiation === 'exclude me' || result.greet.negotiation === 'exclude others')
+                            && result.greet.numNonces < this.askeMember.members.length
+                            && result.greet.numIntKeys < this.askeMember.members.length
+                            && result.greet.numPubKeys < this.askeMember.members.length) {
+                        // Exclude somebody.
+                        result.greet.fromInitiator = true;
+                    } else if (result.greet.negotiation === 'I quit'
+                            || result.greet.negotiation === 'somebody else quits') {
+                        // Quit.
+                        result.greet.fromInitiator = true;
+                    } else if (result.greet.negotiation === 'refresh') {
+                        // Refresh.
+                        result.greet.fromInitiator = true;
                     }
                 }
                 break;

@@ -343,9 +343,12 @@ define([
             origin: null,
             greet: {agreement: null,
                     flow: null,
-                    initiator: null,
+                    fromInitiator: null,
                     negotiation: null,
                     members: [],
+                    numNonces: 0,
+                    numIntKeys: 0,
+                    numPubKeys: 0,
             },
         };
 
@@ -375,6 +378,15 @@ define([
                     break;
                 case ns.TLV_TYPE.MEMBER:
                     out.greet.members.push(tlv.value);
+                    break;
+                case ns.TLV_TYPE.NONCE:
+                    out.greet.numNonces++;
+                    break;
+                case ns.TLV_TYPE.INT_KEY:
+                    out.greet.numIntKeys++;
+                    break;
+                case ns.TLV_TYPE.PUB_KEY:
+                    out.greet.numPubKeys++;
                     break;
                 default:
                     // Ignoring all others.
