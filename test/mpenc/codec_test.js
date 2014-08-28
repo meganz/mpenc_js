@@ -288,7 +288,7 @@ define([
                 sandbox.stub(debug, 'decoder', true);
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
                                         null, _td.ED25519_PUB_KEY);
-                var log = console.log.args[0][0];
+                var log = console.log.args[0][1];
                 assert.deepEqual(log, ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
                                        'protocol: 1',
                                        'from: 1', 'to: 2 (upflow)',
@@ -337,7 +337,7 @@ define([
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                         _td.GROUP_KEY, _td.ED25519_PUB_KEY);
 
-                var log = console.log.args[0][0];
+                var log = console.log.args[0][1];
                 assert.deepEqual(log, ['messageSignature: 0Et9tlUIl6SnWWRRF337BqWZvIao/BH4KU7qZeVB3QnL7ls+zfBVl5O3RxsZjibfMdjOsuCu6CsuFCb7mFQsBA==',
                                        'protocol: 1',
                                        'messageIV: i4vUqwamDTYp9T1rm4osZg==',
