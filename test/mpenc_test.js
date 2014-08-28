@@ -43,10 +43,9 @@ define([
                 assert.notStrictEqual(ns.version, undefined);
             });
 
-//            it('debug sub-module', function() {
-//                // No idea why this one fails. Bloody JavaScript language ... :-(
-//                assert.notStrictEqual(ns.debug, undefined);
-//            });
+            it('debug sub-module', function() {
+                assert.notStrictEqual(ns.debug, undefined);
+            });
         });
     });
 });
