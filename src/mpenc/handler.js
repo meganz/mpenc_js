@@ -642,7 +642,7 @@ define([
                     if (result.from === this.id) {
                         result.greet.negotiation = 'I quit';
                     } else {
-                        result.greet.negotiation = 'somebody else quits';
+                        result.greet.negotiation = 'somebody quits';
                     }
                 } else if (utils.arrayEqual(result.greet.members,
                                             this.askeMember.members)) {
@@ -653,7 +653,7 @@ define([
                     if (result.greet.members.indexOf(this.id) < 0) {
                         result.greet.negotiation = 'exclude me';
                     } else {
-                        result.greet.negotiation = 'exclude others';
+                        result.greet.negotiation = 'exclude other';
                     }
                 } else if (result.greet.members.length > this.askeMember.members.length) {
                     // Starting or joining of a member.
@@ -687,7 +687,7 @@ define([
                     // Start of room negotiation.
                     result.greet.fromInitiator = true;
                 } else if (result.greet.agreement === 'auxiliary') {
-                    if (result.greet.negotiation === 'join others') {
+                    if (result.greet.negotiation === 'join other') {
                         if (result.greet.numNonces === this.askeMember.members.length
                                 && result.greet.numIntKeys === this.askeMember.members.length + 1
                                 && result.greet.numPubKeys === this.askeMember.members.length) {
@@ -697,14 +697,14 @@ define([
                             // Chained join message.
                             result.greet.fromInitiator = false;
                         }
-                    } else if ((result.greet.negotiation === 'exclude me' || result.greet.negotiation === 'exclude others')
+                    } else if ((result.greet.negotiation === 'exclude me' || result.greet.negotiation === 'exclude other')
                             && result.greet.numNonces < this.askeMember.members.length
                             && result.greet.numIntKeys < this.askeMember.members.length
                             && result.greet.numPubKeys < this.askeMember.members.length) {
                         // Exclude somebody.
                         result.greet.fromInitiator = true;
                     } else if (result.greet.negotiation === 'I quit'
-                            || result.greet.negotiation === 'somebody else quits') {
+                            || result.greet.negotiation === 'somebody quits') {
                         // Quit.
                         result.greet.fromInitiator = true;
                     } else if (result.greet.negotiation === 'refresh') {

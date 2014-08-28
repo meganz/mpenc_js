@@ -335,22 +335,7 @@ define([
         if (!message) {
             return null;
         }
-        var out = {
-            type: null,
-            protocol: null,
-            from: null,
-            to: null,
-            origin: null,
-            greet: {agreement: null,
-                    flow: null,
-                    fromInitiator: null,
-                    negotiation: null,
-                    members: [],
-                    numNonces: 0,
-                    numIntKeys: 0,
-                    numPubKeys: 0,
-            },
-        };
+        var out = new messages.ProtocolMessageInfo();
 
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);

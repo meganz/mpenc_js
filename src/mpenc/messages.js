@@ -41,7 +41,7 @@ define([
      * @constructor
      * @param source {string}
      *     Message originator (from).
-     * @returns {ProtocolMessage}
+     * @returns {mpenc.messages.ProtocolMessage}
      *
      * @property source {string}
      *     Message originator (from).
@@ -97,6 +97,61 @@ define([
         this.rawMessage = null;
         this.protocol = null;
         this.data = null;
+
+        return this;
+    };
+
+    /**
+     * Carries information extracted from a received mpENC protocol message for
+     * the greet protocol (key exchange and agreement).
+     *
+     * @constructor
+     * @returns {mpenc.messages.ProtocolMessageInfo}
+     *
+     * @property type {string}
+     *     String "mpEnc greet message".
+     * @property protocol {integer}
+     *     mpEnc protocol version number.
+     * @property from {string}
+     *     Message originator's participant ID.
+     * @property to {string}
+     *     Message destination's participant ID.
+     * @property origin {string}
+     *     Indicates whether the message originated from a group chat
+     *     participant ("participant"), from somebody not participating
+     *     ("outsider") or whether it cannot be determined/inferred by the
+     *     recipient ("???").
+     * @property greet {object}
+     *     Introspective information for data carried by the greet protocol:
+     *
+     *     * `agreement` - "initial" or "auxiliary" key agreement.
+     *     * `flow` - "upflow" (directed message) or "downflow" (broadcast).
+     *     * `fromInitiator` {bool} - `true` if the flow initiator has sent the
+     *       message, `false` if not, `null` if it can't be determined.
+     *     * `negotiation` - A clear text expression of the type of negotiation
+     *       message sent. One of "I quit", "somebody quits", "refresh",
+     *       "exclude <subject>", "start <subject>" or "join <subject>" (with
+     *       <subject> being one of "me", "other" or "(not involved)").
+     *     * `members` - List of group members enclosed.
+     *     * `numNonces` - Number of nonces enclosed.
+     *     * `numPubKeys` - Number of public signing keys enclosed.
+     *     * `numIntKeys` - Number of intermediate GDH keys enclosed.
+     */
+    ns.ProtocolMessageInfo = function() {
+        this.type = null;
+        this.protocol = null;
+        this.from = null;
+        this.to = null;
+        this.origin = null;
+        this.greet = {agreement: null,
+                      flow: null,
+                      fromInitiator: null,
+                      negotiation: null,
+                      members: [],
+                      numNonces: 0,
+                      numPubKeys: 0,
+                      numIntKeys: 0,
+        };
 
         return this;
     };
