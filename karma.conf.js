@@ -20,6 +20,7 @@ module.exports = function(config) {
 
         // Ours.
         'src/config.js',
+        'test/config.js',
         {pattern: 'src/**/*.js', included: false},
         'test/test_data.js',
         'test/test_utils.js',

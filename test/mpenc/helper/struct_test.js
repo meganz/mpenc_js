@@ -28,9 +28,6 @@ define([
 ], function(ns, chai, asmCrypto) {
     "use strict";
 
-    // Shut up warning messages on random number generation for unit tests.
-    asmCrypto.random.skipSystemRNGWarning = true;
-
     var assert = chai.assert;
     var Set = ns.MiniSet;
 

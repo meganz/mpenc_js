@@ -37,9 +37,6 @@ define([
 
     var _echo = function(x) { return x; };
 
-    // Shut up warning messages on random number generation for unit tests.
-    asmCrypto.random.skipSystemRNGWarning = true;
-
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 

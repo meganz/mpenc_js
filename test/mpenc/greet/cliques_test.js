@@ -35,9 +35,6 @@ define([
 
     var _echo = function(x) { return x; };
 
-    // Shut up warning messages on random number generation for unit tests.
-    asmCrypto.random.skipSystemRNGWarning = true;
-
     describe("module level", function() {
         describe('_computeKeyDebug()', function() {
             it('should multiply debug with base point if no key given', function() {
