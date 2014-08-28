@@ -293,7 +293,7 @@ define([
 
         // Debugging output.
         if (debug.decoder === true) {
-            console.log(debugOutput);
+            console.log('mpEnc decoded message debug: ', debugOutput);
         }
 
         // Check signature, if present.
