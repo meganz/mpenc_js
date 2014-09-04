@@ -547,7 +547,7 @@ define([
                 assert.strictEqual(participant.protocolOutQueue[0].to, '');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
-                assert.strictEqual(participant.state, ns.STATE.NULL);
+                assert.strictEqual(participant.state, ns.STATE.QUIT);
             });
 
             it('illegal state transition', function() {
@@ -856,15 +856,29 @@ define([
                                                        _td.ED25519_PUB_KEY,
                                                        _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.INITIALISED;
+                participant.askeMember.ephemeralPubKeys = {'1': _td.ED25519_PUB_KEY};
                 sandbox.stub(codec, 'decodeMessageContent', _echo);
                 sandbox.stub(codec, 'encodeMessage', _echo);
-                assert.throws(function() {
-                                  var result = participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
-                                  // Manually update the state.
-                                  if(result.newState) {
-                                      participant.state = result.newState;
-                                  }
-                              }, 'Key refresh for quitting is not implemented, yet!');
+                var result = participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
+                // Manually update the state.
+                if(result.newState) {
+                    participant.state = result.newState;
+                }
+                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].priv, _td.ED25519_PRIV_KEY);
+                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
+            });
+
+            it('processing for a downflow message after a quit', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.QUIT;
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                var result = participant._processKeyingMessage(_td.DOWNFLOW_MESSAGE_CONTENT);
+                assert.strictEqual(result, null);
+                assert.strictEqual(participant.state, ns.STATE.QUIT);
             });
         });
 
@@ -1423,7 +1437,7 @@ define([
                 sinon_assert.calledOnce(participant.start);
             });
 
-            it('whole flow for 3 members, 2 joining, 2 others leaving, send message, refresh key, full refresh', function() {
+            it('whole flow for 3 members, 2 joining, 2 others leaving, send message, refresh key, full recovery', function() {
                 var numMembers = 3;
                 var initiator = 0;
                 var members = [];
@@ -1793,7 +1807,7 @@ define([
                 }
             });
 
-            it('whole flow for two initiated by plain text message', function() {
+            it('whole flow for two initiated by plain text message, quit', function() {
                 var numMembers = 2;
                 var members = [];
                 var participants = [];
@@ -1880,6 +1894,38 @@ define([
                     assert.lengthOf(participant.protocolOutQueue, 0);
                     assert.lengthOf(participant.uiQueue, 0);
                     assert.lengthOf(participant.messageOutQueue, 0);
+                }
+
+                // '2' quits participation.
+                participants[1].quit();
+                message = participants[1].protocolOutQueue.shift();
+                payload = _getPayload(message, _getSender(message, participants, members));
+
+                // Downflow for quit.
+                nextMessages = [];
+                while (payload) {
+                    for (var i = 0; i < participants.length; i++) {
+                        var participant = participants[i];
+                        if (members.indexOf(participant.id) < 0) {
+                            continue;
+                        }
+                        participant.processMessage(message);
+                        var nextMessage = participant.protocolOutQueue.shift();
+                        if (nextMessage) {
+                            nextMessages.push(utils.clone(nextMessage));
+                        }
+                        if (participant.id === '2') {
+                            assert.strictEqual(participant.state, ns.STATE.QUIT);
+                            assert.deepEqual(participant.cliquesMember.members, ['1']);
+                            assert.deepEqual(participant.askeMember.members, ['1']);
+                        } else {
+                            assert.strictEqual(participant.state, ns.STATE.INITIALISED);
+                            assert.deepEqual(participant.cliquesMember.members, members);
+                            assert.deepEqual(participant.askeMember.members, members);
+                        }
+                    }
+                    message = nextMessages.shift();
+                    payload = _getPayload(message, _getSender(message, participants, members));
                 }
             });
         });

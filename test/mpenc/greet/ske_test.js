@@ -592,8 +592,8 @@ define([
                 participant.ephemeralPubKey = '1';
                 participant.ephemeralPrivKey = '111';
                 var message = participant.quit();
-                assert.strictEqual(participant.ephemeralPrivKey, null);
-                assert.strictEqual(participant.ephemeralPubKey, null);
+                assert.strictEqual(participant.ephemeralPrivKey, '111');
+                assert.strictEqual(participant.ephemeralPubKey, '1');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, false);
@@ -613,8 +613,8 @@ define([
                 participant.ephemeralPrivKey = '111';
                 participant.authenticatedMembers= [true, true, true, true, true];
                 var message = participant.quit();
-                assert.strictEqual(participant.ephemeralPrivKey, null);
-                assert.strictEqual(participant.ephemeralPubKey, null);
+                assert.strictEqual(participant.ephemeralPrivKey, '111');
+                assert.strictEqual(participant.ephemeralPubKey, '1');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
                 assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, true);

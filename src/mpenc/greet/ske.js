@@ -476,8 +476,8 @@ define([
             this.oldEphemeralKeys[this.id].authenticated = this.authenticatedMembers[myPos];
             this.authenticatedMembers.splice(myPos, 1);
         }
-        this.ephemeralPubKey = null;
-        this.ephemeralPrivKey = null;
+//        this.ephemeralPubKey = null;
+//        this.ephemeralPrivKey = null;
         if (this.members) {
             this.members.splice(myPos, 1);
         }
