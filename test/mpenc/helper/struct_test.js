@@ -23,96 +23,105 @@
 
 define([
     "mpenc/helper/struct",
+    "es6-shim",
     "chai",
-    "asmcrypto",
-], function(ns, chai, asmCrypto) {
+], function(ns, es6_shim, chai) {
     "use strict";
 
     var assert = chai.assert;
-    var Set = ns.MiniSet;
+    var Set = ns.ImmutableSet;
+    var diff = ns.Set_diff;
+    var patch = ns.Set_patch;
 
     describe("MiniSet class", function() {
-        describe("constructor, toArray, contains, and equals", function() {
+        describe("constructor, toArray, has, and equals", function() {
             it("empty set", function() {
-                var a = Set();
+                var a = Set([]);
                 assert(a.equals(a));
-                assert(a.equals(Set()));
-                assert(!a.equals(Set(1)));
+                assert(a.equals(Set([])));
+                assert(!a.equals(Set([1])));
                 assert(!a.equals(null));
-                assert(!a.contains(null));
+                assert(!a.has(null));
                 assert.sameMembers(a.toArray(), []);
             });
             it("singleton with potentially confusing type", function() {
-                var a = Set("3");
+                var a = Set(["3"]);
                 assert(a.equals(a));
-                assert(a.equals(Set("3")));
-                assert(a.contains("3"));
-                assert(!a.equals(Set()));
-                assert(!a.equals(Set(3)));
+                assert(a.equals(Set(["3"])));
+                assert(a.has("3"));
+                assert(!a.equals(Set([])));
+                assert(!a.equals(Set([3])));
                 assert(!a.equals(null));
-                assert(!a.contains(3));
+                assert(!a.has(3));
                 assert.sameMembers(a.toArray(), ["3"]);
                 assert.deepEqual(a.toArray(), ["3"]);
                 assert.notDeepEqual(a.toArray(), [3]);
             });
             it("general set", function() {
-                var a = Set(1, 2, 3);
+                var a = Set([1, 2, 3]);
                 assert(a.equals(a));
-                assert(a.equals(Set(3, 2, 1)));
-                assert(a.equals(Set(2, 3, 1)));
-                assert(a.equals(Set(2, 3, 3, 3, 1)));
-                assert(a.contains(1));
-                assert(a.contains(2));
-                assert(a.contains(3));
-                assert(!a.equals(Set(2, 1)));
-                assert(!a.equals(Set(1, 2, 3, 4)));
+                assert(a.equals(Set([3, 2, 1])));
+                assert(a.equals(Set([2, 3, 1])));
+                assert(a.equals(Set([2, 3, 3, 3, 1])));
+                assert(a.has(1));
+                assert(a.has(2));
+                assert(a.has(3));
+                assert(!a.equals(Set([2, 1])));
+                assert(!a.equals(Set([1, 2, 3, 4])));
                 assert(!a.equals(null));
-                assert(!a.contains("3"));
-                assert(!a.contains("2"));
+                assert(!a.has("3"));
+                assert(!a.has("2"));
                 assert.sameMembers(a.toArray(), [1, 3, 2]);
             });
         });
         describe("binary operators", function() {
             it("empty set", function() {
-               var a = Set(), b = Set();
+               var a = Set([]), b = Set([]);
                assert(a.equals(b));
-               assert(a.or(b).equals(b.or(a)));
-               assert(a.or(b).equals(a));
-               assert(a.or(b).equals(b));
-               assert(a.and(b).equals(b.and(a)));
-               assert(a.and(b).equals(a));
-               assert(a.and(b).equals(b));
-               assert(a.andnot(b).equals(b.andnot(a)));
-               assert(a.andnot(b).equals(a));
-               assert(a.andnot(b).equals(b));
+               assert(a.union(b).equals(b.union(a)));
+               assert(a.union(b).equals(a));
+               assert(a.union(b).equals(b));
+               assert(a.intersect(b).equals(b.intersect(a)));
+               assert(a.intersect(b).equals(a));
+               assert(a.intersect(b).equals(b));
+               assert(a.subtract(b).equals(b.subtract(a)));
+               assert(a.subtract(b).equals(a));
+               assert(a.subtract(b).equals(b));
             });
             it("general set", function() {
-               var a = Set(1, 2, 3), b = Set(3, 4, 5);
+               var a = Set([1, 2, 3]), b = Set([3, 4, 5]);
                assert(!a.equals(b));
-               assert(a.or(b).equals(b.or(a)));
-               assert(!a.or(b).equals(a));
-               assert(!a.or(b).equals(b));
-               assert(a.or(b).equals(Set(5, 4, 3, 2, 1)));
-               assert(a.and(b).equals(b.and(a)));
-               assert(!a.and(b).equals(a));
-               assert(!a.and(b).equals(b));
-               assert(a.and(b).equals(Set(3)));
-               assert(!a.andnot(b).equals(b.andnot(a)));
-               assert(!a.andnot(b).equals(a));
-               assert(!a.andnot(b).equals(b));
-               assert(!b.andnot(a).equals(a));
-               assert(!b.andnot(a).equals(b));
-               assert(a.andnot(b).equals(Set(2, 1)));
-               assert(b.andnot(a).equals(Set(5, 4)));
+               assert(a.union(b).equals(b.union(a)));
+               assert(!a.union(b).equals(a));
+               assert(!a.union(b).equals(b));
+               assert(a.union(b).equals(Set([5, 4, 3, 2, 1])));
+               assert(a.intersect(b).equals(b.intersect(a)));
+               assert(!a.intersect(b).equals(a));
+               assert(!a.intersect(b).equals(b));
+               assert(a.intersect(b).equals(Set([3])));
+               assert(!a.subtract(b).equals(b.subtract(a)));
+               assert(!a.subtract(b).equals(a));
+               assert(!a.subtract(b).equals(b));
+               assert(!b.subtract(a).equals(a));
+               assert(!b.subtract(a).equals(b));
+               assert(a.subtract(b).equals(Set([2, 1])));
+               assert(b.subtract(a).equals(Set([5, 4])));
             });
-            it("what changed", function() {
-               var a = Set(1, 2, 3), b = Set(3, 4, 5);
-               var changed_a = a.changed(b);
-               var changed_b = b.changed(a);
-               assert(changed_a[0].equals(changed_b[1]));
-               assert(changed_b[0].equals(changed_a[1]));
-               assert(changed_a[0].equals(Set(4, 5)));
-               assert(changed_b[0].equals(Set(1, 2)));
+            it("calculate diff", function() {
+                var a = Set([1, 2, 3]), b = Set([3, 4, 5]);
+                var changed_a = a.diff(b);
+                var changed_b = b.diff(a);
+                assert(changed_a[0].equals(changed_b[1]));
+                assert(changed_b[0].equals(changed_a[1]));
+                assert.sameMembers(changed_a[0].toArray(), [4, 5]);
+                assert.sameMembers(changed_b[0].toArray(), [1, 2]);
+            });
+            it("patch changes", function() {
+                var a = Set([1, 2, 3]), b = Set([3, 4, 5]), c = Set([2, 3, 7]);
+                assert.throws(function() { return a.patch([Set([1, 2]), Set([1])]); });
+                assert.sameMembers(a.patch([Set([1, 4]), Set([2])]).toArray(), [1, 3, 4]);
+                assert.sameMembers(b.patch(a.diff(c)).toArray(), [3, 4, 5, 7]);
+                assert.sameMembers(a.merge(b, c).toArray(), [3, 4, 5, 7]);
             });
         });
     });

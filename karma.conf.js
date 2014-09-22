@@ -12,6 +12,8 @@ module.exports = function(config) {
     // {included: false} files are loaded by requirejs
     files: [
         // Dependency-based load order of library modules.
+        // modules that already follow AMD need included: false
+        {pattern: 'node_modules/es6-shim/es6-shim.js', included: false},
         'node_modules/jsbn/index.js',
         'node_modules/asmcrypto.js/asmcrypto.js',
         {pattern: 'node_modules/jodid25519/jodid25519.js', included: false},
@@ -75,7 +77,7 @@ module.exports = function(config) {
     // If browser does not capture in given timeout [ms], kill it
     captureTimeout: 120000,
     browserNoActivityTimeout: 120000,
-    
+
     // Continuous Integration mode.
     // If true, it capture browsers, run tests and exit.
     singleRun: false
