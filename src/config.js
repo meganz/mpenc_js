@@ -1,9 +1,10 @@
 var requirejs_config_mpenc =
 ({
     paths: {
-        "jsbn": "../node_modules/jsbn/index",
         "asmcrypto": "../node_modules/asmcrypto.js/asmcrypto",
+        "es6-collections": "../node_modules/es6-collections/es6-collections",
         "jodid25519": "../node_modules/jodid25519/jodid25519",
+        "jsbn": "../node_modules/jsbn/index",
         },
     shim: {
         // Dependencies that we use directly need to be added here.
