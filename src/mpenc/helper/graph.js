@@ -4,7 +4,7 @@
  */
 
 define([
-    "es6-shim",
+    "es6-collections",
 ], function(es6_shim) {
     "use strict";
 

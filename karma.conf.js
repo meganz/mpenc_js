@@ -13,7 +13,7 @@ module.exports = function(config) {
     files: [
         // Dependency-based load order of library modules.
         // modules that already follow AMD need included: false
-        {pattern: 'node_modules/es6-shim/es6-shim.js', included: false},
+        {pattern: 'node_modules/es6-collections/es6-collections.js', included: false},
         'node_modules/jsbn/index.js',
         'node_modules/asmcrypto.js/asmcrypto.js',
         {pattern: 'node_modules/jodid25519/jodid25519.js', included: false},

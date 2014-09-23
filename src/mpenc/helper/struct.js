@@ -4,7 +4,7 @@
  */
 
 define([
-    "es6-shim",
+    "es6-collections",
 ], function(es6_shim) {
     "use strict";
 
@@ -33,6 +33,14 @@ define([
      * This code is distributed in the hope that it will be useful,
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+     */
+
+    /**
+     * 3-arg function to iterate over a Collection
+     * @callback forEachCallback
+     * @param key {} In the case of Set, this is the same as the value.
+     * @param value {}
+     * @param collection {}
      */
 
     /**
@@ -94,13 +102,26 @@ define([
         };
 
         /**
-         * Return an array representation of this set.
+         * Return a sorted array representation of this set.
          * @returns {Array}
          */
         self.toArray = function() {
             var a = [];
             items.forEach(function(v) { a.push(v); });
+            a.sort();
             return a;
+        };
+
+        /**
+         * Apply a function to every member. The callback is the same as Set.
+         * @param callback {forEachCallback} Function to execute for each element.
+         * @param thisObj {} Value to use as <code>this</code> when executing <code>callback</code>.
+         */
+        self.forEach = function(callback, thisObj) {
+            return items.forEach(function(v, v0, a) {
+                // prevent acccess to mutable set
+                return callback.call(thisObj, v, v0, self);
+            });
         };
 
         /**
@@ -174,7 +195,7 @@ define([
          * @returns {module:mpenc/helper/struct.ImmutableSet}
          */
         self.subtract = function(other) {
-            var difference = new Set(items);
+            var difference = self.asMutable();
             items.forEach(function(v) {
                 if (other.has(v)) {
                     difference.delete(v);

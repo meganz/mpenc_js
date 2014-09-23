@@ -34,7 +34,7 @@
   "dependencies": {
     "jsbn": "*",
     "asmcrypto.js": "vibornoff/asmcrypto.js",
-    "es6-shim": "~0.17.0",
+    "es6-collections": "~0.3.4",
     "jodid25519": "meganz/jodid25519"
   },
   "devDependencies": {

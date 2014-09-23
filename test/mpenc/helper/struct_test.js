@@ -23,7 +23,7 @@
 
 define([
     "mpenc/helper/struct",
-    "es6-shim",
+    "es6-collections",
     "chai",
 ], function(ns, es6_shim, chai) {
     "use strict";
@@ -34,32 +34,31 @@ define([
     var patch = ns.Set_patch;
 
     describe("MiniSet class", function() {
-        describe("constructor, toArray, has, and equals", function() {
+        describe("constructor, has, and equals", function() {
             it("empty set", function() {
                 var a = Set([]);
                 assert(a.equals(a));
+                assert(a.equals(Set(a)));
                 assert(a.equals(Set([])));
                 assert(!a.equals(Set([1])));
                 assert(!a.equals(null));
                 assert(!a.has(null));
-                assert.sameMembers(a.toArray(), []);
             });
             it("singleton with potentially confusing type", function() {
                 var a = Set(["3"]);
                 assert(a.equals(a));
+                assert(a.equals(Set(a)));
                 assert(a.equals(Set(["3"])));
                 assert(a.has("3"));
                 assert(!a.equals(Set([])));
                 assert(!a.equals(Set([3])));
                 assert(!a.equals(null));
                 assert(!a.has(3));
-                assert.sameMembers(a.toArray(), ["3"]);
-                assert.deepEqual(a.toArray(), ["3"]);
-                assert.notDeepEqual(a.toArray(), [3]);
             });
             it("general set", function() {
                 var a = Set([1, 2, 3]);
                 assert(a.equals(a));
+                assert(a.equals(Set(a)));
                 assert(a.equals(Set([3, 2, 1])));
                 assert(a.equals(Set([2, 3, 1])));
                 assert(a.equals(Set([2, 3, 3, 3, 1])));
@@ -71,6 +70,38 @@ define([
                 assert(!a.equals(null));
                 assert(!a.has("3"));
                 assert(!a.has("2"));
+            });
+        });
+        describe("toArray, asMutable", function() {
+            it("empty set", function() {
+                var a = Set([]);
+                var b = a.asMutable();
+                b.add(1);
+                assert(!a.equals(b));
+                assert.sameMembers(a.toArray(), []);
+            });
+            it("singleton with potentially confusing type", function() {
+                var a = Set(["3"]);
+                var b = a.asMutable();
+                b.add(1);
+                assert(!a.equals(b));
+                assert.sameMembers(a.toArray(), ["3"]);
+                assert.deepEqual(a.toArray(), ["3"]);
+                assert.notDeepEqual(a.toArray(), [3]);
+            });
+            it("general set", function() {
+                var a = Set([1, 2, 3]);
+                var b = a.asMutable();
+                assert(a.equals(b));
+                b.add(1);
+                assert(a.equals(b));
+                b.add(4);
+                assert(!a.equals(b));
+                var c = a.asMutable();
+                assert(a.equals(c));
+                c.add(4);
+                assert(!a.equals(c));
+                assert(Set(c).equals(b));
                 assert.sameMembers(a.toArray(), [1, 3, 2]);
             });
         });
