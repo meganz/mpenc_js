@@ -57,7 +57,7 @@ define([
      * @returns {Iterator} Yields unique nodes.
      * @memberOf! module:mpenc/helper/graph
      */
-    var bf_iter = function(init, suc) {
+    var bfIterator = function(init, suc) {
         var queue = [].concat(init);
         var seen = new Set();
 
@@ -72,7 +72,7 @@ define([
             return { value: v, done: false };
         }};
     };
-    ns.bf_iter = bf_iter;
+    ns.bfIterator = bfIterator;
 
     /**
      * Iterative breadth-first topological search.
@@ -89,7 +89,7 @@ define([
      * @returns {Iterator} Yields unique nodes in topological order.
      * @memberOf! module:mpenc/helper/graph
      */
-    var bf_topo_iter = function(init, suc, pre, predicate, boundary) {
+    var bfTopoIterator = function(init, suc, pre, predicate, boundary) {
         var queue = [].concat(init);
         var need = new Map();
         predicate = predicate || function() { return true; };
@@ -129,9 +129,9 @@ define([
             }
         }};
     };
-    ns.bf_topo_iter = bf_topo_iter;
+    ns.bfTopoIterator = bfTopoIterator;
 
-    var invert_dict_graph = function(d) {
+    var invertSuccessorMap = function(d) {
         var g = {};
         for (var k in d) {
             if (!(k in g)) {
@@ -149,7 +149,7 @@ define([
         }
         return g;
     };
-    ns.invert_dict_graph = invert_dict_graph;
+    ns.invertSuccessorMap = invertSuccessorMap;
 
     return ns;
 });

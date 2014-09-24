@@ -49,20 +49,20 @@ define([
         "6": false,
     };
 
-    var _dict_get = function(d) {
+    var _objGetter = function(d) {
         return function(k) { return d[k]; }
     };
 
-    var _dict_pre = function(g) {
-        var gi = ns.invert_dict_graph(g);
-        return _dict_get(gi);
+    var _preGetter = function(g) {
+        var gi = ns.invertSuccessorMap(g);
+        return _objGetter(gi);
     };
 
     describe("Breadth-first iterative search", function() {
         it("Filter predicate", function() {
             var g = G_with_blocked_path, p = P_with_blocked_path;
-            var gen = ns.bf_iter(["1"], function(v) { return g[v].filter(function(nv, i, a) { return p[nv]; }); });
-            assert.deepEqual(struct.iter_to_array(gen), ["1", "2", "4"]);
+            var gen = ns.bfIterator(["1"], function(v) { return g[v].filter(function(nv, i, a) { return p[nv]; }); });
+            assert.deepEqual(struct.iteratorToArray(gen), ["1", "2", "4"]);
         });
     });
 
@@ -71,28 +71,28 @@ define([
             var g = G_with_blocked_path, p = P_with_blocked_path;
             var gen;
             // 4 not in here even though it's reachable from 1, because 3 < 4 and 3 doesn't match
-            gen = ns.bf_topo_iter(["1"], _dict_get(g), _dict_pre(g), _dict_get(p));
-            assert.deepEqual(struct.iter_to_array(gen), ["1", "2"]);
+            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), _objGetter(p));
+            assert.deepEqual(struct.iteratorToArray(gen), ["1", "2"]);
             // 6 not in here even though it doesn't match, because 3 < 6 and 3 already doesn't match
-            gen = ns.bf_topo_iter(["1"], _dict_get(g), _dict_pre(g), _dict_get(p), true);
-            assert.deepEqual(struct.iter_to_array(gen), ["3"]);
+            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), _objGetter(p), true);
+            assert.deepEqual(struct.iteratorToArray(gen), ["3"]);
         });
         it("Raise on cycle", function() {
             var g;
 
             g = {"1": ["1"]};
             assert.throws(function(){
-                struct.iter_to_array(ns.bf_topo_iter(["1"], _dict_get(g), _dict_pre(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g)));
             });
 
             g = {"1": ["2"], "2": ["1"]};
             assert.throws(function(){
-                struct.iter_to_array(ns.bf_topo_iter(["1", "2"], _dict_get(g), _dict_pre(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1", "2"], _objGetter(g), _preGetter(g)));
             });
 
             g = {"1": ["2"], "2": ["3"], "3": ["1"]};
             assert.throws(function(){
-                struct.iter_to_array(ns.bf_topo_iter(["1", "2", "3"], _dict_get(g), _dict_pre(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1", "2", "3"], _objGetter(g), _preGetter(g)));
             });
         });
     });

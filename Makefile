@@ -8,8 +8,9 @@ NODE = node
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
 DEP_JSBN = $(NODE_PATH)/jsbn/index.js
 DEP_JODID = $(NODE_PATH)/jodid25519/jodid25519.js
-DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID)
-DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519
+DEP_ES6COLL = $(NODE_PATH)/es6-collections/es6-collections.js
+DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID) $(DEP_ES6COLL)
+DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519 es6-collections
 
 # Build-depends - make sure you keep BUILD_DEP_ALL and BUILD_DEP_ALL_NAMES up-to-date
 KARMA  = $(NODE_PATH)/karma/bin/karma
@@ -29,7 +30,7 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 	sed -e 's,$<,$@,g' "$<.map" > "$@.map"
 	sed -e 's,$<,$@,g' "$<" > "$@"
 
-test: $(KARMA) $(R_JS) $(DEP_ALL)
+test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
 	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
 
 api-doc: $(JSDOC)
@@ -83,8 +84,14 @@ $(DEP_JODID):
 	$(NPM) install jodid25519
 	cd $(NODE_PATH)/jodid25519 && make jodid25519.js
 
-$(BUILD_DEP_ALL) $(DEP_JSBN):
-	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn
+$(BUILD_DEP_ALL) $(DEP_JSBN) $(DEP_ES6COLL):
+	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn es6-collections
+
+# other things from package.json, such as karma plugins. we touch a guard file
+# to prevent "npm install" running on every invocation of `make test`
+.npm-build-deps: package.json
+	$(NPM) install
+	touch .npm-build-deps
 
 clean:
 	rm -rf doc/api/ coverage/ build/ mpenc.js
@@ -92,6 +99,7 @@ clean:
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
+	rm -f .npm-build-deps
 
-.PHONY: all test api-doc clean clean-all
+.PHONY: all test api-doc clean clean-all build-deps-auto
 .PHONY: build-static build-shared test-static test-shared dist
