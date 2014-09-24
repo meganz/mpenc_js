@@ -50,7 +50,7 @@ define([
      * @returns {Array} Yielded values of the iterator.
      * @memberOf! module:mpenc/helper/struct
      */
-    var iter_to_array = function(iter) {
+    var iteratorToArray = function(iter) {
         var a = [];
         var done = false;
         while (!done) {
@@ -62,7 +62,7 @@ define([
         }
         return a;
     };
-    ns.iter_to_array = iter_to_array;
+    ns.iteratorToArray = iteratorToArray;
 
     /**
      * An immutable set, implemented using sorted arrays. Does not scale to
