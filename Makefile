@@ -30,7 +30,7 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 	sed -e 's,$<,$@,g' "$<.map" > "$@.map"
 	sed -e 's,$<,$@,g' "$<" > "$@"
 
-test: $(KARMA) $(R_JS) $(DEP_ALL)
+test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
 	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
 
 api-doc: $(JSDOC)
@@ -87,12 +87,19 @@ $(DEP_JODID):
 $(BUILD_DEP_ALL) $(DEP_JSBN) $(DEP_ES6COLL):
 	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn es6-collections
 
+# other things from package.json, such as karma plugins. we touch a guard file
+# to prevent "npm install" running on every invocation of `make test`
+.npm-build-deps: package.json
+	$(NPM) install
+	touch .npm-build-deps
+
 clean:
 	rm -rf doc/api/ coverage/ build/ mpenc.js
 
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
+	rm -f .npm-build-deps
 
-.PHONY: all test api-doc clean clean-all
+.PHONY: all test api-doc clean clean-all build-deps-auto
 .PHONY: build-static build-shared test-static test-shared dist
