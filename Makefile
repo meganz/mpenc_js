@@ -8,8 +8,9 @@ NODE = node
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
 DEP_JSBN = $(NODE_PATH)/jsbn/index.js
 DEP_JODID = $(NODE_PATH)/jodid25519/jodid25519.js
-DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID)
-DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519
+DEP_ES6COLL = $(NODE_PATH)/es6-collections/es6-collections.js
+DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID) $(DEP_ES6COLL)
+DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519 es6-collections
 
 # Build-depends - make sure you keep BUILD_DEP_ALL and BUILD_DEP_ALL_NAMES up-to-date
 KARMA  = $(NODE_PATH)/karma/bin/karma
@@ -83,8 +84,8 @@ $(DEP_JODID):
 	$(NPM) install jodid25519
 	cd $(NODE_PATH)/jodid25519 && make jodid25519.js
 
-$(BUILD_DEP_ALL) $(DEP_JSBN):
-	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn
+$(BUILD_DEP_ALL) $(DEP_JSBN) $(DEP_ES6COLL):
+	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn es6-collections
 
 clean:
 	rm -rf doc/api/ coverage/ build/ mpenc.js

@@ -2,6 +2,7 @@
 
 // Shim in browser global vars that some libs assume the existence of.
 navigator = { appName: "nodejs" };
+window = { navigator: navigator };
 
 var fs = require("fs");
 var path = require("path");
