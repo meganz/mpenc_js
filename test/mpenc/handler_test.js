@@ -566,6 +566,42 @@ define([
                                   'quit() can only be called from an initialised state.');
                 }
             });
+
+
+            it('.quit() is not working', function() {
+                // Initialise members.
+                var numMembers = 2;
+                var participants = {};
+                for (var i = 1; i <= numMembers; i++) {
+                    participants[i.toString()] = new ns.ProtocolHandler(i.toString(),
+                                                                        _td.ED25519_PRIV_KEY,
+                                                                        _td.ED25519_PUB_KEY,
+                                                                        _td.STATIC_PUB_KEY_DIR);
+                }
+
+                // Start.
+                participants['1'].start(['2']);
+                var protocolMessage = participants['1'].protocolOutQueue.shift();
+                assert.strictEqual(participants['1'].state, ns.STATE.INIT_UPFLOW);
+
+                // Processing start/upflow message.
+                participants['2'].processMessage(protocolMessage);
+                protocolMessage = participants['2'].protocolOutQueue.shift();
+                assert.strictEqual(participants['2'].state, ns.STATE.INIT_DOWNFLOW);
+                participants['1'].processMessage(protocolMessage);
+                protocolMessage = participants['1'].protocolOutQueue.shift();
+                assert.strictEqual(participants['1'].state, ns.STATE.INITIALISED);
+
+                // Participant 2 should process the new protocolOut message.
+                participants['2'].processMessage(protocolMessage);
+                // Participant 2 is also initialised.
+                assert.strictEqual(participants['2'].state, ns.STATE.INITIALISED);
+
+                participants['1'].quit();
+                // <- this will not work, since the ._quit will set the
+                // ephemeral* to null and then the jodid* code will try to
+                // access and fail with .length of undefined.....
+            });
         });
 
         describe('#_refresh() method', function() {
