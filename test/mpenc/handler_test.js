@@ -568,7 +568,7 @@ define([
             });
 
 
-            it('.quit() is not working', function() {
+            it('#quit() in workflow', function() {
                 // Initialise members.
                 var numMembers = 2;
                 var participants = {};
@@ -1393,6 +1393,34 @@ define([
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(participant.protocolOutQueue[0].from, '2');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+
+            it('on own keying message with flushed ephemeralPubKeys', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var groupKey = _td.COMP_KEY.substring(0, 16);
+                participant.cliquesMember.groupKey = groupKey;
+                participant.askeMember.ephemeralPubKeys = [];
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
+                               from: '1'};
+                sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                sandbox.stub(participant, '_processKeyingMessage').returns(
+                        { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
+                          newState: ns.STATE.INITIALISED });
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant.processMessage(message);
+                sinon_assert.calledOnce(codec.decodeMessageContent);
+                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[2], _td.ED25519_PUB_KEY);
+                sinon_assert.calledOnce(participant._processKeyingMessage);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
+                assert.strictEqual(participant.protocolOutQueue[0].from, '1');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
             });
