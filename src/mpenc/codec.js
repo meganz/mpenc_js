@@ -8,10 +8,9 @@ define([
     "mpenc/messages",
     "mpenc/helper/utils",
     "mpenc/version",
-    'mpenc/debug',
     "asmcrypto",
     "jodid25519",
-], function(assert, messages, utils, version, debug, asmCrypto, jodid25519) {
+], function(assert, messages, utils, version, asmCrypto, jodid25519) {
     "use strict";
 
     /**
@@ -292,9 +291,7 @@ define([
         }
 
         // Debugging output.
-        if (debug.decoder === true) {
-            console.log('mpEnc decoded message debug: ', debugOutput);
-        }
+        utils.dummyLogger('DEBUG', 'mpEnc decoded message debug: ', debugOutput);
 
         // Check signature, if present.
         if (out.signature) {

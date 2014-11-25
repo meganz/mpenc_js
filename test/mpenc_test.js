@@ -42,10 +42,6 @@ define([
             it('version sub-module', function() {
                 assert.notStrictEqual(ns.version, undefined);
             });
-
-            it('debug sub-module', function() {
-                assert.notStrictEqual(ns.debug, undefined);
-            });
         });
     });
 });

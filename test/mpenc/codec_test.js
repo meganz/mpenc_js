@@ -25,13 +25,12 @@ define([
     "mpenc/codec",
     "mpenc/version",
     "mpenc/helper/utils",
-    "mpenc/debug",
     "jodid25519",
     "asmcrypto",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, debug, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
@@ -284,19 +283,19 @@ define([
             });
 
             it('upflow message, debug on', function() {
-                sandbox.stub(window.console, 'log');
-                sandbox.stub(debug, 'decoder', true);
+                sandbox.stub(utils, 'dummyLogger');
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
                                         null, _td.ED25519_PUB_KEY);
-                var log = console.log.args[0][1];
-                assert.deepEqual(log, ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
-                                       'protocol: 1',
-                                       'from: 1', 'to: 2 (upflow)',
-                                       'agreement: initial',
-                                       'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
-                                       'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                       'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                       'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']);
+                var log = utils.dummyLogger.getCall(0).args;
+                assert.deepEqual(log, ['DEBUG', 'mpEnc decoded message debug: ',
+                                       ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
+                                        'protocol: 1',
+                                        'from: 1', 'to: 2 (upflow)',
+                                        'agreement: initial',
+                                        'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
+                                        'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                        'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                        'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']]);
 
             });
 
@@ -332,17 +331,17 @@ define([
             });
 
             it('data message, debug on', function() {
-                sandbox.stub(window.console, 'log');
-                sandbox.stub(debug, 'decoder', true);
+                sandbox.stub(utils, 'dummyLogger');
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                         _td.GROUP_KEY, _td.ED25519_PUB_KEY);
 
-                var log = console.log.args[0][1];
-                assert.deepEqual(log, ['messageSignature: 0Et9tlUIl6SnWWRRF337BqWZvIao/BH4KU7qZeVB3QnL7ls+zfBVl5O3RxsZjibfMdjOsuCu6CsuFCb7mFQsBA==',
-                                       'protocol: 1',
-                                       'messageIV: i4vUqwamDTYp9T1rm4osZg==',
-                                       'rawDataMessage: hy2I5zmItNhJ7S9+QWB6eg==',
-                                       'decryptDataMessage: foo']);
+                var log = utils.dummyLogger.getCall(0).args;
+                assert.deepEqual(log, ['DEBUG', 'mpEnc decoded message debug: ',
+                                       ['messageSignature: 0Et9tlUIl6SnWWRRF337BqWZvIao/BH4KU7qZeVB3QnL7ls+zfBVl5O3RxsZjibfMdjOsuCu6CsuFCb7mFQsBA==',
+                                        'protocol: 1',
+                                        'messageIV: i4vUqwamDTYp9T1rm4osZg==',
+                                        'rawDataMessage: hy2I5zmItNhJ7S9+QWB6eg==',
+                                        'decryptDataMessage: foo']]);
             });
 
             it('data message with exponential padding', function() {

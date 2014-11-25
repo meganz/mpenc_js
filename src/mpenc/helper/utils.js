@@ -316,7 +316,6 @@ define([
             if (parent.hasOwnProperty("__invariants")) {
                 var invariants = parent.__invariants;
                 for (var k in invariants) {
-                    console.log("checking " + k + " on " + obj);
                     invariants[k](obj);
                 }
             }
@@ -391,6 +390,24 @@ define([
         // If everything passed, let's say YES.
         return true;
     };
+
+
+    /**
+     * Dummy logger to be used until we've got a proper one in place.
+     *
+     * FIXME: Replace this with a "proper" logger!
+     *
+     * @param level {string}
+     *     Log level. One of "DEBUG", "INFO", "WARN", "ERROR".
+     * @param message {string}
+     *     Message to be logged.
+     */
+    ns.dummyLogger = function(level, message) {
+        if (!window._dummyLoggerOff) {
+            console.log('LOG ' + level + ': ' + message);
+        }
+    };
+
 
     return ns;
 });

@@ -546,6 +546,7 @@ define([
                     // the signing pubKeys won't be part of the message.
                     var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
                     if ((wireMessage.from === this.id) && (!signingPubKey)) {
+                        utils.dummyLogger('DEBUG', 'Using own ephemeral signing pub key, not taken from list.');
                         signingPubKey = this.askeMember.ephemeralPubKey;
                     }
                     decodedMessage = codec.decodeMessageContent(classify.content,
