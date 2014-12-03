@@ -24,8 +24,7 @@ define([
     "mpenc/codec",
     "mpenc/handler",
     "mpenc/version",
-    "mpenc/debug"
-], function(codec, handler, version, debug) {
+], function(codec, handler, version) {
     "use strict";
 
     /**
@@ -38,15 +37,12 @@ define([
      *
      * @property version {string}
      *     Member's identifier string.
-     * @property debug {object}
-     *     .Debugging configuration.
      */
     var mpenc = {};
 
     mpenc.codec = codec;
     mpenc.handler = handler;
     mpenc.version = version;
-    mpenc.debug = debug;
 
     return mpenc;
 });
