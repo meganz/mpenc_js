@@ -93,6 +93,13 @@ define([
         self.length = items.size;
         self.size = items.size;
 
+        // adhere to the Iterable interface if available
+        if (typeof Symbol !== "undefined") {
+            self[Symbol.iterator] = function() {
+                return items[Symbol.iterator]();
+            };
+        }
+
         /**
          * Return an iterator over the elements of this set.
          * @returns {Array}
