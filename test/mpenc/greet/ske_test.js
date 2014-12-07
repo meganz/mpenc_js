@@ -103,7 +103,7 @@ define([
                 var startMessage = participant.commit(otherMembers);
                 assert.strictEqual(startMessage.source, '1');
                 assert.strictEqual(startMessage.dest, '2');
-                assert.strictEqual(startMessage.flow, 'upflow');
+                assert.strictEqual(startMessage.flow, 'up');
                 assert.deepEqual(startMessage.members, ['1'].concat(otherMembers));
                 assert.lengthOf(startMessage.nonces, 1);
                 assert.lengthOf(startMessage.pubKeys, 1);
@@ -246,7 +246,7 @@ define([
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var startMessage = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                      'upflow',
+                                                                      'up',
                                                                       members);
                 var message = participant.upflow(startMessage);
                 assert.strictEqual(message.source, '1');
@@ -262,7 +262,7 @@ define([
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'upflow',
+                                                                 'up',
                                                                  members);
                 message.nonces = ['foo1', 'foo2', 'foo3', 'foo4', 'foo5', 'foo6'];
                 message.pubKeys = [];
@@ -278,7 +278,7 @@ define([
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var members = ['1', '2', '3', '4', '5'];
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'upflow',
+                                                                 'up',
                                                                  members);
                 message.nonces = ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'];
                 message.pubKeys = [];
@@ -300,14 +300,14 @@ define([
                     participants.push(participant);
                 }
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'upflow',
+                                                                 'up',
                                                                  members);
                 for (var i = 0; i < numMembers - 1; i++) {
                     message = participants[i].upflow(message);
                     assert.deepEqual(participants[i].members, members);
                     assert.strictEqual(_tu.keyBits(participants[i].ephemeralPrivKey, 8), 256);
                     assert.strictEqual(_tu.keyBits(participants[i].ephemeralPubKey, 8), 256);
-                    assert.strictEqual(message.flow, 'upflow');
+                    assert.strictEqual(message.flow, 'up');
                     assert.lengthOf(message.pubKeys, i + 1);
                     assert.strictEqual(_tu.keyBits(message.pubKeys[i], 8), 256);
                     assert.lengthOf(message.nonces, i + 1);
@@ -325,7 +325,7 @@ define([
                 assert.strictEqual(_tu.keyBits(participants[lastid].ephemeralPubKey, 8), 256);
                 assert.deepEqual(participants[lastid].authenticatedMembers,
                                  [false, false, false, false, true]);
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.lengthOf(message.pubKeys, numMembers);
                 assert.strictEqual(_tu.keyBits(message.pubKeys[lastid], 8), 256);
                 assert.lengthOf(message.nonces, numMembers);
@@ -339,7 +339,7 @@ define([
             it('upflow after a join', function() {
                 var members = ['1', '2', '3', '4', '5'];
                 var startMessage = new ns.SignatureKeyExchangeMessage('3', '',
-                                                                             'upflow');
+                                                                             'up');
                 startMessage.dest = '6';
                 startMessage.members = members.concat('6');
                 startMessage.nonces = [];
@@ -362,7 +362,7 @@ define([
                                  [false, false, false, false, false, true]);
                 assert.strictEqual(message.source, participant.id);
                 assert.strictEqual(message.dest, '');
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.lengthOf(message.pubKeys, 6);
                 assert.strictEqual(_tu.keyBits(message.pubKeys[5], 8), 256);
                 assert.lengthOf(message.nonces, 6);
@@ -390,7 +390,7 @@ define([
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'downflow',
+                                                                 'down',
                                                                  members);
                 for (var i = 0; i < 5; i++) {
                     // Nonces have the same format as the pub key.
@@ -413,7 +413,7 @@ define([
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'downflow',
+                                                                 'down',
                                                                  members);
                 for (var i = 0; i < 5; i++) {
                     // Nonces have the same format as the pub key.
@@ -437,7 +437,7 @@ define([
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.staticPubKeyDir = _td.STATIC_PUB_KEY_DIR;
                 var message = new ns.SignatureKeyExchangeMessage('1', '',
-                                                                 'downflow',
+                                                                 'down',
                                                                  members);
                 participant.sessionId = _td.SESSION_ID.concat();
                 participant.authenticatedMembers = [false, false, true, false, true];
@@ -509,7 +509,7 @@ define([
                 assert.deepEqual(message.members, ['1', '2', '3', '4', '5', '6']);
                 assert.strictEqual(message.source, '3');
                 assert.strictEqual(message.dest, '6');
-                assert.strictEqual(message.flow, 'upflow');
+                assert.strictEqual(message.flow, 'up');
                 assert.lengthOf(message.nonces, 5);
                 assert.lengthOf(message.pubKeys, 5);
             });
@@ -570,7 +570,7 @@ define([
                 assert.deepEqual(message.members, ['2', '3', '5']);
                 assert.strictEqual(message.source, '3');
                 assert.strictEqual(message.dest, '');
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.lengthOf(message.nonces, 3);
                 assert.lengthOf(message.pubKeys, 3);
                 assert.lengthOf(message.sessionSignature, 64);
@@ -601,7 +601,7 @@ define([
                 assert.lengthOf(participant.ephemeralPubKeys, 4);
                 assert.strictEqual(message.source, 'Peter');
                 assert.strictEqual(message.dest, '');
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.strictEqual(message.signingKey, '111');
             });
 
@@ -622,7 +622,7 @@ define([
                 assert.lengthOf(participant.ephemeralPubKeys, 4);
                 assert.strictEqual(message.source, 'Peter');
                 assert.strictEqual(message.dest, '');
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.strictEqual(message.signingKey, '111');
             });
         });
@@ -678,7 +678,7 @@ define([
                 var message = participants[initiator].commit(otherMembers);
 
                 // ASKE upflow.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         message = participants[nextId].upflow(message);
@@ -725,7 +725,7 @@ define([
                 // '4' starts upflow for join.
                 message = participants[3].join(newMembers);
                 // Upflow for join.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         message = participants[nextId].upflow(message);
@@ -813,7 +813,7 @@ define([
                 members = message.members;
 
                 // Upflow for full refresh.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         oldSigningKey = participants[nextId].ephemeralPrivKey;

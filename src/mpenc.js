@@ -23,7 +23,7 @@
 define([
     "mpenc/codec",
     "mpenc/handler",
-    "mpenc/version",
+    "mpenc/version"
 ], function(codec, handler, version) {
     "use strict";
 

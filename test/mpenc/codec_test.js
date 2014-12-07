@@ -86,13 +86,15 @@ define([
                              [21356, _td.SESSION_ID],
                              [14, ''],
                              [14, null],
-                             [1, '\u0001']];
+                             [1, '\u0001'],
+                             [14, 0]];
                 var expected = ['\u0000\u0000\u0000\u0005hello',
                                 "\u0000\u002a\u0000\u000cDon't panic!",
                                 'Sl\u0000\u0020' + _td.SESSION_ID,
                                 '\u0000\u000e\u0000\u0000',
                                 '\u0000\u000e\u0000\u0000',
-                                '\u0000\u0001\u0000\u0001\u0001'];
+                                '\u0000\u0001\u0000\u0001\u0001',
+                                '\u0000\u000e\u0000\u0001\u0030'];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.encodeTLV(tests[i][0], tests[i][1]);
                     assert.strictEqual(result, expected[i]);
@@ -143,11 +145,13 @@ define([
                              "\u0000\u002a\u0000\u000cDon't panic!",
                              'Sl\u0000\u0020' + _td.SESSION_ID,
                              '\u0000\u000e\u0000\u0000***',
+                             '\u0000\u000e\u0000\u0001\u0030',
                              '\u0000\u0000\u0000\u0005hello\u0000\u0000\u0000\u0005world'];
                 var expected = [[0, 'hello', ''],
                                 [42, "Don't panic!", ''],
                                 [21356, _td.SESSION_ID, ''],
                                 [14, '', '***'],
+                                [14, '0', ''],
                                 [0, 'hello', '\u0000\u0000\u0000\u0005world']];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.decodeTLV(tests[i]);
@@ -163,20 +167,22 @@ define([
             });
         });
 
-        describe("isDataContent()", function() {
+        describe("getMessageType()", function() {
             it('empty content', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
-                    assert.notOk(ns.isDataContent(tests[i]));
+                    assert.notOk(ns.getMessageType(tests[i]));
                 }
             });
 
             it('greet message', function() {
-                assert.notOk(ns.isDataContent(_td.DOWNFLOW_MESSAGE_STRING));
+                assert.strictEqual(ns.getMessageType(_td.DOWNFLOW_MESSAGE_STRING),
+                                   ns.MESSAGE_TYPE.QUIT_DOWN);
             });
 
             it('data message', function() {
-                assert.ok(ns.isDataContent(_td.DATA_MESSAGE_STRING));
+                assert.ok(ns.getMessageType(_td.DATA_MESSAGE_STRING),
+                          ns.MESSAGE_TYPE.PARTICIPANT_DATA);
             });
         });
 
@@ -251,18 +257,18 @@ define([
                 var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
-                // 4 TLVs with 113 bytes:
-                // signature (4 + 64), protocol v (4 + 1), IV (4 + 16), encr. message (4 + 16)
-                assert.lengthOf(result, 113);
+                // 4 TLVs with 119 bytes:
+                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2), IV (4 + 16), encr. message (4 + 16)
+                assert.lengthOf(result, 119);
             });
 
             it('data message with exponential padding', function() {
                 var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY, 32);
-                // 4 TLVs with 113 bytes:
-                // signature (4 + 64), protocol v (4 + 1), IV (4 + 16), encr. message (4 + 32)
-                assert.lengthOf(result, 129);
+                // 4 TLVs with 135 bytes:
+                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2), IV (4 + 16), encr. message (4 + 32)
+                assert.lengthOf(result, 135);
             });
         });
 
@@ -273,8 +279,7 @@ define([
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.agreement, _td.UPFLOW_MESSAGE_CONTENT.agreement);
-                assert.strictEqual(result.flow, _td.UPFLOW_MESSAGE_CONTENT.flow);
+                assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
                 assert.deepEqual(result.members, _td.UPFLOW_MESSAGE_CONTENT.members);
                 assert.deepEqual(result.intKeys, _td.UPFLOW_MESSAGE_CONTENT.intKeys);
                 assert.deepEqual(result.nonces, _td.UPFLOW_MESSAGE_CONTENT.nonces);
@@ -287,16 +292,15 @@ define([
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
                                         null, _td.ED25519_PUB_KEY);
                 var log = utils.dummyLogger.getCall(0).args;
-                assert.deepEqual(log, ['DEBUG', 'mpEnc decoded message debug: ',
-                                       ['messageSignature: 6VxiIOX5U7jH7Sz67+dEIflnD48O0p4x1VIkjL3v6V3wf7z8iR4DGdZ8tujq7HkHtpLBuX8w87zaXN6Nv/WEDg==',
+                assert.deepEqual(log, ['DEBUG', 'mpENC decoded message debug: ',
+                                       ['messageSignature: /ryx7Y9l95edBxPBWE9Y91i2ZlIBysB/m1RqZHtVY73y/oHYZurkMYmwNXmMRM+vo+hzHA+dKcKyonwky42fCA==',
                                         'protocol: 1',
-                                        'from: 1', 'to: 2 (upflow)',
-                                        'agreement: initial',
+                                        'messageType: 0x9c (INIT_INITIATOR_UP)',
+                                        'from: 1', 'to: 2',
                                         'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
                                         'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
                                         'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
                                         'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']]);
-
             });
 
             it('downflow message for quit', function() {
@@ -305,8 +309,7 @@ define([
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.agreement, 'auxiliary');
-                assert.strictEqual(result.flow, _td.DOWNFLOW_MESSAGE_CONTENT.flow);
+                assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
                 assert.strictEqual(result.signingKey, _td.DOWNFLOW_MESSAGE_CONTENT.signingKey);
             });
 
@@ -336,11 +339,12 @@ define([
                                         _td.GROUP_KEY, _td.ED25519_PUB_KEY);
 
                 var log = utils.dummyLogger.getCall(0).args;
-                assert.deepEqual(log, ['DEBUG', 'mpEnc decoded message debug: ',
-                                       ['messageSignature: 0Et9tlUIl6SnWWRRF337BqWZvIao/BH4KU7qZeVB3QnL7ls+zfBVl5O3RxsZjibfMdjOsuCu6CsuFCb7mFQsBA==',
+                assert.deepEqual(log, ['DEBUG', 'mpENC decoded message debug: ',
+                                       ['messageSignature: f06xeOXgt28U0jXMOWdmmJcEV+l2IUtrA46s1nLQpBRMv4RKiMRYb6yQwmNSnFz+KWlyWBATG3KMoM0+9pMWCA==',
                                         'protocol: 1',
-                                        'messageIV: i4vUqwamDTYp9T1rm4osZg==',
-                                        'rawDataMessage: hy2I5zmItNhJ7S9+QWB6eg==',
+                                        'messageType: 0x0 (PARTICIPANT_DATA)',
+                                        'messageIV: qUlPX+CSQN0grUKVptv7lw==',
+                                        'rawDataMessage: CV8C+9NRFmNAOkrrM2znvg==',
                                         'decryptDataMessage: foo']]);
             });
 
@@ -370,58 +374,52 @@ define([
         describe("inspectMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
-                assert.deepEqual(result, {protocol: 1, from: '1', to: '2',
-                                          origin: null, type: null,
-                                          greet: {agreement: 'initial', flow: 'upflow',
-                                                  negotiation: null, fromInitiator: null,
-                                                  members: ['1', '2', '3', '4', '5', '6'],
-                                                  numNonces: 1, numIntKeys: 2, numPubKeys: 1}});
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, 0x9c);
+                assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
+                assert.strictEqual(result.from, '1');
+                assert.strictEqual(result.to, '2');
+                assert.strictEqual(result.origin, 'initiator');
+                assert.strictEqual(result.operation, 'START');
+                assert.strictEqual(result.agreement, 'initial, GKE, SKE');
+                assert.strictEqual(result.flow, 'up');
+                assert.strictEqual(result.recover, false);
+                assert.deepEqual(result.members, ['1', '2', '3', '4', '5', '6']);
+                assert.strictEqual(result.numNonces, 1);
+                assert.strictEqual(result.numIntKeys, 2);
+                assert.strictEqual(result.numPubKeys, 1);
             });
 
             it('downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
-                assert.deepEqual(result, {protocol: 1, from: '1', to: '',
-                                          origin: null, type: null,
-                                          greet: {agreement: 'auxiliary', flow: 'downflow',
-                                                  negotiation: null, fromInitiator: null,
-                                                  members: [],
-                                                  numNonces: 0, numIntKeys: 0, numPubKeys: 0}});
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, 0xd3);
+                assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
+                assert.strictEqual(result.from, '1');
+                assert.strictEqual(result.to, '');
+                assert.strictEqual(result.origin, '???');
+                assert.strictEqual(result.operation, 'QUIT');
+                assert.strictEqual(result.agreement, 'auxiliary');
+                assert.strictEqual(result.flow, 'down');
+                assert.strictEqual(result.recover, false);
+                assert.deepEqual(result.members, []);
+                assert.strictEqual(result.numNonces, 0);
+                assert.strictEqual(result.numIntKeys, 0);
+                assert.strictEqual(result.numPubKeys, 0);
             });
         });
     });
 
     describe("encodeMessage()", function() {
         it('upflow message', function() {
-            var message = {
-                source: '1',
-                dest: '2',
-                agreement: 'initial',
-                flow: 'upflow',
-                members: ['1', '2', '3', '4', '5', '6'],
-                intKeys: [null, _td.C25519_PUB_KEY],
-                nonces: [_td.C25519_PUB_KEY],
-                pubKeys: [_td.ED25519_PUB_KEY],
-                sessionSignature: null
-            };
             sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(message, null, _td.ED25519_PRIV_KEY,
+            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, null, _td.ED25519_PRIV_KEY,
                                           _td.ED25519_PUB_KEY);
             assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
 
         it('upflow message binary', function() {
-            var message = {
-                source: '1',
-                dest: '2',
-                agreement: 'initial',
-                flow: 'upflow',
-                members: ['1', '2', '3', '4', '5', '6'],
-                intKeys: [null, _td.C25519_PUB_KEY],
-                nonces: [_td.C25519_PUB_KEY],
-                pubKeys: [_td.ED25519_PUB_KEY],
-                sessionSignature: null
-            };
-            var result = ns.encodeMessage(message, null, _td.ED25519_PRIV_KEY,
+            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, null, _td.ED25519_PRIV_KEY,
                                           _td.ED25519_PUB_KEY);
             assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
         });
@@ -736,6 +734,113 @@ define([
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.getErrorMessage(tests[i]), expected[i]);
             }
+        });
+    });
+
+    describe("_messageTypeFromNumber() and _messageTypeToNumber()", function() {
+        var messageTypes = {// Data message.
+                            '\u0000\u0000': 0x000, // PARTICIPANT_DATA
+                            // Initial start sequence.
+                            '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
+                            '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
+                            '\u0000\u001e': 0x01e, // INIT_PARTICIPANT_DOWN
+                            '\u0000\u001a': 0x01a, // INIT_PARTICIPANT_SUBSEQ_DOWN
+                            '\u0001\u009c': 0x19c, // RECOVER_INIT_INITIATOR_UP
+                            '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
+                            '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
+                            '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_SUBSEQ_DOWN:
+                            // Join sequence.
+                            '\u0000\u00ad': 0x0ad, // JOIN_AUX_INITIATOR_UP
+                            '\u0000\u002d': 0x02d, // JOIN_AUX_PARTICIPANT_UP
+                            '\u0000\u002f': 0x02f, // JOIN_AUX_PARTICIPANT_DOWN
+                            '\u0000\u002b': 0x02b, // JOIN_AUX_PARTICIPANT_SUBSEQ_DOWN
+                            // Exclude sequence.
+                            '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_SUBSEQ_DOWN
+                            '\u0001\u00bf': 0x1bf, // RECOVER_EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0001\u003b': 0x13b, // RECOVER_EXCLUDE_AUX_PARTICIPANT_SUBSEQ_DOWN
+                            // Refresh sequence.
+                            '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
+                            '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
+                            '\u0001\u00c7': 0x1c7, // RECOVER_REFRESH_AUX_INITIATOR_DOWN
+                            '\u0001\u0047': 0x147, // RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:
+                            // Quit indication.
+                            '\u0000\u00d3': 0x0d3  // QUIT_DOWN
+        };
+        var messageTypeNumbers = {};
+        for (var msgType in messageTypes) {
+            messageTypeNumbers[messageTypes[msgType]] = msgType;
+        }
+
+        it('_messageTypeFromNumber()', function() {
+            for (var number in messageTypeNumbers) {
+                assert.strictEqual(ns._messageTypeFromNumber(number),
+                                   messageTypeNumbers[number]);
+            }
+        });
+
+        it('_messageTypeToNumber()', function() {
+            for (var type in messageTypes) {
+                assert.strictEqual(ns._messageTypeToNumber(type),
+                                   messageTypes[type]);
+            }
+        });
+
+        it('round trip', function() {
+            for (var type in messageTypes) {
+                var number = ns._messageTypeToNumber(type);
+                assert.strictEqual(ns._messageTypeFromNumber(number), type);
+            }
+        });
+    });
+
+    describe("ProtocolMessage class", function() {
+        describe("_readBit()", function() {
+            it('downflow on INIT_PARTICIPANT_UP', function() {
+                var message = new ns.ProtocolMessage();
+                message.messageType = '\u0000\u001c', // INIT_PARTICIPANT_UP
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
+            });
+
+            it('downflow on QUIT_DOWN', function() {
+                var message = new ns.ProtocolMessage();
+                message.messageType = '\u0000\u00d3'; // QUIT_DOWN
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
+            });
+        });
+
+        describe("_setBit()", function() {
+            it('on valid transitions', function() {
+                var message = new ns.ProtocolMessage();
+                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
+                             [ns.MESSAGE_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
+                var expected = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP];
+                for (var i in tests) {
+                    message.messageType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    message._setBit(bit, targetValue);
+                    assert.strictEqual(message.messageType, expected[i]);
+                }
+            });
+
+            it('on invalid transitions', function() {
+                var message = new ns.ProtocolMessage();
+                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_SUBSEQ_DOWN, ns._DOWN_BIT, false]];
+                for (var i in tests) {
+                    message.messageType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    assert.throws(function() { message._setBit(bit, targetValue); },
+                                  'Illegal message type!');
+                }
+            });
         });
     });
 });

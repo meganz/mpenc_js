@@ -158,7 +158,7 @@ define([
                 var startMessage = new ns.CliquesMessage();
                 startMessage.members = members;
                 startMessage.agreement = 'ika';
-                startMessage.flow = 'upflow';
+                startMessage.flow = 'up';
                 var oldTs = participant.keyTimestamp;
                 var newMessage = participant.upflow(startMessage);
                 assert.ok(participant.keyTimestamp > oldTs);
@@ -166,7 +166,7 @@ define([
                 assert.deepEqual(newMessage.members, members);
                 assert.strictEqual(_tu.keyBits(participant.privKey, 8), 256);
                 assert.strictEqual(newMessage.agreement, 'ika');
-                assert.strictEqual(newMessage.flow, 'upflow');
+                assert.strictEqual(newMessage.flow, 'up');
                 assert.lengthOf(newMessage.intKeys, 2);
                 assert.strictEqual(newMessage.intKeys[0], null);
                 assert.strictEqual(_tu.keyBits(newMessage.intKeys[newMessage.intKeys.length - 1], 8), 256);
@@ -209,13 +209,13 @@ define([
                 var message = new ns.CliquesMessage();
                 message.members = members;
                 message.agreement = 'ika';
-                message.flow = 'upflow';
+                message.flow = 'up';
                 for (var i = 0; i < numMembers - 1; i++) {
                     message = participants[i].upflow(message);
                     assert.deepEqual(participants[i].members, members);
                     assert.strictEqual(_tu.keyBits(participants[i].privKey, 8), 256);
                     assert.strictEqual(message.agreement, 'ika');
-                    assert.strictEqual(message.flow, 'upflow');
+                    assert.strictEqual(message.flow, 'up');
                     assert.lengthOf(message.intKeys, i + 2);
                     assert.strictEqual(_tu.keyBits(message.intKeys[i + 1], 8), 256);
                     if (i === 0) {
@@ -232,7 +232,7 @@ define([
                 assert.deepEqual(participants[i].members, members);
                 assert.strictEqual(_tu.keyBits(participants[i].privKey, 8), 256);
                 assert.strictEqual(message.agreement, 'ika');
-                assert.strictEqual(message.flow, 'downflow');
+                assert.strictEqual(message.flow, 'down');
                 assert.lengthOf(message.intKeys, numMembers);
                 assert.strictEqual(_tu.keyBits(message.intKeys[0], 8), 256);
                 assert.strictEqual(_tu.keyBits(message.intKeys[numMembers - 1], 8), 256);
@@ -253,7 +253,7 @@ define([
                     var startMessage = {
                     members: ['1', '2', '3', '4', '5'],
                     agreement: 'ika',
-                    flow: 'upflow',
+                    flow: 'up',
                     intKeys: [null, 'foo'],
                     debugKeys: [null, '1*G']
                 };
@@ -265,7 +265,7 @@ define([
                 assert.deepEqual(newMessage.members, members);
                 assert.strictEqual(_tu.keyBits(participant.privKey, 8), 256);
                 assert.strictEqual(newMessage.agreement, 'ika');
-                assert.strictEqual(newMessage.flow, 'upflow');
+                assert.strictEqual(newMessage.flow, 'up');
                 assert.lengthOf(newMessage.intKeys, 3);
                 assert.deepEqual(newMessage.debugKeys, ['2*G', '1*G', '2*1*G']);
                 assert.strictEqual(_tu.keyBits(newMessage.intKeys[0], 8), 256);
@@ -309,7 +309,7 @@ define([
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
-                broadcastMessage.flow = 'downflow';
+                broadcastMessage.flow = 'down';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
                 broadcastMessage.debugKeys = utils.clone(members);
@@ -331,7 +331,7 @@ define([
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
-                broadcastMessage.flow = 'downflow';
+                broadcastMessage.flow = 'down';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
                 broadcastMessage.debugKeys = utils.clone(members);
@@ -355,7 +355,7 @@ define([
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
-                broadcastMessage.flow = 'downflow';
+                broadcastMessage.flow = 'down';
                 broadcastMessage.members = members;
                 broadcastMessage.intKeys = messageKeys;
                 broadcastMessage.debugKeys = utils.clone(members);
@@ -409,7 +409,7 @@ define([
                 assert.strictEqual(_tu.keyBits(participant.privKey, 8), 256);
                 assert.notDeepEqual(participant.privKey, _td.C25519_PRIV_KEY);
                 assert.strictEqual(message.agreement, 'aka');
-                assert.strictEqual(message.flow, 'upflow');
+                assert.strictEqual(message.flow, 'up');
                 for (var i = 0; i < message.debugKeys.length; i++) {
                     assert.ok(message.debugKeys[i].indexOf("3*") >= 0);
                     if (i === 2) {
@@ -561,7 +561,7 @@ define([
                 var message = participants[initiator].ika(otherMembers);
 
                 // IKA upflow.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         message = participants[nextId].upflow(message);
@@ -594,7 +594,7 @@ define([
                 // '4' starts AKA for join.
                 message = participants[3].akaJoin(newMembers);
                 // AKA upflow for join.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         message = participants[nextId].upflow(message);
@@ -680,7 +680,7 @@ define([
                 members = message.members;
 
                 // Upflow for full refresh.
-                while (message.flow === 'upflow') {
+                while (message.flow === 'up') {
                     if (message.dest !== '') {
                         var nextId = message.members.indexOf(message.dest);
                         oldPrivKey = participants[nextId].privKey;

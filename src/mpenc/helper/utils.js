@@ -333,7 +333,7 @@ define([
      *
      * @param obj1
      *     The first object to be compared against the second.
-     * @param obj1
+     * @param obj2
      *     The second object to be compared against the first.
      * @returns
      *     A true on equality.

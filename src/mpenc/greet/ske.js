@@ -79,7 +79,7 @@ define([
      * @property dest {string}
      *     Destination participatn ID of message (empty for broadcast).
      * @property flow {string}
-     *     Flow direction of message ('upflow' or 'downflow').
+     *     Flow direction of message ('up' or 'down').
      * @property members {Array}
      *     Participant IDs of members.
      * @property nonces {Array}
@@ -172,7 +172,7 @@ define([
     ns.SignatureKeyExchangeMember.prototype.commit = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.ephemeralPubKeys = null;
-        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'upflow');
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'up');
         startMessage.members = [this.id].concat(otherMembers);
         this.nonce = null;
         this.nonces = [];
@@ -225,7 +225,7 @@ define([
             // Broadcast own session authentication.
             message.source = this.id;
             message.dest = '';
-            message.flow = 'downflow';
+            message.flow = 'down';
             this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
             this.authenticatedMembers[myPos] = true;
             message.sessionSignature = this._computeSessionSig();
@@ -400,7 +400,7 @@ define([
         this.authenticatedMembers[myPos] = true;
 
         // Pass a message on to the first new member to join.
-        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'upflow');
+        var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'up');
         startMessage.dest = newMembers[0];
         startMessage.members = utils.clone(allMembers);
         startMessage.nonces = utils.clone(this.nonces);
@@ -446,7 +446,7 @@ define([
         this.authenticatedMembers[myPos] = true;
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'downflow');
+        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
         broadcastMessage.members = utils.clone(this.members);
         broadcastMessage.nonces = utils.clone(this.nonces);
         broadcastMessage.pubKeys = utils.clone(this.ephemeralPubKeys);
@@ -489,7 +489,7 @@ define([
         }
 
         // Pass broadcast message on to all members.
-        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'downflow');
+        var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
         broadcastMessage.signingKey = this.oldEphemeralKeys[this.id].priv;
 
         return broadcastMessage;

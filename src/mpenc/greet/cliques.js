@@ -58,7 +58,7 @@ define([
      * @param agreement
      *     Type of key agreement. "ika" or "aka".
      * @param flow
-     *     Direction of message flow. "upflow" or "downflow".
+     *     Direction of message flow. "up" or "down".
      * @param members
      *     List (array) of all participating members.
      * @param intKeys
@@ -75,7 +75,7 @@ define([
      * @property agreement
      *     Type of key agreement. "ika" or "aka".
      * @property flow
-     *     Direction of message flow. "upflow" or "downflow".
+     *     Direction of message flow. "up" or "down".
      * @property members
      *     List (array) of all participating members.
      * @property intKeys
@@ -158,7 +158,7 @@ define([
         var startMessage = new ns.CliquesMessage(this.id);
         startMessage.members = [this.id].concat(otherMembers);
         startMessage.agreement = 'ika';
-        startMessage.flow = 'upflow';
+        startMessage.flow = 'up';
         return this.upflow(startMessage);
     };
 
@@ -209,7 +209,7 @@ define([
         startMessage.members = allMembers;
         startMessage.dest = newMembers[0];
         startMessage.agreement = 'aka';
-        startMessage.flow = 'upflow';
+        startMessage.flow = 'up';
         startMessage.intKeys = this.intKeys;
         startMessage.debugKeys = this._debugIntKeys;
 
@@ -251,7 +251,7 @@ define([
         var broadcastMessage = new ns.CliquesMessage(this.id);
         broadcastMessage.members = this.members;
         broadcastMessage.agreement = 'aka';
-        broadcastMessage.flow = 'downflow';
+        broadcastMessage.flow = 'down';
         broadcastMessage.intKeys = this.intKeys;
         broadcastMessage.debugKeys = this._debugIntKeys;
 
@@ -299,7 +299,7 @@ define([
         var broadcastMessage = new ns.CliquesMessage(this.id);
         broadcastMessage.members = this.members;
         broadcastMessage.agreement = 'aka';
-        broadcastMessage.flow = 'downflow';
+        broadcastMessage.flow = 'down';
         broadcastMessage.intKeys = this.intKeys;
         broadcastMessage.debugKeys = this._debugIntKeys;
 
@@ -351,7 +351,7 @@ define([
             // Broadcast all intermediate keys.
             message.source = this.id;
             message.dest = '';
-            message.flow = 'downflow';
+            message.flow = 'down';
         } else {
             // Add the new cardinal key.
             this.intKeys.push(result.cardinalKey);
