@@ -3,7 +3,9 @@
  * Assertion helper module.
  */
 
-define([], function() {
+define([
+    "mpenc/helper/utils",
+], function(utils) {
     "use strict";
 
     /**
@@ -49,6 +51,7 @@ define([], function() {
      */
     ns.assert = function(test, message) {
         if (!test) {
+            utils.dummyLogger('ERROR', message);
             throw new ns.AssertionFailed(message);
         }
     };

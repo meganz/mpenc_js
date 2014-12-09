@@ -167,21 +167,31 @@ define([
      *     Bit number to modify.
      * @param {bool}
      *     Value to set bit to.
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
      * @throws {Error}
      *     In case of a resulting illegal/non-existent message type.
      */
-    ns.ProtocolMessage.prototype._setBit= function(bit, value) {
+    ns.ProtocolMessage.prototype._setBit= function(bit, value, noMessageCheck) {
         var newMessageTypeNum = this.getMessageTypeNumber();
         if (value === true || value === 1) {
             newMessageTypeNum |= 1 << bit;
         } else if (value === 0 || value === false) {
             newMessageTypeNum &= 0xffff - (1 << bit);
         } else {
-            throw new Error("Illegal value for ProtocolMessage._setBit() method.");
+            throw new Error("Illegal value for set/clear bit operation.");
         }
         var newMessageType = ns._messageTypeFromNumber(newMessageTypeNum);
         if (ns.MESSAGE_TYPE_MAPPING[newMessageType] === undefined) {
-            throw new Error("Illegal message type!");
+            if (noMessageCheck !== true && noMessageCheck !== 1) {
+                throw new Error("Illegal message type!");
+            } else {
+                this.messageType = newMessageType;
+                utils.dummyLogger('DEBUG',
+                                  'Arrived at an illegal message type, but was told to ignore it: '
+                                  + newMessageType);
+            }
         } else {
             this.messageType = newMessageType;
         }
@@ -230,11 +240,14 @@ define([
      * Sets the downflow bit on the message type.
      *
      * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
      * @throws {Error}
      *     In case of a resulting illegal/non-existent message type.
      */
-    ns.ProtocolMessage.prototype.setDownflow = function() {
-        return this._setBit(ns._DOWN_BIT, true);
+    ns.ProtocolMessage.prototype.setDownflow = function(noMessageCheck) {
+        return this._setBit(ns._DOWN_BIT, true, noMessageCheck);
     };
 
 
@@ -254,11 +267,14 @@ define([
      * Clears the Group Key Agreement bit on the message type.
      *
      * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
      * @throws {Error}
      *     In case of a resulting illegal/non-existent message type.
      */
-    ns.ProtocolMessage.prototype.clearGKA = function() {
-        return this._setBit(ns._GKA_BIT, false);
+    ns.ProtocolMessage.prototype.clearGKA = function(noMessageCheck) {
+        return this._setBit(ns._GKA_BIT, false, noMessageCheck);
     };
 
 
@@ -290,11 +306,14 @@ define([
      * Clears the initiator bit on the message type.
      *
      * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
      * @throws {Error}
      *     In case of a resulting illegal/non-existent message type.
      */
-    ns.ProtocolMessage.prototype.clearInitiator = function() {
-        return this._setBit(ns._INIT_BIT, false);
+    ns.ProtocolMessage.prototype.clearInitiator = function(noMessageCheck) {
+        return this._setBit(ns._INIT_BIT, false, noMessageCheck);
     };
 
 
@@ -307,6 +326,20 @@ define([
      */
     ns.ProtocolMessage.prototype.isRecover = function() {
         return this._readBit(ns._RECOVER_BIT);
+    }
+
+
+    /**
+     * Returns the protocol operation of the message.
+     *
+     * @method
+     * @returns {string}
+     *     A clear text expression of the type of protocol operation.
+     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     */
+    ns.ProtocolMessage.prototype.getOperation = function() {
+        return _OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)
+                                  >>> ns._OP_BITS];
     }
 
 
@@ -501,56 +534,72 @@ define([
      *     Participant initial upflow message.
      * @property INIT_PARTICIPANT_DOWN {string}
      *     Participant initial downflow.
-     * @property INIT_PARTICIPANT_SUBSEQ_DOWN {string}
+     * @property INIT_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant initial subsequent downflow.
+     * @property RECOVER_INIT_INITIATOR_UP {string}
+     *     Initiator initial upflow for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_UP {string}
+     *     Participant initial upflow message for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_DOWN {string}
+     *     Participant initial downflow for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant initial subsequent downflow for recovery.
      * @property JOIN_AUX_INITIATOR_UP {string}
      *     Initiator aux join upflow.
      * @property JOIN_AUX_PARTICIPANT_UP {string}
      *     Participant aux join upflow.
      * @property JOIN_AUX_PARTICIPANT_DOWN {string}
      *     Participant aux join downflow.
-     * @property JOIN_AUX_PARTICIPANT_SUBSEQ_DOWN {string}
+     * @property JOIN_AUX_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant aux join subsequent downflow.
      * @property EXCLUDE_AUX_INITIATOR_DOWN {string}
      *     Initiator aux exclude downflow.
-     * @property EXCLUDE_AUX_PARTICIPANT_SUBSEQ_DOWN {string}
+     * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant aux exclude subsequent.
+     * @property RECOVER_EXCLUDE_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux exclude downflow for recovery.
+     * @property RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux exclude subsequent for recovery.
      * @property REFRESH_AUX_INITIATOR_DOWN {string}
      *     Initiator aux refresh downflow.
      * @property REFRESH_AUX_PARTICIPANT_DOWN {string}
      *     Participant aux refresh downflow.
+     * @property RECOVER_REFRESH_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux refresh downflow. for recovery
+     * @property RECOVER_REFRESH_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux refresh downflow for recovery.
      * @property QUIT_DOWN {string}
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
     ns.MESSAGE_TYPE = {
         // Data message.
-        PARTICIPANT_DATA:                     '\u0000\u0000', // 0b00000000
+        PARTICIPANT_DATA:                      '\u0000\u0000', // 0b00000000
         // Initial start sequence.
-        INIT_INITIATOR_UP:                    '\u0000\u009c', // 0b10011100
-        INIT_PARTICIPANT_UP:                  '\u0000\u001c', // 0b00011100
-        INIT_PARTICIPANT_DOWN:                '\u0000\u001e', // 0b00011110
-        INIT_PARTICIPANT_SUBSEQ_DOWN:         '\u0000\u001a', // 0b00011010
-        RECOVER_INIT_INITIATOR_UP:            '\u0001\u009c', // 0b10011100
-        RECOVER_INIT_PARTICIPANT_UP:          '\u0001\u001c', // 0b00011100
-        RECOVER_INIT_PARTICIPANT_DOWN:        '\u0001\u001e', // 0b00011110
-        RECOVER_INIT_PARTICIPANT_SUBSEQ_DOWN: '\u0001\u001a', // 0b00011010
+        INIT_INITIATOR_UP:                     '\u0000\u009c', // 0b10011100
+        INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
+        INIT_PARTICIPANT_DOWN:                 '\u0000\u001e', // 0b00011110
+        INIT_PARTICIPANT_CONFIRM_DOWN:         '\u0000\u001a', // 0b00011010
+        RECOVER_INIT_INITIATOR_UP:             '\u0001\u009c', // 0b10011100
+        RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
+        RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
+        RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
         // Join sequence.
-        JOIN_AUX_INITIATOR_UP:                '\u0000\u00ad', // 0b10101101
-        JOIN_AUX_PARTICIPANT_UP:              '\u0000\u002d', // 0b00101101
-        JOIN_AUX_PARTICIPANT_DOWN:            '\u0000\u002f', // 0b00101111
-        JOIN_AUX_PARTICIPANT_SUBSEQ_DOWN:     '\u0000\u002b', // 0b00101011
+        JOIN_AUX_INITIATOR_UP:                 '\u0000\u00ad', // 0b10101101
+        JOIN_AUX_PARTICIPANT_UP:               '\u0000\u002d', // 0b00101101
+        JOIN_AUX_PARTICIPANT_DOWN:             '\u0000\u002f', // 0b00101111
+        JOIN_AUX_PARTICIPANT_CONFIRM_DOWN:     '\u0000\u002b', // 0b00101011
         // Exclude sequence.
-        EXCLUDE_AUX_INITIATOR_DOWN:           '\u0000\u00bf', // 0b10111111
-        EXCLUDE_AUX_PARTICIPANT_SUBSEQ_DOWN:  '\u0000\u003b', // 0b00111011
-        RECOVER_EXCLUDE_AUX_INITIATOR_DOWN:   '\u0001\u00bf', // 0b10111111
-        RECOVER_EXCLUDE_AUX_PARTICIPANT_SUBSEQ_DOWN: '\u0001\u003b', // 0b00111011
+        EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
+        EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
+        RECOVER_EXCLUDE_AUX_INITIATOR_DOWN:    '\u0001\u00bf', // 0b10111111
+        RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN: '\u0001\u003b', // 0b00111011
         // Refresh sequence.
-        REFRESH_AUX_INITIATOR_DOWN:           '\u0000\u00c7', // 0b11000111
-        REFRESH_AUX_PARTICIPANT_DOWN:         '\u0000\u0047', // 0b01000111
-        RECOVER_REFRESH_AUX_INITIATOR_DOWN:   '\u0001\u00c7', // 0b11000111
-        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN: '\u0001\u0047', // 0b01000111
+        REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
+        REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
+        RECOVER_REFRESH_AUX_INITIATOR_DOWN:    '\u0001\u00c7', // 0b11000111
+        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:  '\u0001\u0047', // 0b01000111
         // Quit indication.
-        QUIT_DOWN:                           '\u0000\u00d3'  // 0b11010011
+        QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
     };
 
 
