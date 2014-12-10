@@ -319,8 +319,14 @@ define([
      *     Iterable of members to exclude from the group.
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
-        _assert(this.state === ns.STATE.READY,
-                'exclude() can only be called from a ready state.');
+        if (this.recovering) {
+            _assert((this.state === ns.STATE.INIT_DOWNFLOW)
+                    || (this.state === ns.STATE.AUX_DOWNFLOW),
+                    'exclude() for recovery can only be called from a ready or downflow state.');
+        } else {
+            _assert(this.state === ns.STATE.READY,
+                    'exclude() can only be called from a ready state.');
+        }
         utils.dummyLogger('DEBUG', 'Invoking EXCLUDE flow operation.');
         this.state = ns.STATE.AUX_DOWNFLOW;
         this.stateUpdatedCallback(this);
@@ -510,32 +516,21 @@ define([
                     'Mismatch between members to keep and current members.');
         }
 
-        if (toExclude.length > 0) {
-            this.state = ns.STATE.AUX_DOWNFLOW;
-            this.recovering = true;
-            this.stateUpdatedCallback(this);
-
-            var outContent = this._exclude(toExclude);
-            if (outContent) {
-                var outMessage = {
-                    from: this.id,
-                    to: outContent.dest,
-                    message: codec.encodeMessage(outContent, null,
-                                                 this.askeMember.ephemeralPrivKey,
-                                                 this.askeMember.ephemeralPubKey),
-                };
-                this.protocolOutQueue.push(outMessage);
-                this.queueUpdatedCallback(this);
+        this.recovering = true;
+        if ((this.state === ns.STATE.READY)
+                || (this.state === ns.STATE.INIT_DOWNFLOW)
+                || (this.state === ns.STATE.AUX_DOWNFLOW)) {
+            if (toExclude.length > 0) {
+                this.askeMember.discardAuthentications();
+                this.exclude(toExclude);
+            } else {
+                // TODO: Check, whether this would only work for isSessionAcknowledged(),
+                //       or whether we need a fourth case to re-ack all participants.
+                this.refresh();
             }
         } else {
-            if (this.askeMember.isSessionAcknowledged() &&
-                    ((this.state === ns.STATE.READY)
-                            || (this.state === ns.STATE.INIT_DOWNFLOW)
-                            || (this.state === ns.STATE.AUX_DOWNFLOW))) {
-                this.refresh();
-            } else {
-                this.fullRefresh((toKeep.length > 0) ? toKeep : undefined);
-            }
+            this.askeMember.discardAuthentications();
+            this.fullRefresh((toKeep.length > 0) ? toKeep : undefined);
         }
     };
 
@@ -600,6 +595,7 @@ define([
                 }
 
                 // This is an mpenc.greet message.
+                var oldState = this.state;
                 var keyingMessageResult = this._processKeyingMessage(decodedMessage);
                 if (keyingMessageResult === null) {
                     return;
@@ -619,7 +615,8 @@ define([
                 } else {
                     // Nothing to do, we're done here.
                 }
-                if(keyingMessageResult.newState) {
+                if(keyingMessageResult.newState &&
+                        (keyingMessageResult.newState !== oldState)) {
                     // Update the state if required.
                     utils.dummyLogger('DEBUG',
                                       'Reached new state: '
@@ -836,9 +833,14 @@ define([
             return null;
         }
 
+        // State transitions.
         if (message.isRecover()) {
             // We're getting this message as part of a recovery flow.
-            this.recovery = true;
+            this.recovering = true;
+            // In case of an upflow, we must also discard session authentications.
+            if (!message.isDownflow()) {
+                this.askeMember.discardAuthentications();
+            }
         }
 
         // Three cases: QUIT, upflow or downflow message.
@@ -905,84 +907,6 @@ define([
             this.recovering = false;
         }
 
-//        if (message.isDownflow()) {
-//            _assert((message.dest !== null && message.dest !== ''),
-//                    'Inconsistent message content with message type (destination).');
-//
-//            // Dealing with a broadcast downflow message.
-//            // Check for legal state transitions.
-//            if (message.isInitial()) {
-//                _assert((this.state === ns.STATE.INIT_UPFLOW)
-//                        || (this.state === ns.STATE.INIT_DOWNFLOW)
-//                        || (this.state === ns.STATE.READY),
-//                        'Initial downflow can only follow an initial upflow (or own downflow).');
-//            } else {
-//                _assert((this.state === ns.STATE.READY)
-//                        || (this.state === ns.STATE.AUX_UPFLOW)
-//                        || (this.state === ns.STATE.AUX_DOWNFLOW),
-//                        'Auxiliary downflow can only follow an initialised state or auxiliary upflow (or own downflow).');
-//            }
-//            if (message.messageType === codec.MESSAGE_TYPE.QUIT_DOWN) {
-//                _assert(message.signingKey,
-//                        'Inconsistent message content with message type (signingKey).');
-//                // Sender is quitting participation.
-//                this.askeMember.oldEphemeralKeys[message.source] = {
-//                    priv: message.signingKey,
-//                    pub:  this.askeMember.ephemeralPubKeys[message.source]
-//                };
-//            } else {
-//                // Content for the CLIQUES protocol.
-//                if (message.intKeys && (message.intKeys.length === message.members.length)) {
-//                    this.cliquesMember.downflow(inCliquesMessage);
-//                }
-//                // Content for the signature key exchange protocol.
-//                if (message.nonces && (message.nonces.length === message.members.length)) {
-//                    outAskeMessage = this.askeMember.downflow(inAskeMessage);
-//                }
-//            }
-//            outMessage = this._mergeMessages(null, outAskeMessage);
-//            outMessage.messageType = message.messageType;
-//            outMessage.clearInitiator();
-//            // Handle state transitions.
-//            if (outMessage) {
-//                if (outMessage.isInitial()) {
-//                    newState = ns.STATE.INIT_DOWNFLOW;
-//                } else {
-//                    newState = ns.STATE.AUX_DOWNFLOW;
-//                }
-//            }
-//            if (this.askeMember.isSessionAcknowledged()) {
-//                // We have seen and verified all broadcasts from others.
-//                newState = ns.STATE.READY;
-//                this.recovering = false;
-//            }
-//        } else {
-//            // Dealing with a directed upflow message.
-//            // Check for legal state transitions.
-//            _assert((this.state === ns.STATE.READY)
-//                    || (this.state === ns.STATE.NULL),
-//                    'Auxiliary upflow can only follow an uninitialised or initialised state.');
-//            outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
-//            outAskeMessage = this.askeMember.upflow(inAskeMessage);
-//            outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);
-//            outMessage.messageType = message.messageType;
-//            outMessage.clearInitiator();
-//            // Handle state transitions.
-//            if (outMessage.dest === '') {
-//                outMessage.setDownflow();
-//                if (message.isAuxiliary()) {
-//                    newState = ns.STATE.AUX_DOWNFLOW;
-//                } else {
-//                    newState = ns.STATE.INIT_DOWNFLOW;
-//                }
-//            } else {
-//                if (message.isAuxiliary()) {
-//                    newState = ns.STATE.AUX_UPFLOW;
-//                } else {
-//                    newState = ns.STATE.INIT_UPFLOW;
-//                }
-//            }
-//        }
         if (outMessage) {
             utils.dummyLogger('DEBUG',
                               'Sending message of type '

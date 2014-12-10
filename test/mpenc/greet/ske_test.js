@@ -476,6 +476,17 @@ define([
             });
         });
 
+        describe('#discardAuthentications() method', function() {
+            it('vanilla case', function() {
+                var participant = new ns.SignatureKeyExchangeMember('3');
+                participant.members = ['1', '2', '3', '4', '5'];
+                participant.authenticatedMembers = [true, false, true, true, true];
+                var expected = [false, false, true, false, false];
+                participant.discardAuthentications();
+                assert.deepEqual(participant.authenticatedMembers, expected);
+            });
+        });
+
         describe('#join() method', function() {
             it('join empty member list', function() {
                 var members = ['1', '2', '3', '4', '5'];

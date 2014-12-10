@@ -451,6 +451,30 @@ define([
                 assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
             });
 
+            it('exclude members in recovery', function() {
+                var participant = new ns.ProtocolHandler('mccoy@ncc-1701.mil/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.AUX_DOWNFLOW;
+                participant.recovering = true;
+                var message = {message: "He's dead, Ji!",
+                               dest: ''};
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                sandbox.stub(participant, '_exclude').returns(message);
+                participant.exclude(['red.shirt@ncc-1701.mil/ios1234']);
+                sinon_assert.calledOnce(codec.encodeMessage);
+                sinon_assert.calledOnce(participant._exclude);
+                assert.lengthOf(participant.protocolOutQueue, 1);
+                assert.deepEqual(participant.protocolOutQueue[0].message, message);
+                assert.strictEqual(participant.protocolOutQueue[0].from, 'mccoy@ncc-1701.mil/android123');
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 0);
+                assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
+                assert.strictEqual(participant.recovering, true);
+            });
+
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
                                                          _td.ED25519_PRIV_KEY,
@@ -465,6 +489,22 @@ define([
                     participant.state = illegalStates[i];
                     assert.throws(function() { participant.exclude(); },
                                   'exclude() can only be called from a ready state.');
+                }
+            });
+
+            it('illegal state transition on recovery', function() {
+                var participant = new ns.ProtocolHandler('jake@blues.org/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.recovering = true;
+                var illegalStates = [ns.STATE.NULL,
+                                     ns.STATE.INIT_UPFLOW,
+                                     ns.STATE.AUX_UPFLOW];
+                for (var i = 0; i < illegalStates.length; i++) {
+                    participant.state = illegalStates[i];
+                    assert.throws(function() { participant.exclude(); },
+                                  'exclude() for recovery can only be called from a ready or downflow state.');
                 }
             });
 
@@ -691,11 +731,10 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_DOWNFLOW;
-                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
                 sandbox.stub(participant, 'refresh');
                 participant.recover();
-                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
                 sinon_assert.calledOnce(participant.refresh);
+                assert.strictEqual(participant.recovering, true);
             });
 
             it('full recover', function() {
@@ -704,11 +743,12 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.AUX_UPFLOW;
-                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(false);
+                sandbox.stub(participant.askeMember, 'discardAuthentications');
                 sandbox.stub(participant, 'fullRefresh');
                 participant.recover();
-                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
+                sinon_assert.calledOnce(participant.askeMember.discardAuthentications);
                 sinon_assert.calledOnce(participant.fullRefresh);
+                assert.strictEqual(participant.recovering, true);
             });
 
             it('recover with members to keep', function() {
@@ -716,24 +756,19 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.state =  ns.STATE.AUX_UPFLOW;
+                participant.state =  ns.STATE.AUX_DOWNFLOW;
                 var message = {message: "You're dead!",
                                dest: ''};
                 participant.askeMember.members = ['beatrix@kiddo.com/android123',
                                                   'vernita@green.com/outlook4711',
                                                   'o-ren@ishi.jp/ios1234'];
-                sandbox.stub(participant, '_exclude').returns(message);
+                sandbox.stub(participant.askeMember, 'discardAuthentications');
+                sandbox.stub(participant, 'exclude');
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.recover(['beatrix@kiddo.com/android123', 'o-ren@ishi.jp/ios1234']);
-                sinon_assert.calledOnce(participant._exclude);
-                sinon_assert.calledOnce(codec.encodeMessage);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.deepEqual(participant.protocolOutQueue[0].message, message);
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'beatrix@kiddo.com/android123');
-                assert.strictEqual(participant.protocolOutQueue[0].to, '');
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-                assert.strictEqual(participant.state, ns.STATE.AUX_DOWNFLOW);
+                sinon_assert.calledOnce(participant.askeMember.discardAuthentications);
+                sinon_assert.calledOnce(participant.exclude);
+                assert.strictEqual(participant.recovering, true);
             });
         });
 
@@ -796,6 +831,46 @@ define([
                 sandbox.stub(codec, 'encodeMessage', _echo);
 
                 var result = participant._processKeyingMessage(new codec.ProtocolMessage(message));
+                assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
+                var output = result.decodedMessage;
+                assert.strictEqual(output.source, compare.source);
+                assert.strictEqual(output.dest, compare.dest);
+                assert.strictEqual(output.messageType, compare.messageType);
+                assert.deepEqual(output.members, compare.members);
+                assert.lengthOf(output.intKeys, compare.intKeys.length);
+                assert.lengthOf(output.nonces, compare.nonces.length);
+                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
+                assert.ok(output.sessionSignature);
+            });
+
+            it('processing for recovery upflow message', function() {
+                var message = { source: '4', dest: '5',
+                                messageType: codec.MESSAGE_TYPE.RECOVER_INIT_PARTICIPANT_UP,
+                                members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                debugKeys: ['', '', '', '', ''],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
+                                sessionSignature: null };
+                var compare = { source: '5', dest: '',
+                                messageType: codec.MESSAGE_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
+                                members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('5',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.AUX_DOWNFLOW;
+                participant.askeMember.authenticatedMembers= [true, true, true, true, true]
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
+
+                var result = participant._processKeyingMessage(new codec.ProtocolMessage(message));
+                assert.strictEqual(participant.recovering, true);
+                assert.deepEqual(participant.askeMember.authenticatedMembers, [false, false, false, false, true]);
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
@@ -1371,12 +1446,16 @@ define([
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                          content: 'foo' });
                 sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant, '_processKeyingMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: ns.STATE.READY });
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage(message);
+                sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 sinon_assert.calledOnce(participant._processKeyingMessage);
                 sinon_assert.calledOnce(codec.encodeMessage);
@@ -1392,18 +1471,21 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var groupKey = _td.COMP_KEY.substring(0, 16);
-                participant.cliquesMember.groupKey = groupKey;
+                participant.cliquesMember.groupKey = _td.COMP_KEY.substring(0, 16);
                 participant.askeMember.ephemeralPubKeys = [];
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: '1'};
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                          content: 'foo' });
                 sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant, '_processKeyingMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: ns.STATE.READY });
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 participant.processMessage(message);
+                sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.strictEqual(codec.decodeMessageContent.getCall(0).args[2], _td.ED25519_PUB_KEY);
                 sinon_assert.calledOnce(participant._processKeyingMessage);
@@ -1785,8 +1867,9 @@ define([
                 oldGroupKey = participants[2].cliquesMember.groupKey;
                 oldPrivKey = participants[2].cliquesMember.privKey;
                 var oldSigningKey = participants[2].askeMember.ephemeralPrivKey;
+                // Should do a fullRefresh()
                 participants[2].recover();
-                // participants[2].fullRefresh();
+                assert.strictEqual(participants[2].recovering, true);
                 message = participants[2].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
                 assert.notStrictEqual(participants[2].cliquesMember.privKey, oldPrivKey);
@@ -1806,6 +1889,7 @@ define([
                     var nextId = payload.members.indexOf(payload.dest);
                     oldSigningKey = participants[nextId].askeMember.ephemeralPrivKey;
                     participants[nextId].processMessage(message);
+                    assert.strictEqual(participants[nextId].recovering, true);
                     assert.strictEqual(participants[nextId].askeMember.ephemeralPrivKey, oldSigningKey);
                     message = participants[nextId].protocolOutQueue.shift();
                     payload = _getPayload(message, _getSender(message, participants, members));
@@ -1832,8 +1916,10 @@ define([
                         }
                         if (participant.askeMember.isSessionAcknowledged()) {
                             assert.strictEqual(participant.state, ns.STATE.READY);
+                            assert.strictEqual(participant.recovering, false);
                         } else {
                             assert.strictEqual(participant.state, ns.STATE.INIT_DOWNFLOW);
+                            assert.strictEqual(participant.recovering, true);
                         }
                         assert.deepEqual(participant.cliquesMember.members, members);
                         assert.deepEqual(participant.askeMember.members, members);

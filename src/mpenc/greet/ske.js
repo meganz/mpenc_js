@@ -226,8 +226,7 @@ define([
             message.source = this.id;
             message.dest = '';
             message.flow = 'down';
-            this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
-            this.authenticatedMembers[myPos] = true;
+            this.discardAuthentications();
             message.sessionSignature = this._computeSessionSig();
         } else {
             // Pass a message on to the next in line.
@@ -312,10 +311,7 @@ define([
             this.nonces = utils.clone(message.nonces);
             this.ephemeralPubKeys = utils.clone(message.pubKeys);
             this.sessionId = sid;
-
-            // New authentication list, and authenticate myself.
-            this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
-            this.authenticatedMembers[myPos] = true;
+            this.discardAuthentications();
         }
 
         // Verify the session authentication from sender.
@@ -380,6 +376,18 @@ define([
 
 
     /**
+     * Discard all authentications, and set only self to authenticated.
+     *
+     * @method
+     */
+    ns.SignatureKeyExchangeMember.prototype.discardAuthentications = function() {
+        var myPos = this.members.indexOf(this.id);
+        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers[myPos] = true;
+    }
+
+
+    /**
      * Start a new upflow for joining new members.
      *
      * @param newMembers
@@ -393,11 +401,7 @@ define([
         _assert(utils._noDuplicatesInList(allMembers),
                 'Duplicates in member list detected!');
         this.members = allMembers;
-
-        // Discard authentications.
-        var myPos = this.members.indexOf(this.id);
-        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
-        this.authenticatedMembers[myPos] = true;
+        this.discardAuthentications();
 
         // Pass a message on to the first new member to join.
         var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'up');
@@ -440,10 +444,7 @@ define([
         // Compute my session ID.
         this.sessionId = ns._computeSid(this.members, this.nonces);
 
-        // Discard authentications.
-        var myPos = this.members.indexOf(this.id);
-        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
-        this.authenticatedMembers[myPos] = true;
+        this.discardAuthentications();
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
