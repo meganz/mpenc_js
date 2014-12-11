@@ -307,6 +307,7 @@ define([
         } else {
             protocolMessage.messageType = codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
         }
+
         return protocolMessage;
     };
 
@@ -332,6 +333,13 @@ define([
         this.stateUpdatedCallback(this);
 
         var outContent = this._exclude(excludeMembers);
+        if (outContent.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
+            return;
+        }
+
         if (outContent) {
             var outMessage = {
                 from: this.id,
@@ -360,8 +368,6 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype._quit = function() {
-        _assert(this.askeMember.ephemeralPrivKey !== null,
-                'Not participating.');
         this.cliquesMember.akaQuit();
         var askeMessage = this.askeMember.quit();
 
@@ -377,8 +383,12 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.quit = function() {
-        _assert(this.state === ns.STATE.READY,
-                'quit() can only be called from a ready state.');
+        if (this.state === ns.STATE.QUIT) {
+            // Nothing do do here.
+            return;
+        }
+        _assert(this.askeMember.ephemeralPrivKey !== null,
+                'Not participating.');
         utils.dummyLogger('DEBUG',
                           'Invoking QUIT request containing private signing key.');
         this.state = ns.STATE.QUIT;
@@ -473,6 +483,13 @@ define([
 
         // Now start a normal upflow for an initial agreement.
         var outContent = this._start(otherMembers);
+        if (outContent.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
+            return;
+        }
+
         if (outContent) {
             var outMessage = {
                 from: this.id,

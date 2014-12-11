@@ -436,6 +436,7 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
                 var message = {message: "You're fired!",
+                               members: ['a.dumbledore@hogwarts.ac.uk/android123', 'further.staff'],
                                dest: ''};
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 sandbox.stub(participant, '_exclude').returns(message);
@@ -458,7 +459,8 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.AUX_DOWNFLOW;
                 participant.recovering = true;
-                var message = {message: "He's dead, Ji!",
+                var message = {message: "He's dead, Jim!",
+                               members: ['mccoy@ncc-1701.mil/android123', 'kirk@ncc-1701.mil/android456'],
                                dest: ''};
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 sandbox.stub(participant, '_exclude').returns(message);
@@ -508,7 +510,7 @@ define([
                 }
             });
 
-            it('exclude last peer', function() {
+            it('exclude last peer --> quit()', function() {
                 var participant = new ns.ProtocolHandler('chingachgook@mohicans.org/android123',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -517,34 +519,17 @@ define([
                 participant.members = ['chingachgook@mohicans.org/android123',
                                        'uncas@mohicans.org/ios1234'];
                 var message = {message: "My poor son!",
+                               members: ['chingachgook@mohicans.org/android123'],
                                dest: ''};
-                sandbox.stub(codec, 'encodeMessage', _echo);
                 sandbox.stub(participant, '_exclude').returns(message);
-                sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
+                sandbox.stub(participant, 'quit');
                 participant.exclude(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(codec.encodeMessage);
                 sinon_assert.calledOnce(participant._exclude);
-                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.deepEqual(participant.protocolOutQueue[0].message, message);
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'chingachgook@mohicans.org/android123');
-                assert.strictEqual(participant.protocolOutQueue[0].to, '');
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-                assert.strictEqual(participant.state, ns.STATE.READY);
+                sinon_assert.calledOnce(participant.quit);
             });
         });
 
         describe('#_quit() method', function() {
-            it('not a member any more', function() {
-                var participant = new ns.ProtocolHandler('3',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                assert.throws(function() { participant._quit(); },
-                              'Not participating.');
-            });
-
             it('simple test', function() {
                 var participant = new ns.ProtocolHandler('Peter',
                                                          _td.ED25519_PRIV_KEY,
@@ -563,12 +548,24 @@ define([
         });
 
         describe('#quit() method', function() {
+            it('no-op test, already in QUIT', function() {
+                var participant = new ns.ProtocolHandler('Peter@genesis.co.uk/android4711',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.QUIT;
+                sandbox.spy(participant, '_quit');
+                participant.quit();
+                assert.strictEqual(participant._quit.callCount, 0);
+            });
+
             it('simple test', function() {
                 var participant = new ns.ProtocolHandler('Peter@genesis.co.uk/android4711',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state =  ns.STATE.READY;
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 var message = {signingKey: 'Sledge Hammer',
                                source: 'Peter@genesis.co.uk/android4711',
                                dest: ''};
@@ -586,23 +583,15 @@ define([
                 assert.strictEqual(participant.state, ns.STATE.QUIT);
             });
 
-            it('illegal state transition', function() {
+            it('impossible call situation', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var illegalStates = [ns.STATE.NULL,
-                                     ns.STATE.INIT_UPFLOW,
-                                     ns.STATE.INIT_DOWNFLOW,
-                                     ns.STATE.AUX_UPFLOW,
-                                     ns.STATE.AUX_DOWNFLOW];
-                for (var i = 0; i < illegalStates.length; i++) {
-                    participant.state = illegalStates[i];
-                    assert.throws(function() { participant.quit(); },
-                                  'quit() can only be called from a ready state.');
-                }
+                participant.state = ns.STATE.NULL;
+                assert.throws(function() { participant.quit(); },
+                              'Not participating.');
             });
-
 
             it('#quit() in workflow', function() {
                 // Initialise members.
@@ -703,6 +692,8 @@ define([
                 participant.askeMember.members = utils.clone(members);
                 participant.cliquesMember.members = utils.clone(members);
                 var message = {message: "Pluto's not a planet any more!!",
+                               members: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
+                                         'Saturn', 'Uranus', 'Neptune'],
                                dest: 'Mercury'};
                 sandbox.stub(codec, 'encodeMessage', _echo);
                 sandbox.stub(participant, '_start').returns(message);
@@ -721,6 +712,27 @@ define([
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
                 assert.strictEqual(participant.state, ns.STATE.INIT_UPFLOW);
+            });
+
+            it('refresh by excluding last peer --> quit()', function() {
+                var participant = new ns.ProtocolHandler('chingachgook@mohicans.org/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.state =  ns.STATE.AUX_UPFLOW;
+                var members = ['chingachgook@mohicans.org/android123',
+                               'uncas@mohicans.org/ios1234'];
+                participant.members = members;
+                participant.askeMember.members = utils.clone(members);
+                participant.cliquesMember.members = utils.clone(members);
+                var message = {message: "The last of us!",
+                               members: ['chingachgook@mohicans.org/android123'],
+                               dest: ''};
+                sandbox.stub(participant, '_start').returns(message);
+                sandbox.stub(participant, 'quit');
+                participant.fullRefresh(['uncas@mohicans.org/ios1234']);
+                sinon_assert.calledOnce(participant._start);
+                sinon_assert.calledOnce(participant.quit);
             });
         });
 
@@ -2065,6 +2077,14 @@ define([
                     message = nextMessages.shift();
                     payload = _getPayload(message, _getSender(message, participants, members));
                 }
+
+                // '1' Now invokes the exclude() for a member who has invoked QUIT.
+                // This results (by the last-man-standing principle) in a QUIT message by '1' as well.
+                participants[0].exclude(['2']);
+                message = participants[0].protocolOutQueue.shift();
+                payload = _getPayload(message, _getSender(message, participants, members));
+                assert.strictEqual(participants[0].state, ns.STATE.QUIT);
+                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.QUIT);
             });
         });
 
