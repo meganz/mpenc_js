@@ -834,19 +834,19 @@ define([
      *     attribute `newState`.
      */
     ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
-        var inCliquesMessage = this._getCliquesMessage(message);
-        var inAskeMessage = this._getAskeMessage(message);
-        var outCliquesMessage = null;
-        var outAskeMessage = null;
-        var outMessage = null;
-        var newState = null;
-
         utils.dummyLogger('DEBUG',
                           'Processing message of type '
                           + message.getMessageTypeString());
         if (this.state === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
             utils.dummyLogger('DEBUG', "Ignoring message as we're in state QUIT.");
+            return null;
+        }
+
+        // If I'm not part of it any more, go and quit.
+        if (message.members && (message.members.length > 0)
+                && (message.members.indexOf(this.id) === -1)) {
+            this.quit();
             return null;
         }
 
@@ -859,6 +859,13 @@ define([
                 this.askeMember.discardAuthentications();
             }
         }
+
+        var inCliquesMessage = this._getCliquesMessage(message);
+        var inAskeMessage = this._getAskeMessage(message);
+        var outCliquesMessage = null;
+        var outAskeMessage = null;
+        var outMessage = null;
+        var newState = null;
 
         // Three cases: QUIT, upflow or downflow message.
         if (message.messageType === codec.MESSAGE_TYPE.QUIT_DOWN) {

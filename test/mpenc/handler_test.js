@@ -985,6 +985,23 @@ define([
                 assert.strictEqual(result, null);
                 assert.strictEqual(participant.state, ns.STATE.QUIT);
             });
+
+            it('processing for a downflow without me in it', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = { source: '1', dest: '',
+                                messageType: codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                members: ['1', '3', '4', '5'] };
+                participant.state = ns.STATE.READY;
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(participant, 'quit');
+                var result = participant._processKeyingMessage(
+                        new codec.ProtocolMessage(message));
+                assert.strictEqual(result, null);
+                sinon_assert.calledOnce(participant.quit);
+            });
         });
 
         describe('#send() method', function() {
@@ -1586,6 +1603,8 @@ define([
             });
 
             it('whole flow for 3 members, 2 joining, 2 others leaving, send message, refresh key, full recovery', function() {
+                // Extend timeout, this test takes longer.
+                this.timeout(30000);
                 var numMembers = 3;
                 var initiator = 0;
                 var members = [];
@@ -1960,6 +1979,8 @@ define([
             });
 
             it('whole flow for two initiated by plain text message, quit', function() {
+                // Extend timeout, this test takes longer.
+                this.timeout(20000);
                 var numMembers = 2;
                 var members = [];
                 var participants = [];
