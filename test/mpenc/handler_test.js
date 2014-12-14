@@ -1017,6 +1017,21 @@ define([
                         new codec.ProtocolMessage(message));
                 assert.strictEqual(result, null);
             });
+
+            it('processing for a downflow from me', function() {
+                var participant = new ns.ProtocolHandler('1',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = { source: '1', dest: '',
+                                messageType: codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                members: ['1', '3', '4', '5'] };
+                participant.state = ns.STATE.AUX_DOWNFLOW;
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                var result = participant._processKeyingMessage(
+                        new codec.ProtocolMessage(message));
+                assert.strictEqual(result, null);
+            });
         });
 
         describe('#send() method', function() {
