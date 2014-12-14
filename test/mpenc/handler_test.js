@@ -1002,6 +1002,21 @@ define([
                 assert.strictEqual(result, null);
                 sinon_assert.calledOnce(participant.quit);
             });
+
+            it('processing for an upflow message not for me', function() {
+                var participant = new ns.ProtocolHandler('2',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var message = { source: '3', dest: '4',
+                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                members: ['1', '3', '2', '4', '5'] };
+                participant.state = ns.STATE.INIT_UPFLOW;
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                var result = participant._processKeyingMessage(
+                        new codec.ProtocolMessage(message));
+                assert.strictEqual(result, null);
+            });
         });
 
         describe('#send() method', function() {

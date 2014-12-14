@@ -850,6 +850,11 @@ define([
             return null;
         }
 
+        // Ignore the message if it is not for me.
+        if ((message.dest !== '') && (message.dest !== this.id)) {
+            return null;
+        }
+
         // State transitions.
         if (message.isRecover()) {
             // We're getting this message as part of a recovery flow.
