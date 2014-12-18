@@ -555,6 +555,7 @@ define([
                 var members = ['1', '2', '3', '4', '5'];
                 var participant = new ns.SignatureKeyExchangeMember('3');
                 participant.members = utils.clone(members);
+                participant.nonce = _td.ED25519_PUB_KEY;
                 participant.nonces = [];
                 participant.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -572,6 +573,8 @@ define([
                 assert.strictEqual(participant.isSessionAcknowledged(), false);
                 assert.deepEqual(participant.members, ['2', '3', '5']);
                 assert.lengthOf(participant.nonces, 3);
+                assert.notStrictEqual(participant.nonce, _td.ED25519_PUB_KEY);
+                assert.strictEqual(participant.nonce, participant.nonces[1]);
                 assert.lengthOf(participant.ephemeralPubKeys, 3);
                 assert.lengthOf(participant.authenticatedMembers , 3);
                 assert.deepEqual(participant.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
@@ -583,6 +586,7 @@ define([
                 assert.strictEqual(message.dest, '');
                 assert.strictEqual(message.flow, 'down');
                 assert.lengthOf(message.nonces, 3);
+                assert.deepEqual(message.nonces, participant.nonces);
                 assert.lengthOf(message.pubKeys, 3);
                 assert.lengthOf(message.sessionSignature, 64);
             });

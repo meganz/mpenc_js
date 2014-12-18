@@ -441,6 +441,11 @@ define([
             this.ephemeralPubKeys.splice(index, 1);
         }
 
+        // Need a new nonce to force a different SID on same participant sets.
+        this.nonce = jodid25519.eddsa.generateKeySeed();
+        var myPos = this.members.indexOf(this.id);
+        this.nonces[myPos] = this.nonce;
+
         // Compute my session ID.
         this.sessionId = ns._computeSid(this.members, this.nonces);
 
@@ -477,8 +482,6 @@ define([
             this.oldEphemeralKeys[this.id].authenticated = this.authenticatedMembers[myPos];
             this.authenticatedMembers.splice(myPos, 1);
         }
-//        this.ephemeralPubKey = null;
-//        this.ephemeralPrivKey = null;
         if (this.members) {
             this.members.splice(myPos, 1);
         }
