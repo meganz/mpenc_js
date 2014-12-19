@@ -180,19 +180,6 @@ define([
 
 
     /**
-     * Returns a binary string representation of the SHA-1 hash function.
-     *
-     * @param data
-     *     Data to hash.
-     * @returns
-     *     Binary string.
-     */
-    ns.sha1 = function(data) {
-        return jodid25519.utils.bytes2string(asmCrypto.SHA1.bytes(data));
-    };
-
-
-    /**
      * (Deep) clones a JavaScript object.
      *
      * Note: May not work with some objects.
