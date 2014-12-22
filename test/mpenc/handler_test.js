@@ -763,7 +763,7 @@ define([
                 assert.strictEqual(participant.recovering, true);
             });
 
-            it('recover with members to keep', function() {
+            it('recover members to keep', function() {
                 var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -924,6 +924,66 @@ define([
                 sinon_assert.calledOnce(participant.cliquesMember.downflow);
                 sinon_assert.calledOnce(participant.askeMember.downflow);
                 sinon_assert.calledOnce(participant._mergeMessages);
+            });
+
+            it('processing for a downflow message with invalid session auth', function() {
+                var message = { source: '5', dest: '',
+                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
+                                            '5*3*2*1*G', '4*3*2*1*G'],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('2',
+                                                       _td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
+                                                       _td.STATIC_PUB_KEY_DIR);
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.INIT_UPFLOW;
+                sandbox.spy(participant.cliquesMember, 'upflow');
+                sandbox.stub(participant.cliquesMember, 'downflow');
+                sandbox.stub(participant.cliquesMember, 'akaQuit');
+                sandbox.spy(participant.askeMember, 'upflow');
+                sandbox.stub(participant.askeMember, 'downflow').throws(new Error('Session authentication by member 5 failed.'));
+                sandbox.stub(participant.askeMember, 'quit');
+                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage({ source: participant.id,
+                                                                                                dest: '',
+                                                                                                flow: 'down',
+                                                                                                signingKey: _td.ED25519_PRIV_KEY }));
+                sandbox.stub(codec, 'decodeMessageContent', _echo);
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                sandbox.spy(participant, 'sendError');
+                sandbox.spy(participant, 'quit');
+                var result = participant._processKeyingMessage(new codec.ProtocolMessage(message));
+                assert.strictEqual(result, null);
+                assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
+                assert.strictEqual(participant.askeMember.upflow.callCount, 0);
+                sinon_assert.calledOnce(participant.cliquesMember.downflow);
+                sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
+                sinon_assert.calledOnce(participant.askeMember.downflow);
+                sinon_assert.calledOnce(participant.askeMember.quit);
+                sinon_assert.calledOnce(participant._mergeMessages);
+                // To send two messages.
+                assert.lengthOf(participant.protocolOutQueue, 2);
+                assert.lengthOf(participant.uiQueue, 0);
+                // An error message.
+                sinon_assert.calledOnce(participant.sendError);
+                var outMessage = participant.protocolOutQueue[0];
+                assert.strictEqual(outMessage.message,
+                                   '?mpENC Error:5vhmueTvXB6OFwsi++dU7dT14p5MJRV4s7czLlQwAjBBpA9ZKrFg9jy3/oKJ48qpyU0vRm5lonVpBg3b53A9CA==:from "2":TERMINAL:Session authentication by member 5 failed.');
+                assert.strictEqual(outMessage.from, participant.id);
+                assert.strictEqual(outMessage.to, '');
+                // And a QUIT message.
+                sinon_assert.calledOnce(participant.quit);
+                outMessage = participant.protocolOutQueue[1];
+                assert.strictEqual(outMessage.message.source, participant.id);
+                assert.strictEqual(outMessage.from, participant.id);
+                assert.strictEqual(outMessage.message.dest, '');
+                assert.strictEqual(outMessage.to, '');
+                assert.strictEqual(outMessage.message.messageType, codec.MESSAGE_TYPE.QUIT_DOWN);
             });
 
             it('processing for a downflow message after CLIQUES finish', function() {
@@ -1135,6 +1195,7 @@ define([
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.state = ns.STATE.AUX_DOWNFLOW;
+                sandbox.stub(participant, 'quit');
                 var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
                 participant.sendError(ns.ERROR.TERMINAL, message);
                 var outMessage = participant.protocolOutQueue[0].message;
@@ -1142,6 +1203,7 @@ define([
                 assert.strictEqual(participant.protocolOutQueue[0].from, participant.id);
                 assert.strictEqual(participant.protocolOutQueue[0].to, '');
                 assert.lengthOf(participant.uiQueue, 0);
+                sinon_assert.calledOnce(participant.quit);
             });
 
             it('illegal error severity', function() {

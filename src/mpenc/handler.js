@@ -844,13 +844,6 @@ define([
         if (severityString === undefined) {
             throw new Error('Illegal error severity: ' + severity + '.');
         }
-        // TODO:
-        // * create error TLV type
-        // * add sender, destination, and error tlv
-        // * sign error message
-        // * but also do allow for plain text only error from members without a known public key
-        // * do include plain text of error messge in content, but do sign it all
-        //   --> suss out byte string scheme to do so
 
         var textMessage = severityString + ': ' + messageContent;
         var outMessage = {
@@ -864,6 +857,10 @@ define([
         };
         this.protocolOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
+
+        if (severity === ns.ERROR.TERMINAL) {
+            this.quit();
+        }
     };
 
 
@@ -942,8 +939,9 @@ define([
                 try {
                     outAskeMessage = this.askeMember.downflow(inAskeMessage);
                 } catch (e) {
-                    if (e.message.startsWith('Authentication of member')) {
+                    if (e.message.lastIndexOf('Session authentication by member') === 0) {
                         this.sendError(ns.ERROR.TERMINAL, e.message);
+                        return null;
                     } else {
                         throw e;
                     }
