@@ -486,6 +486,30 @@ define([
         });
     });
 
+    describe("encodeErrorMessage()", function() {
+        it('with signature', function() {
+            var from = 'a.dumbledore@hogwarts.ac.uk/android123';
+            var severity = 'TERMINAL';
+            var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
+            sandbox.stub(ns, 'signDataMessage').returns('\u0000\u0000\u0000');
+            var result = ns.encodeErrorMessage(from, severity, message, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
+            sinon_assert.calledOnce(ns.signDataMessage);
+            assert.strictEqual(result, '?mpENC Error:AAAA:from "a.dumbledore@hogwarts.ac.uk/android123"'
+                               + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
+        });
+
+        it('without signature', function() {
+            var from = 'a.dumbledore@hogwarts.ac.uk/android123';
+            var severity = 'TERMINAL';
+            var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
+            sandbox.stub(ns, 'signDataMessage').returns('\u0000\u0000\u0000');
+            var result = ns.encodeErrorMessage(from, severity, message);
+            assert.strictEqual(ns.signDataMessage.callCount, 0);
+            assert.strictEqual(result, '?mpENC Error::from "a.dumbledore@hogwarts.ac.uk/android123"'
+                               + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
+        });
+    });
+
     describe("encryptDataMessage()", function() {
         it('null equivalents', function() {
             var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
@@ -721,18 +745,6 @@ define([
                             '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo'];
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.getQueryMessage(tests[i]), expected[i]);
-            }
-        });
-    });
-
-    describe("getErrorMessage()", function() {
-        it('simple invocations', function() {
-            var tests = ['',
-                         'Problem retrieving public key for: PointyHairedBoss'];
-            var expected = ['?mpENC Error:.',
-                            '?mpENC Error:Problem retrieving public key for: PointyHairedBoss.'];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.getErrorMessage(tests[i]), expected[i]);
             }
         });
     });

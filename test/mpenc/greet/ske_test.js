@@ -402,7 +402,7 @@ define([
                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
                 assert.throws(function() { participant.downflow(message); },
-                              'Authentication of member failed: 1');
+                              'Authentication of member 1 failed.');
             });
 
             it('downflow, still unacknowledged', function() {

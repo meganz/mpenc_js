@@ -88,6 +88,33 @@ define([
     }
 
 
+    /**
+     * "Enumeration" defining the different mpENC error message severities.
+     *
+     * @property INFO {integer}
+     *     An informational message with no or very low severity.
+     * @property WARNING {integer}
+     *     An warning message.
+     * @property ERROR {integer}
+     *     An error message with high severity.
+     * @property TERMINAL {integer}
+     *     A terminal error message that demands the immediate termination of
+     *     all protocol execution. It should be followed by each participant's
+     *     immediate invocation of a quit protocol flow.
+     */
+    ns.ERROR = {
+        INFO:          0x00,
+        WARNING:       0x01,
+        TERMINAL:      0x02
+    };
+
+    // Add reverse mapping to string representation.
+    var _ERROR_MAPPING = {};
+    for (var propName in ns.ERROR) {
+        _ERROR_MAPPING[ns.ERROR[propName]] = propName;
+    }
+
+
     /** Default size in bytes for the exponential padding to pad to. */
     ns.DEFAULT_EXPONENTIAL_PADDING = 128;
 
@@ -807,14 +834,33 @@ define([
      * Sends an mpENC protocol error message to the current group.
      *
      * @method
+     * @param severity {integer}
+     *     Severity of the error.  One of `mpenc.handler.ERROR`.
      * @param messageContent {string}
      *     Error message content to be sent.
      */
-    ns.ProtocolHandler.prototype.sendError = function(messageContent) {
+    ns.ProtocolHandler.prototype.sendError = function(severity, messageContent) {
+        var severityString = _ERROR_MAPPING[severity];
+        if (severityString === undefined) {
+            throw new Error('Illegal error severity: ' + severity + '.');
+        }
+        // TODO:
+        // * create error TLV type
+        // * add sender, destination, and error tlv
+        // * sign error message
+        // * but also do allow for plain text only error from members without a known public key
+        // * do include plain text of error messge in content, but do sign it all
+        //   --> suss out byte string scheme to do so
+
+        var textMessage = severityString + ': ' + messageContent;
         var outMessage = {
             from: this.id,
             to: '',
-            message: codec.getErrorMessage(messageContent),
+            message: codec.encodeErrorMessage(this.id,
+                                              _ERROR_MAPPING[severity],
+                                              messageContent,
+                                              this.askeMember.ephemeralPrivKey,
+                                              this.askeMember.ephemeralPubKey),
         };
         this.protocolOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -893,7 +939,15 @@ define([
                 this.cliquesMember.downflow(inCliquesMessage);
             }
             if (message.isSKE()) {
-                outAskeMessage = this.askeMember.downflow(inAskeMessage);
+                try {
+                    outAskeMessage = this.askeMember.downflow(inAskeMessage);
+                } catch (e) {
+                    if (e.message.startsWith('Authentication of member')) {
+                        this.sendError(ns.ERROR.TERMINAL, e.message);
+                    } else {
+                        throw e;
+                    }
+                }
             }
             outMessage = this._mergeMessages(null, outAskeMessage);
             if (outMessage) {

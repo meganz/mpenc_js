@@ -317,7 +317,7 @@ define([
         // Verify the session authentication from sender.
         var isValid = this._verifySessionSig(message.source,
                                              message.sessionSignature);
-        _assert(isValid, 'Authentication of member failed: ' + message.source);
+        _assert(isValid, 'Authentication of member ' + message.source + ' failed.');
         var senderPos = message.members.indexOf(message.source);
         this.authenticatedMembers[senderPos] = true;
 

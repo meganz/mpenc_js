@@ -1128,20 +1128,30 @@ define([
 
         describe('#sendError() method', function() {
             it('send an mpENC protocol error message', function() {
+                var participant = new ns.ProtocolHandler('a.dumbledore@hogwarts.ac.uk/android123',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant.state = ns.STATE.AUX_DOWNFLOW;
+                var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
+                participant.sendError(ns.ERROR.TERMINAL, message);
+                var outMessage = participant.protocolOutQueue[0].message;
+                assert.strictEqual(participant.protocolOutQueue[0].message, _td.ERROR_MESSAGE_PAYLOAD);
+                assert.strictEqual(participant.protocolOutQueue[0].from, participant.id);
+                assert.strictEqual(participant.protocolOutQueue[0].to, '');
+                assert.lengthOf(participant.uiQueue, 0);
+            });
+
+            it('illegal error severity', function() {
                 var participant = new ns.ProtocolHandler('asok@dilbertsintern.org/android123',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.AUX_UPFLOW;
                 var message = 'Problem retrieving public key for: PointyHairedBoss';
-                participant.sendError(message);
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].message,
-                                   '?mpENC Error:' + message + '.');
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'asok@dilbertsintern.org/android123');
-                assert.strictEqual(participant.protocolOutQueue[0].to, '');
-                assert.lengthOf(participant.uiQueue, 0);
+                assert.throws(function() { participant.sendError(42, message); },
+                              'Illegal error severity: 42.');
             });
         });
 

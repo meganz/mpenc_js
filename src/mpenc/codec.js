@@ -1098,6 +1098,36 @@ define([
 
 
     /**
+     * Encodes a given error message ready to be put onto the wire, using
+     * clear text for most things, and base64 encoding for the signature.
+     *
+     * @param from {string}
+     *     Participant ID of the sender.
+     * @param severity {string}
+     *     Severity of the error message.
+     * @param message {string}
+     *     Error text to include in the message.
+     * @param privKey {string}
+     *     Sender's (ephemeral) private signing key.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @returns {string}
+     *     A wire ready message representation.
+     */
+    ns.encodeErrorMessage = function(from, severity, message, privKey, pubKey) {
+        if (message === null || message === undefined) {
+            return null;
+        }
+        var out = 'from "' + from +'":' + severity + ':' + message;
+        var signature = '';
+        if (privKey) {
+            signature = ns.signDataMessage(out, privKey, pubKey);
+        }
+        return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
+    };
+
+
+    /**
      * Converts an unsigned short integer to a binary string.
      *
      * @param value {integer}
@@ -1258,20 +1288,6 @@ define([
      */
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
-    };
-
-
-    /**
-     * Returns an mpENC protocol query message ready to be put onto the wire,
-     * including.the given message.
-     *
-     * @param text {string}
-     *     Text message to accompany the mpENC protocol error message.
-     * @returns {string}
-     *     A wire ready message representation.
-     */
-    ns.getErrorMessage = function(text) {
-        return _PROTOCOL_PREFIX + ' Error:' + text + '.';
     };
 
     return ns;

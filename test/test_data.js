@@ -98,3 +98,11 @@ _td.DATA_MESSAGE_CONTENT = {
     iv: 'xxx',
     data: 'foo',
 };
+
+_td.ERROR_MESSAGE_PAYLOAD = '?mpENC Error:'
+                          + 'LR2XuLScY62iZtskqvuR1Gww5lK97u3JaiYG1KTKuhlNFo4Aj'
+                          + 'VKkVVdhFZfyUysVoD8TSQBsfJNN0ERut4FqAA==:'
+                          + 'from "a.dumbledore@hogwarts.ac.uk/android123":'
+                          + 'TERMINAL:'
+                          + 'Signature verification for'
+                          + ' q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
