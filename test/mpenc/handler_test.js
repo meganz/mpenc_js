@@ -1094,6 +1094,94 @@ define([
             });
         });
 
+        describe('#_processErrorMessage() method', function() {
+            it('processing for a signed error message', function() {
+                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
+                contentParts.splice(0, 1);
+                var content = contentParts.join(':');
+                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                severity: ns.ERROR.TERMINAL,
+                                signatureOk: true,
+                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
+                                                  'q.quirrell@hogwarts.ac.uk/wp8possessed666',
+                                                  'm.mcgonagall@hogwarts.ac.uk/ios456'];
+                participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
+                                                           _td.ED25519_PUB_KEY,
+                                                           _td.ED25519_PUB_KEY];
+                sandbox.stub(codec, 'verifyDataMessage').returns(true);
+                var result = participant._processErrorMessage(content);
+                sinon_assert.calledOnce(codec.verifyDataMessage);
+                assert.deepEqual(result, compare);
+            });
+
+            it('processing for a signed error message with no ephem pub keys', function() {
+                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
+                contentParts.splice(0, 1);
+                var content = contentParts.join(':');
+                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                severity: ns.ERROR.TERMINAL,
+                                signatureOk: null,
+                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
+                                                  'q.quirrell@hogwarts.ac.uk/wp8possessed666',
+                                                  'm.mcgonagall@hogwarts.ac.uk/ios456'];
+                sandbox.stub(codec, 'verifyDataMessage');
+                var result = participant._processErrorMessage(content);
+                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.deepEqual(result, compare);
+            });
+
+            it('processing for a signed error message sender not in members', function() {
+                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
+                contentParts.splice(0, 1);
+                var content = contentParts.join(':');
+                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                severity: ns.ERROR.TERMINAL,
+                                signatureOk: null,
+                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.askeMember.members = ['q.quirrell@hogwarts.ac.uk/wp8possessed666',
+                                                  'm.mcgonagall@hogwarts.ac.uk/ios456'];
+                participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
+                                                           _td.ED25519_PUB_KEY];
+                sandbox.stub(codec, 'verifyDataMessage');
+                var result = participant._processErrorMessage(content);
+                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.deepEqual(result, compare);
+            });
+
+            it('processing for an unsigned error message', function() {
+                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
+                contentParts.splice(0, 1);
+                contentParts[0] = '';
+                var content = contentParts.join(':');
+                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                severity: ns.ERROR.TERMINAL,
+                                signatureOk: null,
+                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                sandbox.stub(codec, 'verifyDataMessage');
+                var result = participant._processErrorMessage(content);
+                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.deepEqual(result, compare);
+            });
+        });
+
         describe('#send() method', function() {
             it('send a message confidentially', function() {
                 var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
@@ -1551,20 +1639,63 @@ define([
                                    'Received unencrypted message, requesting encryption.');
             });
 
-            it('on error message', function() {
-                var participant = new ns.ProtocolHandler('2',
+            // XXX:
+            // * check for message showing in ui queue
+            // * INFO, WARNING, TERMINAL ERROR, type "error"
+            // * invoke quit() on TERMINAL ERROR
+
+            it('on TERMINAL error message', function() {
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENC Error:Hatschi!',
-                               from: 'common@cold.govt.nz/flu2'};
+                var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                          severity: ns.ERROR.TERMINAL,
+                                          signatureOk: true,
+                                          message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var message = {message: 'dummy',
+                               from: 'a.dumbledore@hogwarts.ac.uk/android123'};
+                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                                                                   content: 'foo' });
+                sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
+                sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
+                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(participant._processErrorMessage);
+                sinon_assert.calledOnce(participant.quit);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
                 assert.strictEqual(participant.uiQueue[0].type, 'error');
                 assert.strictEqual(participant.uiQueue[0].message,
-                                   'Error in mpENC protocol: Hatschi!');
+                                   'TERMINAL ERROR: Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
+            });
+
+            it('on WARNING error message', function() {
+                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                                          severity: ns.ERROR.WARNING,
+                                          signatureOk: true,
+                                          message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+                var message = {message: 'dummy',
+                               from: 'a.dumbledore@hogwarts.ac.uk/android123'};
+                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                                                                   content: 'foo' });
+                sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
+                sandbox.stub(participant, 'quit');
+                participant.processMessage(message);
+                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(participant._processErrorMessage);
+                assert.strictEqual(participant.quit.callCount, 0);
+                assert.lengthOf(participant.protocolOutQueue, 0);
+                assert.lengthOf(participant.messageOutQueue, 0);
+                assert.lengthOf(participant.uiQueue, 1);
+                assert.strictEqual(participant.uiQueue[0].type, 'error');
+                assert.strictEqual(participant.uiQueue[0].message,
+                                   'WARNING: Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
             });
 
             it('on keying message', function() {

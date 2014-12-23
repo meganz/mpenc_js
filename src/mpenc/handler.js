@@ -597,11 +597,20 @@ define([
 
         switch (classify.category) {
             case codec.MESSAGE_CATEGORY.MPENC_ERROR:
+                var errorMessageResult = this._processErrorMessage(classify.content);
+                var uiMessageString = _ERROR_MAPPING[errorMessageResult.severity];
+                if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
+                    uiMessageString += ' ERROR';
+                }
+                uiMessageString += ': ' + errorMessageResult.message;
                 this.uiQueue.push({
                     type: 'error',
-                    message: 'Error in mpENC protocol: ' + classify.content
+                    message: uiMessageString
                 });
                 this.queueUpdatedCallback(this);
+                if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
+                    this.quit();
+                }
                 break;
             case codec.MESSAGE_CATEGORY.PLAIN:
                 var outMessage = {
@@ -1002,6 +1011,42 @@ define([
         }
         return { decodedMessage: outMessage,
                  newState: newState };
+    };
+
+
+    /**
+     * Handles error protocol message handling.
+     *
+     * @method
+     * @param content {string}
+     *     Received message string without the armouring/leading `?mpENC Error:`.
+     * @returns {object}
+     *     Object containing the error message content in the attributes `from`
+     *     {string}, `severity` {integer}, `signatureOk` {bool} (`true` if
+     *     signature verifies) and `message` {string} (message content).
+     */
+    ns.ProtocolHandler.prototype._processErrorMessage = function(content) {
+
+        var contentParts = content.split(':');
+        var signatureString = contentParts[0];
+        var result = { from: contentParts[1].split('"')[1],
+                       severity: ns.ERROR[contentParts[2]],
+                       signatureOk: null,
+                       message: contentParts[3] };
+        var memberPos = this.askeMember.members.indexOf(result.from);
+        var pubKey = undefined;
+        if (this.askeMember.ephemeralPubKeys) {
+            pubKey = this.askeMember.ephemeralPubKeys[memberPos];
+        }
+        if ((signatureString.length >= 0) && (pubKey !== undefined)) {
+            var cutOffPos = content.indexOf(':');
+            var data = content.substring(cutOffPos + 1);
+            result.signatureOk = codec.verifyDataMessage(data,
+                                                         signatureString,
+                                                         pubKey);
+        }
+
+        return result;
     };
 
 
