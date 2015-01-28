@@ -2073,11 +2073,11 @@ define([
                 console.log('Refreshing at ' + Math.round(Date.now() / 1000 - startTime));
                 // '2' initiates a key refresh.
                 var oldGroupKey = participants[0].cliquesMember.groupKey;
-                var oldPrivKey = participants[0].cliquesMember.privKey;
+                var oldPrivKeyListLength = participants[0].cliquesMember.privKeyList.length;
                 participants[0].refresh();
                 message = participants[0].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
-                assert.notStrictEqual(participants[0].cliquesMember.privKey, oldPrivKey);
+                assert.lengthOf(participants[0].cliquesMember.privKeyList, oldPrivKeyListLength + 1);
                 assert.notStrictEqual(participants[0].cliquesMember.groupKey, oldGroupKey);
 
                 console.log('Downflow for refresh at ' + Math.round(Date.now() / 1000 - startTime));
@@ -2089,7 +2089,7 @@ define([
                         if (members.indexOf(participant.id) < 0) {
                             continue;
                         }
-                        oldPrivKey = participant.cliquesMember.privKey;
+                        oldPrivKeyListLength = participant.cliquesMember.privKeyList.length;
                         participant.processMessage(message);
                         var nextMessage = participant.protocolOutQueue.shift();
                         if (nextMessage) {
@@ -2126,17 +2126,16 @@ define([
                 }
 
                 console.log('Recovering at ' + Math.round(Date.now() / 1000 - startTime));
-                // '5' starts a glitch recovery.
+                // '5' starts a full recovery.
                 participants[2].state = ns.STATE.AUX_UPFLOW; // The glitch, where things got stuck.
                 oldGroupKey = participants[2].cliquesMember.groupKey;
-                oldPrivKey = participants[2].cliquesMember.privKey;
                 var oldSigningKey = participants[2].askeMember.ephemeralPrivKey;
                 // Should do a fullRefresh()
                 participants[2].recover();
                 assert.strictEqual(participants[2].recovering, true);
                 message = participants[2].protocolOutQueue.shift();
                 payload = _getPayload(message, _getSender(message, participants, members));
-                assert.notStrictEqual(participants[2].cliquesMember.privKey, oldPrivKey);
+                assert.lengthOf(participants[2].cliquesMember.privKeyList, 1);
                 assert.strictEqual(participants[2].askeMember.ephemeralPrivKey, oldSigningKey);
                 // Sort participants.
                 var tempParticipants = [];
