@@ -692,8 +692,9 @@ define([
                 if (decodedMessage.signatureOk === false) {
                     // Signature failed, abort!
                     wireMessage.type = 'error';
-                    wireMessage.message = 'Signature of received message invalid.';
+                    wireMessage.message = 'Signature of received message invalid. Aborting chat session.';
                     this.uiQueue.push(wireMessage);
+                    this.sendError(ns.ERROR.TERMINAL, wireMessage.message);
                 } else {
                     wireMessage.type = 'message';
                     wireMessage.message = decodedMessage.data;

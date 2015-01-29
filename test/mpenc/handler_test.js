@@ -1801,14 +1801,16 @@ define([
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(codec, 'decodeMessageContent').returns(decodedContent);
+                sandbox.stub(participant, 'sendError');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
+                sinon_assert.calledOnce(participant.sendError);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
                 assert.strictEqual(participant.uiQueue[0].type, 'error');
                 assert.strictEqual(participant.uiQueue[0].message,
-                                   'Signature of received message invalid.');
+                                   'Signature of received message invalid. Aborting chat session.');
             });
 
             it('on query message', function() {
