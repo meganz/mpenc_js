@@ -594,6 +594,7 @@ define([
             });
 
             it('#quit() in workflow', function() {
+                this.timeout(this.timeout() * 2);
                 // Initialise members.
                 var numMembers = 2;
                 var participants = {};
@@ -1839,7 +1840,7 @@ define([
 
             it('whole flow for 3 members, 2 joining, 2 others leaving, send message, refresh key, full recovery', function() {
                 // Extend timeout, this test takes longer.
-                this.timeout(30000);
+                this.timeout(this.timeout() * 30);
                 var numMembers = 3;
                 var initiator = 0;
                 var members = [];
@@ -2214,7 +2215,7 @@ define([
 
             it('whole flow for two initiated by plain text message, quit', function() {
                 // Extend timeout, this test takes longer.
-                this.timeout(20000);
+                this.timeout(this.timeout() * 10);
                 var numMembers = 2;
                 var members = [];
                 var participants = [];
@@ -2344,6 +2345,7 @@ define([
         });
 
         it('flow with delayed message arrival on initialisation', function() {
+            this.timeout(this.timeout() * 2);
             // Initialise members.
             var numMembers = 2;
             var participants = {};
@@ -2380,6 +2382,7 @@ define([
         });
 
         it('out of order flow by callbacks triggered before state is READY (bug 283)', function() {
+            this.timeout(this.timeout() * 2);
             // Initialise members.
             var numMembers = 2;
             var participants = {};

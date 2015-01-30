@@ -675,7 +675,7 @@ define([
         describe('whole ASKE', function() {
             it('whole flow for 5 members, 2 joining, 2 others leaving, full refresh', function() {
                 // Extend timeout, this test takes longer.
-                this.timeout(20000);
+                this.timeout(this.timeout() * 30);
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];
