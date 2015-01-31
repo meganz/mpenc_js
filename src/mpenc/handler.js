@@ -9,7 +9,8 @@ define([
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
-], function(assert, utils, cliques, ske, codec) {
+    "megalogger",
+], function(assert, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -31,6 +32,8 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+
+    var logger = MegaLogger.getLogger('handler', undefined, 'mpenc');
 
     /*
      * Created: 27 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -242,7 +245,7 @@ define([
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
         _assert(this.state === ns.STATE.NULL,
                 'start() can only be called from an uninitialised state.');
-        utils.dummyLogger('DEBUG', 'Invoking initial START flow operation.');
+        logger.debug('Invoking initial START flow operation.');
         this.state = ns.STATE.INIT_UPFLOW;
         this.stateUpdatedCallback(this);
 
@@ -292,7 +295,7 @@ define([
     ns.ProtocolHandler.prototype.join = function(newMembers) {
         _assert(this.state === ns.STATE.READY,
                 'join() can only be called from a ready state.');
-        utils.dummyLogger('DEBUG', 'Invoking JOIN flow operation.');
+        logger.debug('Invoking JOIN flow operation.');
         this.state = ns.STATE.AUX_UPFLOW;
         this.stateUpdatedCallback(this);
 
@@ -355,7 +358,7 @@ define([
             _assert(this.state === ns.STATE.READY,
                     'exclude() can only be called from a ready state.');
         }
-        utils.dummyLogger('DEBUG', 'Invoking EXCLUDE flow operation.');
+        logger.debug('Invoking EXCLUDE flow operation.');
         this.state = ns.STATE.AUX_DOWNFLOW;
         this.stateUpdatedCallback(this);
 
@@ -416,8 +419,7 @@ define([
         }
         _assert(this.askeMember.ephemeralPrivKey !== null,
                 'Not participating.');
-        utils.dummyLogger('DEBUG',
-                          'Invoking QUIT request containing private signing key.');
+        logger.debug('Invoking QUIT request containing private signing key.');
         this.state = ns.STATE.QUIT;
         this.stateUpdatedCallback(this);
 
@@ -466,7 +468,7 @@ define([
                 || (this.state === ns.STATE.INIT_DOWNFLOW)
                 || (this.state === ns.STATE.AUX_DOWNFLOW),
                 'refresh() can only be called from a ready or downflow states.');
-        utils.dummyLogger('DEBUG', 'Invoking REFRESH flow operation.');
+        logger.debug('Invoking REFRESH flow operation.');
         this.state = ns.STATE.READY;
         this.refreshing = false;
         this.stateUpdatedCallback(this);
@@ -542,7 +544,7 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.recover = function(keepMembers) {
-        utils.dummyLogger('DEBUG', 'Invoking RECOVER flow operation.');
+        logger.debug('Invoking RECOVER flow operation.');
         var toKeep = [];
         var toExclude = [];
 
@@ -636,8 +638,7 @@ define([
                     // the signing pubKeys won't be part of the message.
                     var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
                     if ((wireMessage.from === this.id) && (!signingPubKey)) {
-                        utils.dummyLogger('DEBUG',
-                                          'Using own ephemeral signing pub key, not taken from list.');
+                        logger.debug('Using own ephemeral signing pub key, not taken from list.');
                         signingPubKey = this.askeMember.ephemeralPubKey;
                     }
                     decodedMessage = codec.decodeMessageContent(classify.content,
@@ -671,9 +672,8 @@ define([
                 if(keyingMessageResult.newState &&
                         (keyingMessageResult.newState !== oldState)) {
                     // Update the state if required.
-                    utils.dummyLogger('DEBUG',
-                                      'Reached new state: '
-                                      + _STATE_MAPPING[keyingMessageResult.newState]);
+                    logger.debug('Reached new state: '
+                                 + _STATE_MAPPING[keyingMessageResult.newState]);
                     this.state = keyingMessageResult.newState;
                     this.stateUpdatedCallback(this);
                 }
@@ -887,12 +887,11 @@ define([
      *     attribute `newState`.
      */
     ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
-        utils.dummyLogger('DEBUG',
-                          'Processing message of type '
-                          + message.getMessageTypeString());
+        logger.debug('Processing message of type '
+                     + message.getMessageTypeString());
         if (this.state === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
-            utils.dummyLogger('DEBUG', "Ignoring message as we're in state QUIT.");
+            logger.debug("Ignoring message as we're in state QUIT.");
             return null;
         }
 
@@ -999,16 +998,15 @@ define([
         if (this.askeMember.isSessionAcknowledged()) {
             // We have seen and verified all broadcasts from others.
             newState = ns.STATE.READY;
-            utils.dummyLogger('DEBUG', 'Reached READY state.');
+            logger.debug('Reached READY state.');
             this.recovering = false;
         }
 
         if (outMessage) {
-            utils.dummyLogger('DEBUG',
-                              'Sending message of type '
-                              + outMessage.getMessageTypeString());
+            logger.debug('Sending message of type '
+                         + outMessage.getMessageTypeString());
         } else {
-            utils.dummyLogger('DEBUG', 'No message to send.');
+            logger.debug('No message to send.');
         }
         return { decodedMessage: outMessage,
                  newState: newState };

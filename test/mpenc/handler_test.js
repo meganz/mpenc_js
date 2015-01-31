@@ -26,14 +26,15 @@ define([
     "mpenc/helper/utils",
     "mpenc/codec",
     "mpenc/version",
+    "asmcrypto",
+    "megalogger",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-    "asmcrypto",
-], function(ns, utils, codec, version,
-        chai, sinon_assert, sinon_sandbox, sinon_spy, stub, asmCrypto) {
+], function(ns, utils, codec, version, asmCrypto, MegaLogger,
+            chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
     var assert = chai.assert;
@@ -48,6 +49,8 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
+        sandbox.stub(MegaLogger._logRegistry.handler, '_log');
+        sandbox.stub(MegaLogger._logRegistry.assert.options, 'isEnabled', false);
     });
 
     afterEach(function() {

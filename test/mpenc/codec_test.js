@@ -27,10 +27,12 @@ define([
     "mpenc/helper/utils",
     "jodid25519",
     "asmcrypto",
+    "megalogger",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, jodid25519, asmCrypto, chai, sinon_sandbox, sinon_assert) {
+], function(ns, version, utils, jodid25519, asmCrypto, MegaLogger,
+            chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
@@ -43,6 +45,7 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
+        sandbox.stub(MegaLogger._logRegistry.codec, '_log');
     });
 
     afterEach(function() {
@@ -288,19 +291,18 @@ define([
             });
 
             it('upflow message, debug on', function() {
-                sandbox.stub(utils, 'dummyLogger');
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
                                         null, _td.ED25519_PUB_KEY);
-                var log = utils.dummyLogger.getCall(0).args;
-                assert.deepEqual(log, ['DEBUG', 'mpENC decoded message debug: ',
-                                       ['messageSignature: /ryx7Y9l95edBxPBWE9Y91i2ZlIBysB/m1RqZHtVY73y/oHYZurkMYmwNXmMRM+vo+hzHA+dKcKyonwky42fCA==',
-                                        'protocol: 1',
-                                        'messageType: 0x9c (INIT_INITIATOR_UP)',
-                                        'from: 1', 'to: 2',
-                                        'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
-                                        'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                        'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                        'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']]);
+                var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
+                assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
+                                           ['messageSignature: /ryx7Y9l95edBxPBWE9Y91i2ZlIBysB/m1RqZHtVY73y/oHYZurkMYmwNXmMRM+vo+hzHA+dKcKyonwky42fCA==',
+                                            'protocol: 1',
+                                            'messageType: 0x9c (INIT_INITIATOR_UP)',
+                                            'from: 1', 'to: 2',
+                                            'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
+                                            'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                            'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
+                                            'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']]]);
             });
 
             it('downflow message for quit', function() {
@@ -334,18 +336,17 @@ define([
             });
 
             it('data message, debug on', function() {
-                sandbox.stub(utils, 'dummyLogger');
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                         _td.GROUP_KEY, _td.ED25519_PUB_KEY);
 
-                var log = utils.dummyLogger.getCall(0).args;
-                assert.deepEqual(log, ['DEBUG', 'mpENC decoded message debug: ',
-                                       ['messageSignature: f06xeOXgt28U0jXMOWdmmJcEV+l2IUtrA46s1nLQpBRMv4RKiMRYb6yQwmNSnFz+KWlyWBATG3KMoM0+9pMWCA==',
-                                        'protocol: 1',
-                                        'messageType: 0x0 (PARTICIPANT_DATA)',
-                                        'messageIV: qUlPX+CSQN0grUKVptv7lw==',
-                                        'rawDataMessage: CV8C+9NRFmNAOkrrM2znvg==',
-                                        'decryptDataMessage: foo']]);
+                var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
+                assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
+                                           ['messageSignature: f06xeOXgt28U0jXMOWdmmJcEV+l2IUtrA46s1nLQpBRMv4RKiMRYb6yQwmNSnFz+KWlyWBATG3KMoM0+9pMWCA==',
+                                            'protocol: 1',
+                                            'messageType: 0x0 (PARTICIPANT_DATA)',
+                                            'messageIV: qUlPX+CSQN0grUKVptv7lw==',
+                                            'rawDataMessage: CV8C+9NRFmNAOkrrM2znvg==',
+                                            'decryptDataMessage: foo']]]);
             });
 
             it('data message with exponential padding', function() {
@@ -863,6 +864,8 @@ define([
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue, true);
+                    assert.match(MegaLogger._logRegistry.codec._log.getCall(i).args[1],
+                                 /^Arrived at an illegal message type, but was told to ignore it:/);
                     assert.notStrictEqual(message.messageType, tests[i][0]);
                 }
             });

@@ -17,6 +17,7 @@ module.exports = function(config) {
         'node_modules/jsbn/index.js',
         'node_modules/asmcrypto.js/asmcrypto.js',
         {pattern: 'node_modules/jodid25519/jodid25519.js', included: false},
+        {pattern: 'node_modules/megalogger/**/*.js', included: false},
         // karma-sinon does not yet integrate with requirejs, so we have to do this hack
         {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 

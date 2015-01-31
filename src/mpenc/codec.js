@@ -9,7 +9,8 @@ define([
     "mpenc/version",
     "asmcrypto",
     "jodid25519",
-], function(assert, utils, version, asmCrypto, jodid25519) {
+    "megalogger",
+], function(assert, utils, version, asmCrypto, jodid25519, MegaLogger) {
     "use strict";
 
     /**
@@ -28,10 +29,10 @@ define([
 
     var _assert = assert.assert;
 
-    var _ZERO_BYTE = '\u0000';
-    var _ONE_BYTE = '\u0001';
     var _PROTOCOL_INDICATOR = 'mpENC';
     var _PROTOCOL_PREFIX = '?' + _PROTOCOL_INDICATOR;
+
+    var logger = MegaLogger.getLogger('codec', undefined, 'mpenc');
 
     /*
      * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -188,9 +189,8 @@ define([
                 throw new Error("Illegal message type!");
             } else {
                 this.messageType = newMessageType;
-                utils.dummyLogger('DEBUG',
-                                  'Arrived at an illegal message type, but was told to ignore it: '
-                                  + newMessageType);
+                logger.debug('Arrived at an illegal message type, but was told to ignore it: '
+                             + newMessageType);
             }
         } else {
             this.messageType = newMessageType;
@@ -742,7 +742,7 @@ define([
         }
 
         // Debugging output.
-        utils.dummyLogger('DEBUG', 'mpENC decoded message debug: ', debugOutput);
+        logger.debug('mpENC decoded message debug: ', debugOutput);
 
         // Check signature, if present.
         if (out.signature) {

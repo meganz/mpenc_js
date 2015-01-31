@@ -4,8 +4,8 @@
  */
 
 define([
-    "mpenc/helper/utils",
-], function(utils) {
+    "megalogger",
+], function(MegaLogger) {
     "use strict";
 
     /**
@@ -25,6 +25,8 @@ define([
      * </pre>
      */
     var ns = {};
+
+    var logger = MegaLogger.getLogger('assert', undefined, 'helper');
 
     /**
      * Assertion exception.
@@ -51,7 +53,7 @@ define([
      */
     ns.assert = function(test, message) {
         if (!test) {
-            utils.dummyLogger('ERROR', message);
+            logger.error(message);
             throw new ns.AssertionFailed(message);
         }
     };

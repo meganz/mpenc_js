@@ -35,7 +35,8 @@
     "jsbn": "*",
     "asmcrypto.js": "vibornoff/asmcrypto.js",
     "es6-collections": "~0.3.4",
-    "jodid25519": "meganz/jodid25519"
+    "jodid25519": "meganz/jodid25519",
+    "megalogger": "meganz/megalogger"
   },
   "devDependencies": {
     "almond": "~0.2.9",

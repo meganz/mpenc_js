@@ -6,7 +6,8 @@
 define([
     "asmcrypto",
     "jodid25519",
-], function(asmCrypto, jodid25519) {
+    "megalogger",
+], function(asmCrypto, jodid25519, MegaLogger) {
     "use strict";
 
     /**
@@ -17,6 +18,8 @@ define([
      * Some utilities.
      */
     var ns = {};
+
+    var logger = MegaLogger.getLogger('utils', undefined, 'helper');
 
     /*
      * Created: 7 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
@@ -376,23 +379,6 @@ define([
         }
         // If everything passed, let's say YES.
         return true;
-    };
-
-
-    /**
-     * Dummy logger to be used until we've got a proper one in place.
-     *
-     * FIXME: Replace this with a "proper" logger!
-     *
-     * @param level {string}
-     *     Log level. One of "DEBUG", "INFO", "WARN", "ERROR".
-     * @param message {string}
-     *     Message to be logged.
-     */
-    ns.dummyLogger = function(level, message) {
-        if (!window._dummyLoggerOff) {
-            console.log('LOG ' + level + ': ' + message);
-        }
     };
 
 

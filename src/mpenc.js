@@ -23,8 +23,9 @@
 define([
     "mpenc/codec",
     "mpenc/handler",
-    "mpenc/version"
-], function(codec, handler, version) {
+    "mpenc/version",
+    "megalogger",
+], function(codec, handler, version, MegaLogger) {
     "use strict";
 
     /**
@@ -39,6 +40,13 @@ define([
      *     Member's identifier string.
      */
     var mpenc = {};
+
+    // Create the name space's root logger.
+    MegaLogger.getLogger('mpenc');
+
+    // Create two more loggers for name spaces without their own modules.
+    MegaLogger.getLogger('helper', undefined, 'mpenc');
+    MegaLogger.getLogger('greet', undefined, 'mpenc');
 
     mpenc.codec = codec;
     mpenc.handler = handler;
