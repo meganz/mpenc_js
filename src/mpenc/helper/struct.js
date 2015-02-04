@@ -100,6 +100,14 @@ define([
             };
         }
 
+        // at time of writing, Firefox ESR (31) uses an older syntax
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of#Browser_compatibility
+        if ("@@iterator" in items) {
+            self["@@iterator"] = function() {
+                return items["@@iterator"]();
+            };
+        }
+
         /**
          * Return an iterator over the elements of this set.
          * @returns {Array}
