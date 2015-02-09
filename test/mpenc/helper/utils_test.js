@@ -134,5 +134,35 @@ define([
                 assert.strictEqual(run_flags, 3);
             });
         });
+
+        describe('_objectToString()', function() {
+            it('simple tests', function() {
+                // TODO: Do we want a more canonical stringification that will be convergent for these two test cases?
+                //       E. g. all object properties sorted in lexical order?
+                var tests = [{'i': 42, 'f': 3.141, 'l': [1, 2, 3], 't': 'hello', 'o': {0: 'null', 42: 'zweiundvierzig'}},
+                             {'f': 3.141, 'i': 42, 'l': [1, 2, 3], 'o': {0: 'null', 42: 'zweiundvierzig'}, 't': 'hello'}];
+                var expected = ['{"i":42,"f":3.141,"l":[1,2,3],"t":"hello","o":{"0":"null","42":"zweiundvierzig"}}',
+                                '{"f":3.141,"i":42,"l":[1,2,3],"o":{"0":"null","42":"zweiundvierzig"},"t":"hello"}'];
+                for (var i in tests) {
+                    assert.strictEqual(ns._objectToString(tests[i]), expected[i]);
+                }
+            });
+        });
+
+        describe('objectToHash()', function() {
+            it('simple tests', function() {
+                var tests = ['foo',
+                             ['foo', 'bar'],
+                             {1: 'tahi', 2: 'rua', 3: 'toru'},
+                             {'i': 42, 'f': 3.141, 'l': [1, 2, 3], 't': 'hello', 'o': {0: 'null', 42: 'zweiundvierzig'}},
+                             {'f': 3.141, 'i': 42, 'l': [1, 2, 3], 'o': {0: 'null', 42: 'zweiundvierzig'}, 't': 'hello'}];
+                var lastResult = '';
+                for (var i in tests) {
+                    var result = ns.objectToHash(tests[i]);
+                    assert.notStrictEqual(result, lastResult);
+                    lastResult = result;
+                }
+            });
+        });
     });
 });

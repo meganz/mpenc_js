@@ -1193,7 +1193,7 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.exponentialPadding = 0;
-                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.state = ns.STATE.READY;
@@ -1212,7 +1212,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.state = ns.STATE.READY;
@@ -1244,7 +1244,7 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.exponentialPadding = 0;
-                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.state = ns.STATE.READY;
@@ -1263,7 +1263,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.cliquesMember.groupKey = _td.COMP_KEY;
+                participant.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.state = ns.STATE.READY;
@@ -1707,7 +1707,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var groupKey = _td.COMP_KEY.substring(0, 16);
+                var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
@@ -1737,7 +1737,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.cliquesMember.groupKey = _td.COMP_KEY.substring(0, 16);
+                participant.cliquesMember.groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.askeMember.ephemeralPubKeys = [];
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
@@ -1769,7 +1769,7 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
-                var groupKey = _td.COMP_KEY.substring(0, 16);
+                var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
@@ -1779,16 +1779,13 @@ define([
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
                 assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 3);
-                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[1],
-                                   groupKey);
-                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[2],
-                                   'lala');
+                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[1], groupKey);
+                assert.strictEqual(codec.decodeMessageContent.getCall(0).args[2], 'lala');
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
                 assert.strictEqual(participant.uiQueue[0].type, 'message');
-                assert.strictEqual(participant.uiQueue[0].message,
-                                   'foo');
+                assert.strictEqual(participant.uiQueue[0].message, 'foo');
             });
 
             it('on data message, invalid signature', function() {
@@ -1797,7 +1794,7 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
-                var groupKey = _td.COMP_KEY.substring(0, 16);
+                var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.cliquesMember.groupKey = groupKey;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var decodedContent = utils.clone(_td.DATA_MESSAGE_CONTENT);

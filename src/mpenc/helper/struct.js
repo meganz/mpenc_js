@@ -4,8 +4,10 @@
  */
 
 define([
+    "mpenc/helper/utils",
     "es6-collections",
-], function(es6_shim) {
+    "megalogger",
+], function(utils, es6_shim, MegaLogger) {
     "use strict";
 
     /**
@@ -19,8 +21,9 @@ define([
 
     /*
      * Created: 28 Mar 2014 Ximin Luo <xl@mega.co.nz>
+     * Contributions: Guy Kloss <gk@mega.co.nz>
      *
-     * (c) 2014 by Mega Limited, Wellsford, New Zealand
+     * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/
      *
      * This file is part of the multi-party chat encryption suite.
@@ -34,6 +37,8 @@ define([
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
+
+    var logging = MegaLogger.getLogger('struct', undefined, 'helper');
 
     /**
      * 3-arg function to iterate over a Collection
@@ -65,9 +70,18 @@ define([
     ns.iteratorToArray = iteratorToArray;
 
     /**
-     * An immutable set, intended to match facebook's <a
+     * An immutable set, implemented using sorted arrays. Does not scale to
+     * massive sizes, but should be adequate for representing (e.g.) members
+     * of a chat.
+     *
+     * <p>Equality in equals() is taken strictly, using <code>===</code>.</p>
+     *
+     * <p>Use as a <b>factory function</b> as in <code><del>new</del>
+     * ImmutableSet([1, 2, 3])</code>.</p>
+     *
+     * <p>Otherwise, the API is intended to match Facebook's <a
      * href="https://github.com/facebook/immutable-js/">Immutable JS</a>
-     * library. We don't use that, because it is 42kb and we only need Set.</p>
+     * library. We don't use that, because it is 42KB and we only need Set.</p>
      *
      * <p>Equality in equals() is taken strictly, using <code>===</code>. May
      * be used as a factory method, without <code>new</code>.</p>
@@ -84,7 +98,7 @@ define([
 
         var items = new Set(iterable);
 
-        // facebook ImmutableSet provides length
+        // Facebook ImmutableSet provides length
         this.length = items.size;
         this.size = items.size;
 
@@ -250,6 +264,155 @@ define([
 
     Object.freeze(ImmutableSet.prototype);
     ns.ImmutableSet = ImmutableSet;
+
+
+    /**
+     * A function that performs the actual trial.
+     *
+     * @callback tryFunc
+     * @param pending {boolean}
+     *     Set to `true` if the params are already on the queue (i.e. was seen
+     *     before). Note: `false` does not necessarily mean it was *never* seen
+     *     before - it may have been dropped since then.
+     * @param param {object}
+     *     The parameter to test against this trial function.
+     * @returns {boolean}
+     *     `true` if processing succeeds, otherwise `false`.
+     */
+
+    /**
+     * A function to determine the buffer capacity.
+     *
+     * It takes no parameters.
+     *
+     * @callback maxSizeFunc
+     */
+
+    /**
+     * A TrialBuffer holds data items ("parameters") that failed to be accepted
+     * by a trial function, but that may later be acceptable when newer
+     * parameters arrive and are themselves accepted.
+     *
+     * <p>If the buffer goes above capacity, the oldest item is automatically
+     * dropped without being tried again.</p>
+     *
+     * @constructor
+     * @param name {string}
+     *     Name for this buffer, useful for debugging.
+     * @param maxSizeFunc {maxSizeFunc}
+     *     Function to determine the buffer capacity.
+     * @param tryFunc {tryFunc}
+     *     The function performing the actual trial decryption.
+     * @param drop {boolean}
+     *     Whether to drop items that overflow the buffer according to
+     *     maxSizeFunc, or merely log a warning that the buffer is over
+     *     capacity (optional, default: true).
+     * @returns {module:mpenc/helper/struct.TrialBuffer}
+     * @memberOf! module:mpenc/helper/struct#
+     *
+     * @property
+     */
+    var TrialBuffer = function(name, maxSizeFunc, tryFunc, drop) {
+        this.name = name || '';
+        this.maxSizeFunc = maxSizeFunc;
+        this.tryFunc = tryFunc;
+        if (drop === undefined) {
+            this.drop = true;
+        } else {
+            this.drop = drop;
+        }
+        this._buffer = {};
+        // We're using this following array to keep the order within the items
+        // in the buffer.
+        this._bufferHashes = [];
+    };
+
+    /** @class
+     * @see module:mpenc/helper/struct#TrialBuffer */
+    ns.TrialBuffer = TrialBuffer;
+
+
+    /**
+     * Size of trial buffer.
+     *
+     * @returns {integer}
+     */
+    TrialBuffer.prototype.length = function() {
+        return this._bufferHashes.length;
+    };
+
+
+    /**
+     * Try to accept a parameter, stashing it in the buffer if this fails.
+     * If it succeeds, also try to accept previously-stashed parameters.
+     *
+     * @param param {object}
+     *     Paremeter to be tried.
+     * @returns {boolean}
+     *     `true` if the processing succeeded.
+     */
+    TrialBuffer.prototype.trial = function(param) {
+        var paramHash = utils.objectToHash(param);
+        var pending = this._buffer.hasOwnProperty(paramHash);
+        // Remove from buffer, if already there.
+        if (pending === true) {
+            var olddupe = this._buffer[paramHash];
+            // Remove entry from _buffer and _paramHashes.
+            delete this._buffer[paramHash];
+            this._bufferHashes.splice(this._bufferHashes.indexOf(paramHash), 1);
+            // TODO: Do we really need these?
+            var olddupeHash = utils.objectToHash(param);
+            if ((olddupeHash !== paramHash)
+                    || (this._bufferHashes.indexOf(olddupeHash) >= 0)) {
+                throw new Error("Parameter was not removed from buffer.");
+            }
+        }
+
+        // Apply the tryFunc.
+        if (this.tryFunc(pending, param)) {
+            // This is a bit inefficient when params have a known dependency
+            // structure such as in the try-accept buffer; however we think the
+            // additional complexity is not worth the minor performance gain.
+            // Also, the try-decrypt buffer does not have such structure and
+            // there we *have* to brute-force it.
+            var hadSuccess;
+            while (hadSuccess === true) {
+                hadSuccess = false;
+                for (var i in this._bufferHashes) {
+                    var itemHash = this._bufferHashes[i];
+                    var item = this._buffer[itemHash];
+                    if (this.tryFunc(false, item)) {
+                        delete this._buffer[itemHash];
+                        this._bufferHashes.splice(this._bufferHashes.indexOf(itemHash), 1);
+                        logging.debug(this.name + ' unstashed ' + item);
+                        hadSuccess = true;
+                    }
+                }
+            }
+            return true;
+        } else {
+            var verb = pending ? ' stashed ' : ' restashed ';
+            this._buffer[paramHash] = param;
+            this._bufferHashes.push(paramHash);
+            logging.debug(this.name + verb + param);
+            var maxSize = this.maxSizeFunc();
+            if (this._bufferHashes.length > maxSize) {
+                if (this.drop) {
+                    var droppedHash = this._bufferHashes.shift();
+                    var dropped = this._buffer[droppedHash];
+                    delete this._buffer(droppedHash);
+                    logging.warning(this.name + ' DROPPED ' + dropped +
+                                    ' at size ' + maxSize + ', potential data loss.');
+                } else {
+                    logging.info(this.name + ' is '
+                                 + (maxSize - this._bufferHashes.length)
+                                 + ' items over expected capacity.');
+                }
+            }
+            return false;
+        }
+    };
+
 
     return ns;
 });

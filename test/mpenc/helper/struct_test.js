@@ -5,8 +5,9 @@
 
 /*
  * Created: 28 Mar 2014 Ximin Luo <xl@mega.co.nz>
+ * Contributions: Guy Kloss <gk@mega.co.nz>
  *
- * (c) 2014 by Mega Limited, Wellsford, New Zealand
+ * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
  *     http://mega.co.nz/
  *
  * This file is part of the multi-party chat encryption suite.
@@ -23,15 +24,34 @@
 
 define([
     "mpenc/helper/struct",
+    "mpenc/helper/utils",
     "es6-collections",
+    "megalogger",
     "chai",
-], function(ns, es6_shim, chai) {
+    "sinon/stub",
+    "sinon/spy",
+    "sinon/sandbox",
+    "sinon/assert",
+], function(ns, utils, es6_shim, MegaLogger,
+            chai, stub, spy, sinon_sandbox, sinon_assert) {
     "use strict";
 
     var assert = chai.assert;
     var Set = ns.ImmutableSet;
     var diff = ns.Set_diff;
     var patch = ns.Set_patch;
+
+    // Create/restore Sinon stub/spy/mock sandboxes.
+    var sandbox = null;
+
+    beforeEach(function() {
+        sandbox = sinon_sandbox.create();
+//        sandbox.stub(MegaLogger._logRegistry.helper.struct, '_log');
+    });
+
+    afterEach(function() {
+        sandbox.restore();
+    });
 
     describe("MiniSet class", function() {
         describe("constructor, has, and equals", function() {
@@ -153,6 +173,19 @@ define([
                 assert.sameMembers(a.patch([Set([1, 4]), Set([2])]).toArray(), [1, 3, 4]);
                 assert.sameMembers(b.patch(a.diff(c)).toArray(), [3, 4, 5, 7]);
                 assert.sameMembers(a.merge(b, c).toArray(), [3, 4, 5, 7]);
+            });
+        });
+    });
+
+    describe("TrialBuffer class", function() {
+        describe("#trial() method", function() {
+            it("", function() {
+                sandbox.spy(utils, 'objectToHash');
+                var maxSizeFunc = stub().returns(true);
+                var tryFunc = stub();
+                var myTrialBuffer = new ns.TrialBuffer('foo', maxSizeFunc, tryFunc);
+                var result = myTrialBuffer.trial({ 'foo': 'bar'});
+                sinon_assert.calledOnce(utils.objectToHash);
             });
         });
     });
