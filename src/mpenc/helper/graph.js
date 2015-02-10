@@ -36,24 +36,116 @@ define([
      */
 
     /**
-     * 1-arg function to get some "associates" of a subject.
-     * @callback associates
-     * @param subj {}
-     * @returns {Array} list of associates
+     * A causal order is a partial order, where each element is an event
+     * associated with an author/agent, an actor-observer who initiates the
+     * event based on (i.e. "caused by", "greater-than") already-observed
+     * parent events.
+     *
+     * The order must also be a transitive reduction. That is, for all m, there
+     * must exist no elements between m and any element in pre(m) or suc(m).
+     *
+     * Methods taking a vertex or author must throw an Error if it is absent.
+     *
+     * @interface
+     * @memberOf module:mpenc/helper/graph
      */
+    var CausalOrder = function() {
+        throw new Error("cannot instantiate an interface");
+    };
 
     /**
-     * 1-arg function to decide something about a subject.
-     * @callback predicate
-     * @param subj {}
-     * @returns {boolean}
+     * Number of elements.
+     * @member {number}
      */
+    CausalOrder.prototype.length;
+
+    /** All the ids as an array.
+     * @method
+     * @returns {Array} */
+    CausalOrder.prototype.all;
+
+    /** Whether a given item is in this graph.
+     * @method
+     * @returns {boolean} */
+    CausalOrder.prototype.has;
+
+    /** The minimal / first / earliest nodes.
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    CausalOrder.prototype.min;
+
+    /** The maximal / last / latest nodes.
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    CausalOrder.prototype.max;
+
+    /** The direct predecessors of v.
+     * @method
+     * @param v {string}
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    CausalOrder.prototype.pre;
+
+    /** The direct successors of v.
+     * @method
+     * @param v {string}
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    CausalOrder.prototype.suc;
+
+    /** True if v0 &le; v1, i.e. v0 = pre<sup>n</sup>(v1) for some n &ge; 0.
+     *
+     * <p>This is a poset, so ¬(v0 &le; v1) does not imply (v1 &le; v0).</p>
+     * @method
+     * @param v0 {string}
+     * @param v1 {string}
+     * @returns {boolean}  */
+    CausalOrder.prototype.le;
+
+    /** True if v0 &ge; v1, i.e. v0 = suc<sup>n</sup>(v1) for some n &ge; 0.
+     *
+     * <p>This is a poset, so ¬(v0 &ge; v1) does not imply (v1 &ge; v0).</p>
+     * @method
+     * @param v0 {string}
+     * @param v1 {string}
+     * @returns {boolean}  */
+    CausalOrder.prototype.ge;
+
+    /**
+     * The latest messages before the given subject, that satisfy a predicate.
+     * This acts as a "filtered" view of the parents, and is the same as
+     * max(filter(pred, ancestors(v))).
+     *
+     * @method
+     * @param v {string} The subject node
+     * @param pred {module:mpenc/helper/utils~predicate} Predicate to filter for.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    CausalOrder.prototype.pre_pred;
+
+    /** All authors ever to have participated in this session.
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of uIds. */
+    CausalOrder.prototype.allAuthors;
+
+    /** The author of the given node/event.
+     * @method
+     * @param v {string} Node/event id.
+     * @returns {string} Author id. */
+    CausalOrder.prototype.author;
+
+    /** All events by the given author, totally-ordered.
+     * @method
+     * @param {string} Author id.
+     * @returns {string[]} List of node/event ids. */
+    CausalOrder.prototype.by;
+
+    Object.freeze(CausalOrder.prototype);
+    ns.CausalOrder = CausalOrder;
+
 
     /**
      * Iterative breadth-first search.
      *
      * @param init {Array} Initial nodes to search from.
-     * @param suc {associates} 1-arg function to get successors of a node.
+     * @param suc {module:mpenc/helper/utils~associates} Get successors of a node.
      * @returns {Iterator} Yields unique nodes.
      * @memberOf! module:mpenc/helper/graph
      */
@@ -78,11 +170,12 @@ define([
      * Iterative breadth-first topological search.
      *
      * @param init {Array} Initial nodes to search from.
-     * @param suc {associates} 1-arg function to get successors of a node.
-     * @param pre {associates} 1-arg function to get predecessors of a node.
-     * @param predicate {predicate} Whether to continue searching at a given
-     *      node. If this returns false, none of its descendents will be
-     *      reached (even if they would have matched). Default: always-True
+     * @param suc {module:mpenc/helper/utils~associates} Get successors of a node.
+     * @param pre {module:mpenc/helper/utils~associates} Get predecessors of a node.
+     * @param predicate {module:mpenc/helper/utils~predicate} Whether to
+     *      continue searching at a given node. If this returns false, none of
+     *      its descendents will be reached (even if they would have matched).
+     *      Default: always-True
      * @param boundary {boolean} Whether to return nodes that did satisfy the
      *      predicate (i.e. all nodes traversed), or maximum nodes that did
      *      *not* satisfy the predicate. Default: False.
