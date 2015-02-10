@@ -1200,7 +1200,7 @@ define([
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 188);
+                assert.lengthOf(participant.messageOutQueue[0].message, 184);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -1219,7 +1219,7 @@ define([
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 316);
+                assert.lengthOf(participant.messageOutQueue[0].message, 312);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -1251,7 +1251,7 @@ define([
                 var message = 'Whispers in the morning ...';
                 participant.sendTo(message, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 188);
+                assert.lengthOf(participant.messageOutQueue[0].message, 180);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -1270,7 +1270,7 @@ define([
                 var message = 'Whispers in the morning ...';
                 participant.sendTo(message, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 316);
+                assert.lengthOf(participant.messageOutQueue[0].message, 312);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.protocolOutQueue, 0);

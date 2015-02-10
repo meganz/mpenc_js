@@ -46,9 +46,9 @@ define([
      * Generates a new random key, and converts it into a format that
      * the Ed25519 implementation understands.
      *
-     * @param bits
+     * @param bits {integer}
      *     Number of bits of key strength (must be a multiple of 32).
-     * @returns
+     * @returns {array}
      *     8 bit value array of the key.
      * @private
      */
@@ -66,15 +66,14 @@ define([
     /**
      * Dumb array maker/initialiser helper.
      *
-     * @param size
+     * @param size {integer}
      *     Size of new array.
      * @param template
      *     Default value to initialise every element with.
-     * @returns
+     * @returns {array}
      *     The new array.
-     * @private
      */
-    ns._arrayMaker = function(size, template) {
+    ns.arrayMaker = function(size, template) {
         var arr = new Array(size);
         for (var i = 0; i < size; i++) {
             arr[i] = template;
@@ -89,9 +88,9 @@ define([
      * Note: Array members must be directly comparable for equality
      * (g. g. numbers or strings).
      *
-     * @param theArray
+     * @param theArray {integer}
      *     Array under scrutiny.
-     * @returns
+     * @returns {boolean}
      *     True for uniqueness.
      * @private
      */
@@ -118,11 +117,11 @@ define([
      * Note: Array members must be directly comparable for equality
      * (g. g. numbers or strings).
      *
-     * @param subset
+     * @param subset {array}
      *     Array to be checked for being a subset.
-     * @param superset
+     * @param superset {array}
      *     Array to be checked for being a superset.
-     * @returns
+     * @returns {boolean}
      *     True for the first being a subset of the second.
      * @private
      */
@@ -152,9 +151,9 @@ define([
      * Determines whether the list contains duplicates while excluding removed
      * elements (null).
      *
-     * @param aList
+     * @param aList {array}
      *     The list to check for duplicates.
-     * @returns
+     * @returns {boolean}
      *     True for no duplicates in list.
      * @private
      */
@@ -172,9 +171,9 @@ define([
     /**
      * Returns a binary string representation of the SHA-256 hash function.
      *
-     * @param data
+     * @param data {string}
      *     Data to hash.
-     * @returns
+     * @returns {string}
      *     Binary string.
      */
     ns.sha256 = function(data) {
@@ -189,9 +188,9 @@ define([
      *
      * See: http://stackoverflow.com/questions/728360/most-elegant-way-to-clone-a-javascript-object
      *
-     * @param obj
+     * @param obj {object}
      *     The object to be cloned.
-     * @returns
+     * @returns {object}
      *     A deep copy of the original object.
      */
     ns.clone = function(obj) {
@@ -238,7 +237,7 @@ define([
      *     The first string to be compared against the second.
      * @param str2 {string}
      *     The second string to be compared against the first.
-     * @returns
+     * @returns {boolean}
      *     A true on equality.
      */
     ns.constTimeStringCmp = function(str1, str2) {
@@ -260,11 +259,11 @@ define([
      *
      * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
      *
-     * @param arr1
+     * @param arr1 {array}
      *     The first array to be compared against the second.
-     * @param arr2
+     * @param arr2 {array}
      *     The second array to be compared against the first.
-     * @returns
+     * @returns {boolean}
      *     A true on equality.
      */
     ns.arrayEqual = function(arr1, arr2) {
@@ -321,11 +320,11 @@ define([
      *
      * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
      *
-     * @param obj1
+     * @param obj1 {object}
      *     The first object to be compared against the second.
-     * @param obj2
+     * @param obj2 {object}
      *     The second object to be compared against the first.
-     * @returns
+     * @returns {boolean}
      *     A true on equality.
      */
     ns.objectEqual = function(obj1, obj2) {

@@ -382,7 +382,7 @@ define([
      */
     ns.SignatureKeyExchangeMember.prototype.discardAuthentications = function() {
         var myPos = this.members.indexOf(this.id);
-        this.authenticatedMembers = utils._arrayMaker(this.members.length, false);
+        this.authenticatedMembers = utils.arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;
     }
 

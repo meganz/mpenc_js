@@ -1156,9 +1156,8 @@ define([
     /**
      * Encrypts a given data message.
      *
-     * The data message is encrypted using AES-128-CBC, and a new random IV is
-     * generated and returned. The current encryption scheme works for messages
-     * up to 2^16 bytes (64 KiB) in size.
+     * The data message is encrypted using AES-128-CTR, and a new random
+     * IV/nonce (12 byte) is generated and returned.
      *
      * @param data {string}
      *     Binary string data message.
@@ -1179,7 +1178,7 @@ define([
         }
         paddingSize = paddingSize | 0;
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var ivBytes = new Uint8Array(utils._newKey08(128));
+        var nonceBytes = utils._newKey08(96);
         // Protect multi-byte characters.
         var dataBytes = unescape(encodeURIComponent(data));
         // Prepend length in bytes to message.
@@ -1187,31 +1186,31 @@ define([
                 'Message size too large for encryption scheme.');
         dataBytes = ns._short2bin(dataBytes.length) + dataBytes;
         if (paddingSize) {
-            // Compute exponential padding size, leaving one extra byte for
-            // AES-CBC PKCS#5 padding.
+            // Compute exponential padding size.
             var exponentialPaddingSize = paddingSize
-                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length + 1) / paddingSize))
-                                                         / Math.log(2)));
+                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
+                                                         / Math.log(2))) + 1;
             var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
             dataBytes += (new Array(numPaddingBytes)).join('\u0000');
         }
-        var cipherBytes = asmCrypto.AES_CBC.encrypt(dataBytes, keyBytes, true, ivBytes);
+        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
         return { data: jodid25519.utils.bytes2string(cipherBytes),
-                 iv: jodid25519.utils.bytes2string(ivBytes) };
+                 iv: jodid25519.utils.bytes2string(nonceBytes) };
     };
 
 
     /**
      * Decrypts a given data message.
      *
-     * The data message is decrypted using AES-128-CBC.
+     * The data message is decrypted using AES-128-CTR.
      *
      * @param data {string}
      *     Binary string data message.
      * @param key {string}
      *     Binary string representation of 128-bit encryption key.
      * @param iv {string}
-     *     Binary string representation of 128-bit IV (initialisation vector).
+     *     Binary string representation of 96-bit nonce/IV.
      * @returns {string}
      *     The clear text message as a binary string.
      */
@@ -1220,8 +1219,9 @@ define([
             return null;
         }
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var ivBytes = new Uint8Array(jodid25519.utils.string2bytes(iv));
-        var clearBytes = asmCrypto.AES_CBC.decrypt(data, keyBytes, true, ivBytes);
+        var nonceBytes = jodid25519.utils.string2bytes(iv);
+        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var clearBytes = asmCrypto.AES_CTR.decrypt(data, keyBytes, ivBytes);
         // Strip off message size and zero padding.
         var clearString = jodid25519.utils.bytes2string(clearBytes);
         var messageSize = ns._bin2short(clearString.slice(0, 2));

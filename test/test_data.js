@@ -84,15 +84,15 @@ _td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQPxGul+D/xj6y+fV/YWASbvwcxtoXaIucdnJ0O'
                                    + '5/YA==');
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
-_td.DATA_MESSAGE_STRING = atob('AAMAQH9OsXjl4LdvFNI1zDlnZpiXBFfpdiFLawOOrNZy0K'
-                               + 'QUTL+ESojEWG+skMJjUpxc/ilpclgQExtyjKDNPvaTFg'
-                               + 'gAAQABAQAFAAIAAAAEABCpSU9f4JJA3SCtQpWm2/uXAA'
-                               + 'IAEAlfAvvTURZjQDpK6zNs574=');
-_td.DATA_MESSAGE_STRING32 = atob('AAMAQFp98OGE5gY35LyOG4MqY9x2vFvcLK1rUWkHeFrN'
-                                 + 'APqt+mi99CzYla+hHfL6HMmcqLGHmemwy4ufOro/SM'
-                                 + 'vXKgIAAQABAQAFAAIAAAAEABCykPHyLi5IPapfrqPs'
-                                 + 'gHqAAAIAIH2giJNecpVfUO1YbQEuiLCHYrPzaoJw8b'
-                                 + 'GFbYDsgK/K');
+_td.DATA_MESSAGE_STRING = atob('AAMAQNSNtRerm2Cre7NxsbmtP2LnuQqXiUN/ysKLH7WxGp'
+                               + '9l4KsLZjtkj9MgdZhNw4BpTR7lEdj0TbRyojTD/5V4nA'
+                               + 'wAAQABAQAFAAIAAAAEAAzfiZSN2riSNs8B+ysAAgAFsR'
+                               + 'Zr8g0=');
+_td.DATA_MESSAGE_STRING32 = atob('AAMAQLdGJxknV5xMG6J9KjnmrL/TTZfcg48blSMzdCOY'
+                                 + 'oRDvjAOIpEjOf+qW7wXmCzkcV3kYZ9wOWSddtJ3ElD'
+                                 + 'n3JAYAAQABAQAFAAIAAAAEAAzh0L51jJVDD/cyZhsA'
+                                 + 'AgAgsTtAi56jORf2Df7jXW/4Ec7Djuv6MYVh1unjTG'
+                                 + '0d+yM=');
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
