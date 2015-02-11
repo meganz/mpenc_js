@@ -38,7 +38,7 @@ define([
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
-    var logging = MegaLogger.getLogger('struct', undefined, 'helper');
+    var logger = MegaLogger.getLogger('struct', undefined, 'helper');
 
     /**
      * 3-arg function to iterate over a Collection
@@ -408,7 +408,7 @@ define([
                     if (this.tryFunc(false, item)) {
                         delete this._buffer[itemID];
                         this._bufferIDs.splice(this._bufferIDs.indexOf(itemID), 1);
-                        logging.debug(this.name + ' unstashed ' + itemID);
+                        logger.debug(this.name + ' unstashed ' + itemID);
                         hadSuccess = true;
                     }
                 }
@@ -418,19 +418,19 @@ define([
             var verb = pending ? ' restashed ' : ' stashed ';
             this._buffer[paramID] = param;
             this._bufferIDs.push(paramID);
-            logging.debug(this.name + verb + paramID);
+            logger.debug(this.name + verb + paramID);
             var maxSize = this.maxSizeFunc();
             if (this._bufferIDs.length > maxSize) {
                 if (this.drop) {
                     var droppedID = this._bufferIDs.shift();
                     var dropped = this._buffer[droppedID];
                     delete this._buffer[droppedID];
-                    logging.warn(this.name + ' DROPPED ' + droppedID +
-                                 ' at size ' + maxSize + ', potential data loss.');
+                    logger.warn(this.name + ' DROPPED ' + droppedID +
+                                ' at size ' + maxSize + ', potential data loss.');
                 } else {
-                    logging.info(this.name + ' is '
-                                 + (this._bufferIDs.length - maxSize)
-                                 + ' items over expected capacity.');
+                    logger.info(this.name + ' is '
+                                + (this._bufferIDs.length - maxSize)
+                                + ' items over expected capacity.');
                 }
             }
             return false;
