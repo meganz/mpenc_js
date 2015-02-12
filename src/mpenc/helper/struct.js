@@ -269,6 +269,11 @@ define([
     /**
      * A function that performs the actual trial.
      *
+     * <p>This function may also alter the state of `param`, to which then can
+     * be used to further treat the object upon a successful trial. afterwards.
+     * However, it must be ensured, that the object's identification through
+     * the {paramIdFunc} function will remain identical.</p>
+     *
      * @callback tryFunc
      * @param pending {boolean}
      *     Set to `true` if the params are already on the queue (i.e. was seen
