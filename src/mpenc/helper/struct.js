@@ -44,6 +44,19 @@ define([
      */
 
     /**
+     * Wrapper around a "get()"-capable object (e.g. Map) that throws
+     * <code>ReferenceError</code> when the result is <code>undefined</code>.
+     */
+    var safeGet = function(gettable, key) {
+        var result = gettable.get(key);
+        if (result === undefined) {
+            throw new ReferenceError("invalid key: " + key);
+        }
+        return result;
+    };
+    ns.safeGet = safeGet;
+
+    /**
      * Populate an array using an ES6 iterator, ignoring its "return value".
      *
      * @param iter {Iterator} Iterator to run through.
