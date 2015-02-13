@@ -491,6 +491,7 @@ define([
         MESSAGE_SIGNATURE: 0x0003,
         MESSAGE_IV:        0x0004,
         MESSAGE_TYPE:      0x0005,
+        SIDKEY_HINT:       0x0006,
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
         MEMBER:            0x0102, // 258
@@ -642,17 +643,27 @@ define([
      *
      * @param message {string}
      *     A binary message representation.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
+     * @param sessionTracker {mpenc.session.SessionTracker}
+     *     Seession tracker object. Mandatory for data messages, ignored for
+     *     protocol messages.
      * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      */
-    ns.decodeMessageContent = function(message, groupKey, pubKey) {
+    ns.decodeMessageContent = function(message, pubKey, sessionTracker) {
         if (!message) {
             return null;
         }
+
+        // Session information.
+        var sessionID = '';
+        var groupKey = '';
+        if (sessionTracker.sessionIDs && sessionTracker.sessionIDs.length > 0) {
+            sessionID = sessionTracker.sessionIDs[0];
+            groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
+        }
+
         var out = new ns.ProtocolMessage();
         var debugOutput = [];
 
@@ -714,6 +725,11 @@ define([
                     out.iv = tlv.value;
                     debugOutput.push('messageIV: ' + btoa(tlv.value));
                     break;
+                case ns.TLV_TYPE.SIDKEY_HINT:
+                    out.sidkeyHint = tlv.value;
+                    debugOutput.push('sidkeyHint: 0x'
+                                     + tlv.value.charCodeAt(0).toString(16));
+                    break;
                 case ns.TLV_TYPE.DATA_MESSAGE:
                     out.data = tlv.value;
                     debugOutput.push('rawDataMessage: ' + btoa(out.data));
@@ -728,6 +744,13 @@ define([
 
         // Some specifics depending on the type of mpENC message.
         if (out.data) {
+            // Checking of session/group key.
+            var keyCount = sessionTracker.sessions[sessionID].groupKeys.length - 1;
+            var sidkeyHint = utils.sha256(sessionID
+                                          + String.fromCharCode(keyCount & 0xff))[0];
+            _assert(out.sidkeyHint === sidkeyHint,
+                    'Session ID/group key hint mismatch.');
+
             // Some further crypto processing on data messages.
             out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
             debugOutput.push('decryptDataMessage: ' + out.data);
@@ -750,8 +773,11 @@ define([
                 var index = out.members.indexOf(out.source);
                 pubKey = out.pubKeys[index];
             }
+
+            var dataPrefix = (out.messageType === ns.MESSAGE_TYPE.PARTICIPANT_DATA)
+                           ? 'datamsgsig' : 'protomsgsig';
             try {
-                out.signatureOk = ns.verifyDataMessage(out.rawMessage,
+                out.signatureOk = ns.verifyDataMessage(dataPrefix + out.rawMessage,
                                                        out.signature,
                                                        pubKey);
                 _assert(out.signatureOk,
@@ -1002,12 +1028,13 @@ define([
      *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
      * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
+     * @param sessionTracker {mpenc.session.SessionTracker}
+     *     Seession tracker object. Mandatory for data messages, ignored for
+     *     protocol messages.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -1016,20 +1043,29 @@ define([
      * @returns {string}
      *     A binary message representation.
      */
-    ns.encodeMessageContent = function(message, groupKey, privKey, pubKey, paddingSize) {
+    ns.encodeMessageContent = function(message, privKey, pubKey,
+                                       sessionTracker, paddingSize) {
         var out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
         if (typeof(message) === 'string' || message instanceof String) {
             // We're dealing with a message containing user content.
             out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE,
                                 ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+            var sessionID = sessionTracker.sessionIDs[0];
+            var groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
+            var keyCount = sessionTracker.sessions[sessionID].groupKeys.length - 1;
             var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
 
             // We want message attributes in this order:
-            // signature, protocol version, iv, message data
+            // sid/key hint, signature, protocol version, iv, message data
+            var sidkeyHint = utils.sha256(sessionID
+                                          + String.fromCharCode(keyCount & 0xff))[0];
+            out += ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHint);
             out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
             out += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
+
             // Sign `out` and prepend signature.
-            var signature = ns.signDataMessage(out, privKey, pubKey);
+            var signature = ns.signDataMessage('datamsgsig' + out,
+                                               privKey, pubKey);
             out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
         } else {
             // Process message attributes in this order:
@@ -1058,7 +1094,8 @@ define([
                 out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
             }
             // Sign `out` and prepend signature.
-            var signature = ns.signDataMessage(out, privKey, pubKey);
+            var signature = ns.signDataMessage('protomsgsig' + out,
+                                               privKey, pubKey);
             out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
         }
 
@@ -1072,12 +1109,13 @@ define([
      *
      * @param message {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
      * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
+     * @param sessionTracker {mpenc.session.SessionTracker}
+     *     Seession tracker object. Mandatory for data messages, ignored for
+     *     protocol messages.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -1086,13 +1124,14 @@ define([
      * @returns {string}
      *     A wire ready message representation.
      */
-    ns.encodeMessage = function(message, groupKey, privKey, pubKey, paddingSize) {
+    ns.encodeMessage = function(message, privKey, pubKey,
+                                sessionTracker, paddingSize) {
         if (message === null || message === undefined) {
             return null;
         }
         paddingSize = paddingSize | 0;
-        var content = ns.encodeMessageContent(message, groupKey, privKey,
-                                              pubKey, paddingSize);
+        var content = ns.encodeMessageContent(message, privKey, pubKey,
+                                              sessionTracker, paddingSize);
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
 
@@ -1121,7 +1160,8 @@ define([
         var out = 'from "' + from +'":' + severity + ':' + message;
         var signature = '';
         if (privKey) {
-            signature = ns.signDataMessage(out, privKey, pubKey);
+            signature = ns.signDataMessage('errormsgsig' + out,
+                                           privKey, pubKey);
         }
         return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
     };

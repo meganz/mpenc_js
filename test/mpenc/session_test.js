@@ -68,7 +68,6 @@ define([
                 assert.deepEqual(tracker.sessionIDs, ['good skit']);
                 assert.deepEqual(tracker.sessions,
                                  {'good skit': {
-                                     sid: 'good skit',
                                      members: members,
                                      groupKeys: ['silly walk'] }});
                 assert.strictEqual(maxSizeFunc.callCount, 1);
@@ -80,7 +79,6 @@ define([
                 var maxSizeFunc = stub().returns(1);
                 var tracker = new ns.SessionTracker('Monty Python', maxSizeFunc);
                 tracker.sessions = {'good skit': {
-                                       sid: 'good skit',
                                        members: members,
                                        groupKeys: ['unladen swallow'] }};
                 tracker.sessionIDs = ['good skit'];
@@ -88,7 +86,6 @@ define([
                 assert.deepEqual(tracker.sessionIDs, ['another good skit']);
                 assert.deepEqual(tracker.sessions,
                                  {'another good skit': {
-                                     sid: 'another good skit',
                                      members: members,
                                      groupKeys: ['silly walk'] }});
                 assert.strictEqual(maxSizeFunc.callCount, 1);
@@ -102,7 +99,6 @@ define([
                 var maxSizeFunc = stub().returns(1);
                 var tracker = new ns.SessionTracker('Monty Python', maxSizeFunc, false);
                 tracker.sessions = {'good skit': {
-                                       sid: 'good skit',
                                        members: members,
                                        groupKeys: ['unladen swallow'] }};
                 tracker.sessionIDs = ['good skit'];
@@ -121,14 +117,12 @@ define([
                 var maxSizeFunc = stub();
                 var tracker = new ns.SessionTracker('Doctor Who', maxSizeFunc);
                 tracker.sessions = {'Series 1': {
-                                       sid: 'Series 1',
                                        members: members,
                                        groupKeys: ['Chris Eccleston'] }};
                 tracker.sessionIDs = ['Series 1'];
                 tracker.addGroupKey('Series 1', 'David Tennant');
                 assert.deepEqual(tracker.sessions,
                                  {'Series 1': {
-                                     sid: 'Series 1',
                                      members: members,
                                      groupKeys: ['David Tennant', 'Chris Eccleston'] }});
             });
@@ -140,14 +134,12 @@ define([
                 var maxSizeFunc = stub();
                 var tracker = new ns.SessionTracker('Doctor Who', maxSizeFunc);
                 tracker.sessions = {'Series 1': {
-                                       sid: 'Series 1',
                                        members: members,
                                        groupKeys: ['Chris Eccleston'] }};
                 tracker.sessionIDs = ['Series 1'];
                 tracker.addGroupKeyLastSession('David Tennant');
                 assert.deepEqual(tracker.sessions,
                                  {'Series 1': {
-                                     sid: 'Series 1',
                                      members: members,
                                      groupKeys: ['David Tennant', 'Chris Eccleston'] }});
             });

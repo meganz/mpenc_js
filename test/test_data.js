@@ -51,9 +51,9 @@ _td.STATIC_PUB_KEY_DIR = {
 /* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
-_td.UPFLOW_MESSAGE_STRING = atob('AAMAQP68se2PZfeXnQcTwVhPWPdYtmZSAcrAf5tUamR7'
-                                 + 'VWO98v6B2Gbq5DGJsDV5jETPr6PocxwPnSnCsqJ8JM'
-                                 + 'uNnwgAAQABAQAFAAIAnAEAAAExAQEAATIBAgABMQEC'
+_td.UPFLOW_MESSAGE_STRING = atob('AAMAQLHAJAGpBa+XQtQxeCIPjCSMg20rM3rA3htcSI7V'
+                                 + '15i3U545gMU41HZY2YnyBJBJVbyfCan42sW1E63aNp'
+                                 + 'tTAAQAAQABAQAFAAIAnAEAAAExAQEAATIBAgABMQEC'
                                  + 'AAEyAQIAATMBAgABNAECAAE1AQIAATYBAwAAAQMAII'
                                  + 'Ug8AmJMKdUdIt93LQ+91oNvzoNJjga9OukqY6qm05q'
                                  + 'AQQAIIUg8AmJMKdUdIt93LQ+91oNvzoNJjga9OukqY'
@@ -77,22 +77,32 @@ _td.DOWNFLOW_MESSAGE_CONTENT = {
     messageType: '\u0000\u00d3', // codec.MESSAGE_TYPE.QUIT_DOWN
     signingKey: _td.ED25519_PRIV_KEY,
 };
-_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQPxGul+D/xj6y+fV/YWASbvwcxtoXaIucdnJ0O'
-                                   + 'Rsfmkm1pO0QW/S+LnqEs632iqGlE3l0Xfj4xw7xJ'
-                                   + 'g6I5WHyQ0AAQABAQAFAAIA0wEAAAExAQEAAAEHAC'
+_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQMxsLj+UGQ95+d1ovpOIuCWp2dLApelyrPPYnq'
+                                   + 'e69JfHfZCpqmMHrBWnxwAYH+O/TxVlumIKo/h3Z9'
+                                   + 'AWk9YMPwoAAQABAQAFAAIA0wEAAAExAQEAAAEHAC'
                                    + 'CdYbGd7/1aYLqESvSS7CzEREnFaXsyaRlwO6wDHK'
                                    + '5/YA==');
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
-_td.DATA_MESSAGE_STRING = atob('AAMAQNSNtRerm2Cre7NxsbmtP2LnuQqXiUN/ysKLH7WxGp'
-                               + '9l4KsLZjtkj9MgdZhNw4BpTR7lEdj0TbRyojTD/5V4nA'
-                               + 'wAAQABAQAFAAIAAAAEAAzfiZSN2riSNs8B+ysAAgAFsR'
-                               + 'Zr8g0=');
-_td.DATA_MESSAGE_STRING32 = atob('AAMAQLdGJxknV5xMG6J9KjnmrL/TTZfcg48blSMzdCOY'
-                                 + 'oRDvjAOIpEjOf+qW7wXmCzkcV3kYZ9wOWSddtJ3ElD'
-                                 + 'n3JAYAAQABAQAFAAIAAAAEAAzh0L51jJVDD/cyZhsA'
-                                 + 'AgAgsTtAi56jORf2Df7jXW/4Ec7Djuv6MYVh1unjTG'
-                                 + '0d+yM=');
+_td.SESSION_TRACKER = { sessionIDs: [_td.SESSION_ID],
+                        sessions: {} };
+_td.SESSION_TRACKER.sessions[_td.SESSION_ID] = {
+    members: ['Moe', 'Larry', 'Curly'],
+    groupKeys: [_td.GROUP_KEY]
+};
+_td.DATA_MESSAGE_STRING = atob('AAMAQL/hu//NEcK6sjiJwaOGXna5TiV+ef6qExgj+osk3v'
+                               + 'M72aqawaSkz4IDFcg0I426cKxbwevmp3XGTZ7W5qwjjQ'
+                               + 'gAAQABAQAFAAIAAAAGAAEeAAQADDZOnKWdoozZIZdrrg'
+                               + 'ACAAWxl8xfIw==');
+_td.DATA_MESSAGE_STRING2 = atob('AAMAQNUfLhFbO6XDhqqrfsCrn7NKJiSdDEe3MsZxVonb+'
+                                + 'GnYBWEyzsem/q2TsOQNUKxPIn4oVa92gaQSsSI2oD4r'
+                                + 'RQQAAQABAQAFAAIAAAAGAAG/AAQADP5k0yhFSYKaM78'
+                                + 'BpQACAAU+4WcIFg==');
+_td.DATA_MESSAGE_STRING32 = atob('AAMAQF3sF53fi4q3bc5xHVa3zGXm2xckdnJeMHAlp4xp'
+                                 + 'rKmfdYlAG7fjzl2ptFJ5wHt/CZ3hDZ9QMT4ERLTwJ1'
+                                 + 'vkPwQAAQABAQAFAAIAAAAGAAEeAAQADJARwQ67xb2h'
+                                 + 'Heb0WQACACCffusYJDfzfIN0nlpu7v7lPYP5w79qKO'
+                                 + '5njo12kG9fyQ==');
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
@@ -104,8 +114,8 @@ _td.DATA_MESSAGE_CONTENT = {
 };
 
 _td.ERROR_MESSAGE_PAYLOAD = '?mpENC Error:'
-                          + 'LR2XuLScY62iZtskqvuR1Gww5lK97u3JaiYG1KTKuhlNFo4Aj'
-                          + 'VKkVVdhFZfyUysVoD8TSQBsfJNN0ERut4FqAA==:'
+                          + 'ztdjNtIVrMq0I487tIYqAYtKv/yhyfrYxk5EtKeHs9C2L3vgv'
+                          + '+QlJ4tieMexM/T5AVefPyOQl4iKrYbw7hqMCA==:'
                           + 'from "a.dumbledore@hogwarts.ac.uk/android123":'
                           + 'TERMINAL:'
                           + 'Signature verification for'

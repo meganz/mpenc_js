@@ -225,7 +225,6 @@ define([
             it('upflow message', function() {
                 sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
-                                                     null,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
                 assert.lengthOf(result, 60);
@@ -233,7 +232,6 @@ define([
 
             it('upflow message binary', function() {
                 var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
-                                                     null,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
@@ -242,7 +240,6 @@ define([
             it('downflow message for quit', function() {
                 sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
                 var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                                     null,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
                 assert.lengthOf(result, 24);
@@ -250,36 +247,70 @@ define([
 
             it('downflow message for quit binary', function() {
                 var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                                     null,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_STRING);
             });
 
             it('data message', function() {
-                var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
+                var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                // 4 TLVs with 104 bytes:
-                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(result, 104);
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker);
+                // 4 TLVs with 109 bytes:
+                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
+                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 5)
+                assert.lengthOf(result, 109);
+            });
+
+            it('data message with second group key', function() {
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID, 'foo'],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY, 'foo']
+                };
+                sessionTracker.sessions['foo'] = {};
+                var result = ns.encodeMessageContent('foo',
+                                                     _td.ED25519_PRIV_KEY,
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker);
+                // 4 TLVs with 109 bytes:
+                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
+                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 5)
+                assert.lengthOf(result, 109);
             });
 
             it('data message with exponential padding', function() {
-                var result = ns.encodeMessageContent('foo', _td.GROUP_KEY,
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
+                var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY, 32);
-                // 4 TLVs with 131 bytes:
-                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-                assert.lengthOf(result, 131);
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker, 32);
+                // 4 TLVs with 136 bytes:
+                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
+                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 32)
+                assert.lengthOf(result, 136);
             });
         });
 
         describe("decodeMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                                     null,
-                                                     _td.ED25519_PUB_KEY);
+                                                     _td.ED25519_PUB_KEY, {});
                 assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
@@ -292,10 +323,10 @@ define([
 
             it('upflow message, debug on', function() {
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                        null, _td.ED25519_PUB_KEY);
+                                        _td.ED25519_PUB_KEY, {});
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['messageSignature: /ryx7Y9l95edBxPBWE9Y91i2ZlIBysB/m1RqZHtVY73y/oHYZurkMYmwNXmMRM+vo+hzHA+dKcKyonwky42fCA==',
+                                           ['messageSignature: scAkAakFr5dC1DF4Ig+MJIyDbSszesDeG1xIjtXXmLdTnjmAxTjUdljZifIEkElVvJ8JqfjaxbUTrdo2m1MABA==',
                                             'protocol: 1',
                                             'messageType: 0x9c (INIT_INITIATOR_UP)',
                                             'from: 1', 'to: 2',
@@ -307,8 +338,7 @@ define([
 
             it('downflow message for quit', function() {
                 var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
-                                                     null,
-                                                     _td.ED25519_PUB_KEY);
+                                                     _td.ED25519_PUB_KEY, {});
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
@@ -319,15 +349,39 @@ define([
                 var message = _td.UPFLOW_MESSAGE_STRING.substring(68, 72)
                             + String.fromCharCode(77)
                             + _td.UPFLOW_MESSAGE_STRING.substring(73);
-                assert.throws(function() { ns.decodeMessageContent(message, null,
-                                                                   _td.ED25519_PUB_KEY); },
+                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY, {}); },
                               'Received wrong protocol version: 77');
             });
 
             it('data message', function() {
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                                     _td.GROUP_KEY,
-                                                     _td.ED25519_PUB_KEY);
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker);
+                assert.lengthOf(result.signature, 64);
+                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
+                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
+                assert.lengthOf(result.iv, 12);
+                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
+            });
+
+            it('data message with second group key', function() {
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY, 'foo']
+                };
+                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING2,
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -336,23 +390,38 @@ define([
             });
 
             it('data message, debug on', function() {
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                        _td.GROUP_KEY, _td.ED25519_PUB_KEY);
+                                        _td.ED25519_PUB_KEY, sessionTracker);
 
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['messageSignature: 1I21F6ubYKt7s3Gxua0/Yue5CpeJQ3/KwosftbEan2XgqwtmO2SP0yB1mE3DgGlNHuUR2PRNtHKiNMP/lXicDA==',
+                                           ['messageSignature: v+G7/80RwrqyOInBo4ZedrlOJX55/qoTGCP6iyTe8zvZqprBpKTPggMVyDQjjbpwrFvB6+andcZNntbmrCONCA==',
                                             'protocol: 1',
                                             'messageType: 0x0 (PARTICIPANT_DATA)',
-                                            'messageIV: 34mUjdq4kjbPAfsr',
-                                            'rawDataMessage: sRZr8g0=',
+                                            'sidkeyHint: 0x1e',
+                                            'messageIV: Nk6cpZ2ijNkhl2uu',
+                                            'rawDataMessage: sZfMXyM=',
                                             'decryptDataMessage: foo']]]);
             });
 
             it('data message with exponential padding', function() {
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
-                                                     _td.GROUP_KEY,
-                                                     _td.ED25519_PUB_KEY);
+                                                     _td.ED25519_PUB_KEY,
+                                                     sessionTracker);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -365,9 +434,16 @@ define([
                 var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
                             + String.fromCharCode(77)
                             + _td.DATA_MESSAGE_STRING.substring(11);
+                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
+                                       sessions: {} };
+                sessionTracker.sessions[_td.SESSION_ID] = {
+                    sid: _td.SESSION_ID,
+                    members: ['Moe', 'Larry', 'Curly'],
+                    groupKeys: [_td.GROUP_KEY]
+                };
                 assert.throws(function() { ns.decodeMessageContent(message,
-                                                                   _td.GROUP_KEY,
-                                                                   _td.ED25519_PUB_KEY); },
+                                                                   _td.ED25519_PUB_KEY,
+                                                                   sessionTracker); },
                               'Signature of message does not verify');
             });
         });
@@ -414,75 +490,61 @@ define([
     describe("encodeMessage()", function() {
         it('upflow message', function() {
             sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, null, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY);
+            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
+                                          _td.ED25519_PUB_KEY, {});
             assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
 
         it('upflow message binary', function() {
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, null, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY);
+            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
+                                          _td.ED25519_PUB_KEY, {});
             assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
         });
 
         it('downflow message on quit', function() {
             var message = _td.DOWNFLOW_MESSAGE_CONTENT;
             sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(message, null, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY);
+            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
+                                          _td.ED25519_PUB_KEY, {});
             assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
         });
 
         it('downflow message on quit binary', function() {
             var result = ns.encodeMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                          null, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
+                                          _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {});
             assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_PAYLOAD);
         });
 
         it('null message', function() {
-            assert.strictEqual(ns.encodeMessage(null, null,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY),
+            assert.strictEqual(ns.encodeMessage(null,
+                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
                                null);
-            assert.strictEqual(ns.encodeMessage(undefined, null,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY),
+            assert.strictEqual(ns.encodeMessage(undefined,
+                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
                                null);
         });
 
         it('data message', function() {
             var message = 'wha tekau ma rua';
             sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var groupKey = _td.COMP_KEY.substring(0, 16);
-            var result = ns.encodeMessage(message, groupKey, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
+            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
+                                          _td.ED25519_PUB_KEY, {});
             sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 5);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[0],
-                               message);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[1],
-                               groupKey);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[2],
-                               _td.ED25519_PRIV_KEY);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[3],
-                               _td.ED25519_PUB_KEY);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[4], 0);
+            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
+                               [message, _td.ED25519_PRIV_KEY,
+                                _td.ED25519_PUB_KEY, {}, 0]);
             assert.strictEqual(result, '?mpENC:NDI=.');
         });
 
         it('data message with exponential padding', function() {
             var message = 'wha tekau ma rua';
             sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var groupKey = _td.COMP_KEY.substring(0, 16);
-            var result = ns.encodeMessage(message, groupKey, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, 32);
+            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
+                                          _td.ED25519_PUB_KEY, {}, 32);
             sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.lengthOf(ns.encodeMessageContent.getCall(0).args, 5);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[0],
-                               message);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[1],
-                               groupKey);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[2],
-                               _td.ED25519_PRIV_KEY);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[3],
-                               _td.ED25519_PUB_KEY);
-            assert.strictEqual(ns.encodeMessageContent.getCall(0).args[4], 32);
+            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
+                             [message, _td.ED25519_PRIV_KEY,
+                              _td.ED25519_PUB_KEY, {}, 32]);
             assert.strictEqual(result, '?mpENC:NDI=.');
         });
     });

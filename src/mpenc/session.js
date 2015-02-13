@@ -51,24 +51,19 @@ define([
      * {SessionTracker}.
      *
      * @constructor
-     * @param sid {string}
-     *     Session ID.
      * @param members {array}
      *     Array of {string}s of the participants for this session.
      * @param groupKey {string}
      *     The (first) group key used in this session.
      * @returns {module:mpenc/handler/_SessionItem}
      *
-     * @property sid {string}
-     *     Session ID.
      * @property members {array}
      *     Array of {string}s of the participants for this session.
      * @property groupKeys {array}
      *     Array of the group keys (as {string}) used in reverse order over this
      *     session (the last key is in the starting position).
      */
-    var _SessionItem = function(sid, members, groupKey) {
-        this.sid = sid;
+    var _SessionItem = function(members, groupKey) {
         this.members = members;
         this.groupKeys = [groupKey];
     };
@@ -140,9 +135,9 @@ define([
      *     Group key of the new session.
      */
     SessionTracker.prototype.addSession = function(sid, members, groupKey) {
-        this.sessions[sid] = new _SessionItem(sid, members, groupKey);
+        this.sessions[sid] = new _SessionItem(members, groupKey);
         this.sessionIDs.unshift(sid);
-        // Check for bufffer size overflow.
+        // Check for buffer size overflow.
         var maxSize = this.maxSizeFunc();
         if (this.sessionIDs.length > maxSize) {
             if (this.drop) {

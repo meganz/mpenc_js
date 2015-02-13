@@ -127,13 +127,17 @@ define([
      * @constructor
      * @param id {string}
      *     Member's identifier string.
+     * @param name {string}
+     *     Name of this handler (e. g. the chat room name).
      * @param privKey {string}
      *     This participant's static/long term private key.
      * @param pubKey {string}
      *     This participant's static/long term public key.
      * @param staticPubKeyDir {object}
-     *     An object with a `get(key)` method, returning the static public key of
-     *     indicated by member ID `ky`.
+     *     An object with a `get(key)` method, returning the static public key
+     *     of indicated by member ID `key`.
+     * @param sessionTracker {mpenc.session.SessionTracker}
+     *     Tracker for (sub-) session related information.
      * @param queueUpdatedCallback {Function}
      *      A callback function, that will be called every time something was
      *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
@@ -149,6 +153,8 @@ define([
      *
      * @property id {string}
      *     Member's identifier string.
+     * @property name {string}
+     *     Name of this handler (e. g. the chat room name).
      * @property privKey {string}
      *     This participant's static/long term private key.
      * @property pubKey {string}
@@ -170,6 +176,8 @@ define([
      *      participant ID.
      * @property cliquesMember {CliquesMember}
      *     Reference to CLIQUES protocol handler with the same participant ID.
+     * @property sessionTracker {mpenc.session.SessionTracker}
+     *     Tracker for (sub-) session related information.
      * @property state {integer}
      *     Current state of the mpENC protocol handler according to {STATE}.
      * @property recovering {bool}
@@ -180,13 +188,16 @@ define([
      *     exponentialPadding, power of two exponential padding sizes will be
      *     used.
      */
-    ns.ProtocolHandler = function(id, privKey, pubKey, staticPubKeyDir,
+    ns.ProtocolHandler = function(id, name, privKey, pubKey, staticPubKeyDir,
+                                  sessionTracker,
                                   queueUpdatedCallback, stateUpdatedCallback,
                                   exponentialPadding) {
         this.id = id;
+        this.name = name;
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
+        this.sessionTracker = sessionTracker;
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
@@ -254,9 +265,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker)
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -304,9 +316,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -374,9 +387,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -428,9 +442,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -478,9 +493,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -523,9 +539,10 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent, null,
+                message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey),
+                                             this.askeMember.ephemeralPubKey,
+                                             this.sessionTracker),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -642,10 +659,12 @@ define([
                         signingPubKey = this.askeMember.ephemeralPubKey;
                     }
                     decodedMessage = codec.decodeMessageContent(classify.content,
-                                                                this.cliquesMember.groupKey.substring(0, 16),
-                                                                signingPubKey);
+                                                                signingPubKey,
+                                                                this.sessionTracker);
                 } else {
-                    decodedMessage = codec.decodeMessageContent(classify.content);
+                    decodedMessage = codec.decodeMessageContent(classify.content,
+                                                                undefined,
+                                                                this.sessionTracker);
                 }
 
                 // This is an mpenc.greet message.
@@ -660,9 +679,10 @@ define([
                     var outMessage = {
                         from: this.id,
                         to: outContent.dest,
-                        message: codec.encodeMessage(outContent, null,
+                        message: codec.encodeMessage(outContent,
                                                      this.askeMember.ephemeralPrivKey,
-                                                     this.askeMember.ephemeralPubKey),
+                                                     this.askeMember.ephemeralPubKey,
+                                                     this.sessionTracker),
                     };
                     this.protocolOutQueue.push(outMessage);
                     this.queueUpdatedCallback(this);
@@ -686,8 +706,8 @@ define([
                 // Let's crack this baby open.
                 var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
                 decodedMessage = codec.decodeMessageContent(classify.content,
-                                                            this.cliquesMember.groupKey.substring(0, 16),
-                                                            signingPubKey);
+                                                            signingPubKey,
+                                                            this.sessionTracker);
 
                 if (decodedMessage.signatureOk === false) {
                     // Signature failed, abort!
@@ -787,9 +807,9 @@ define([
             to: '',
             metadata: metadata,
             message: codec.encodeMessage(messageContent,
-                                         this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
                                          this.askeMember.ephemeralPubKey,
+                                         this.sessionTracker,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -830,9 +850,9 @@ define([
             to: to,
             metadata: metadata,
             message: codec.encodeMessage(messageContent,
-                                         this.cliquesMember.groupKey.substring(0, 16),
                                          this.askeMember.ephemeralPrivKey,
                                          this.askeMember.ephemeralPubKey,
+                                         this.sessionTracker,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -1040,7 +1060,7 @@ define([
         if ((signatureString.length >= 0) && (pubKey !== undefined)) {
             var cutOffPos = content.indexOf(':');
             var data = content.substring(cutOffPos + 1);
-            result.signatureOk = codec.verifyDataMessage(data,
+            result.signatureOk = codec.verifyDataMessage('errormsgsig' + data,
                                                          signatureString,
                                                          pubKey);
         }
