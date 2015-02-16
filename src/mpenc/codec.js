@@ -35,9 +35,9 @@ define([
     var logger = MegaLogger.getLogger('codec', undefined, 'mpenc');
 
     /*
-     * Created: 19 Mar 2014 Guy K. Kloss <gk@mega.co.nz>
+     * Created: 19 Mar 2014-2015 Guy K. Kloss <gk@mega.co.nz>
      *
-     * (c) 2014 by Mega Limited, Wellsford, New Zealand
+     * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/
      *
      * This file is part of the multi-party chat encryption suite.
@@ -85,8 +85,6 @@ define([
      *     Binary signature string for the message
      * @property signatureOk {bool}
      *     Indicator whether the message validates. after message decoding.
-     *     (Has to be done at time of message decoding as the symmetric block
-     *     cipher employs padding.)
      * @property rawMessage {string}
      *     The raw message, after splitting off the signature. Can be used to
      *     re-verify the signature, if needed.
@@ -1224,7 +1222,8 @@ define([
         // Prepend length in bytes to message.
         _assert(dataBytes.length < 0xffff,
                 'Message size too large for encryption scheme.');
-        dataBytes = ns._short2bin(dataBytes.length) + dataBytes;
+        // One NULL byte added by default as a canary for trial decryption.
+        dataBytes = ns._short2bin(dataBytes.length) + dataBytes + '\u0000';
         if (paddingSize) {
             // Compute exponential padding size.
             var exponentialPaddingSize = paddingSize

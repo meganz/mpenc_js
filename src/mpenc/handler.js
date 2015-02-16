@@ -36,7 +36,7 @@ define([
     var logger = MegaLogger.getLogger('handler', undefined, 'mpenc');
 
     /*
-     * Created: 27 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
+     * Created: 27 Feb 2014-2015 Guy K. Kloss <gk@mega.co.nz>
      *
      * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/
@@ -398,6 +398,9 @@ define([
 
         if (this.askeMember.isSessionAcknowledged()) {
             this.state = ns.STATE.READY;
+            this.sessionTracker.update(this.askeMember.sessionId,
+                                       this.askeMember.members,
+                                       this.cliquesMember.groupKey.substring(0, 16));
             this.recovering = false;
             this.stateUpdatedCallback(this);
         }
@@ -489,6 +492,9 @@ define([
         this.stateUpdatedCallback(this);
 
         var outContent = this._refresh();
+        this.sessionTracker.update(this.askeMember.sessionId,
+                                   this.askeMember.members,
+                                   this.cliquesMember.groupKey.substring(0, 16));
         if (outContent) {
             var outMessage = {
                 from: this.id,
@@ -1018,6 +1024,9 @@ define([
         if (this.askeMember.isSessionAcknowledged()) {
             // We have seen and verified all broadcasts from others.
             newState = ns.STATE.READY;
+            this.sessionTracker.update(this.askeMember.sessionId,
+                                       this.askeMember.members,
+                                       this.cliquesMember.groupKey.substring(0, 16));
             logger.debug('Reached READY state.');
             this.recovering = false;
         }

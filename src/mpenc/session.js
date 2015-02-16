@@ -135,6 +135,13 @@ define([
      *     Group key of the new session.
      */
     SessionTracker.prototype.addSession = function(sid, members, groupKey) {
+        if (this.sessionIDs.indexOf(sid) >= 0) {
+            var message = 'Attept to add a session with an already existing ID on '
+                        + this.name + '.';
+            logger.error(message);
+            throw new Error(message)
+        }
+
         this.sessions[sid] = new _SessionItem(members, groupKey);
         this.sessionIDs.unshift(sid);
         // Check for buffer size overflow.
@@ -165,7 +172,17 @@ define([
      *     New group key of the session.
      */
     SessionTracker.prototype.addGroupKey = function(sid, groupKey) {
-        this.sessions[sid].groupKeys.unshift(groupKey);
+        if (this.sessions[sid].groupKeys.indexOf(groupKey) >= 0) {
+            logger.info(this.name
+                        + ' ignores adding a group key already tracked.');
+        } else {
+            this.sessions[sid].groupKeys.unshift(groupKey);
+            if (this.sessionIDs.indexOf(sid) > 0) {
+                // Not the most current session.
+                logger.warn('New group key added to non-current session on '
+                            + this.name + '.');
+            }
+        }
     };
 
 
@@ -179,6 +196,52 @@ define([
     SessionTracker.prototype.addGroupKeyLastSession = function(groupKey) {
         var sid = this.sessionIDs[0];
         this.addGroupKey(sid, groupKey);
+    };
+
+
+    /**
+     * Updates the tracker with the new given session information. If the
+     * session ID is previously unknown, a new {_SessionItem} will be added,
+     * otherwise only the new group key will be added.
+     *
+     * @method
+     * @param sid {string}
+     *     Session ID.
+     * @param members {array}
+     *     Array of participants.
+     * @param groupKey {string}
+     *     Group key of the session.
+     * @throws
+     *     Error if the participants list mismatches for an existing session ID.
+     */
+    SessionTracker.prototype.update = function(sid, members, groupKey) {
+        if (this.sessionIDs.indexOf(sid) >= 0) {
+            // Session already tracked.
+            _assert(utils.arrayEqual(members, this.sessions[sid].members),
+                    'Attept to update ' + this.name
+                    + ' with mis-matching members for a sesssion.')
+            this.addGroupKey(sid, groupKey);
+        } else {
+            this.addSession(sid, members, groupKey);
+        }
+
+//        this.sessions[sid] = new _SessionItem(members, groupKey);
+//        this.sessionIDs.unshift(sid);
+//        // Check for buffer size overflow.
+//        var maxSize = this.maxSizeFunc();
+//        if (this.sessionIDs.length > maxSize) {
+//            if (this.drop) {
+//                var droppedID = this.sessionIDs.pop();
+//                var dropped = this.sessions[droppedID];
+//                delete this.sessions[droppedID];
+//                logger.warn(this.name + ' DROPPED session ' + droppedID +
+//                            ' at size ' + maxSize + ', potential data loss.');
+//            } else {
+//                logger.info(this.name + ' is '
+//                            + (this.sessionIDs.length - maxSize)
+//                            + ' items over expected capacity.');
+//            }
+//        }
     };
 
 

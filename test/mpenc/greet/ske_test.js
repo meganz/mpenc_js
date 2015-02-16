@@ -16,9 +16,9 @@ define([
     "use strict";
 
     /*
-     * Created: 5 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
+     * Created: 5 Feb 2014-2015 Guy K. Kloss <gk@mega.co.nz>
      *
-     * (c) 2014 by Mega Limited, Wellsford, New Zealand
+     * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/
      *
      * This file is part of the multi-party chat encryption suite.

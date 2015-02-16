@@ -6,9 +6,9 @@
 "use strict";
 
 /*
- * Created: 4 March 2014 Guy K. Kloss <gk@mega.co.nz>
+ * Created: 4 March 2014-2015 Guy K. Kloss <gk@mega.co.nz>
  *
- * (c) 2014 by Mega Limited, Wellsford, New Zealand
+ * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
  *     http://mega.co.nz/
  *
  * This file is part of the multi-party chat encryption suite.
@@ -90,14 +90,14 @@ _td.SESSION_TRACKER.sessions[_td.SESSION_ID] = {
     members: ['Moe', 'Larry', 'Curly'],
     groupKeys: [_td.GROUP_KEY]
 };
-_td.DATA_MESSAGE_STRING = atob('AAMAQL/hu//NEcK6sjiJwaOGXna5TiV+ef6qExgj+osk3v'
-                               + 'M72aqawaSkz4IDFcg0I426cKxbwevmp3XGTZ7W5qwjjQ'
-                               + 'gAAQABAQAFAAIAAAAGAAEeAAQADDZOnKWdoozZIZdrrg'
-                               + 'ACAAWxl8xfIw==');
-_td.DATA_MESSAGE_STRING2 = atob('AAMAQNUfLhFbO6XDhqqrfsCrn7NKJiSdDEe3MsZxVonb+'
-                                + 'GnYBWEyzsem/q2TsOQNUKxPIn4oVa92gaQSsSI2oD4r'
-                                + 'RQQAAQABAQAFAAIAAAAGAAG/AAQADP5k0yhFSYKaM78'
-                                + 'BpQACAAU+4WcIFg==');
+_td.DATA_MESSAGE_STRING = atob('AAMAQCuj/W04vRzi9ar2nyDnsUtHmiEtcnzYJORAxlOTHt'
+                               + 'mvcYiRKuQXu6+1kkx16voyRAwA5hkdYRVZ/dLb0GEJvQ'
+                               + 'oAAQABAQAFAAIAAAAGAAEeAAQADK00lJMewJ7o5VbR0w'
+                               + 'ACAAbbViMfRZQ=');
+_td.DATA_MESSAGE_STRING2 = atob('AAMAQPVrdJGTL3/EPdGndFnZ9ZjU5PxgmIcOnMdhlbXcG'
+                                + 'tuPVLffxcbrrYmjKfbApzzg0mBomMkXUQSfM1LY6l4Q'
+                                + 'iwUAAQABAQAFAAIAAAAGAAG/AAQADGaAB/HRw33HTjt'
+                                + 'lGwACAAbx74avJBU=');
 _td.DATA_MESSAGE_STRING32 = atob('AAMAQF3sF53fi4q3bc5xHVa3zGXm2xckdnJeMHAlp4xp'
                                  + 'rKmfdYlAG7fjzl2ptFJ5wHt/CZ3hDZ9QMT4ERLTwJ1'
                                  + 'vkPwQAAQABAQAFAAIAAAAGAAEeAAQADJARwQ67xb2h'

@@ -23,13 +23,15 @@
 
 define([
     "mpenc/session",
+    "mpenc/helper/utils",
     "megalogger",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, MegaLogger, chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
+], function(ns, utils, MegaLogger,
+            chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
     var assert = chai.assert;
@@ -71,6 +73,21 @@ define([
                                      members: members,
                                      groupKeys: ['silly walk'] }});
                 assert.strictEqual(maxSizeFunc.callCount, 1);
+            });
+
+            it('add an existing session', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
+                tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+                var members = ['Crab', 'Goyle'];
+                var groupKey = 'foo';
+                var errorMessage = 'Attept to add a session with an already existing ID on classic combos.';
+                assert.throws(function() { tracker.addSession(_td.SESSION_ID, members, groupKey); },
+                              errorMessage);
+                assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
+                assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
+                var log = MegaLogger._logRegistry.session._log.getCall(0).args;
+                assert.deepEqual(log, [40, [errorMessage]]);
             });
 
             it('add a session, buffer exceeds, dropping one', function() {
@@ -126,6 +143,35 @@ define([
                                      members: members,
                                      groupKeys: ['David Tennant', 'Chris Eccleston'] }});
             });
+
+            it('duplicate group key for existing session', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
+                tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+                var members = ['Moe', 'Larry', 'Curly'];
+                var groupKey = _td.GROUP_KEY;
+                tracker.addGroupKey(_td.SESSION_ID, groupKey);
+                assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
+                assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
+                var log = MegaLogger._logRegistry.session._log.getCall(0).args;
+                assert.deepEqual(log, [20, ['classic combos ignores adding a group key already tracked.']]);
+            });
+
+            it('new group key for non-latest session', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
+                tracker.sessionIDs.unshift('TARDIS');
+                tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+                tracker.sessions['TARDIS'] = {
+                    members: ['The Doctor', 'Rose Tyler'],
+                    groupKeys: ['Gallifrey']
+                };
+                tracker.addGroupKey(_td.SESSION_ID, 'foo');
+                assert.lengthOf(tracker.sessions[_td.SESSION_ID].groupKeys, 2);
+                assert.strictEqual(tracker.sessions[_td.SESSION_ID].groupKeys[0], 'foo');
+                var log = MegaLogger._logRegistry.session._log.getCall(0).args;
+                assert.deepEqual(log, [30, ['New group key added to non-current session on classic combos.']]);
+            });
         });
 
         describe('#addGroupKeyLastSession method', function() {
@@ -142,6 +188,45 @@ define([
                                  {'Series 1': {
                                      members: members,
                                      groupKeys: ['David Tennant', 'Chris Eccleston'] }});
+            });
+        });
+
+        describe('#update method', function() {
+            it('new session', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                var members = ['Moe', 'Larry', 'Curly'];
+                var groupKey = _td.GROUP_KEY;
+                tracker.update(_td.SESSION_ID, members, groupKey);
+                assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
+                assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
+            });
+
+            it('new group key only', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
+                tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+                var members = ['Moe', 'Larry', 'Curly'];
+                var groupKey = 'foo';
+                tracker.update(_td.SESSION_ID, members, groupKey);
+                assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
+                assert.lengthOf(tracker.sessions[_td.SESSION_ID].groupKeys, 2);
+                assert.strictEqual(tracker.sessions[_td.SESSION_ID].groupKeys[0], 'foo');
+            });
+
+            it('mismatching participants', function() {
+                var tracker = new ns.SessionTracker('classic combos', stub());
+                tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
+                tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+                var members = ['Crab', 'Goyle'];
+                var groupKey = 'foo';
+                var errorMessage = 'Attept to update classic combos with mis-matching members for a sesssion.';
+                sandbox.stub(MegaLogger._logRegistry.assert, '_log');
+                assert.throws(function() { tracker.update(_td.SESSION_ID, members, groupKey); },
+                              errorMessage);
+                assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
+                assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
+                var log = MegaLogger._logRegistry.assert._log.getCall(0).args;
+                assert.deepEqual(log, [40, [errorMessage]]);
             });
         });
     });
