@@ -208,7 +208,8 @@ define([
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
         // Sanity check.
-        _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
+        _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir
+                && this.sessionTracker,
                 'Constructor call missing required parameters.');
 
         // Make protocol handlers for sub tasks.
@@ -656,7 +657,7 @@ define([
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 var decodedMessage = null;
-                if (this.cliquesMember.groupKey) {
+                if (this.askeMember.ephemeralPubKey) {
                     // In case of a key refresh (groupKey existent),
                     // the signing pubKeys won't be part of the message.
                     var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
