@@ -1187,6 +1187,14 @@ define([
         return newMessage;
     };
 
+    /**
+     *
+     */
+    function messageIdFunc(message) {
+        var categorised = codec.categoriseMessage(message);
+        return utils.sha256(categorised.content);
+    }
+    ns.messageIdFunc = messageIdFunc;
 
 
     return ns;
