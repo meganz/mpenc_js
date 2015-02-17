@@ -741,12 +741,12 @@ define([
         }
 
         // Some specifics depending on the type of mpENC message.
+        var sidkeyHash = '';
         if (out.data) {
             // Checking of session/group key.
             var keyCount = sessionTracker.sessions[sessionID].groupKeys.length - 1;
-            var sidkeyHint = utils.sha256(sessionID
-                                          + String.fromCharCode(keyCount & 0xff))[0];
-            _assert(out.sidkeyHint === sidkeyHint,
+            sidkeyHash = utils.sha256(sessionID + groupKey);
+            _assert(out.sidkeyHint === sidkeyHash[0],
                     'Session ID/group key hint mismatch.');
 
             // Some further crypto processing on data messages.
@@ -773,7 +773,7 @@ define([
             }
 
             var dataPrefix = (out.messageType === ns.MESSAGE_TYPE.PARTICIPANT_DATA)
-                           ? 'datamsgsig' : 'protomsgsig';
+                           ? 'datamsgsig' + sidkeyHash : 'protomsgsig';
             try {
                 out.signatureOk = ns.verifyDataMessage(dataPrefix + out.rawMessage,
                                                        out.signature,
@@ -1043,33 +1043,40 @@ define([
      */
     ns.encodeMessageContent = function(message, privKey, pubKey,
                                        sessionTracker, paddingSize) {
-        var out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
+        var out = '';
         if (typeof(message) === 'string' || message instanceof String) {
-            // We're dealing with a message containing user content.
-            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE,
-                                ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+            // We want message attributes in this order:
+            // sid/key hint, message signature, protocol version, message type,
+            // iv, message data
             var sessionID = sessionTracker.sessionIDs[0];
             var groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
-            var keyCount = sessionTracker.sessions[sessionID].groupKeys.length - 1;
+
+            // Three portions: unsigned content (hint), signature, rest.
+            // Compute info for the SIDKEY_HINT and signature.
+            var sidkeyHash = utils.sha256(sessionID + groupKey);
+
+            // Rest (protocol version, message type, iv, message data).
+            var content = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION,
+                                       version.PROTOCOL_VERSION);
+            content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE,
+                                    ns.MESSAGE_TYPE.PARTICIPANT_DATA);
             var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
+            content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
+            content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
 
-            // We want message attributes in this order:
-            // sid/key hint, signature, protocol version, iv, message data
-            var sidkeyHint = utils.sha256(sessionID
-                                          + String.fromCharCode(keyCount & 0xff))[0];
-            out += ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHint);
-            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-            out += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
-
-            // Sign `out` and prepend signature.
-            var signature = ns.signDataMessage('datamsgsig' + out,
+            // Compute the content signature.
+            var signature = ns.signDataMessage('datamsgsig' + sidkeyHash + content,
                                                privKey, pubKey);
-            out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
+
+            // Assemble everything.
+            out = ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
+            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature);
+            out += content;
         } else {
+            out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
             // Process message attributes in this order:
             // messageType, source, dest, members, intKeys, nonces, pubKeys,
             // sessionSignature, signingKey
-
             out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, message.messageType);
             out += ns.encodeTLV(ns.TLV_TYPE.SOURCE, message.source);
             out += ns.encodeTLV(ns.TLV_TYPE.DEST, message.dest);
@@ -1222,8 +1229,7 @@ define([
         // Prepend length in bytes to message.
         _assert(dataBytes.length < 0xffff,
                 'Message size too large for encryption scheme.');
-        // One NULL byte added by default as a canary for trial decryption.
-        dataBytes = ns._short2bin(dataBytes.length) + dataBytes + '\u0000';
+        dataBytes = ns._short2bin(dataBytes.length) + dataBytes;
         if (paddingSize) {
             // Compute exponential padding size.
             var exponentialPaddingSize = paddingSize

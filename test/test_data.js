@@ -90,19 +90,19 @@ _td.SESSION_TRACKER.sessions[_td.SESSION_ID] = {
     members: ['Moe', 'Larry', 'Curly'],
     groupKeys: [_td.GROUP_KEY]
 };
-_td.DATA_MESSAGE_STRING = atob('AAMAQCuj/W04vRzi9ar2nyDnsUtHmiEtcnzYJORAxlOTHt'
-                               + 'mvcYiRKuQXu6+1kkx16voyRAwA5hkdYRVZ/dLb0GEJvQ'
-                               + 'oAAQABAQAFAAIAAAAGAAEeAAQADK00lJMewJ7o5VbR0w'
-                               + 'ACAAbbViMfRZQ=');
-_td.DATA_MESSAGE_STRING2 = atob('AAMAQPVrdJGTL3/EPdGndFnZ9ZjU5PxgmIcOnMdhlbXcG'
-                                + 'tuPVLffxcbrrYmjKfbApzzg0mBomMkXUQSfM1LY6l4Q'
-                                + 'iwUAAQABAQAFAAIAAAAGAAG/AAQADGaAB/HRw33HTjt'
-                                + 'lGwACAAbx74avJBU=');
-_td.DATA_MESSAGE_STRING32 = atob('AAMAQF3sF53fi4q3bc5xHVa3zGXm2xckdnJeMHAlp4xp'
-                                 + 'rKmfdYlAG7fjzl2ptFJ5wHt/CZ3hDZ9QMT4ERLTwJ1'
-                                 + 'vkPwQAAQABAQAFAAIAAAAGAAEeAAQADJARwQ67xb2h'
-                                 + 'Heb0WQACACCffusYJDfzfIN0nlpu7v7lPYP5w79qKO'
-                                 + '5njo12kG9fyQ==');
+_td.DATA_MESSAGE_STRING = atob('AAYAAVQAAwBAaLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17M'
+                               + 'Td1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/Q'
+                               + 'xskpTHBwABAAEBAAUAAgAAAAQADKqt+v306FvmeyO2+Q'
+                               + 'ACAAVpTrLyDw==');
+_td.DATA_MESSAGE_STRING2 = atob('AAYAAVQAAwBAGMIykFfRoNU9dFHGAUNRxMLSyRXC/7dQD'
+                                + 'zUgtGZIVXUKN3qRbXqgM25Svcnx65gHeGk5i283yXJ7'
+                                + 'BvWn7LmPCwABAAEBAAUAAgAAAAQADHG7NwPQuYjNyTl'
+                                + 'uCwACAAV3yWhC0A==');
+_td.DATA_MESSAGE_STRING32 = atob('AAYAAVQAAwBAGsqBp4p3VhODEBmaopnopJVPcg9hagE2'
+                                 + 'HwaWinItoz2Rpj6ILojWLpTWVB53ruK5wrAuEZ+oKB'
+                                 + 'ZqA75QTFcSCAABAAEBAAUAAgAAAAQADJoa55Rwav0Z'
+                                 + 'HN+wWgACACBqKW02hYZ55ZgtjOq9Q0GkLYXEMmAYgj'
+                                 + 'y06IRKaJqR0w==');
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',

@@ -264,10 +264,9 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      sessionTracker);
                 // 4 TLVs with 109 bytes:
-                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
-                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 6)
-                // (incl. length and extra NULL)
-                assert.lengthOf(result, 110);
+                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
+                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
+                assert.lengthOf(result, 109);
             });
 
             it('data message with second group key', function() {
@@ -284,10 +283,9 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      sessionTracker);
                 // 4 TLVs with 109 bytes:
-                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
-                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 6)
-                // (incl. length and extra NULL)
-                assert.lengthOf(result, 110);
+                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
+                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
+                assert.lengthOf(result, 109);
             });
 
             it('data message with exponential padding', function() {
@@ -303,8 +301,8 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      sessionTracker, 32);
                 // 4 TLVs with 136 bytes:
-                // signature (4 + 64), protocol v (4 + 1), msg. type (4 + 2),
-                // sid/key hint (4 + 1), IV (4 + 12), encr. message (4 + 32)
+                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
+                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
                 assert.lengthOf(result, 136);
             });
         });
@@ -404,12 +402,12 @@ define([
 
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['messageSignature: K6P9bTi9HOL1qvafIOexS0eaIS1yfNgk5EDGU5Me2a9xiJEq5Be7r7WSTHXq+jJEDADmGR1hFVn90tvQYQm9Cg==',
+                                           ['sidkeyHint: 0x54',
+                                            'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
                                             'protocol: 1',
                                             'messageType: 0x0 (PARTICIPANT_DATA)',
-                                            'sidkeyHint: 0x1e',
-                                            'messageIV: rTSUkx7AnujlVtHT',
-                                            'rawDataMessage: 21YjH0WU',
+                                            'messageIV: qq36/fToW+Z7I7b5',
+                                            'rawDataMessage: aU6y8g8=',
                                             'decryptDataMessage: foo']]]);
             });
 
@@ -591,14 +589,14 @@ define([
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H3l',
-                            '6H/R1sI=',
-                            '6HGhi6z7+lgyR6wtKsss',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZ',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw=',
-                            '6HexIFGySvliTa0hSQ==',
-                            '6G2tJ2ay/R0uBuRkDphJAkEVGQ==',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0Rw=='];
+            var expected = ['6H0=',
+                            '6H/R1g==',
+                            '6HGhi6z7+lgyR6wtKss=',
+                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
+                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
+                            '6HexIFGySvliTa0h',
+                            '6G2tJ2ay/R0uBuRkDphJAkEV',
+                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key);
@@ -640,14 +638,14 @@ define([
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H3l',
-                            '6H/R1sI=',
-                            '6HGhi6z7+lgyR6wtKsss',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZ',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw=',
-                            '6HexIFGySvliTa0hSQ==',
-                            '6G2tJ2ay/R0uBuRkDphJAkEVGQ==',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0Rw=='];
+            var expected = ['6H0=',
+                            '6H/R1g==',
+                            '6HGhi6z7+lgyR6wtKss=',
+                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
+                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
+                            '6HexIFGySvliTa0h',
+                            '6G2tJ2ay/R0uBuRkDphJAkEV',
+                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
             sandbox.stub(utils, '_newKey08').returns(iv);
             for (var i = 0; i < tests.length; i++) {
                 var result = ns.encryptDataMessage(tests[i], key, paddingSize);

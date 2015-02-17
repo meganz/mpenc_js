@@ -94,6 +94,33 @@ define([
         return participants[index];
     }
 
+    describe("module level", function() {
+        describe('messageIdFunc as paramIdFunc', function() {
+            it('simple ID of message', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: 'foo' }
+                );
+                sandbox.stub(utils, 'sha256', _echo);
+                var message = { from: 'somebody',
+                                to: 'someone else',
+                                message: _td.DATA_MESSAGE_STRING };
+                assert.strictEqual(ns.messageIdFunc(message), 'foo');
+                assert.strictEqual(codec.categoriseMessage.callCount, 1);
+                assert.strictEqual(utils.sha256.callCount, 1);
+            });
+        });
+
+//        describe('messageSignerFunc as tryFunc', function() {
+//            it('succeeding try func', function() {
+//                assert.strictEqual(ns.messageSignerFunc(pending, message), true);
+//                // * function has a list of members and a list of pub keys
+//                // * tries each one
+//                // * if one succeeds, returns `true`
+//            });
+//        });
+    });
+
     describe("ProtocolHandler class", function() {
         describe('constructor', function() {
             it('fails for missing params', function() {
@@ -1288,7 +1315,7 @@ define([
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 192);
+                assert.lengthOf(participant.messageOutQueue[0].message, 188);
                 assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
