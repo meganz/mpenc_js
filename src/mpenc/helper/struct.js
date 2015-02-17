@@ -94,7 +94,9 @@ define([
      * @memberOf! module:mpenc/helper/struct
      */
     var ImmutableSet = function(iterable) {
-        if (!(this instanceof ImmutableSet)) return new ImmutableSet(iterable);
+        if (!(this instanceof ImmutableSet)) {
+            return new ImmutableSet(iterable);
+        }
 
         var items = new Set(iterable);
 
@@ -267,14 +269,17 @@ define([
 
 
     /**
-     * A function that performs the actual trial.
+     * A TrialTarget is an object implementing some interface methods that a
+     * {@link TrialBuffer} operates on.
      *
-     * <p>This function may also alter the state of `param`, to which then can
-     * be used to further treat the object upon a successful trial. afterwards.
-     * However, it must be ensured, that the object's identification through
-     * the {paramIdFunc} function will remain identical.</p>
+     * @interface
+     * @name TrialTarget
+     */
+
+    /**
+     * This method performs the actual trial.
      *
-     * @callback tryFunc
+     * @method TrialTarget#tryMe
      * @param pending {boolean}
      *     Set to `true` if the params are already on the queue (i.e. was seen
      *     before). Note: `false` does not necessarily mean it was *never* seen
@@ -284,27 +289,24 @@ define([
      * @returns {boolean}
      *     `true` if processing succeeds, otherwise `false`.
      */
-
     /**
-     * A function to determine the buffer capacity.
+     * This method determines the buffer capacity. It takes no parameters.
      *
-     * It takes no parameters.
-     *
-     * @callback maxSizeFunc
+     * @method TrialTarget#maxSize
      * @returns {integer}
      *     Number of allowed elements in the buffer.
      */
-
     /**
-     * A function to determine parameter's identifier.
+     * This method determines a parameter's identifier.
      *
-     * @callback paramIdFunc
+     * @method TrialTarget#paramId
      * @param param {object}
      *     The parameter to find an identifier for.
      * @returns {string}
      *     Identifier that can be used as the key in an {object} to index the
      *     parameters in the buffer, usually a {string}.
      */
+
 
     /**
      * A TrialBuffer holds data items ("parameters") that failed to be accepted
@@ -317,35 +319,25 @@ define([
      * @constructor
      * @param name {string}
      *     Name for this buffer, useful for debugging.
-     * @param maxSizeFunc {maxSizeFunc}
-     *     Function to determine the buffer capacity.
-     * @param tryFunc {tryFunc}
-     *     The function performing the actual trial decryption.
-     * @param paramIdFunc {tryFunc}
-     *     A function returning a parameter's ID usable for the buffer storage.
+     * @param target {TrialTarget}
+     *     An object satisfying the TrialTarget interface, to apply trials to.
      * @param drop {boolean}
      *     Whether to drop items that overflow the buffer according to
-     *     maxSizeFunc, or merely log a warning that the buffer is over
+     *     #maxSize, or merely log a warning that the buffer is over
      *     capacity (optional, default: true).
      * @returns {module:mpenc/helper/struct.TrialBuffer}
      * @memberOf! module:mpenc/helper/struct#
      *
      * @property name {string}
      *     Name of trial buffer.
-     * @property maxSizeFunc {maxSizeFunc}
-     *     Callback function to determine the max sizing of the buffer.
-     * @property tryFunc {tryFunc}
-     *     Callback function to perform the actual trial.
-     * @property paramIdFunc {paramIdFunc}
-     *     Callback to determine a suitable ID for a parameter.
+     * @property target {TrialTarget}
+     *     An object satisfying the TrialTarget interface, to apply trials to.
      * @property drop {boolean}
      *     Whether to drop parameters beyond the sizing of the buffer.
      */
-    var TrialBuffer = function(name, maxSizeFunc, tryFunc, paramIdFunc, drop) {
+    var TrialBuffer = function(name, target, drop) {
         this.name = name || '';
-        this.maxSizeFunc = maxSizeFunc;
-        this.tryFunc = tryFunc;
-        this.paramIdFunc = paramIdFunc;
+        this.target = target;
         if (drop === undefined) {
             this.drop = true;
         } else {
@@ -356,9 +348,6 @@ define([
         // in the buffer.
         this._bufferIDs = [];
     };
-
-    /** @class
-     * @see module:mpenc/helper/struct#TrialBuffer */
     ns.TrialBuffer = TrialBuffer;
 
 
@@ -377,12 +366,12 @@ define([
      * If it succeeds, also try to accept previously-stashed parameters.
      *
      * @param param {object}
-     *     Paremeter to be tried.
+     *     Parameter to be tried.
      * @returns {boolean}
      *     `true` if the processing succeeded.
      */
     TrialBuffer.prototype.trial = function(param) {
-        var paramID = this.paramIdFunc(param);
+        var paramID = this.target.paramId(param);
         var pending = this._buffer.hasOwnProperty(paramID);
         // Remove from buffer, if already there.
         if (pending === true) {
@@ -390,15 +379,15 @@ define([
             // Remove entry from _buffer and _paramIDs.
             delete this._buffer[paramID];
             this._bufferIDs.splice(this._bufferIDs.indexOf(paramID), 1);
-            var olddupeID = this.paramIdFunc(param);
+            var olddupeID = this.target.paramId(param);
             if ((olddupeID !== paramID)
                     || (this._bufferIDs.indexOf(olddupeID) >= 0)) {
                 throw new Error('Parameter was not removed from buffer.');
             }
         }
 
-        // Apply the tryFunc.
-        if (this.tryFunc(pending, param)) {
+        // Apply `tryMe`.
+        if (this.target.tryMe(pending, param)) {
             // This is a bit inefficient when params have a known dependency
             // structure such as in the try-accept buffer; however we think the
             // additional complexity is not worth the minor performance gain.
@@ -410,7 +399,7 @@ define([
                 for (var i in this._bufferIDs) {
                     var itemID = this._bufferIDs[i];
                     var item = this._buffer[itemID];
-                    if (this.tryFunc(false, item)) {
+                    if (this.target.tryMe(false, item)) {
                         delete this._buffer[itemID];
                         this._bufferIDs.splice(this._bufferIDs.indexOf(itemID), 1);
                         logger.debug(this.name + ' unstashed ' + itemID);
@@ -424,7 +413,7 @@ define([
             this._buffer[paramID] = param;
             this._bufferIDs.push(paramID);
             logger.debug(this.name + verb + paramID);
-            var maxSize = this.maxSizeFunc();
+            var maxSize = this.target.maxSize();
             if (this._bufferIDs.length > maxSize) {
                 if (this.drop) {
                     var droppedID = this._bufferIDs.shift();
