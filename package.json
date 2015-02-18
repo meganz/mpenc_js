@@ -34,7 +34,7 @@
   "dependencies": {
     "jsbn": "*",
     "asmcrypto.js": "vibornoff/asmcrypto.js",
-    "es6-collections": "~0.3.4",
+    "es6-collections": "infinity0/es6-collections",
     "jodid25519": "meganz/jodid25519",
     "megalogger": "meganz/megalogger"
   },
