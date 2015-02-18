@@ -56,22 +56,25 @@ define([
                 assert.strictEqual(tracker.name, 'James');
                 assert.deepEqual(tracker.sessions, {});
                 assert.deepEqual(tracker.sessionIDs, []);
+                assert.deepEqual(tracker.pubKeyMap, {});
                 assert.strictEqual(tracker.drop, true);
             });
         });
 
         describe('#addSession method', function() {
-            it('simply add a first session', function() {
-                var members = ['Graham Chapman', 'John Cleese', 'Terry Gilliam',
-                               'Eric Idle', 'Terry Jones', 'Michael Palin'];
+            it('add a first session', function() {
+                var members = ['Moe', 'Larry', 'Curly'];
+                var pubKeys = ['Howard', 'Fine', 'Howard'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
                 var maxSizeFunc = stub();
-                var tracker = new ns.SessionTracker('Monty Python', maxSizeFunc);
-                tracker.addSession('good skit', members, 'silly walk');
-                assert.deepEqual(tracker.sessionIDs, ['good skit']);
+                var tracker = new ns.SessionTracker('Three Stooges', maxSizeFunc);
+                tracker.addSession('film debut', members, pubKeys, 'Soup to Nuts');
+                assert.deepEqual(tracker.sessionIDs, ['film debut']);
                 assert.deepEqual(tracker.sessions,
-                                 {'good skit': {
+                                 {'film debut': {
                                      members: members,
-                                     groupKeys: ['silly walk'] }});
+                                     groupKeys: ['Soup to Nuts'] }});
+                assert.deepEqual(tracker.pubKeyMap, pubKeysDir);
                 assert.strictEqual(maxSizeFunc.callCount, 1);
             });
 
@@ -79,10 +82,12 @@ define([
                 var tracker = new ns.SessionTracker('classic combos', stub());
                 tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
                 tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
-                var members = ['Crab', 'Goyle'];
+                var members = ['Vincent', 'Gregory'];
+                var pubKeys = ['Crabbe', 'Goyle'];
+                var pubKeysDir = {'Vincent': 'Crabbe', 'Gregory': 'Goyle'};
                 var groupKey = 'foo';
                 var errorMessage = 'Attept to add a session with an already existing ID on classic combos.';
-                assert.throws(function() { tracker.addSession(_td.SESSION_ID, members, groupKey); },
+                assert.throws(function() { tracker.addSession(_td.SESSION_ID, members, pubKeys, groupKey); },
                               errorMessage);
                 assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
                 assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
@@ -91,40 +96,45 @@ define([
             });
 
             it('add a session, buffer exceeds, dropping one', function() {
-                var members = ['Graham Chapman', 'John Cleese', 'Terry Gilliam',
-                               'Eric Idle', 'Terry Jones', 'Michael Palin'];
+                var members = ['Moe', 'Larry', 'Curly'];
+                var pubKeys = ['Howard', 'Fine', 'Howard'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
                 var maxSizeFunc = stub().returns(1);
-                var tracker = new ns.SessionTracker('Monty Python', maxSizeFunc);
-                tracker.sessions = {'good skit': {
-                                       members: members,
-                                       groupKeys: ['unladen swallow'] }};
-                tracker.sessionIDs = ['good skit'];
-                tracker.addSession('another good skit', members, 'silly walk');
-                assert.deepEqual(tracker.sessionIDs, ['another good skit']);
+                var tracker = new ns.SessionTracker('Three Stooges', maxSizeFunc);
+                tracker.sessionIDs = ['film debut'];
+                tracker.sessions = {'film debut': {
+                                         members: members,
+                                         groupKeys: ['Soup to Nuts'] }};
+                tracker.pubKeyMap = pubKeysDir;
+                tracker.addSession('second film', members, pubKeys, 'Nertsery Rhymes');
+                assert.deepEqual(tracker.sessionIDs, ['second film']);
                 assert.deepEqual(tracker.sessions,
-                                 {'another good skit': {
+                                 {'second film': {
                                      members: members,
-                                     groupKeys: ['silly walk'] }});
+                                     groupKeys: ['Nertsery Rhymes'] }});
+                assert.deepEqual(tracker.pubKeyMap, pubKeysDir);
                 assert.strictEqual(maxSizeFunc.callCount, 1);
                 var log = MegaLogger._logRegistry.session._log.getCall(0).args;
-                assert.deepEqual(log, [30, ['Monty Python DROPPED session good skit at size 1, potential data loss.']]);
+                assert.deepEqual(log, [30, ['Three Stooges DROPPED session film debut at size 1, potential data loss.']]);
             });
 
             it('add a session, buffer exceeds, no drop', function() {
-                var members = ['Graham Chapman', 'John Cleese', 'Terry Gilliam',
-                               'Eric Idle', 'Terry Jones', 'Michael Palin'];
+                var members = ['Moe', 'Larry', 'Curly'];
+                var pubKeys = ['Howard', 'Fine', 'Howard'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
                 var maxSizeFunc = stub().returns(1);
-                var tracker = new ns.SessionTracker('Monty Python', maxSizeFunc, false);
-                tracker.sessions = {'good skit': {
-                                       members: members,
-                                       groupKeys: ['unladen swallow'] }};
-                tracker.sessionIDs = ['good skit'];
-                tracker.addSession('another good skit', members, 'silly walk');
+                var tracker = new ns.SessionTracker('Three Stooges', maxSizeFunc, false);
+                tracker.sessionIDs = ['film debut'];
+                tracker.sessions = {'film debut': {
+                                         members: members,
+                                         groupKeys: ['Soup to Nuts'] }};
+                tracker.pubKeyMap = pubKeysDir;
+                tracker.addSession('second film', members, pubKeys, 'Nertsery Rhymes');
                 assert.lengthOf(tracker.sessionIDs, 2);
                 assert.lengthOf(Object.keys(tracker.sessions), 2);
                 assert.strictEqual(maxSizeFunc.callCount, 1);
                 var log = MegaLogger._logRegistry.session._log.getCall(0).args;
-                assert.deepEqual(log, [20, ['Monty Python is 1 items over expected capacity.']]);
+                assert.deepEqual(log, [20, ['Three Stooges is 1 items over expected capacity.']]);
             });
         });
 
@@ -195,8 +205,10 @@ define([
             it('new session', function() {
                 var tracker = new ns.SessionTracker('classic combos', stub());
                 var members = ['Moe', 'Larry', 'Curly'];
+                var pubKeys = ['Howard', 'Fine', 'Howard'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
                 var groupKey = _td.GROUP_KEY;
-                tracker.update(_td.SESSION_ID, members, groupKey);
+                tracker.update(_td.SESSION_ID, members, pubKeys, groupKey);
                 assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
                 assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);
             });
@@ -206,8 +218,10 @@ define([
                 tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
                 tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
                 var members = ['Moe', 'Larry', 'Curly'];
+                var pubKeys = ['Howard', 'Fine', 'Howard'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
                 var groupKey = 'foo';
-                tracker.update(_td.SESSION_ID, members, groupKey);
+                tracker.update(_td.SESSION_ID, members, pubKeys, groupKey);
                 assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
                 assert.lengthOf(tracker.sessions[_td.SESSION_ID].groupKeys, 2);
                 assert.strictEqual(tracker.sessions[_td.SESSION_ID].groupKeys[0], 'foo');
@@ -217,11 +231,13 @@ define([
                 var tracker = new ns.SessionTracker('classic combos', stub());
                 tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
                 tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
-                var members = ['Crab', 'Goyle'];
+                var members = ['Vincent', 'Gregory'];
+                var pubKeys = ['Crabbe', 'Goyle'];
+                var pubKeysDir = {'Vincent': 'Crabbe', 'Gregory': 'Goyle'};
                 var groupKey = 'foo';
                 var errorMessage = 'Attept to update classic combos with mis-matching members for a sesssion.';
                 sandbox.stub(MegaLogger._logRegistry.assert, '_log');
-                assert.throws(function() { tracker.update(_td.SESSION_ID, members, groupKey); },
+                assert.throws(function() { tracker.update(_td.SESSION_ID, members, pubKeys, groupKey); },
                               errorMessage);
                 assert.deepEqual(tracker.sessionIDs, _td.SESSION_TRACKER.sessionIDs);
                 assert.deepEqual(tracker.sessions, _td.SESSION_TRACKER.sessions);

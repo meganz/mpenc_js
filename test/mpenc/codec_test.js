@@ -310,7 +310,7 @@ define([
         describe("decodeMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY, {});
+                                                     _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
@@ -323,7 +323,7 @@ define([
 
             it('upflow message, debug on', function() {
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY, {});
+                                        _td.ED25519_PUB_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                            ['messageSignature: scAkAakFr5dC1DF4Ig+MJIyDbSszesDeG1xIjtXXmLdTnjmAxTjUdljZifIEkElVvJ8JqfjaxbUTrdo2m1MABA==',
@@ -338,7 +338,7 @@ define([
 
             it('downflow message for quit', function() {
                 var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY, {});
+                                                     _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
@@ -349,21 +349,14 @@ define([
                 var message = _td.UPFLOW_MESSAGE_STRING.substring(68, 72)
                             + String.fromCharCode(77)
                             + _td.UPFLOW_MESSAGE_STRING.substring(73);
-                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY, {}); },
+                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY); },
                               'Received wrong protocol version: 77');
             });
 
             it('data message', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -372,16 +365,9 @@ define([
             });
 
             it('data message with second group key', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY, 'foo']
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING2,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -390,16 +376,9 @@ define([
             });
 
             it('data message, debug on', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY, sessionTracker);
-
+                                        _td.ED25519_PUB_KEY,
+                                        _td.SESSION_ID, _td.GROUP_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                            ['sidkeyHint: 0x54',
@@ -412,16 +391,9 @@ define([
             });
 
             it('data message with exponential padding', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -434,16 +406,9 @@ define([
                 var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
                             + String.fromCharCode(77)
                             + _td.DATA_MESSAGE_STRING.substring(11);
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 assert.throws(function() { ns.decodeMessageContent(message,
                                                                    _td.ED25519_PUB_KEY,
-                                                                   sessionTracker); },
+                                                                   _td.SESSION_ID, _td.GROUP_KEY); },
                               'Signature of message does not verify');
             });
         });

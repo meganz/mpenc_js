@@ -122,6 +122,26 @@ define([
     ns.DEFAULT_EXPONENTIAL_PADDING = 128;
 
     /**
+     * An accessor object to "directory", which can be queried to retrieve a
+     * public static signing key of a participant ID.
+     *
+     * @interface
+     * @name PubKeyDir
+     */
+
+    /**
+     * This method performs the actual lookup and returns the public
+     * static signing key.
+     *
+     * @method PubKeyDir#get
+     * @param id {string}
+     *     Member ID to request the key for.
+     * @returns {string}
+     *     Requested key as a byte string.
+     */
+
+
+    /**
      * Implementation of a protocol handler with its state machine.
      *
      * @constructor
@@ -133,9 +153,8 @@ define([
      *     This participant's static/long term private key.
      * @param pubKey {string}
      *     This participant's static/long term public key.
-     * @param staticPubKeyDir {object}
-     *     An object with a `get(key)` method, returning the static public key
-     *     of indicated by member ID `key`.
+     * @param staticPubKeyDir {PubKeyDir}
+     *     Public key directory object.
      * @param sessionTracker {mpenc.session.SessionTracker}
      *     Tracker for (sub-) session related information.
      * @param queueUpdatedCallback {Function}
@@ -401,6 +420,7 @@ define([
             this.state = ns.STATE.READY;
             this.sessionTracker.update(this.askeMember.sessionId,
                                        this.askeMember.members,
+                                       this.askeMember.ephemeralPubKeys,
                                        this.cliquesMember.groupKey.substring(0, 16));
             this.recovering = false;
             this.stateUpdatedCallback(this);
@@ -495,6 +515,7 @@ define([
         var outContent = this._refresh();
         this.sessionTracker.update(this.askeMember.sessionId,
                                    this.askeMember.members,
+                                   this.askeMember.ephemeralPubKeys,
                                    this.cliquesMember.groupKey.substring(0, 16));
         if (outContent) {
             var outMessage = {
@@ -666,12 +687,9 @@ define([
                         signingPubKey = this.askeMember.ephemeralPubKey;
                     }
                     decodedMessage = codec.decodeMessageContent(classify.content,
-                                                                signingPubKey,
-                                                                this.sessionTracker);
+                                                                signingPubKey);
                 } else {
-                    decodedMessage = codec.decodeMessageContent(classify.content,
-                                                                undefined,
-                                                                this.sessionTracker);
+                    decodedMessage = codec.decodeMessageContent(classify.content);
                 }
 
                 // This is an mpenc.greet message.
@@ -712,9 +730,11 @@ define([
 
                 // Let's crack this baby open.
                 var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
+                var sessionID = this.sessionTracker.sessionIDs[0];
                 decodedMessage = codec.decodeMessageContent(classify.content,
                                                             signingPubKey,
-                                                            this.sessionTracker);
+                                                            sessionID,
+                                                            this.sessionTracker.sessions[sessionID].groupKeys[0]);
 
                 if (decodedMessage.signatureOk === false) {
                     // Signature failed, abort!
@@ -1027,6 +1047,7 @@ define([
             newState = ns.STATE.READY;
             this.sessionTracker.update(this.askeMember.sessionId,
                                        this.askeMember.members,
+                                       this.askeMember.ephemeralPubKeys,
                                        this.cliquesMember.groupKey.substring(0, 16));
             logger.debug('Reached READY state.');
             this.recovering = false;
@@ -1187,14 +1208,80 @@ define([
         return newMessage;
     };
 
+
+
     /**
+     * Trial target holding the data structures to accept positively tried
+     * messages, as well as implements the interface methods required for
+     * the trial process.
      *
+     * @constructor
+     * @implements {mpenc/helper/struct.TrialTarget}
+     * @param sessionTracker {mpenc.session.SessionTracker}
+     *     Tracker for (sub-) session related information.
+     * @param outQueue {array}
+     *     Output queue to receive successfully trialled parameters (messages).
+     * @param maxSize {integer}
+     *     Maximum number of elements to be held in trial buffer.
+     * @returns {module:mpenc/handler.DecryptTrialTarget}
+     * @memberOf! module:mpenc/handler#
+     *
+     * @property sessionTracker {mpenc.session.SessionTracker}
+     *     Tracker for (sub-) session related information.
+     * @property outQueue {array}
+     *     Output queue to receive successfully trialled parameters (messages).
+     * @property maxSize {integer}
+     *     Maximum number of elements to be held in trial buffer.
      */
-    function messageIdFunc(message) {
-        var categorised = codec.categoriseMessage(message);
-        return utils.sha256(categorised.content);
+    function DecryptTrialTarget(sessionTracker, outQueue, maxSize) {
+        this._sessionTracker = sessionTracker;
+        this._outQueue = outQueue;
+        this._maxSize = maxSize;
     }
-    ns.messageIdFunc = messageIdFunc;
+    ns.DecryptTrialTarget = DecryptTrialTarget;
+
+
+    // See TrialTarget#tryMe.
+    // Our parameter is the `wireMessage`.
+    DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
+        var author = wireMessage.from;
+        var sessionID = this._sessionTracker.sessionIDs[0];
+        var groupKey = this._sessionTracker.sessions[sessionID].groupKeys[0];
+        var signingPubKey = this._sessionTracker.pubKeyMap[author];
+        var sidkeyHash = utils.sha256(sessionID + groupKey);
+        var categorised = codec.categoriseMessage(wireMessage.message);
+        var decoded = codec.decodeMessageContent(categorised.content, signingPubKey, sessionID, groupKey);
+        if (decoded.signatureOk === true) {
+            wireMessage.type = 'message';
+            wireMessage.message = decoded.data;
+            this._outQueue.push(wireMessage);
+            return true;
+        }
+        return false;
+
+        // * try each valid tuple, until one succeeds
+        // * limit trials to those where the sidkeyHint matches.
+        //   - do most current sid/groupKey combo first
+        //   - get sidkeyHint out
+        //   - then continue only with those combos matching the hint
+        //   - change codec.decodeMessageContent to not throw an exception on unverified signatures
+        // * if one succeeds, returns `true`
+        // * if all fail, return `false`
+    };
+
+
+    // See TrialTarget#maxSize.
+    DecryptTrialTarget.prototype.maxSize = function() {
+        return this._maxSize;
+    };
+
+
+    // See TrialTarget#paramId.
+    // Our parameter is the `wireMessage`.
+    DecryptTrialTarget.prototype.paramId = function(wireMessage) {
+        var categorised = codec.categoriseMessage(wireMessage.message);
+        return utils.sha256(categorised.content);
+    };
 
 
     return ns;

@@ -51,17 +51,17 @@ define([
      * {SessionTracker}.
      *
      * @constructor
-     * @param members {array}
-     *     Array of {string}s of the participants for this session.
+     * @param members {array<string>}
+     *     Array of the participant IDs for this session.
      * @param groupKey {string}
      *     The (first) group key used in this session.
      * @returns {module:mpenc/handler/_SessionItem}
      *
-     * @property members {array}
-     *     Array of {string}s of the participants for this session.
-     * @property groupKeys {array}
-     *     Array of the group keys (as {string}) used in reverse order over this
-     *     session (the last key is in the starting position).
+     * @property members {array<string>}
+     *     Array of the participant IDs for this session.
+     * @property groupKeys {array<string>}
+     *     Array of the group keys used in reverse order over this session
+     *     (the last key is in the starting position).
      */
     var _SessionItem = function(members, groupKey) {
         this.members = members;
@@ -100,9 +100,11 @@ define([
      * @property sessions {object}
      *     Container of all {_SessionItem}s. The keys in the container are the
      *     session IDs of the (sub-) sessions.
-     * @property sessionIDs {array}
+     * @property sessionIDs {array<string>}
      *     Array containing the reverse order of encountered session IDs
      *     (the latest one is at the first position).
+     * @property pubKeyMap {object}
+     *     An object that maps participant IDs to ephemeral public signing keys.
      */
     var SessionTracker = function(name, maxSizeFunc, drop) {
         this.name = name || '';
@@ -116,6 +118,7 @@ define([
         // We're using this following array to keep the order within the
         // sessions in the buffer.
         this.sessionIDs = [];
+        this.pubKeyMap = {};
     };
 
     /** @class
@@ -129,12 +132,14 @@ define([
      * @method
      * @param sid {string}
      *     Session ID.
-     * @param members {array}
-     *     Array of participants.
+     * @param members {array<string>}
+     *     Participant IDs.
+     * @param pubKeys {array<string>}
+     *     Participants' ephemeral public signing keys.
      * @param groupKey {string}
      *     Group key of the new session.
      */
-    SessionTracker.prototype.addSession = function(sid, members, groupKey) {
+    SessionTracker.prototype.addSession = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
             var message = 'Attept to add a session with an already existing ID on '
                         + this.name + '.';
@@ -144,6 +149,17 @@ define([
 
         this.sessions[sid] = new _SessionItem(members, groupKey);
         this.sessionIDs.unshift(sid);
+        // Add pubKeys to our internal map.
+        _assert(members.length === pubKeys.length,
+                'Length of members/pub keys mismatch.');
+        for (var i in members) {
+            if (this.pubKeyMap.hasOwnProperty(members[i])) {
+                _assert(this.pubKeyMap[members[i]] === pubKeys[i],
+                        'Ephemeral public signing key of member ' + members[i] + 'mismatch.');
+            } else {
+                this.pubKeyMap[members[i]] = pubKeys[i];
+            }
+        }
         // Check for buffer size overflow.
         var maxSize = this.maxSizeFunc();
         if (this.sessionIDs.length > maxSize) {
@@ -207,14 +223,16 @@ define([
      * @method
      * @param sid {string}
      *     Session ID.
-     * @param members {array}
+     * @param members {array<string>}
      *     Array of participants.
+     * @param pubKeys {array<string>}
+     *     Participants' ephemeral public signing keys.
      * @param groupKey {string}
      *     Group key of the session.
      * @throws
      *     Error if the participants list mismatches for an existing session ID.
      */
-    SessionTracker.prototype.update = function(sid, members, groupKey) {
+    SessionTracker.prototype.update = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
             // Session already tracked.
             _assert(utils.arrayEqual(members, this.sessions[sid].members),
@@ -222,26 +240,8 @@ define([
                     + ' with mis-matching members for a sesssion.')
             this.addGroupKey(sid, groupKey);
         } else {
-            this.addSession(sid, members, groupKey);
+            this.addSession(sid, members, pubKeys, groupKey);
         }
-
-//        this.sessions[sid] = new _SessionItem(members, groupKey);
-//        this.sessionIDs.unshift(sid);
-//        // Check for buffer size overflow.
-//        var maxSize = this.maxSizeFunc();
-//        if (this.sessionIDs.length > maxSize) {
-//            if (this.drop) {
-//                var droppedID = this.sessionIDs.pop();
-//                var dropped = this.sessions[droppedID];
-//                delete this.sessions[droppedID];
-//                logger.warn(this.name + ' DROPPED session ' + droppedID +
-//                            ' at size ' + maxSize + ', potential data loss.');
-//            } else {
-//                logger.info(this.name + ' is '
-//                            + (this.sessionIDs.length - maxSize)
-//                            + ' items over expected capacity.');
-//            }
-//        }
     };
 
 

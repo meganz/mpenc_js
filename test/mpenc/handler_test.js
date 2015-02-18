@@ -48,6 +48,7 @@ define([
         var tracker = new session.SessionTracker('dummy', stub().returns(1000));
         tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
         tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+        tracker.pubKeyMap = utils.clone(_td.SESSION_TRACKER.pubKeyMap);
         return tracker;
     }
 
@@ -79,8 +80,12 @@ define([
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
             var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
+            var sessionID = senderParticipant.sessionTracker.sessionIDs[0];
+            var groupKey = sessionID
+                         ? senderParticipant.sessionTracker.sessions[sessionID].groupKeys[0]
+                         : undefined;
             return codec.decodeMessageContent(content, senderParticipant.askeMember.ephemeralPubKey,
-                                              senderParticipant.sessionTracker);
+                                              sessionID, groupKey);
         } else {
             return null;
         }
@@ -94,8 +99,8 @@ define([
         return participants[index];
     }
 
-    describe("module level", function() {
-        describe('messageIdFunc as paramIdFunc', function() {
+    describe("DecryptTrialTarget class", function() {
+        describe('#paramId method', function() {
             it('simple ID of message', function() {
                 sandbox.stub(codec, 'categoriseMessage').returns(
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
@@ -105,20 +110,36 @@ define([
                 var message = { from: 'somebody',
                                 to: 'someone else',
                                 message: _td.DATA_MESSAGE_STRING };
-                assert.strictEqual(ns.messageIdFunc(message), 'foo');
+                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                assert.strictEqual(target.paramId(message), 'foo');
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
         });
 
-//        describe('messageSignerFunc as tryFunc', function() {
-//            it('succeeding try func', function() {
-//                assert.strictEqual(ns.messageSignerFunc(pending, message), true);
-//                // * function has a list of members and a list of pub keys
-//                // * tries each one
-//                // * if one succeeds, returns `true`
-//            });
-//        });
+        describe('#maxSize method', function() {
+            it('simple ID of message', function() {
+                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                assert.strictEqual(target.maxSize(), 42);
+            });
+        });
+
+        describe('#tryMe', function() {
+            it('succeeding try func, not pending', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                var sessionTracker = _dummySessionTracker();
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+            });
+        });
     });
 
     describe("ProtocolHandler class", function() {
@@ -729,6 +750,7 @@ define([
                                                          _dummySessionTracker());
                 participant.state =  ns.STATE.READY;
                 participant.cliquesMember.groupKey = "Parents Just Don't Understand";
+                participant.askeMember.ephemeralPubKeys = [];
                 var message = {message: "Fresh Prince",
                                dest: ''};
                 sandbox.stub(codec, 'encodeMessage', _echo);
@@ -1096,6 +1118,8 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR,
                                                          _dummySessionTracker());
+                participant.askeMember.members = ['1', '2', '3', '4', '5'];
+                participant.askeMember.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
                 participant.state = ns.STATE.INIT_DOWNFLOW;
                 participant.cliquesMember.groupKey = "bar";
                 sandbox.spy(participant.cliquesMember, 'upflow');
@@ -1786,7 +1810,7 @@ define([
                                    'Received unencrypted message, requesting encryption.');
             });
 
-            // XXX:
+            // TODO:
             // * check for message showing in ui queue
             // * INFO, WARNING, TERMINAL ERROR, type "error"
             // * invoke quit() on TERMINAL ERROR
@@ -1928,12 +1952,10 @@ define([
                 sandbox.stub(participant.askeMember, 'getMemberEphemeralPubKey').returns('lala');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
-                assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 3);
+                assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 4);
                 assert.strictEqual(codec.decodeMessageContent.getCall(0).args[1], 'lala');
-                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2].sessionIDs,
-                                 _td.SESSION_TRACKER.sessionIDs);
-                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2].sessions,
-                                 _td.SESSION_TRACKER.sessions);
+                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2], _td.SESSION_ID);
+                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[3], _td.GROUP_KEY);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);

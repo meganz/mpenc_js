@@ -90,6 +90,7 @@ _td.SESSION_TRACKER.sessions[_td.SESSION_ID] = {
     members: ['Moe', 'Larry', 'Curly'],
     groupKeys: [_td.GROUP_KEY]
 };
+_td.SESSION_TRACKER.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY };
 _td.DATA_MESSAGE_STRING = atob('AAYAAVQAAwBAaLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17M'
                                + 'Td1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/Q'
                                + 'xskpTHBwABAAEBAAUAAgAAAAQADKqt+v306FvmeyO2+Q'

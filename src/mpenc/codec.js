@@ -643,24 +643,25 @@ define([
      *     A binary message representation.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Seession tracker object. Mandatory for data messages, ignored for
-     *     protocol messages.
+     * @param sessionID {string}
+     *     Session ID.
+     * @param groupKey {string}
+     *     Symmetric group encryption key to encrypt message.
      * @returns {mpenc.handler.ProtocolMessage}
      *     Message as JavaScript object.
      */
-    ns.decodeMessageContent = function(message, pubKey, sessionTracker) {
+    ns.decodeMessageContent = function(message, pubKey, sessionID, groupKey) {
         if (!message) {
             return null;
         }
 
-        // Session information.
-        var sessionID = '';
-        var groupKey = '';
-        if (sessionTracker.sessionIDs && sessionTracker.sessionIDs.length > 0) {
-            sessionID = sessionTracker.sessionIDs[0];
-            groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
-        }
+//        // Session information.
+//        var sessionID = '';
+//        var groupKey = '';
+//        if (sessionTracker.sessionIDs && sessionTracker.sessionIDs.length > 0) {
+//            sessionID = sessionTracker.sessionIDs[0];
+//            groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
+//        }
 
         var out = new ns.ProtocolMessage();
         var debugOutput = [];
@@ -744,7 +745,6 @@ define([
         var sidkeyHash = '';
         if (out.data) {
             // Checking of session/group key.
-            var keyCount = sessionTracker.sessions[sessionID].groupKeys.length - 1;
             sidkeyHash = utils.sha256(sessionID + groupKey);
             _assert(out.sidkeyHint === sidkeyHash[0],
                     'Session ID/group key hint mismatch.');
