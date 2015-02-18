@@ -3,6 +3,7 @@ BUILDDIR = build
 NODE_PATH = ./node_modules
 NPM = npm
 NODE = node
+BROWSER = Firefox
 
 # Dependencies - make sure you keep DEP_ALL and DEP_ALL_NAMES up-to-date
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
@@ -32,6 +33,10 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 
 test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
 	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
+
+# use e.g. `make BROWSER=Chrome browser-test` to use a different browser
+browser-test:
+	$(NODE) $(KARMA) start karma.conf.js --browsers $(BROWSER)
 
 api-doc: $(JSDOC)
 	$(NODE) $(JSDOC) --destination doc/api/ --private \
@@ -101,5 +106,5 @@ clean-all: clean
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
 	rm -f .npm-build-deps
 
-.PHONY: all test api-doc clean clean-all build-deps-auto
+.PHONY: all test browser-test api-doc clean clean-all build-deps-auto
 .PHONY: build-static build-shared test-static test-shared dist
