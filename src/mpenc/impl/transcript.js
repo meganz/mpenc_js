@@ -6,10 +6,12 @@
 define([
     "mpenc/helper/graph",
     "mpenc/helper/struct",
-    "es6-collections"
+    "megalogger",
+    "es6-collections",
 ], function(
     graph,
     struct,
+    MegaLogger,
     es6_shim
 ) {
     "use strict";
@@ -23,8 +25,12 @@ define([
      */
     var ns = {};
 
+    var MutableSet = Set; // TODO(xl): for some reason this doesn't work
+    // even though the exact same thing is fine in struct.js, and we have to
+    // instead resort to new Set().asMutable() below. investigate why...
     var Set = struct.ImmutableSet;
     var safeGet = struct.safeGet;
+    var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
 
     /*
      * Created: 10 Feb 2015 Ximin Luo <xl@mega.co.nz>
@@ -53,31 +59,32 @@ define([
      */
     var BaseTranscript = function() {
         this._uIds = Set();
-        this._messages = Map();
+        this._messages = new Map();
         this._minMessages = Set();
         this._maxMessages = Set();
 
-        this._successors = Map(); // mId: Set[mId], successors
+        this._successors = new Map(); // mId: Set[mId], successors
 
         // overall sequence. only meaningful internally
         this._length = 0
-        this._messageIndex = Map(); // mId: int, index into _log
+        this._messageIndex = new Map(); // mId: int, index into _log
         this._log = [];
 
         // per-author sequence. only meaningful internally. like a local vector clock.
-        this._authorMessages = Map(); // uId: [mId], messages in the order they were authored
-        this._authorIndex = Map(); // mId: int, index into _authorMessages[mId's author]
+        this._authorMessages = new Map(); // uId: [mId], messages in the order they were authored
+        this._authorIndex = new Map(); // mId: int, index into _authorMessages[mId's author]
 
-        this._context = Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
-        this._subsequent = Map(); // mId: uId: (int, int), range of author-indexes of messages sent by
-                                  // uId after mId, but before later messages sent by the same author
+        this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
+        this._subsequent = new Map(); // mId: uId: (int, int), range of author-indexes of messages sent by
+                                      // uId after mId, but before later messages sent by the same author
+                                      // (0, 0) means we haven't seen uId speak at all yet
 
-        this._unackby = Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
+        this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
         this._unacked = Set(); // Set[mId] of not fully-acked messages
 
         this._fubar = false;
 
-        this._cacheBy = Map();
+        this._cacheBy = new Map();
         this._cacheUnacked = null;
         this._invalidateCaches();
     };
@@ -85,13 +92,33 @@ define([
     BaseTranscript.prototype._invalidateCaches = function(uId) {
         this._cacheUnacked = null;
         if (!uId) {
-            this._cacheBy = Map();
+            this._cacheBy = new Map();
         } else {
             this._cacheBy.delete(uId);
         }
     };
 
-    BaseTranscript.prototype._mergeContext;
+    BaseTranscript.prototype._mergeContext = function(pmId, ruId) {
+        var self = this;
+        var context = new Map();
+        pmId.forEach(function(m) {
+            var mc = self._context.get(m);
+            struct.iteratorForEach(mc.entries(), function(entry) {
+                var u = entry[0], um = entry[1];
+                if (!context.has(u) || context.get(u) === null ||
+                    (um !== null && self.ge(um, context.get(u)))) {
+                    context.set(u, um);
+                }
+            });
+        });
+        pmId.forEach(function(m) { context.set(self.author(m), m); });
+        ruId.forEach(function(u) {
+            if (!context.has(u)) {
+                context.set(u, null);
+            }
+        });
+        return context;
+    };
 
     // CausalOrder
 
@@ -231,7 +258,155 @@ define([
     // Transcript
 
     BaseTranscript.prototype.add = function(msg) {
-        throw new Error("not implemented");
+        if (this._fubar) {
+            throw new Error("something horrible happened previously, refusing all operations");
+        }
+
+        var self = this;
+        var mId = msg.mId, uId = msg.uId, pmId = msg.pmId, ruId = msg.ruId;
+        // last message by the same author
+        var pumId = this._authorMessages.has(uId)? this._authorMessages.get(uId).slice(-1)[0]: null;
+        var pmIdArr = pmId.toArray();
+
+        // sanity checks
+
+        if (mId === null) {
+            throw new Error("invalid mId: null");
+        }
+
+        if (pmId.has(mId)) {
+            throw new Error("message references itself: " + mId + " in " + pmId);
+        }
+
+        if (this._messages.has(mId)) {
+            throw new Error("message already added: " + mId);
+        }
+
+        if (uId === null) {
+            throw new Error("invalid uId: null");
+        }
+
+        if (ruId.has(uId)) {
+            throw new Error("message sent to self: " + uId + " in " + ruId);
+        }
+
+        if (ruId.size === 0) {
+            // in principle, can support empty room talking to yourself
+            logger.warn("message has no recipients: " + mId);
+        }
+
+        // ensure graph is complete, also preventing cycles
+        var pmId404 = pmId.subtract(this._messages);
+        if (pmId404.size > 0) {
+            throw new Error("parents not found: " + pmId404);
+        }
+
+        // check sender is actually allowed to read the parents
+        var pmId403 = pmIdArr.filter(function(pm) {
+            return !self._messages.get(pm).members().has(uId);
+        });
+        if (pmId403.length > 0) {
+            throw new Error("secret parents referenced: " + pmId403);
+        }
+
+        // check sanity of parents
+        if (pmId.size >
+            Set(pmIdArr.map(function(m) { return self.author(m); })).size) {
+            throw new Error("redundant parents: not from distinct authors");
+        }
+
+        // invariant: total-ordering of one user's messages
+        // can't check mId directly since it's not in the graph yet, so check parents
+        if (pumId !== null) {
+            if (!pmIdArr.some(function(m) { return self.le(pumId, m); })) {
+                throw new Error("" + mId + " does not reference prev-sent " + pumId);
+            }
+        }
+
+        // merging the members checks they are in different chains, which ensures
+        // transitive reduction and freshness consistency (see msg-notes)
+        // TODO(xl): IMMEDIATE this is quite important, upcoming tests will fail without it
+        // something.mergeSomething()
+
+        var context = this._mergeContext(pmId, ruId);
+
+        // update state
+        // no turning back now; any exceptions raised from here onwards will lead
+        // to inconsistent state and is a programming error.
+
+        try {
+            // update core
+            var mIdS = Set([mId]);
+            this._uIds = this._uIds.union(Set([uId]));
+            this._messages.set(mId, msg);
+            if (!pmId.size) {
+                this._minMessages = this._minMessages.union(mIdS);
+            }
+            this._maxMessages = this._maxMessages.union(mIdS).subtract(pmId);
+
+            // update successors
+            pmId.forEach(function(m) {
+                self._successors.set(m, self._successors.get(m).union(mIdS));
+            });
+            this._successors.set(mId, Set());
+
+            // update overall sequences
+            this._messageIndex.set(mId, this._length);
+            this._log.push(mId);
+            this._length++;
+
+            // update per-author sequences
+            if (pumId === null) {
+                this._authorMessages.set(uId, []);
+            }
+            this._authorMessages.get(uId).push(mId);
+            var mSeq = this._authorMessages.get(uId).length - 1;
+            this._authorIndex.set(mId, mSeq);
+
+            // update context
+            this._context.set(mId, context);
+            struct.iteratorForEach(context.values(), function(um) {
+               if (um === null) return;
+               var subseq = self._subsequent.get(um).get(uId);
+               var a = subseq[0], b = subseq[1];
+               if (a === b) { // assert a == 0
+                   a = mSeq
+               }
+               b = mSeq + 1;
+               self._subsequent.get(um).set(uId, [a, b]);
+            });
+            this._subsequent.set(mId, new Map(ruId.toArray().map(function(ru) {
+                return [ru, [0, 0]];
+            })));
+
+            // update unacked
+            this._unackby.set(mId, ruId);
+            this._unacked = this._unacked.union(mIdS);
+            var ackthru = function(m) { return self._unackby.get(m).has(uId); };
+            var anc = graph.bfIterator(pmIdArr.filter(ackthru), function(m) {
+                return self.pre(m).filter(ackthru);
+            });
+            var acked = new Set().asMutable(); // TODO(xl): see note at top
+            if (!ruId.size) {
+                acked.add(mId);
+            }
+            struct.iteratorForEach(anc, function(am) {
+                self._unackby.set(am, self._unackby.get(am).subtract(new Set([uId])));
+                if (!self._unackby.get(am).size) {
+                    acked.add(am);
+                }
+            });
+            this._unacked = this._unacked.subtract(acked);
+            acked = struct.iteratorToArray(acked.values());
+            acked.sort(function(a, b) { return self._messageIndex(a) - self._messageIndex(b); });
+
+            this._invalidateCaches(uId);
+
+            return acked;
+        } catch (e) {
+            this._fubar = true;
+            throw e;
+        }
     };
 
     BaseTranscript.prototype.pre_uId = function(mId) {
@@ -252,9 +427,9 @@ define([
         if (ruId === undefined) {
             throw new Error("not implemented");
         } else {
-            var a = safeGet(safeGet(this._subsequent, mId), ruId)[0];
-            var by = this.by(ruId);
-            return (by.length > a)? by[a]: null;
+            var subseq = safeGet(safeGet(this._subsequent, mId), ruId);
+            var a = subseq[0], b = subseq[1];
+            return (a === b)? null: this.by(ruId)[a];
         }
     };
 

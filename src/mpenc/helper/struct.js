@@ -57,6 +57,29 @@ define([
     ns.safeGet = safeGet;
 
     /**
+     * Apply a function to an ES6 iterator, ignoring its "return value".
+     *
+     * @param iter {Iterator} Iterator to run through.
+     * @param func {function} 1-arg function to apply to each element.
+     * @memberOf! module:mpenc/helper/struct
+     */
+    var iteratorForEach = function(iter, func) {
+        // work around https://github.com/WebReflection/es6-collections/issues/22
+        if (iter instanceof Array) return iter.forEach(func);
+        var done = false;
+        while (!done) {
+            var result = iter.next();
+            done = result.done;
+            if (!done) {
+                func(result.value);
+            } else {
+                return result.value;
+            }
+        }
+    };
+    ns.iteratorForEach = iteratorForEach;
+
+    /**
      * Populate an array using an ES6 iterator, ignoring its "return value".
      *
      * @param iter {Iterator} Iterator to run through.
@@ -65,14 +88,7 @@ define([
      */
     var iteratorToArray = function(iter) {
         var a = [];
-        var done = false;
-        while (!done) {
-            var result = iter.next();
-            done = result.done;
-            if (!done) {
-                a.push(result.value);
-            }
-        }
+        iteratorForEach(iter, function(v) { a.push(v); });
         return a;
     };
     ns.iteratorToArray = iteratorToArray;
@@ -125,6 +141,13 @@ define([
                 // prevent external acccess to mutable set
                 return callback.call(thisObj, v, v0, this);
             });
+        };
+
+        /**
+         * Return a Iterator of the elements contained in this set.
+         */
+        this.values = function() {
+            return items.values();
         };
 
         /**

@@ -18,7 +18,7 @@ define([], function() {
     /*
      * Created: 28 Mar 2014 Ximin Luo <xl@mega.co.nz>
      *
-     * (c) 2014 by Mega Limited, Wellsford, New Zealand
+     * (c) 2014-2015 by Mega Limited, Wellsford, New Zealand
      *     http://mega.co.nz/
      *
      * This file is part of the multi-party chat encryption suite.
