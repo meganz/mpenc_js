@@ -1,9 +1,12 @@
+# User/runtime variables
+BROWSER = Firefox
+KARMA_FLAGS = # set to --preprocessors= to show line numbers, otherwise coverage clobbers them
+
 # Site-dependent variables
 BUILDDIR = build
 NODE_PATH = ./node_modules
 NPM = npm
 NODE = node
-BROWSER = Firefox
 
 # Dependencies - make sure you keep DEP_ALL and DEP_ALL_NAMES up-to-date
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
@@ -32,11 +35,11 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 	sed -e 's,$<,$@,g' "$<" > "$@"
 
 test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
-	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --browsers PhantomJS
 
 # use e.g. `make BROWSER=Chrome browser-test` to use a different browser
 browser-test:
-	$(NODE) $(KARMA) start karma.conf.js --browsers $(BROWSER)
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
 api-doc: $(JSDOC)
 	$(NODE) $(JSDOC) --destination doc/api/ --private \
