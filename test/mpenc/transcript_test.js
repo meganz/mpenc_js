@@ -47,6 +47,42 @@ define([
             //Transcript.checkInvariants(test);
             //CausalOrder.checkInvariants(test);
             checkAdd(tr, M(0, 50, [], []));
+            assert(tr.unackby(0).size === 0);
+            assert(tr.unacked().length === 0);
+        });
+
+        it('smoke', function() {
+            var tr = new impl.BaseTranscript();
+            //Transcript.checkInvariants(test);
+            //CausalOrder.checkInvariants(test);
+
+            var allUId = new Set([50, 51, 52]);
+
+            checkAdd(tr, M(0, 50, [], [51, 52]));
+            checkAdd(tr, M(1, 50, [0], [51, 52]));
+            checkAdd(tr, M(2, 51, [1], [50, 52]));
+            checkAdd(tr, M(3, 52, [1], [50, 51]));
+            checkAdd(tr, M(4, 52, [2, 3], [50, 51]));
+            checkAdd(tr, M(5, 50, [3], [51, 52]));
+
+            assert(tr.unackby(0).equals(Set()));
+            assert(tr.unackby(1).equals(Set()));
+            assert(tr.unackby(2).equals(Set([50])));
+            assert(tr.unackby(3).equals(Set([51])));
+            assert(tr.unackby(4).equals(Set([50, 51])));
+            assert(tr.unackby(5).equals(Set([51, 52])));
+            assert.deepEqual(tr.unacked(), [2, 3, 4, 5]);
+
+            checkAdd(tr, M(6, 51, [4], [50, 52]));
+
+            assert(tr.unackby(0).equals(Set()));
+            assert(tr.unackby(1).equals(Set()));
+            assert(tr.unackby(2).equals(Set([50])));
+            assert(tr.unackby(3).equals(Set()));
+            assert(tr.unackby(4).equals(Set([50])));
+            assert(tr.unackby(5).equals(Set([51, 52])));
+            assert(tr.unackby(6).equals(Set([50, 52])));
+            assert.deepEqual(tr.unacked(), [2, 4, 5, 6]);
         });
     });
 });

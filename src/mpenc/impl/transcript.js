@@ -58,10 +58,10 @@ define([
      * @implements {module:mpenc/transcript.Transcript}
      */
     var BaseTranscript = function() {
-        this._uIds = Set();
+        this._uIds = new Set();
         this._messages = new Map();
-        this._minMessages = Set();
-        this._maxMessages = Set();
+        this._minMessages = new Set();
+        this._maxMessages = new Set();
 
         this._successors = new Map(); // mId: Set[mId], successors
 
@@ -80,7 +80,7 @@ define([
                                       // (0, 0) means we haven't seen uId speak at all yet
 
         this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
-        this._unacked = Set(); // Set[mId] of not fully-acked messages
+        this._unacked = new Set(); // Set[mId] of not fully-acked messages
 
         this._fubar = false;
 
@@ -103,8 +103,7 @@ define([
         var context = new Map();
         pmId.forEach(function(m) {
             var mc = self._context.get(m);
-            struct.iteratorForEach(mc.entries(), function(entry) {
-                var u = entry[0], um = entry[1];
+            mc.forEach(function(um, u) {
                 if (!context.has(u) || context.get(u) === null ||
                     (um !== null && self.ge(um, context.get(u)))) {
                     context.set(u, um);
@@ -112,12 +111,15 @@ define([
             });
         });
         pmId.forEach(function(m) { context.set(self.author(m), m); });
-        ruId.forEach(function(u) {
-            if (!context.has(u)) {
-                context.set(u, null);
-            }
-        });
+        ruId.forEach(function(u) { if (!context.has(u)) context.set(u, null); });
+        context.forEach(function(_, pu) { if (!ruId.has(pu)) context.delete(pu); });
         return context;
+    };
+
+    BaseTranscript.prototype._sortMIds = function(mIds) {
+        var self = this;
+        mIds.sort(function(a, b) { return self._messageIndex.get(a) - self._messageIndex.get(b); });
+        return mIds;
     };
 
     // CausalOrder
@@ -199,7 +201,7 @@ define([
         var init = safeGet(this._messages, mId).pmId;
         var initArr = init.toArray();
         var self = this;
-        return Set(graph.bfTopoIterator(init,
+        return new Set(struct.iteratorToArray(graph.bfTopoIterator(init,
             function(mId) { return self.pre(mId); },
             function(mId) {
                 // limit traversal to ancestors of init
@@ -211,7 +213,7 @@ define([
             },
             function(mId) { return !pred(mId); },
             true
-        ));
+        )));
     };
 
     BaseTranscript.prototype.allAuthors = function() {
@@ -245,10 +247,7 @@ define([
 
     BaseTranscript.prototype.unacked = function() {
         if (!this._cacheUnacked) {
-            var unacked = this._unacked.toArray();
-            // sort in add-order
-            var self = this;
-            unacked.sort(function(a, b) { return self._messageIndex(a) - self._messageIndex(b); });
+            var unacked = this._sortMIds(this._unacked.toArray());
             Object.freeze(unacked);
             this._cacheUnacked = unacked;
         }
@@ -311,7 +310,7 @@ define([
 
         // check sanity of parents
         if (pmId.size >
-            Set(pmIdArr.map(function(m) { return self.author(m); })).size) {
+            new Set(pmIdArr.map(function(m) { return self.author(m); })).size) {
             throw new Error("redundant parents: not from distinct authors");
         }
 
@@ -336,8 +335,8 @@ define([
 
         try {
             // update core
-            var mIdS = Set([mId]);
-            this._uIds = this._uIds.union(Set([uId]));
+            var mIdS = new Set([mId]);
+            this._uIds = this._uIds.union(new Set([uId]));
             this._messages.set(mId, msg);
             if (!pmId.size) {
                 this._minMessages = this._minMessages.union(mIdS);
@@ -348,7 +347,7 @@ define([
             pmId.forEach(function(m) {
                 self._successors.set(m, self._successors.get(m).union(mIdS));
             });
-            this._successors.set(mId, Set());
+            this._successors.set(mId, new Set());
 
             // update overall sequences
             this._messageIndex.set(mId, this._length);
@@ -365,7 +364,7 @@ define([
 
             // update context
             this._context.set(mId, context);
-            struct.iteratorForEach(context.values(), function(um) {
+            context.forEach(function(um, _) {
                if (um === null) return;
                var subseq = self._subsequent.get(um).get(uId);
                var a = subseq[0], b = subseq[1];
@@ -384,7 +383,7 @@ define([
             this._unacked = this._unacked.union(mIdS);
             var ackthru = function(m) { return self._unackby.get(m).has(uId); };
             var anc = graph.bfIterator(pmIdArr.filter(ackthru), function(m) {
-                return self.pre(m).filter(ackthru);
+                return self.pre(m).toArray().filter(ackthru);
             });
             var acked = new Set().asMutable(); // TODO(xl): see note at top
             if (!ruId.size) {
@@ -397,8 +396,7 @@ define([
                 }
             });
             this._unacked = this._unacked.subtract(acked);
-            acked = struct.iteratorToArray(acked.values());
-            acked.sort(function(a, b) { return self._messageIndex(a) - self._messageIndex(b); });
+            acked = this._sortMIds(struct.iteratorToArray(acked.values()));
 
             this._invalidateCaches(uId);
 

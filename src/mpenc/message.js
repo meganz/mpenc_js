@@ -80,7 +80,7 @@ define([
      * @param mId {string} Message (node) id.
      * @returns {module:mpenc/message.Message} Message object for the id. */
     Message.prototype.members = function() {
-        return this.ruId.union(new Set(this.uId));
+        return this.ruId.union(new Set([this.uId]));
     };
 
     Object.freeze(Message.prototype);
