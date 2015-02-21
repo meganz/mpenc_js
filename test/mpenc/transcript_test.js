@@ -65,23 +65,23 @@ define([
             checkAdd(tr, M(4, 52, [2, 3], [50, 51]));
             checkAdd(tr, M(5, 50, [3], [51, 52]));
 
-            assert(tr.unackby(0).equals(Set()));
-            assert(tr.unackby(1).equals(Set()));
-            assert(tr.unackby(2).equals(Set([50])));
-            assert(tr.unackby(3).equals(Set([51])));
-            assert(tr.unackby(4).equals(Set([50, 51])));
-            assert(tr.unackby(5).equals(Set([51, 52])));
+            assert(tr.unackby(0).equals(new Set()));
+            assert(tr.unackby(1).equals(new Set()));
+            assert(tr.unackby(2).equals(new Set([50])));
+            assert(tr.unackby(3).equals(new Set([51])));
+            assert(tr.unackby(4).equals(new Set([50, 51])));
+            assert(tr.unackby(5).equals(new Set([51, 52])));
             assert.deepEqual(tr.unacked(), [2, 3, 4, 5]);
 
             checkAdd(tr, M(6, 51, [4], [50, 52]));
 
-            assert(tr.unackby(0).equals(Set()));
-            assert(tr.unackby(1).equals(Set()));
-            assert(tr.unackby(2).equals(Set([50])));
-            assert(tr.unackby(3).equals(Set()));
-            assert(tr.unackby(4).equals(Set([50])));
-            assert(tr.unackby(5).equals(Set([51, 52])));
-            assert(tr.unackby(6).equals(Set([50, 52])));
+            assert(tr.unackby(0).equals(new Set()));
+            assert(tr.unackby(1).equals(new Set()));
+            assert(tr.unackby(2).equals(new Set([50])));
+            assert(tr.unackby(3).equals(new Set()));
+            assert(tr.unackby(4).equals(new Set([50])));
+            assert(tr.unackby(5).equals(new Set([51, 52])));
+            assert(tr.unackby(6).equals(new Set([50, 52])));
             assert.deepEqual(tr.unacked(), [2, 4, 5, 6]);
 
             // per-author total ordering
