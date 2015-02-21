@@ -4,8 +4,9 @@
  */
 
 define([
+    "mpenc/helper/struct",
     "es6-collections",
-], function(es6_shim) {
+], function(struct, es6_shim) {
     "use strict";
 
     /**
@@ -243,6 +244,81 @@ define([
         return g;
     };
     ns.invertSuccessorMap = invertSuccessorMap;
+
+    /**
+     * 3-state merge primitive used by {@link module:mpenc/helper/graph~merge}.
+     *
+     * <p>Implementations must satisfy &forall; p, a, b: f(p, a, b) === f(p, b, a).</p>
+     *
+     * @callback merge_3way
+     * @param parent {Object} State at parent node.
+     * @param child0 {Object} State at node 0.
+     * @param child1 {Object} State at node 1.
+     * @returns {Object} Merged state at child (that has both 0, 1 as parents).
+     */
+
+    /**
+     * Merge branched state in a causally-ordered history.
+     * @callback merge
+     * @param parents {module:mpenc/helper/struct.ImmutableSet|Array} Parent nodes to merge.
+     * @returns {Object} State of a potential new node with the given parents.
+     */
+
+    /**
+     * Create a {module:mpenc/helper/graph~merge} function.
+     *
+     * @param suc {module:mpenc/helper/utils~associates} Get predecessors of a node.
+     * @param suc {module:mpenc/helper/utils~associates} Get successors of a node.
+     * @param le {module:mpenc/helper/graph.CausalOrder#le} 2-arg function to test &le; relationship in the history.
+     * @param state {function} 1-arg function to get the state at a node.
+     * @param empty {function} 0-arg function to create an empty state.
+     * @param merge3 {module:mpenc/helper/graph~merge_3way} 3-way merge primitive for the state type.
+     * @returns {module:mpenc/helper/graph~merge}
+     * @memberOf! module:mpenc/helper/graph
+     */
+    var createMerger = function(pre, suc, le, state, empty, merge3) {
+        // lca2(M, m) := max(anc2(M, m)) # lowest common ancestors between M, m
+        // anc2(M, m) := { p | p <= m && (p <= m' for some m' in M) }
+        var lca2 = function(init, m) {
+            var lca = new struct.ImmutableSet(struct.iteratorToArray(bfTopoIterator(
+                init, pre, function(v) {
+                    return suc(v).filter(function(nv) { return init.some(function(a) { return le(nv, a); }); });
+                }, function(v) { return !le(v, m); }, true
+            )));
+            if (lca.has(m)) {
+                throw new Error("merge target " + m + " is a parent of some of " + init);
+            } else {
+                var children = lca.intersect(new struct.ImmutableSet(init));
+                if (children.size) {
+                    throw new Error("merge target " + m + " is a child of some of " + children);
+                }
+            }
+            return lca;
+        };
+        // 3-way merge-recursive
+        // TODO(xl): this *needs* to have an LRU-cache on the input/output
+        // otherwise performance is terrible on large complex graphs
+        var merge_recursive = function(parents) {
+            if (parents.toArray) parents = parents.toArray();
+            if (parents.length === 0) {
+                return empty();
+            } else if (parents.length === 1) {
+                return state(parents[0]);
+            } else {
+                var merged = [parents.pop()];
+                var merged_state = state(merged[0]);
+                while (parents.length) {
+                    var v = parents.pop();
+                    var merge_base = lca2(merged, v);
+                    merged_state = merge3(merge_recursive(merge_base), state(v), merged_state);
+                    merged.push(v);
+                };
+                return merged_state;
+            }
+        };
+        return merge_recursive;
+    };
+    ns.createMerger = createMerger;
 
     return ns;
 });

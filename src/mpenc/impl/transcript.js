@@ -82,6 +82,14 @@ define([
         this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
         this._unacked = new Set(); // Set[mId] of not fully-acked messages
 
+        var self = this;
+        this._merge = graph.createMerger(
+            function(m) { return self.pre(m).toArray(); },
+            function(m) { return self.suc(m).toArray(); },
+            function(a, b) { return self.le(a, b); },
+            function(m) { return self._messages.get(m).members(); },
+            Set,
+            function(p, a, b) { return p.merge(a, b); });
         this._fubar = false;
 
         this._cacheBy = new Map();
@@ -324,8 +332,7 @@ define([
 
         // merging the members checks they are in different chains, which ensures
         // transitive reduction and freshness consistency (see msg-notes)
-        // TODO(xl): IMMEDIATE this is quite important, upcoming tests will fail without it
-        // something.mergeSomething()
+        var merged = this._merge(pmId);
 
         var context = this._mergeContext(pmId, ruId);
 

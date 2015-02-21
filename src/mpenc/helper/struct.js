@@ -281,7 +281,7 @@ define([
      * @returns {module:mpenc/helper/struct.ImmutableSet} Result set
      */
     ImmutableSet.prototype.merge = function(child0, child1) {
-        return child1.patch(this.diff(child0));
+        return child1.union(child0.subtract(this)).subtract(this.subtract(child0));
     };
 
     Object.freeze(ImmutableSet.prototype);

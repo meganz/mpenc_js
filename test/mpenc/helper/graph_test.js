@@ -29,6 +29,7 @@ define([
     "use strict";
 
     var assert = chai.assert;
+    var Set = struct.ImmutableSet;
 
     // JS objects have *string* properties, using numbers results in unpredictable behaviour
     var G_with_blocked_path = {
@@ -94,6 +95,70 @@ define([
             assert.throws(function(){
                 struct.iteratorToArray(ns.bfTopoIterator(["1", "2", "3"], _objGetter(g), _preGetter(g)));
             });
+        });
+    });
+
+    describe("Merging state in history", function() {
+
+        var assertMergeSymmetry = function(merger, parents, expected) {
+            // from http://stackoverflow.com/a/22063440
+            var permutations = parents.reduce(function permute(res, item, key, arr) {
+                return res.concat(arr.length <= 1? item:
+                    arr.slice(0, key).concat(arr.slice(key + 1)).reduce(permute, []).map(
+                        function(perm) { return [item].concat(perm); }));
+            }, []);
+            var factorial = 1;
+            for (var i=2; i<=parents.length; i++) factorial *= i;
+            assert(permutations.length === factorial);
+            permutations.forEach(function(par) {
+                assert(par.length === parents.length);
+                assert(merger(par).equals(expected));
+            });
+        };
+
+        it("single root set subtraction", function() {
+            // naive merge implementations would return "abcdx"
+            var g = {
+                "0": [],
+                "1": ["0"],
+                "2": ["0"],
+                "3": ["2"],
+                "4": ["2"]
+            };
+            var s = {
+                "0": new Set("a".split("")),
+                "1": new Set("ax".split("")),
+                "2": new Set("abc".split("")),
+                "3": new Set("abcd".split("")),
+                "4": new Set("ab".split("")),
+            }
+            var lt = ["01", "02", "03", "04", "23", "24"];
+            var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
+            var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
+                function(k) { return s[k]; }, struct.ImmutableSet, function(p, a, b) { return p.merge(a, b); });
+
+            assertMergeSymmetry(merger, ["1", "3", "4"], new Set("abdx".split("")));
+        });
+        it("multiple roots set subtraction", function() {
+            // naive merge implementations would return "bcdx"
+            var g = {
+                "1": [],
+                "2": [],
+                "3": ["2"],
+                "4": ["2"]
+            };
+            var s = {
+                "1": new Set("x".split("")),
+                "2": new Set("bc".split("")),
+                "3": new Set("bcd".split("")),
+                "4": new Set("b".split("")),
+            }
+            var lt = ["23", "24"];
+            var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
+            var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
+                function(k) { return s[k]; }, struct.ImmutableSet, function(p, a, b) { return p.merge(a, b); });
+
+            assertMergeSymmetry(merger, ["1", "3", "4"], new Set("bdx".split("")));
         });
     });
 });

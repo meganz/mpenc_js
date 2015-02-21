@@ -51,7 +51,7 @@ define([
             assert(tr.unacked().length === 0);
         });
 
-        it('smoke', function() {
+        it('smoke test, various features', function() {
             var tr = new impl.BaseTranscript();
             //Transcript.checkInvariants(test);
             //CausalOrder.checkInvariants(test);
@@ -83,6 +83,15 @@ define([
             assert(tr.unackby(5).equals(Set([51, 52])));
             assert(tr.unackby(6).equals(Set([50, 52])));
             assert.deepEqual(tr.unacked(), [2, 4, 5, 6]);
+
+            // per-author total ordering
+            assert.throws(function() { tr.add(M(7, 52, [0], [50, 51])); });
+            // freshness consistency
+            assert.throws(function() { tr.add(M(7, 52, [0, 6], [50, 51])); });
+            // parents in anti-chains (not be traversable from each other)
+            assert.throws(function() { tr.add(M(7, 52, [4, 6], [50, 51])); });
+
+            assert(tr.allAuthors().equals(allUId));
         });
     });
 });
