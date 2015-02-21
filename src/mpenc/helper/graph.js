@@ -6,7 +6,8 @@
 define([
     "mpenc/helper/struct",
     "es6-collections",
-], function(struct, es6_shim) {
+    "lru-cache"
+], function(struct, es6_shim, LRUCache) {
     "use strict";
 
     /**
@@ -295,11 +296,24 @@ define([
             }
             return lca;
         };
-        // 3-way merge-recursive
-        // TODO(xl): this *needs* to have an LRU-cache on the input/output
-        // otherwise performance is terrible on large complex graphs
-        var merge_recursive = function(parents) {
+        var makeLRUKey = function(array) {
+            var arr = array.slice();
+            arr.sort();
+            return arr.map(function(a) { return btoa(JSON.stringify(a)); }).join("|");
+        };
+        var cache = new LRUCache({ max: 256 });
+        var merge_recursive; // mutually recursive, needs early declaration
+        var merge = function(parents) {
             if (parents.toArray) parents = parents.toArray();
+            //return merge_recursive(parents); // uncomment to disable caching
+            var key = makeLRUKey(parents);
+            if (!cache.has(key)) {
+                cache.set(key, merge_recursive(parents));
+            }
+            return cache.get(key);
+        };
+        // 3-way merge-recursive
+        merge_recursive = function(parents) {
             if (parents.length === 0) {
                 return empty();
             } else if (parents.length === 1) {
@@ -310,13 +324,13 @@ define([
                 while (parents.length) {
                     var v = parents.pop();
                     var merge_base = lca2(merged, v);
-                    merged_state = merge3(merge_recursive(merge_base), state(v), merged_state);
+                    merged_state = merge3(merge(merge_base), state(v), merged_state);
                     merged.push(v);
                 };
                 return merged_state;
             }
         };
-        return merge_recursive;
+        return merge;
     };
     ns.createMerger = createMerger;
 

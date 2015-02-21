@@ -99,7 +99,6 @@ define([
     });
 
     describe("Merging state in history", function() {
-
         var assertMergeSymmetry = function(merger, parents, expected) {
             // from http://stackoverflow.com/a/22063440
             var permutations = parents.reduce(function permute(res, item, key, arr) {
@@ -135,7 +134,7 @@ define([
             var lt = ["01", "02", "03", "04", "23", "24"];
             var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
             var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
-                function(k) { return s[k]; }, struct.ImmutableSet, function(p, a, b) { return p.merge(a, b); });
+                function(k) { return s[k]; }, Set, function(p, a, b) { return p.merge(a, b); });
 
             assertMergeSymmetry(merger, ["1", "3", "4"], new Set("abdx".split("")));
         });
@@ -156,9 +155,39 @@ define([
             var lt = ["23", "24"];
             var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
             var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
-                function(k) { return s[k]; }, struct.ImmutableSet, function(p, a, b) { return p.merge(a, b); });
+                function(k) { return s[k]; }, Set, function(p, a, b) { return p.merge(a, b); });
 
             assertMergeSymmetry(merger, ["1", "3", "4"], new Set("bdx".split("")));
+        });
+
+        var createHellGraph = function(halfsz) {
+            var g = {};
+            g["0"] = [];
+            g["1"] = ["0"];
+            g["2"] = ["0"];
+            for (var i=1; i<halfsz; i++) {
+                g[""+(2*i+1)] = [""+(2*i-1), ""+(2*i+0)];
+                g[""+(2*i+2)] = [""+(2*i-1), ""+(2*i+0)];
+            }
+            return g;
+        };
+        it("hell graph completes in a sane amount of time", function() {
+            this.timeout(this.timeout() * 5);
+            var g = createHellGraph(50000);
+            var le = function(a, b) { a = parseInt(a); b = parseInt(b); return (b & 1)? a <= b: (a == b || a <= b-2); };
+            var dummy_state = function(k) { return new Set(); };
+
+            var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
+                dummy_state, Set, function(p, a, b) { return p.merge(a, b); });
+
+            // unfortunately this stack-overflows. iterative algorithm is a *lot* more complex...
+            assert.throws(function() { merger(["99999", "100000"]); });
+            // for the Transcript case, caching saves us - we run merge() on all messages, so
+            // parents are usually already cached => few recursive calls. so this should not
+            // be a problem even for transcripts with 100k+ messages.
+            for (var i=2000; i<100001; i+=2000) {
+                assertMergeSymmetry(merger, [""+(i-1), ""+i], new Set());
+            }
         });
     });
 });

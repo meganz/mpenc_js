@@ -36,6 +36,7 @@
     "asmcrypto.js": "vibornoff/asmcrypto.js",
     "es6-collections": "infinity0/es6-collections",
     "jodid25519": "meganz/jodid25519",
+    "lru-cache": "~2.5.0",
     "megalogger": "meganz/megalogger"
   },
   "devDependencies": {
