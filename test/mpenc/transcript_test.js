@@ -93,5 +93,78 @@ define([
 
             assert(tr.allAuthors().equals(allUId));
         });
+
+        it('test that pre must be an anti-chain', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 51, [0], [50, 52]));
+            tr.add(M(2, 52, [1], [50, 51]));
+            assert(tr.le(0, 2));
+            assert.throws(function() { tr.add(M(3, 52, [0, 2], [50, 51])); });
+        });
+
+        it('test that all parents must be visible', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 51, [0], [50, 52]));
+            tr.add(M(2, 50, [0], [51]));
+            assert.throws(function() { tr.add(M(3, 52, [1, 2], [50, 51])); });
+        });
+
+        it('test acks don\'t go through messages not visible to the author', function() {
+            // essentially the same graph as graph_test.G_with_blocked_path
+            // "blocked" nodes are nodes that weren't sent to 52
+            // 52's message 0 should ack 1, 2, 4 but not 3, 5, 6 or 8
+            var tr = new impl.BaseTranscript();
+            tr.add(M(8, 50, [], [51, 52]));
+            tr.add(M(6, 50, [8], [51]));
+            tr.add(M(5, 51, [8], [50, 52]));
+            tr.add(M(4, 50, [6], [51, 52]));
+            tr.add(M(3, 51, [4, 5], [50]));
+            tr.add(M(2, 50, [4], [51, 52]));
+            tr.add(M(1, 51, [2, 3], [50, 52]));
+            assert.deepEqual(tr.unacked(), [8, 5, 4, 3, 2, 1]);
+            tr.add(M(0, 52, [1], [50, 51]));
+            assert.deepEqual(tr.unacked(), [8, 5, 3, 1, 0]);
+            assert(tr.unackby(8).equals(new Set([52])));
+            assert(tr.unackby(6).equals(new Set([])));
+            assert(tr.unackby(5).equals(new Set([50, 52])));
+            assert(tr.unackby(4).equals(new Set([])));
+            assert(tr.unackby(3).equals(new Set([50])));
+            assert(tr.unackby(2).equals(new Set([])));
+            assert(tr.unackby(1).equals(new Set([50])));
+            assert(tr.unackby(0).equals(new Set([50, 51])));
+        });
+
+
+        var createHellGraph = function(halfsz) {
+            // basically same as graph_test.createHellGraph
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51]));
+            tr.add(M(1, 50, [0], [51]));
+            tr.add(M(2, 51, [0], [50]));
+            for (var i=1; i<halfsz; i++) {
+                tr.add(M(2*i+1, 50, [2*i-1, 2*i+0], [51]))
+                tr.add(M(2*i+2, 51, [2*i-1, 2*i+0], [50]))
+            };
+            return tr;
+        };
+        it('test no stack overflow on large transcripts graphs', function() {
+            this.timeout(this.timeout() * 20);
+            // pretty much same as the corresponding one in graph_test, except that
+            // we also test the fact we don't explicitly need to call merge
+            // incrementally, because tr.add() does that already
+            var tr = createHellGraph(5000);
+            assert(tr.mergeMembers([9999, 10000]).equals(new Set([50, 51])));
+        });
+
+        it('suc_ruId calculation', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 51, [0], [50, 52]));
+            tr.add(M(2, 52, [0], [50, 51]));
+            assert(tr.suc_ruId(1, 52) === null);
+            assert(tr.suc_ruId(2, 51) === null);
+        });
     });
 });

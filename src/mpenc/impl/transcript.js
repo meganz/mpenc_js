@@ -58,6 +58,8 @@ define([
      * @implements {module:mpenc/transcript.Transcript}
      */
     var BaseTranscript = function() {
+        if (!(this instanceof BaseTranscript)) return new BaseTranscript();
+
         this._uIds = new Set();
         this._messages = new Map();
         this._minMessages = new Set();
@@ -436,6 +438,10 @@ define([
             var a = subseq[0], b = subseq[1];
             return (a === b)? null: this.by(ruId)[a];
         }
+    };
+
+    BaseTranscript.prototype.mergeMembers = function(parents) {
+        return this._merge(parents);
     };
 
     Object.freeze(BaseTranscript.prototype);
