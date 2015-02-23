@@ -49,6 +49,42 @@ define([
      */
 
     /**
+     * Wrapper around a "get()"-capable object (e.g. Map) that throws
+     * <code>ReferenceError</code> when the result is <code>undefined</code>.
+     */
+    var safeGet = function(gettable, key) {
+        var result = gettable.get(key);
+        if (result === undefined) {
+            throw new ReferenceError("invalid key: " + key);
+        }
+        return result;
+    };
+    ns.safeGet = safeGet;
+
+    /**
+     * Apply a function to an ES6 iterator, ignoring its "return value".
+     *
+     * @param iter {Iterator} Iterator to run through.
+     * @param func {function} 1-arg function to apply to each element.
+     * @memberOf! module:mpenc/helper/struct
+     */
+    var iteratorForEach = function(iter, func) {
+        // work around https://github.com/WebReflection/es6-collections/issues/22
+        if (iter instanceof Array) return iter.forEach(func);
+        var done = false;
+        while (!done) {
+            var result = iter.next();
+            done = result.done;
+            if (!done) {
+                func(result.value);
+            } else {
+                return result.value;
+            }
+        }
+    };
+    ns.iteratorForEach = iteratorForEach;
+
+    /**
      * Populate an array using an ES6 iterator, ignoring its "return value".
      *
      * @param iter {Iterator} Iterator to run through.
@@ -57,14 +93,7 @@ define([
      */
     var iteratorToArray = function(iter) {
         var a = [];
-        var done = false;
-        while (!done) {
-            var result = iter.next();
-            done = result.done;
-            if (!done) {
-                a.push(result.value);
-            }
-        }
+        iteratorForEach(iter, function(v) { a.push(v); });
         return a;
     };
     ns.iteratorToArray = iteratorToArray;
@@ -128,6 +157,13 @@ define([
                 // prevent external access to mutable set
                 return callback.call(thisObj, v, v0, this);
             });
+        };
+
+        /**
+         * Return a Iterator of the elements contained in this set.
+         */
+        this.values = function() {
+            return items.values();
         };
 
         /**
@@ -261,7 +297,7 @@ define([
      * @returns {module:mpenc/helper/struct.ImmutableSet} Result set
      */
     ImmutableSet.prototype.merge = function(child0, child1) {
-        return child1.patch(this.diff(child0));
+        return child1.union(child0.subtract(this)).subtract(this.subtract(child0));
     };
 
     Object.freeze(ImmutableSet.prototype);

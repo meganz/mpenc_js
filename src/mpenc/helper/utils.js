@@ -41,6 +41,22 @@ define([
 
     ns._HEX_CHARS = '0123456789abcdef';
 
+    // The following are JSDoc callback typedefs
+    // They may be referred to as {module:mpenc/helper/utils~$name}
+
+    /**
+     * 1-arg function to get some "associates" of a subject.
+     * @callback associates
+     * @param subj {}
+     * @returns {Array} list of associates
+     */
+
+    /**
+     * 1-arg function to decide something about a subject.
+     * @callback predicate
+     * @param subj {}
+     * @returns {boolean}
+     */
 
     /**
      * Generates a new random key, and converts it into a format that
