@@ -172,7 +172,7 @@ define([
             return g;
         };
         it("hell graph completes in a sane amount of time", function() {
-            this.timeout(this.timeout() * 8);
+            this.timeout(this.timeout() * 10);
             var g = createHellGraph(50000);
             var le = function(a, b) { a = parseInt(a); b = parseInt(b); return (b & 1)? a <= b: (a == b || a <= b-2); };
             var dummy_state = function(k) { return new Set(); };

@@ -24,9 +24,10 @@
 define([
     "mpenc/transcript",
     "mpenc/impl/transcript",
+    "mpenc/helper/graph",
     "mpenc/message",
     "chai"
-], function(ns, impl, message,
+], function(ns, impl, graph, message,
             chai) {
     "use strict";
 
@@ -34,8 +35,7 @@ define([
 
     var checkAdd = function(transcript, msg) {
         transcript.add(msg);
-        //Transcript.checkInvariants(transcript);
-        //CausalOrder.checkInvariants(transcript);
+        graph.CausalOrder.checkInvariants(transcript);
     };
 
     var M = message.Message;
@@ -43,9 +43,7 @@ define([
     describe("BaseTranscript class", function() {
         it('empty object', function() {
             var tr = new impl.BaseTranscript();
-            // TODO(xl): write these invariant checks in the interface class
-            //Transcript.checkInvariants(test);
-            //CausalOrder.checkInvariants(test);
+            graph.CausalOrder.checkInvariants(tr);
             checkAdd(tr, M(0, 50, [], []));
             assert(tr.unackby(0).size === 0);
             assert(tr.unacked().length === 0);
@@ -53,8 +51,7 @@ define([
 
         it('smoke test, various features', function() {
             var tr = new impl.BaseTranscript();
-            //Transcript.checkInvariants(test);
-            //CausalOrder.checkInvariants(test);
+            graph.CausalOrder.checkInvariants(tr);
 
             var allUId = new Set([50, 51, 52]);
 
@@ -149,8 +146,15 @@ define([
             };
             return tr;
         };
+
+        it('test hell graph efficiency', function() {
+            this.timeout(this.timeout() * 15);
+            var tr = createHellGraph(256);
+            graph.CausalOrder.checkInvariants(tr);
+        });
+
         it('test no stack overflow on large transcripts graphs', function() {
-            this.timeout(this.timeout() * 20);
+            this.timeout(this.timeout() * 40);
             // pretty much same as the corresponding one in graph_test, except that
             // we also test the fact we don't explicitly need to call merge
             // incrementally, because tr.add() does that already

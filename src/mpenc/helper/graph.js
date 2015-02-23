@@ -139,6 +139,106 @@ define([
      * @returns {string[]} List of node/event ids. */
     CausalOrder.prototype.by;
 
+    CausalOrder.checkInvariants = function(target) {
+        CausalOrder._checkRelations(target);
+        CausalOrder._checkAcyclic(target);
+        CausalOrder._checkTransitiveReduction(target);
+        CausalOrder._checkAuthorTotalOrder(target);
+    };
+
+    // https://stackoverflow.com/a/11935263
+    var getRandomSubarray = function(arr, size) {
+        if (arr.length <= size) return arr;
+        var shuffled = arr.slice(0), i = arr.length, temp, index;
+        while (i--) {
+            index = Math.floor((i + 1) * Math.random());
+            temp = shuffled[index];
+            shuffled[index] = shuffled[i];
+            shuffled[i] = temp;
+        }
+        return shuffled.slice(0, size);
+    };
+
+    CausalOrder._checkRelations = function(target) {
+        getRandomSubarray(target.all(), 128).forEach(function(l) {
+            if (!(target.le(l, l) && target.ge(l, l))) {
+                throw new Error("not reflexive: le/ge on " + l);
+            }
+            // only sample large graphs, otherwise too costly
+            getRandomSubarray(target.all(), 80).forEach(function(m) {
+                var le = target.le(l, m), ge = target.ge(l, m);
+                if (!( le || ge )) {
+                    return;
+                }
+                if (le && ge && l !== m) {
+                    throw new Error("not anti-symmetric: <=, >= both hold for (" + l + ", " + m + ")");
+                }
+                // only sample large graphs, otherwise too costly
+                getRandomSubarray(target.all(), 32).forEach(function(r) {
+                    if (le && target.le(m, r) && !target.le(l, r)) {
+                        throw new Error("not transitive: (" + l + " <= " + m + " <= " + r + ") but not (" + l + " <= " + r + ")");
+                    }
+                    if (ge && target.ge(m, r) && !target.ge(l, r)) {
+                        throw new Error("not transitive: (" + l + " >= " + m + " >= " + r + ") but not (" + l + " >= " + r + ")");
+                    }
+                });
+            });
+        });
+    };
+
+    CausalOrder._checkAcyclic = function(target) {
+        // TODO(xl): do this later, lazy atm...
+        // Transcript already enforces this via another route - namely by
+        // its append-only and "parents-must-already-be-added" semantics
+    };
+
+    CausalOrder._checkTransitiveReduction = function(target) {
+        var is_related = function(pair) { return target.le(pair[0], pair[1]) || target.le(pair[1], pair[0]); };
+        var get_pairs = function(arr) {
+            return arr.map(function(v, i, a) {
+                var b = a.slice();
+                b.splice(i, 1);
+                return b.map(function(w) { return [v, w]; });
+            }).reduce(function(x, y) { return x.concat(y); }, []);
+        };
+        target.all().forEach(function(v) {
+            var related_pre = get_pairs(target.pre(v).toArray()).filter(is_related);
+            if (related_pre.length) {
+                throw new Error("predecessors of " + v + " not an anti-chain: (" + related_pre.join("), (") + ")");
+            }
+            var related_suc = get_pairs(target.suc(v).toArray()).filter(is_related);
+            if (related_suc.length) {
+                throw new Error("successors of " + v + " not an anti-chain: (" + related_suc.join("), (") + ")");
+            }
+        });
+    };
+
+    CausalOrder._checkAuthorTotalOrder = function(target) {
+        var reached = new Set();
+        target.allAuthors().forEach(function(a) {
+            var vv = target.by(a);
+            var notTO = [];
+            for (var i=0; i<vv.length-1; i++) {
+                if (!target.le(vv[i], vv[i+1])) {
+                    notTO.push([vv[i], vv[i+1]]);
+                }
+            }
+            if (notTO.length) {
+                throw new Error("Event of author " + a + " are not totally ordered: (" + notTO.join("), (") + ")");
+            }
+            var invalid = vv.filter(function(v) { return target.author(v) !== a; });
+            if (invalid.length) {
+                throw new Error("Unexpected messages in by() of " + a + ": " + invalid);
+            }
+            vv.forEach(function(v) { reached.add(v); });
+        });
+        reached = new struct.ImmutableSet(reached);
+        var all = new struct.ImmutableSet(target.all());
+        if (!all.equals(reached)) {
+            throw new Error("by(a) for a in allAuthors() did not reach all(): " + all.diff(reached));
+        }
+    };
+
     Object.freeze(CausalOrder.prototype);
     ns.CausalOrder = CausalOrder;
 
