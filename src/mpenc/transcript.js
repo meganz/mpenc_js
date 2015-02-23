@@ -33,87 +33,51 @@ define([], function() {
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
 
-
     /**
-     * A PartialOrder.
+     * A set of Messages forming all or part of a session.
      *
-     * TODO(xl): document
-     *
-     * @class
+     * @interface
      * @memberOf module:mpenc/transcript
      */
-    var PartialOrder = function() {
-        /** @lends module:mpenc/transcript.PartialOrder.prototype */
-        var self = Object.create(PartialOrder.prototype);
-
-        /**
-         * Number of elements.
-         * @member {number}
-         */
-        self.length;
-
-        /** All the ids as an array.
-         * @method
-         * @returns {Array} */
-        self.all;
-
-        /** The minimal ids.
-         * @method
-         * @returns {module:mpenc/helper/struct.MiniSet} */
-        self.min;
-
-        /** The maximal ids.
-         * @method
-         * @returns {module:mpenc/helper/struct.MiniSet} */
-        self.max;
-
-        /** The data for the given id.
-         * @method
-         * @param {string} id
-         * @returns {*} The data, e.g. a message object.
-         */
-        self.msg;
-
-        /** The direct predecessors of the given id.
-         * @method
-         * @param {string} id
-         * @returns {module:mpenc/helper/struct.MiniSet} */
-        self.pre;
-
-        /** The direct successors of the given id.
-         * @method
-         * @param {string} id
-         * @returns {module:mpenc/helper/struct.MiniSet} */
-        self.suc;
-
-        /** True if id1 &le; id2, i.e. id1 = pre<sup>n</sup>(id2) for some n &ge; 0.
-         *
-         * <p>This is a poset, so ¬(id1 &le; id2) does not imply (id2 &le; id1).</p>
-         * @method
-         * @param {string} id1
-         * @param {string} id2
-         * @returns {boolean}  */
-        self.le;
-
-        /** True if id1 &ge; id2, i.e. id1 = suc<sup>n</sup>(id2) for some n &ge; 0.
-         *
-         * <p>This is a poset, so ¬(id1 &ge; id2) does not imply (id2 &ge; id1).</p>
-         * @method
-         * @param {string} id1
-         * @param {string} id2
-         * @returns {boolean}  */
-        self.ge;
-
-        throw new Error("interface not implemented");
+    var Messages = function() {
+        throw new Error("cannot instantiate an interface");
     };
-    PartialOrder.prototype.__invariants = {
-        PO_transitive: function(po) {
-            // TODO
-        },
-        PO_acyclic: function(po) {
-            // TODO
-        },
-    };
+
+    /**
+     * @method
+     * @param mId {string} Message (node) id.
+     * @returns {module:mpenc/message.Message} Message object for the id. */
+    Messages.prototype.get;
+
+    /**
+     * The immediately-preceding messages seen by the author of mId.
+     * @method
+     * @param mId {string} Message (node) id.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of mIds. */
+    Messages.prototype.parents;
+
+    /**
+     * The recipients that have not acked the given message, as seen by
+     * the local process. If this is empty, the message has been fully-acked.
+     *
+     * We (the local process) consider a message m authored by u to be "acked"
+     * by a recipient ru, iff we have accepted a message m_a authored by ru
+     * where m <= m_a, and there is a chain of messages [m .. m_a] all of
+     * which are visible to ru (i.e. authored by them, or by another to them).
+     *
+     * @method
+     * @param {string} mId
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of uIds. */
+    Messages.prototype.unackby;
+
+    /**
+     * Messages that are not yet fully-acked.
+     * @method
+     * @returns {Array.<string>} List of mIds in some topological order. */
+    Messages.prototype.unacked;
+
+    Object.freeze(Messages.prototype);
+    ns.Messages = Messages;
 
 
     /**
@@ -121,96 +85,58 @@ define([], function() {
      *
      * TODO(xl): document
      *
-     * @class
-     * @augments module:mpenc/transcript.PartialOrder
+     * @interface
+     * @augments module:mpenc/helper/graph.CausalOrder
+     * @augments module:mpenc/transcript.Messages
      * @memberOf module:mpenc/transcript
      */
     var Transcript = function() {
-        /** @lends module:mpenc/transcript.Transcript.prototype */
-        var self = Object.create(Transcript.prototype);
-
-        /**
-         * @method
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.allUId;
-
-        /**
-         * @method
-         * @param {string} mId
-         * @returns {string} uId */
-        self.uId;
-
-        /**
-         * @method
-         * @param {string} mId
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.ruId;
-
-        /**
-         * @method
-         * @param {string} uId
-         * @returns {string[]} List of mIds */
-        self.by;
-
-        /**
-         * @method
-         * @param {string} mId
-         * @returns {Object.<string, number>} Map of uId -> mId. */
-        self.context;
-
-        /**
-         * @method
-         * @param {string} mId
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.unackby;
-
-        /**
-         * @method
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of mIds. */
-        self.unacked;
-
-        /**
-         * @method
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.curUId;
-
-        /**
-         * @method
-         * @param {string} mId
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.mem;
-
-        /**
-         * @method
-         * @param {string[]} mIds
-         * @returns {module:mpenc/helper/struct.MiniSet} Set of uIds. */
-        self.mergeMem;
-
-        // TODO(xl): document the following, they are used for
-        // ratcheting and decoding
-
-        self.prevS;
-
-        self.prevR;
-
-        self.nextS;
-
-        self.nextR;
-
-        throw new Error("interface not implemented");
-    };
-    Transcript.prototype = Object.create(PartialOrder.prototype);
-    Transcript.prototype.__invariants = {
-        TS_author_messages_total_order: function(ts) {
-            // TODO
-        },
-        TS_freshness_consistent: function(ts) {
-            // TODO
-        },
+        throw new Error("cannot instantiate an interface");
     };
 
+    /**
+     * Add a message; all its parents must already have been added.
+     *
+     * @method
+     * @param msg {module:mpenc/message.Message} Message to add.
+     * @returns {Array.<string>} List of messages that became fully-acked by
+     * the addition of this message, in some topological order. */
+    Transcript.prototype.add;
 
+    /**
+     * The latest message before mId authored by the same author, or
+     * <code>null</code> if mId is the first message authored by them.
+     *
+     * @method
+     * @param mId {string} Message id.
+     * @returns {?string} Latest preceding message id or <code>null</code>.
+     */
+    Transcript.prototype.pre_uId;
+
+    /**
+     * The latest message before mId authored by the given recipient of mId, or
+     * <code>null</code> if they did not author any such messages.
+     *
+     * @method
+     * @param mId {string} Message id.
+     * @param ruId {string} Author (a recipient of mId) to find message for.
+     * @returns {?string} Latest preceding message id or <code>null</code>.
+     * */
+    Transcript.prototype.pre_ruId;
+
+    /**
+     * The earliest message after mId authored by the given recipient of mId, or
+     * <code>null</code> we did not yet see them author such a message.
+     *
+     * @method
+     * @param mId {string} Message id.
+     * @param ruId {string} Author (a recipient of mId) to find message for.
+     * @returns {?string} Earliest succeeding message id or <code>null</code>.
+     */
+    Transcript.prototype.suc_ruId;
+
+    Object.freeze(Transcript.prototype);
     ns.Transcript = Transcript;
-    ns.PartialOrder = PartialOrder
+
     return ns;
 });

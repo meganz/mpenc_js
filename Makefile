@@ -1,3 +1,7 @@
+# User/runtime variables
+BROWSER = Firefox
+KARMA_FLAGS = # set to --preprocessors= to show line numbers, otherwise coverage clobbers them
+
 # Site-dependent variables
 BUILDDIR = build
 NODE_PATH = ./node_modules
@@ -31,7 +35,11 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 	sed -e 's,$<,$@,g' "$<" > "$@"
 
 test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
-	$(NODE) $(KARMA) start --singleRun=true karma.conf.js --browsers PhantomJS
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --browsers PhantomJS
+
+# use e.g. `make BROWSER=Chrome browser-test` to use a different browser
+browser-test:
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
 api-doc: $(JSDOC)
 	$(NODE) $(JSDOC) --destination doc/api/ --private \
@@ -101,5 +109,5 @@ clean-all: clean
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
 	rm -f .npm-build-deps
 
-.PHONY: all test api-doc clean clean-all build-deps-auto
+.PHONY: all test browser-test api-doc clean clean-all build-deps-auto
 .PHONY: build-static build-shared test-static test-shared dist
