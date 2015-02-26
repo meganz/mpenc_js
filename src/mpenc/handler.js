@@ -1269,10 +1269,19 @@ define([
             if (decoded) {
                 wireMessage.type = 'message';
                 wireMessage.message = decoded.data;
+                logger.debug('Message from "' + author
+                             + ' successfully decrypted.');
                 this._outQueue.push(wireMessage);
                 return true;
+            } else {
+                logger.debug('Message from "' + author
+                             + ' not decrypted, will be stashed in trial buffer.');
             }
+        } else {
+            logger.warn('No message author for message available, '
+                        + 'will not be able to decrypt: ' + wireMessage.message);
         }
+
         return false;
     };
 
