@@ -358,7 +358,6 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
                 assert.lengthOf(result.iv, 12);
                 assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
@@ -369,7 +368,6 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
                 assert.lengthOf(result.iv, 12);
                 assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
@@ -395,21 +393,9 @@ define([
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
                 assert.lengthOf(result.iv, 12);
                 assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-
-            it('data message, invalid signature', function() {
-                // Change a single byte.
-                var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
-                            + String.fromCharCode(77)
-                            + _td.DATA_MESSAGE_STRING.substring(11);
-                assert.throws(function() { ns.decodeMessageContent(message,
-                                                                   _td.ED25519_PUB_KEY,
-                                                                   _td.SESSION_ID, _td.GROUP_KEY); },
-                              'Signature of message does not verify');
             });
         });
 

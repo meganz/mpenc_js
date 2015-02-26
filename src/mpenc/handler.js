@@ -6,11 +6,13 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
+    "mpenc/helper/struct",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
+    "mpenc/session",
     "megalogger",
-], function(assert, utils, cliques, ske, codec, MegaLogger) {
+], function(assert, utils, struct, cliques, ske, codec, session, MegaLogger) {
     "use strict";
 
     /**
@@ -155,8 +157,6 @@ define([
      *     This participant's static/long term public key.
      * @param staticPubKeyDir {PubKeyDir}
      *     Public key directory object.
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
      * @param queueUpdatedCallback {Function}
      *      A callback function, that will be called every time something was
      *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
@@ -206,9 +206,10 @@ define([
      *     padding). If the clear text will result in a larger cipher text than
      *     exponentialPadding, power of two exponential padding sizes will be
      *     used.
+     * @property tryDecrypt {mpenc/helper/struct.TrialBuffer}
+     *     Trial buffer for message decryption.
      */
     ns.ProtocolHandler = function(id, name, privKey, pubKey, staticPubKeyDir,
-                                  sessionTracker,
                                   queueUpdatedCallback, stateUpdatedCallback,
                                   exponentialPadding) {
         this.id = id;
@@ -216,7 +217,8 @@ define([
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.sessionTracker = sessionTracker;
+        this.sessionTracker = new session.SessionTracker(name,
+                                                         function() { return 20; });
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
@@ -225,6 +227,11 @@ define([
         this.state = ns.STATE.NULL;
         this.recovering = false;
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
+
+        // Set up a trial buffer for trial decryption.
+        var decryptTarget = new ns.DecryptTrialTarget(this.sessionTracker,
+                                                      this.uiQueue, 100);
+        this.tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir
@@ -728,26 +735,7 @@ define([
                 _assert(this.state === ns.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
 
-                // Let's crack this baby open.
-                var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
-                var sessionID = this.sessionTracker.sessionIDs[0];
-                decodedMessage = codec.decodeMessageContent(classify.content,
-                                                            signingPubKey,
-                                                            sessionID,
-                                                            this.sessionTracker.sessions[sessionID].groupKeys[0]);
-
-                if (decodedMessage.signatureOk === false) {
-                    // Signature failed, abort!
-                    wireMessage.type = 'error';
-                    wireMessage.message = 'Signature of received message invalid. Aborting chat session.';
-                    this.uiQueue.push(wireMessage);
-                    this.sendError(ns.ERROR.TERMINAL, wireMessage.message);
-                } else {
-                    wireMessage.type = 'message';
-                    wireMessage.message = decodedMessage.data;
-                    this.uiQueue.push(wireMessage);
-                }
-                this.queueUpdatedCallback(this);
+                this.tryDecrypt.trial(wireMessage);
                 break;
             default:
                 _assert(false, 'Received unknown message category: ' + classify.category);
@@ -1247,9 +1235,6 @@ define([
         var sessionID = this._sessionTracker.sessionIDs[0];
         var groupKey = this._sessionTracker.sessions[sessionID].groupKeys[0];
 
-        // Do something like codec.inspectMessageContent, but on raw wire
-        // message to extract category, hint, signature, and content
-
         if (author) {
             var signingPubKey = this._sessionTracker.pubKeyMap[author];
             var categorised = codec.categoriseMessage(wireMessage.message);
@@ -1281,7 +1266,7 @@ define([
                 }
             }
 
-            if (decoded.signatureOk === true) {
+            if (decoded) {
                 wireMessage.type = 'message';
                 wireMessage.message = decoded.data;
                 this._outQueue.push(wireMessage);

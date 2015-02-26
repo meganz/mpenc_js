@@ -107,7 +107,6 @@ _td.DATA_MESSAGE_STRING32 = atob('AAYAAVQAAwBAGsqBp4p3VhODEBmaopnopJVPcg9hagE2'
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
-    signatureOk: true,
     messageType: '\u0000\u0000', // codec.MESSAGE_TYPE.PARTICIPANT_DATA
     protocol: undefined, // define this in tests
     iv: 'xxx',
