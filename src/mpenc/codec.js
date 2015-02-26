@@ -797,21 +797,21 @@ define([
                 pubKey = out.pubKeys[index];
             }
 
-            var category = (out.messageType === ns.MESSAGE_TYPE.PARTICIPANT_DATA)
-                         ? ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE
-                         : ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE;
-            try {
-                out.signatureOk = ns.verifyMessageSignature(category,
-                                                            out.rawMessage,
-                                                            out.signature,
-                                                            pubKey,
-                                                            sidkeyHash);
-                _assert(out.signatureOk,
-                        'Signature of message does not verify!');
-            } catch (e) {
-                out.signatureOk = false;
-                _assert(out.signatureOk,
-                        'Signature of message does not verify: ' + e + '!');
+            // Data message signatures are verified through trial decryption.
+            if (out.messageType !== ns.MESSAGE_TYPE.PARTICIPANT_DATA) {
+                try {
+                    out.signatureOk = ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                                out.rawMessage,
+                                                                out.signature,
+                                                                pubKey,
+                                                                sidkeyHash);
+                    _assert(out.signatureOk,
+                            'Signature of message does not verify!');
+                } catch (e) {
+                    out.signatureOk = false;
+                    _assert(out.signatureOk,
+                            'Signature of message does not verify: ' + e + '!');
+                }
             }
         }
 
