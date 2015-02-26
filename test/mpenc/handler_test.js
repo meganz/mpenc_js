@@ -28,13 +28,14 @@ define([
     "mpenc/version",
     "mpenc/session",
     "asmcrypto",
+    "jodid25519",
     "megalogger",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, version, session, asmCrypto, MegaLogger,
+], function(ns, utils, codec, version, session, asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -48,6 +49,7 @@ define([
         var tracker = new session.SessionTracker('dummy', stub().returns(1000));
         tracker.sessionIDs = utils.clone(_td.SESSION_TRACKER.sessionIDs);
         tracker.sessions = utils.clone(_td.SESSION_TRACKER.sessions);
+        tracker.pubKeyMap = utils.clone(_td.SESSION_TRACKER.pubKeyMap);
         return tracker;
     }
 
@@ -79,8 +81,12 @@ define([
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
             var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
+            var sessionID = senderParticipant.sessionTracker.sessionIDs[0];
+            var groupKey = sessionID
+                         ? senderParticipant.sessionTracker.sessions[sessionID].groupKeys[0]
+                         : undefined;
             return codec.decodeMessageContent(content, senderParticipant.askeMember.ephemeralPubKey,
-                                              senderParticipant.sessionTracker);
+                                              sessionID, groupKey);
         } else {
             return null;
         }
@@ -94,8 +100,8 @@ define([
         return participants[index];
     }
 
-    describe("module level", function() {
-        describe('messageIdFunc as paramIdFunc', function() {
+    describe("DecryptTrialTarget class", function() {
+        describe('#paramId method', function() {
             it('simple ID of message', function() {
                 sandbox.stub(codec, 'categoriseMessage').returns(
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
@@ -105,20 +111,105 @@ define([
                 var message = { from: 'somebody',
                                 to: 'someone else',
                                 message: _td.DATA_MESSAGE_STRING };
-                assert.strictEqual(ns.messageIdFunc(message), 'foo');
+                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                assert.strictEqual(target.paramId(message), 'foo');
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
         });
 
-//        describe('messageSignerFunc as tryFunc', function() {
-//            it('succeeding try func', function() {
-//                assert.strictEqual(ns.messageSignerFunc(pending, message), true);
-//                // * function has a list of members and a list of pub keys
-//                // * tries each one
-//                // * if one succeeds, returns `true`
-//            });
-//        });
+        describe('#maxSize method', function() {
+            it('simple ID of message', function() {
+                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                assert.strictEqual(target.maxSize(), 42);
+            });
+        });
+
+        describe('#tryMe', function() {
+            it('succeeding try func, not pending', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                var sessionTracker = _dummySessionTracker();
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+            });
+
+            it('succeeding try func, not pending, previous group key', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
+            });
+
+            it('succeeding try func, not pending, previous session', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessionIDs.unshift('foo');
+                sessionTracker.sessions['foo'] = utils.clone(sessionTracker.sessions[_td.SESSION_ID]);
+                sessionTracker.sessions['foo'].groupKeys[0] = atob('Dw4NDAsKCQgHBgUEAwIBAA==');
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
+            });
+
+            it('succeeding try func, not pending, hint collision', function() {
+                var collidingKey = 'XqtAZ4L9eY4qFdf6XsfgsQ==';
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 3);
+            });
+        });
     });
 
     describe("ProtocolHandler class", function() {
@@ -729,6 +820,7 @@ define([
                                                          _dummySessionTracker());
                 participant.state =  ns.STATE.READY;
                 participant.cliquesMember.groupKey = "Parents Just Don't Understand";
+                participant.askeMember.ephemeralPubKeys = [];
                 var message = {message: "Fresh Prince",
                                dest: ''};
                 sandbox.stub(codec, 'encodeMessage', _echo);
@@ -1096,6 +1188,8 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR,
                                                          _dummySessionTracker());
+                participant.askeMember.members = ['1', '2', '3', '4', '5'];
+                participant.askeMember.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
                 participant.state = ns.STATE.INIT_DOWNFLOW;
                 participant.cliquesMember.groupKey = "bar";
                 sandbox.spy(participant.cliquesMember, 'upflow');
@@ -1219,11 +1313,11 @@ define([
                 participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyDataMessage').returns(true);
+                sandbox.stub(codec, 'verifyMessageSignature').returns(true);
                 var result = participant._processErrorMessage(content);
-                sinon_assert.calledOnce(codec.verifyDataMessage);
-                assert.strictEqual(codec.verifyDataMessage.getCall(0).args[0],
-                                   'errormsgsigfrom "a.dumbledore@hogwarts.ac.'
+                sinon_assert.calledOnce(codec.verifyMessageSignature);
+                assert.strictEqual(codec.verifyMessageSignature.getCall(0).args[1],
+                                   'from "a.dumbledore@hogwarts.ac.'
                                    + 'uk/android123":TERMINAL:Signature verifi'
                                    + 'cation for q.quirrell@hogwarts.ac.uk/wp8'
                                    + 'possessed666 failed.');
@@ -1247,9 +1341,9 @@ define([
                 participant.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
                                                   'q.quirrell@hogwarts.ac.uk/wp8possessed666',
                                                   'm.mcgonagall@hogwarts.ac.uk/ios456'];
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
 
@@ -1271,9 +1365,9 @@ define([
                                                   'm.mcgonagall@hogwarts.ac.uk/ios456'];
                 participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
 
@@ -1292,9 +1386,9 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR,
                                                          _dummySessionTracker());
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
         });
@@ -1786,7 +1880,7 @@ define([
                                    'Received unencrypted message, requesting encryption.');
             });
 
-            // XXX:
+            // TODO:
             // * check for message showing in ui queue
             // * INFO, WARNING, TERMINAL ERROR, type "error"
             // * invoke quit() on TERMINAL ERROR
@@ -1928,12 +2022,10 @@ define([
                 sandbox.stub(participant.askeMember, 'getMemberEphemeralPubKey').returns('lala');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.decodeMessageContent);
-                assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 3);
+                assert.lengthOf(codec.decodeMessageContent.getCall(0).args, 4);
                 assert.strictEqual(codec.decodeMessageContent.getCall(0).args[1], 'lala');
-                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2].sessionIDs,
-                                 _td.SESSION_TRACKER.sessionIDs);
-                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2].sessions,
-                                 _td.SESSION_TRACKER.sessions);
+                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[2], _td.SESSION_ID);
+                assert.deepEqual(codec.decodeMessageContent.getCall(0).args[3], _td.GROUP_KEY);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);

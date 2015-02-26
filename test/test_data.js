@@ -51,9 +51,9 @@ _td.STATIC_PUB_KEY_DIR = {
 /* Constants mainly for the mpenc.codec and mpenc.greet.handler. */
 
 _td.GROUP_KEY = atob('Fla5bB1SQ2itQ+XRUXGAVg==');
-_td.UPFLOW_MESSAGE_STRING = atob('AAMAQLHAJAGpBa+XQtQxeCIPjCSMg20rM3rA3htcSI7V'
-                                 + '15i3U545gMU41HZY2YnyBJBJVbyfCan42sW1E63aNp'
-                                 + 'tTAAQAAQABAQAFAAIAnAEAAAExAQEAATIBAgABMQEC'
+_td.UPFLOW_MESSAGE_STRING = atob('AAMAQNwWlkP2SKJmD5Hux2K9Itmn4z4duGJvt0Bm2LqM'
+                                 + 'EusHgd/egLsz2rNmEjJ1YF+n0eGH7tUwHyJ6EZiWhF'
+                                 + 'YE4QIAAQABAQAFAAIAnAEAAAExAQEAATIBAgABMQEC'
                                  + 'AAEyAQIAATMBAgABNAECAAE1AQIAATYBAwAAAQMAII'
                                  + 'Ug8AmJMKdUdIt93LQ+91oNvzoNJjga9OukqY6qm05q'
                                  + 'AQQAIIUg8AmJMKdUdIt93LQ+91oNvzoNJjga9OukqY'
@@ -77,9 +77,9 @@ _td.DOWNFLOW_MESSAGE_CONTENT = {
     messageType: '\u0000\u00d3', // codec.MESSAGE_TYPE.QUIT_DOWN
     signingKey: _td.ED25519_PRIV_KEY,
 };
-_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQMxsLj+UGQ95+d1ovpOIuCWp2dLApelyrPPYnq'
-                                   + 'e69JfHfZCpqmMHrBWnxwAYH+O/TxVlumIKo/h3Z9'
-                                   + 'AWk9YMPwoAAQABAQAFAAIA0wEAAAExAQEAAAEHAC'
+_td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQMTL5erm9/6IBvW0/DeWrCrCrfdJJNcUwrGVH2'
+                                   + 'LOq4en43DetGsHaDHve0VWTNTPcjzCdE0iiOUHQp'
+                                   + 'Wjffirzw4AAQABAQAFAAIA0wEAAAExAQEAAAEHAC'
                                    + 'CdYbGd7/1aYLqESvSS7CzEREnFaXsyaRlwO6wDHK'
                                    + '5/YA==');
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
@@ -90,6 +90,7 @@ _td.SESSION_TRACKER.sessions[_td.SESSION_ID] = {
     members: ['Moe', 'Larry', 'Curly'],
     groupKeys: [_td.GROUP_KEY]
 };
+_td.SESSION_TRACKER.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY };
 _td.DATA_MESSAGE_STRING = atob('AAYAAVQAAwBAaLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17M'
                                + 'Td1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/Q'
                                + 'xskpTHBwABAAEBAAUAAgAAAAQADKqt+v306FvmeyO2+Q'

@@ -58,19 +58,19 @@ define([
      * Carries message content for the authenticated signature key exchange.
      *
      * @constructor
-     * @param source
+     * @param source {string}
      *     Message originator (from).
-     * @param dest
+     * @param dest {string}
      *     Message destination (to).
-     * @param flow
+     * @param flow {string}
      *     Message type.
-     * @param members
+     * @param members {Array<string>}
      *     List (array) of all participating members.
-     * @param nonces
+     * @param nonces {Array<string>}
      *     List (array) of all participants' nonces.
-     * @param pubKeys
+     * @param pubKeys {Array<string>}
      *     List (array) of all participants' ephemeral public keys.
-     * @param sessionSignature
+     * @param sessionSignature {string}
      *     Signature to acknowledge the session.
      * @returns {SignatureKeyExchangeMessage}
      *
@@ -118,27 +118,27 @@ define([
      *
      * @property id {string}
      *     Member's identifier string.
-     * @property members
+     * @property members {array<string>}
      *     List of all participants.
-     * @property authenticatedMembers
+     * @property authenticatedMembers {array<boolean>}
      *     List of boolean authentication values for members.
-     * @property ephemeralPrivKey
+     * @property ephemeralPrivKey {string}
      *     Own ephemeral private signing key.
-     * @property ephemeralPubKey
+     * @property ephemeralPubKey {string}
      *     Own ephemeral public signing key.
-     * @property nonce
+     * @property nonce {string}
      *     Own nonce value for this session.
-     * @property nonces
+     * @property nonces {array<string>}
      *     Nonce values of members for this session.
-     * @property ephemeralPubKeys
+     * @property ephemeralPubKeys {array<string>}
      *     Ephemeral signing keys for members.
-     * @property sessionId
+     * @property sessionId {string}
      *     Session ID of this session.
-     * @property staticPrivKey
+     * @property staticPrivKey {string}
      *     Own static (long term) signing key.
-     * @property staticPubKeyDir
+     * @property staticPubKeyDir {mpenc/handler.PubKeyDir}
      *     "Directory" of static public keys, using the participant ID as key.
-     * @property oldEphemeralKeys
+     * @property oldEphemeralKeys {object}
      *     "Directory" of previous participants' ephemeral keys, using the
      *     participant ID as key. The entries contain an object with one or more of
      *     the members `priv`, `pub` and `authenticated` (if the key was
@@ -164,8 +164,8 @@ define([
     /**
      * Start the upflow for the the commit (nonce values and ephemeral public keys).
      *
-     * @param otherMembers
-     *     Iterable of other members for the group (excluding self).
+     * @param otherMembers {array<string>}
+     *     Other members for the group (excluding self).
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
@@ -184,7 +184,7 @@ define([
     /**
      * SKE upflow phase message processing.
      *
-     * @param message
+     * @param message {SignatureKeyExchangeMessage}
      *     Received upflow message. See {@link SignatureKeyExchangeMessage}.
      * @returns {SignatureKeyExchangeMessage}
      * @method
@@ -243,7 +243,7 @@ define([
      * Computes a session acknowledgement signature sigma(m) of a message
      * m = (pid_i, E_i, k_i, sid) using the static private key.
      *
-     * @returns
+     * @returns {string}
      *     Session signature.
      * @method
      */
@@ -262,11 +262,11 @@ define([
      * Verifies a session acknowledgement signature sigma(m) of a message
      * m = (pid_i, E_i, k_i, sid) using the static public key.
      *
-     * @param memberId
+     * @param memberId {string}
      *     Participant ID of the member to verify the signature against.
-     * @param signature
+     * @param signature {string}
      *     Session acknowledgement signature.
-     * @returns
+     * @returns {boolean}
      *     Whether the signature verifies against the member's static public key.
      * @method
      */
@@ -291,7 +291,7 @@ define([
      *
      * Returns null for the case that it has sent a downflow message already.
      *
-     * @param message
+     * @param message {SignatureKeyExchangeMessage}
      *     Received downflow message. See {@link SignatureKeyExchangeMessage}.
      * @returns {SignatureKeyExchangeMessage} or null.
      * @method
@@ -340,7 +340,7 @@ define([
      * Returns true if the authenticated signature key exchange is fully
      * acknowledged.
      *
-     * @returns {bool}
+     * @returns {boolean}
      *     True on a valid session.
      * @method
      */
@@ -356,7 +356,7 @@ define([
     /**
      * Returns the ephemeral public signing key of a participant.
      *
-     * @param participantId
+     * @param participantId {string}
      *     Participant ID of the member to query for.
      * @returns {string}
      *     The binary string of the key or `undefined` if unknown.
@@ -390,8 +390,8 @@ define([
     /**
      * Start a new upflow for joining new members.
      *
-     * @param newMembers
-     *     Iterable of new members to join the group.
+     * @param newMembers {array<string>}
+     *     New members to join the group.
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
@@ -417,8 +417,8 @@ define([
     /**
      * Start a new downflow for excluding members.
      *
-     * @param excludeMembers
-     *     Iterable of members to exclude from the group.
+     * @param excludeMembers {array<string>}
+     *     Members to exclude from the group.
      * @returns {SignatureKeyExchangeMessage}
      * @method
      */
@@ -537,11 +537,11 @@ define([
     /**
      * Computes the session ID.
      *
-     * @param members
+     * @param members {array<string>}
      *     Members participating in protocol.
-     * @param nonces
+     * @param nonces {array<string>}
      *     Nonces of the members in matching order.
-     * @returns
+     * @returns {string}
      *     Session ID as binary string.
      */
     ns._computeSid = function(members, nonces) {

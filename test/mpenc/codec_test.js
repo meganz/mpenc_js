@@ -310,7 +310,7 @@ define([
         describe("decodeMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY, {});
+                                                     _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
@@ -323,10 +323,10 @@ define([
 
             it('upflow message, debug on', function() {
                 ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY, {});
+                                        _td.ED25519_PUB_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['messageSignature: scAkAakFr5dC1DF4Ig+MJIyDbSszesDeG1xIjtXXmLdTnjmAxTjUdljZifIEkElVvJ8JqfjaxbUTrdo2m1MABA==',
+                                           ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
                                             'protocol: 1',
                                             'messageType: 0x9c (INIT_INITIATOR_UP)',
                                             'from: 1', 'to: 2',
@@ -338,7 +338,7 @@ define([
 
             it('downflow message for quit', function() {
                 var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY, {});
+                                                     _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
                 assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
@@ -349,21 +349,14 @@ define([
                 var message = _td.UPFLOW_MESSAGE_STRING.substring(68, 72)
                             + String.fromCharCode(77)
                             + _td.UPFLOW_MESSAGE_STRING.substring(73);
-                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY, {}); },
+                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY); },
                               'Received wrong protocol version: 77');
             });
 
             it('data message', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -372,16 +365,9 @@ define([
             });
 
             it('data message with second group key', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY, 'foo']
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING2,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -390,16 +376,9 @@ define([
             });
 
             it('data message, debug on', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY, sessionTracker);
-
+                                        _td.ED25519_PUB_KEY,
+                                        _td.SESSION_ID, _td.GROUP_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                            ['sidkeyHint: 0x54',
@@ -412,16 +391,9 @@ define([
             });
 
             it('data message with exponential padding', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
                 assert.strictEqual(result.signatureOk, _td.DATA_MESSAGE_CONTENT.signatureOk);
                 assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
@@ -434,16 +406,9 @@ define([
                 var message = _td.DATA_MESSAGE_STRING.substring(0, 10)
                             + String.fromCharCode(77)
                             + _td.DATA_MESSAGE_STRING.substring(11);
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
                 assert.throws(function() { ns.decodeMessageContent(message,
                                                                    _td.ED25519_PUB_KEY,
-                                                                   sessionTracker); },
+                                                                   _td.SESSION_ID, _td.GROUP_KEY); },
                               'Signature of message does not verify');
             });
         });
@@ -452,7 +417,8 @@ define([
             it('upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, 0x9c);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageTypeNumber, 0x9c);
                 assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
                 assert.strictEqual(result.from, '1');
                 assert.strictEqual(result.to, '2');
@@ -465,12 +431,16 @@ define([
                 assert.strictEqual(result.numNonces, 1);
                 assert.strictEqual(result.numIntKeys, 2);
                 assert.strictEqual(result.numPubKeys, 1);
+                assert.strictEqual(result.sidkeyHint, null);
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 163);
             });
 
             it('downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, 0xd3);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageTypeNumber, 0xd3);
                 assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
                 assert.strictEqual(result.from, '1');
                 assert.strictEqual(result.to, '');
@@ -483,6 +453,64 @@ define([
                 assert.strictEqual(result.numNonces, 0);
                 assert.strictEqual(result.numIntKeys, 0);
                 assert.strictEqual(result.numPubKeys, 0);
+                assert.strictEqual(result.sidkeyHint, null);
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 56);
+            });
+
+            it('data message', function() {
+                var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING);
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageTypeNumber, 0x00);
+                assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
+                assert.strictEqual(result.from, null);
+                assert.strictEqual(result.to, null);
+                assert.strictEqual(result.origin, null);
+                assert.strictEqual(result.operation, null);
+                assert.strictEqual(result.agreement, null);
+                assert.strictEqual(result.flow, null);
+                assert.strictEqual(result.recover, false);
+                assert.deepEqual(result.members, []);
+                assert.strictEqual(result.numNonces, 0);
+                assert.strictEqual(result.numIntKeys, 0);
+                assert.strictEqual(result.numPubKeys, 0);
+                assert.strictEqual(result.sidkeyHint, '\u0054');
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 36);
+            });
+
+            it('shallow, upflow message', function() {
+                var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING, true);
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageTypeNumber, 0x9c);
+                assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
+                assert.strictEqual(result.sidkeyHint, null);
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 163);
+            });
+
+            it('shallow, downflow message for quit', function() {
+                var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING, true);
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageTypeNumber, 0xd3);
+                assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
+                assert.strictEqual(result.sidkeyHint, null);
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 56);
+            });
+
+            it('shallow, data message', function() {
+                var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING, true);
+                assert.strictEqual(result.protocolVersion, 1);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageTypeNumber, 0x00);
+                assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
+                assert.strictEqual(result.sidkeyHint, '\u0054');
+                assert.lengthOf(result.messageSignature, 64);
+                assert.lengthOf(result.signedContent, 36);
             });
         });
     });
@@ -554,9 +582,9 @@ define([
             var from = 'a.dumbledore@hogwarts.ac.uk/android123';
             var severity = 'TERMINAL';
             var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
-            sandbox.stub(ns, 'signDataMessage').returns('\u0000\u0000\u0000');
+            sandbox.stub(ns, 'signMessage').returns('\u0000\u0000\u0000');
             var result = ns.encodeErrorMessage(from, severity, message, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
-            sinon_assert.calledOnce(ns.signDataMessage);
+            sinon_assert.calledOnce(ns.signMessage);
             assert.strictEqual(result, '?mpENC Error:AAAA:from "a.dumbledore@hogwarts.ac.uk/android123"'
                                + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
         });
@@ -565,9 +593,9 @@ define([
             var from = 'a.dumbledore@hogwarts.ac.uk/android123';
             var severity = 'TERMINAL';
             var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
-            sandbox.stub(ns, 'signDataMessage').returns('\u0000\u0000\u0000');
+            sandbox.stub(ns, 'signMessage').returns('\u0000\u0000\u0000');
             var result = ns.encodeErrorMessage(from, severity, message);
-            assert.strictEqual(ns.signDataMessage.callCount, 0);
+            assert.strictEqual(ns.signMessage.callCount, 0);
             assert.strictEqual(result, '?mpENC Error::from "a.dumbledore@hogwarts.ac.uk/android123"'
                                + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
         });
@@ -721,13 +749,33 @@ define([
         });
     });
 
-    describe("signDataMessage()", function() {
+    describe("signMessage()", function() {
         it('null equivalents', function() {
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.signDataMessage(tests[i],
-                                                      _td.ED25519_PRIV_KEY,
-                                                      _td.ED25519_PUB_KEY), null);
+                assert.strictEqual(ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                  tests[i],
+                                                  _td.ED25519_PRIV_KEY,
+                                                  _td.ED25519_PUB_KEY), null);
+            }
+        });
+
+        it('greet messages', function() {
+            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
+            var expected = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
+                            'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
+                            'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
+                            'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
+                            'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
+                            'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
+            for (var i = 0; i < tests.length; i++) {
+                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                            tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
+                assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
         });
 
@@ -737,67 +785,116 @@ define([
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
-            var expected = ['5VZDAMNgrHKQhuLMgG6CioSHfx645dl02HPgZSJJAVVfuIIVkKM7rMYeOXAc+bRr0lv18FlbviRlUUFDjnoQCw==',
-                            'drcfMQxOrWHPERrOaIyo4H1H2laq09YRgyC669W2upOuCWbARC6xMpaGaQWFRkp4WAV8Jc0qMnmNNF8hyPaIDQ==',
-                            '5F4lOmulZwLZ5uRje/RtkyD1wz1U8mVPdv15Ix2BIFb9UM14zA0H8hBk/xZOo2rkaKMM+tCUGrnlq6u4LqGUBg==',
-                            'pTojkkKs54p8T7yKcHKmBs3rso5ZkA9LBgcrlh+j3qViEzHrsrLaigq7ANb6JfMoXK6jSIKl5RwHtYb7+DGdDg==',
-                            'k6sBjSrQTioI9UVJNusYDqC/Hrn/3/FZTTH5upe2FVavgYngFg+s/xr3SzJIXk5QW6A+pzQxBIvz3zo83h3fBA==',
-                            'Uy2YERg9X05Ynpt6B6Wg8jAJuBQZr6BXbeHAkkcQbirODJgpWZlTSuKm2T2EnO7RtACQwChEEXb6DfaEFff+AA=='];
+            var expected = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
+                            'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
+                            'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
+                            'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
+                            '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
+                            'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
+            var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signDataMessage(tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
+                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                            tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY,
+                                            sidkeyHash);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
         });
     });
 
-    describe("verifyDataMessage()", function() {
-        it('verifies', function() {
+    describe("verifyMessageSignature()", function() {
+        it('verifies greet message', function() {
             var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
-            var signatures = ['5VZDAMNgrHKQhuLMgG6CioSHfx645dl02HPgZSJJAVVfuIIVkKM7rMYeOXAc+bRr0lv18FlbviRlUUFDjnoQCw==',
-                              'drcfMQxOrWHPERrOaIyo4H1H2laq09YRgyC669W2upOuCWbARC6xMpaGaQWFRkp4WAV8Jc0qMnmNNF8hyPaIDQ==',
-                              '5F4lOmulZwLZ5uRje/RtkyD1wz1U8mVPdv15Ix2BIFb9UM14zA0H8hBk/xZOo2rkaKMM+tCUGrnlq6u4LqGUBg==',
-                              'pTojkkKs54p8T7yKcHKmBs3rso5ZkA9LBgcrlh+j3qViEzHrsrLaigq7ANb6JfMoXK6jSIKl5RwHtYb7+DGdDg==',
-                              'k6sBjSrQTioI9UVJNusYDqC/Hrn/3/FZTTH5upe2FVavgYngFg+s/xr3SzJIXk5QW6A+pzQxBIvz3zo83h3fBA==',
-                              'Uy2YERg9X05Ynpt6B6Wg8jAJuBQZr6BXbeHAkkcQbirODJgpWZlTSuKm2T2EnO7RtACQwChEEXb6DfaEFff+AA=='];
+            var signatures = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
+                              'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
+                              'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
+                              'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
+                              'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
+                              'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyDataMessage(tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                    tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                           'case ' + (i + 1));
             }
         });
 
-        it('failes verification', function() {
+        it('failes verification greet message', function() {
             var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS', ''];
-            var signatures = ['5VZDAMNgrHKQhuLMgG6CioSHfx645dl02HPgZSJJAVVfuIIVkKM7rMYeOXAc+bRr0lv18FlbviRlUUFDjnoQCw==',
-                              'drcfMQxOrWHPERrOaIyo4H1H2laq09YRgyC669W2upOuCWbARC6xMpaGaQWFRkp4WAV8Jc0qMnmNNF8hyPaIDQ==',
-                              '5F4lOmulZwLZ5uRje/RtkyD1wz1U8mVPdv15Ix2BIFb9UM14zA0H8hBk/xZOo2rkaKMM+tCUGrnlq6u4LqGUBg==',
-                              'pTojkkKs54p8T7yKcHKmBs3rso5ZkA9LBgcrlh+j3qViEzHrsrLaigq7ANb6JfMoXK6jSIKl5RwHtYb7+DGdDg==',
-                              'k6sBjSrQTioI9UVJNusYDqC/Hrn/3/FZTTH5upe2FVavgYngFg+s/xr3SzJIXk5QW6A+pzQxBIvz3zo83h3fBA==',
-                              'Uy2YERg9X05Ynpt6B6Wg8jAJuBQZr6BXbeHAkkcQbirODJgpWZlTSuKm2T2EnO7RtACQwChEEXb6DfaEFff+AA=='];
+            var signatures = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
+                              'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
+                              'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
+                              'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
+                              'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
+                              'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.notOk(ns.verifyDataMessage(tests[i],
-                                                  atob(signatures[i]),
-                                                  _td.ED25519_PUB_KEY));
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                       tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
+                             'case ' + (i + 1));
             }
         });
+
+        it('verifies data message', function() {
+            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
+            var signatures = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
+                              'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
+                              'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
+                              'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
+                              '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
+                              'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
+            var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
+            for (var i = 0; i < tests.length; i++) {
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                                    tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
+                                                    sidkeyHash),
+                          'case ' + (i + 1));
+            }
+        });
+
+        it('failes verification data message', function() {
+            var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
+                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                         'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
+                         + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS', ''];
+            var signatures = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
+                              'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
+                              'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
+                              'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
+                              '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
+                              'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
+            var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
+            for (var i = 0; i < tests.length; i++) {
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                                       tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
+                                                       sidkeyHash),
+                             'case ' + (i + 1));
+            }
+        });
+
     });
 
-    describe("signDataMessage()/verifyDataMessage()", function() {
+    describe("signMessage()/verifyMessageSignature()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var privKey = jodid25519.utils.bytes2string(utils._newKey08(512));
                 var pubKey = jodid25519.eddsa.publicKey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
-                var signature = ns.signDataMessage(message, privKey, pubKey);
-                assert.ok(ns.verifyDataMessage(message, signature, pubKey),
+                var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                               message, privKey, pubKey);
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                    message, signature, pubKey),
                           'iteration ' + (i + 1));
             }
         });

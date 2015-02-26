@@ -325,6 +325,7 @@ define([
      * @returns {boolean}
      *     `true` if processing succeeds, otherwise `false`.
      */
+
     /**
      * This method determines the buffer capacity. It takes no parameters.
      *
@@ -332,6 +333,7 @@ define([
      * @returns {integer}
      *     Number of allowed elements in the buffer.
      */
+
     /**
      * This method determines a parameter's identifier.
      *
