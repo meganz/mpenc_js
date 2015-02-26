@@ -78,7 +78,7 @@ define([
         NULL:          0x00,
         INIT_UPFLOW:   0x01,
         INIT_DOWNFLOW: 0x02,
-        READY:   0x03,
+        READY:         0x03,
         AUX_UPFLOW:    0x04,
         AUX_DOWNFLOW:  0x05,
         QUIT:          0x06,
@@ -1091,9 +1091,8 @@ define([
         if ((signatureString.length >= 0) && (pubKey !== undefined)) {
             var cutOffPos = content.indexOf(':');
             var data = content.substring(cutOffPos + 1);
-            result.signatureOk = codec.verifyDataMessage('errormsgsig' + data,
-                                                         signatureString,
-                                                         pubKey);
+            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                                                              data, signatureString, pubKey);
         }
 
         return result;
@@ -1247,26 +1246,49 @@ define([
         var author = wireMessage.from;
         var sessionID = this._sessionTracker.sessionIDs[0];
         var groupKey = this._sessionTracker.sessions[sessionID].groupKeys[0];
-        var signingPubKey = this._sessionTracker.pubKeyMap[author];
-        var sidkeyHash = utils.sha256(sessionID + groupKey);
-        var categorised = codec.categoriseMessage(wireMessage.message);
-        var decoded = codec.decodeMessageContent(categorised.content, signingPubKey, sessionID, groupKey);
-        if (decoded.signatureOk === true) {
-            wireMessage.type = 'message';
-            wireMessage.message = decoded.data;
-            this._outQueue.push(wireMessage);
-            return true;
+
+        // Do something like codec.inspectMessageContent, but on raw wire
+        // message to extract category, hint, signature, and content
+
+        if (author) {
+            var signingPubKey = this._sessionTracker.pubKeyMap[author];
+            var categorised = codec.categoriseMessage(wireMessage.message);
+            var inspected = codec.inspectMessageContent(categorised.content);
+            var decoded = null;
+
+            // Loop over (session ID, group key) combos, starting with the latest.
+            outer: // Label to break out of outer loop.
+            for (var sidNo in this._sessionTracker.sessionIDs) {
+                var sessionID = this._sessionTracker.sessionIDs[sidNo];
+                var session = this._sessionTracker.sessions[sessionID];
+                for (var gkNo in session.groupKeys) {
+                    var groupKey = session.groupKeys[gkNo];
+                    var sidkeyHash = utils.sha256(sessionID + groupKey);
+                    if (inspected.sidkeyHint === sidkeyHash[0]) {
+                        var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                                                     inspected.signedContent,
+                                                                     inspected.messageSignature,
+                                                                     signingPubKey,
+                                                                     sidkeyHash);
+                        if (verifySig === true) {
+                            decoded = codec.decodeMessageContent(categorised.content,
+                                                                 signingPubKey,
+                                                                 sessionID,
+                                                                 groupKey);
+                            break outer;
+                        }
+                    }
+                }
+            }
+
+            if (decoded.signatureOk === true) {
+                wireMessage.type = 'message';
+                wireMessage.message = decoded.data;
+                this._outQueue.push(wireMessage);
+                return true;
+            }
         }
         return false;
-
-        // * try each valid tuple, until one succeeds
-        // * limit trials to those where the sidkeyHint matches.
-        //   - do most current sid/groupKey combo first
-        //   - get sidkeyHint out
-        //   - then continue only with those combos matching the hint
-        //   - change codec.decodeMessageContent to not throw an exception on unverified signatures
-        // * if one succeeds, returns `true`
-        // * if all fail, return `false`
     };
 
 

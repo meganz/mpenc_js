@@ -19,7 +19,7 @@ define([
      *
      * <p>
      * The information tracked for the current and previous sessions is required
-     * for the implemenation of trial decryption, ratchets, etc.</p>
+     * for the implementation of trial decryption, ratchets, etc.</p>
      */
     var ns = {};
 

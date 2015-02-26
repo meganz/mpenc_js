@@ -28,13 +28,14 @@ define([
     "mpenc/version",
     "mpenc/session",
     "asmcrypto",
+    "jodid25519",
     "megalogger",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, version, session, asmCrypto, MegaLogger,
+], function(ns, utils, codec, version, session, asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -138,6 +139,75 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
+            });
+
+            it('succeeding try func, not pending, previous group key', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
+            });
+
+            it('succeeding try func, not pending, previous session', function() {
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessionIDs.unshift('foo');
+                sessionTracker.sessions['foo'] = utils.clone(sessionTracker.sessions[_td.SESSION_ID]);
+                sessionTracker.sessions['foo'].groupKeys[0] = atob('Dw4NDAsKCQgHBgUEAwIBAA==');
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
+            });
+
+            it('succeeding try func, not pending, hint collision', function() {
+                var collidingKey = 'XqtAZ4L9eY4qFdf6XsfgsQ==';
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                      content: _td.DATA_MESSAGE_STRING }
+                );
+                sandbox.spy(codec, 'inspectMessageContent');
+                sandbox.spy(codec, 'decodeMessageContent');
+                sandbox.spy(codec, 'verifyMessageSignature');
+                var sessionTracker = _dummySessionTracker();
+                sessionTracker.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
+                var message = { from: 'Moe',
+                                to: '',
+                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var target = new ns.DecryptTrialTarget(sessionTracker, [], 42);
+                var result = target.tryMe(false, message);
+                assert.strictEqual(result, true);
+                assert.lengthOf(target._outQueue, 1);
+                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 3);
             });
         });
     });
@@ -1243,11 +1313,11 @@ define([
                 participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyDataMessage').returns(true);
+                sandbox.stub(codec, 'verifyMessageSignature').returns(true);
                 var result = participant._processErrorMessage(content);
-                sinon_assert.calledOnce(codec.verifyDataMessage);
-                assert.strictEqual(codec.verifyDataMessage.getCall(0).args[0],
-                                   'errormsgsigfrom "a.dumbledore@hogwarts.ac.'
+                sinon_assert.calledOnce(codec.verifyMessageSignature);
+                assert.strictEqual(codec.verifyMessageSignature.getCall(0).args[1],
+                                   'from "a.dumbledore@hogwarts.ac.'
                                    + 'uk/android123":TERMINAL:Signature verifi'
                                    + 'cation for q.quirrell@hogwarts.ac.uk/wp8'
                                    + 'possessed666 failed.');
@@ -1271,9 +1341,9 @@ define([
                 participant.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
                                                   'q.quirrell@hogwarts.ac.uk/wp8possessed666',
                                                   'm.mcgonagall@hogwarts.ac.uk/ios456'];
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
 
@@ -1295,9 +1365,9 @@ define([
                                                   'm.mcgonagall@hogwarts.ac.uk/ios456'];
                 participant.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
                                                            _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
 
@@ -1316,9 +1386,9 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR,
                                                          _dummySessionTracker());
-                sandbox.stub(codec, 'verifyDataMessage');
+                sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyDataMessage.callCount, 0);
+                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
                 assert.deepEqual(result, compare);
             });
         });

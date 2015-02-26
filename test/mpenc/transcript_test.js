@@ -26,9 +26,11 @@ define([
     "mpenc/impl/transcript",
     "mpenc/helper/graph",
     "mpenc/message",
-    "chai"
-], function(ns, impl, graph, message,
-            chai) {
+    "megalogger",
+    "chai",
+    "sinon/sandbox",
+], function(ns, impl, graph, message, MegaLogger,
+            chai, sinon_sandbox) {
     "use strict";
 
     var assert = chai.assert;
@@ -39,6 +41,18 @@ define([
     };
 
     var M = message.Message;
+
+    // Create/restore Sinon stub/spy/mock sandboxes.
+    var sandbox = null;
+
+    beforeEach(function() {
+        sandbox = sinon_sandbox.create();
+        sandbox.stub(MegaLogger._logRegistry.transcript, '_log');
+    });
+
+    afterEach(function() {
+        sandbox.restore();
+    });
 
     describe("BaseTranscript class", function() {
         it('empty object', function() {

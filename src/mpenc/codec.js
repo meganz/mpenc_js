@@ -67,15 +67,18 @@ define([
      *     Message destination (to).
      * @property messageType {string}
      *     mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
-     * @property members {Array}
+     * @property sidkeyHint {string}
+     *     One character string (a single byte), hinting at the right
+     *     combination of session ID and group key used for a data message.
+     * @property members {Array<string>}
      *     List (array) of all participating members.
-     * @property intKeys {Array}
+     * @property intKeys {Array<string>}
      *     List (array) of intermediate keys for group key agreement.
-     * @property debugKeys {Array}
+     * @property debugKeys {Array<string>}
      *     List (array) of keying debugging strings.
-     * @property nonces {Array}
+     * @property nonces {Array<string>}
      *     Nonces of members for ASKE.
-     * @property pubKeys {Array}
+     * @property pubKeys {Array<string>}
      *     Ephemeral public signing key of members.
      * @property sessionSignature {string}
      *     Session acknowledgement signature using sender's static key.
@@ -105,6 +108,7 @@ define([
         }
         this.dest = source.dest || '';
         this.messageType = source.messageType || null;
+        this.sidkeyHint = source.sidkeyHint || null;
         this.members = source.members || [];
         this.intKeys = source.intKeys || [];
         this.debugKeys = source.debugKeys || [];
@@ -350,8 +354,17 @@ define([
      *
      * @property protocolVersion {integer}
      *     mpENC protocol version number.
-     * @property messageType {integer}
-     *     mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
+     * @property sidkeyHint {string}
+     *     Hints at the right combination of session ID and group key used for
+     *     a data message.
+     * @property sidkeyHintNumber {integer}
+     *     Hints at the right combination of session ID and group key used for
+     *     a data message.
+     * @property messageType {string}
+     *     Raw mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
+     * @property messageTypeNumber {integer}
+     *     mpENC protocol message type as number, one of
+     *     {mpenc.codec.MESSAGE_TYPE}.
      * @property messageTypeString {string}
      *     Corresponding mpENC protocol message type indicator as a string.
      * @property from {string}
@@ -361,6 +374,10 @@ define([
      * @property operation {string}
      *     A clear text expression of the type of protocol operation.
      *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     * @property messageSignature {string}
+     *     Signature of message.
+     * @property signedContent {string}
+     *     Raw content signed by signature.
      * @property origin {string}
      *     Indicates whether the message originated from the "initiator" of a
      *     protocol operation or from a "participant". If the originator is
@@ -385,14 +402,20 @@ define([
      */
     ns.ProtocolMessageInfo = function() {
         this.protocolVersion = null;
+        this.sidkeyHint = null;
+        this.sidkeyHintNumber = null;
         this.messageType = null;
+        this.messageTypeNumber = null;
         this.messageTypeString = null;
         this.from = null;
         this.to = null;
+        this.messageSignature = null;
+        this.signedContent = null;
         this.origin = null;
         this.operation = null;
         this.agreement = null;
         this.recover = false;
+        this.flow = null;
         this.members = [];
         this.numNonces = 0;
         this.numPubKeys = 0;
@@ -444,6 +467,13 @@ define([
     }
 
 
+    // "Magic numbers" used for prepending the data for the purpose of signing.
+    var _MAGIC_NUMBERS = {};
+    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE] = 'greetmsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE] = 'datamsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_ERROR] = 'errormsgsig';
+
+
     /**
      * "Enumeration" for TLV record types.
      *
@@ -460,6 +490,9 @@ define([
      *     Random initialisation vector for encrypted message payload.
      * @property MESSAGE_TYPE {integer}
      *     mpENC protocol message type. See `MESSAGE_TYPE`.
+     * @property SIDKEY_HINT {integer}
+     *     Hints at the right combination of session ID and group key used for
+     *     a data message.
      * @property SOURCE {integer}
      *     Message originator ("from", must be only one).
      * @property DEST {integer}
@@ -655,14 +688,6 @@ define([
             return null;
         }
 
-//        // Session information.
-//        var sessionID = '';
-//        var groupKey = '';
-//        if (sessionTracker.sessionIDs && sessionTracker.sessionIDs.length > 0) {
-//            sessionID = sessionTracker.sessionIDs[0];
-//            groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
-//        }
-
         var out = new ns.ProtocolMessage();
         var debugOutput = [];
 
@@ -772,12 +797,15 @@ define([
                 pubKey = out.pubKeys[index];
             }
 
-            var dataPrefix = (out.messageType === ns.MESSAGE_TYPE.PARTICIPANT_DATA)
-                           ? 'datamsgsig' + sidkeyHash : 'protomsgsig';
+            var category = (out.messageType === ns.MESSAGE_TYPE.PARTICIPANT_DATA)
+                         ? ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE
+                         : ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE;
             try {
-                out.signatureOk = ns.verifyDataMessage(dataPrefix + out.rawMessage,
-                                                       out.signature,
-                                                       pubKey);
+                out.signatureOk = ns.verifyMessageSignature(category,
+                                                            out.rawMessage,
+                                                            out.signature,
+                                                            pubKey,
+                                                            sidkeyHash);
                 _assert(out.signatureOk,
                         'Signature of message does not verify!');
             } catch (e) {
@@ -800,13 +828,19 @@ define([
      *
      * @param message {string}
      *     A binary message representation.
-     * @returns {object}
+     * @param shallow {boolean}
+     *     If true, only a "shallow" inspection will be performed, extracting
+     *     (if present) `SIDKEY_HINT`, `MESSAGE_SIGNATURE`, raw signed data
+     *     content, `PROTOCOL_VERSION` and `MESSAGE_TYPE`, ignoring all other
+     *     TLV records.
+     * @returns {ProtocolMessageInfo}
      *     Message meta-data.
      */
-    ns.inspectMessageContent = function(message) {
+    ns.inspectMessageContent = function(message, shallow) {
         if (!message) {
             return null;
         }
+        shallow = shallow || false;
         var out = new ns.ProtocolMessageInfo();
 
         while (message.length > 0) {
@@ -815,28 +849,49 @@ define([
                 case ns.TLV_TYPE.PROTOCOL_VERSION:
                     out.protocolVersion = tlv.value.charCodeAt(0);
                     break;
+                case ns.TLV_TYPE.SIDKEY_HINT:
+                    out.sidkeyHint = tlv.value;
+                    out.sidkeyHintNumber = tlv.value.charCodeAt(tlv.value);
+                    break;
                 case ns.TLV_TYPE.SOURCE:
-                    out.from = tlv.value;
+                    if (!shallow) {
+                        out.from = tlv.value;
+                    }
                     break;
                 case ns.TLV_TYPE.DEST:
-                    out.to = tlv.value || '';
+                    if (!shallow) {
+                        out.to = tlv.value || '';
+                    }
                     break;
                 case ns.TLV_TYPE.MESSAGE_TYPE:
-                    out.messageType = (tlv.value.charCodeAt(0) << 8)
-                                      | tlv.value.charCodeAt(1);
-                    out.messageTypeString = ns.MESSAGE_TYPE_MAPPING[tlv.value];;
+                    out.messageType = tlv.value;
+                    out.messageTypeNumber = (tlv.value.charCodeAt(0) << 8)
+                                             | tlv.value.charCodeAt(1);
+                    out.messageTypeString = ns.MESSAGE_TYPE_MAPPING[tlv.value];
+                    break;
+                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
+                    out.messageSignature = tlv.value;
+                    out.signedContent = tlv.rest;
                     break;
                 case ns.TLV_TYPE.MEMBER:
-                    out.members.push(tlv.value);
+                    if (!shallow) {
+                        out.members.push(tlv.value);
+                    }
                     break;
                 case ns.TLV_TYPE.NONCE:
-                    out.numNonces++;
+                    if (!shallow) {
+                        out.numNonces++;
+                    }
                     break;
                 case ns.TLV_TYPE.INT_KEY:
-                    out.numIntKeys++;
+                    if (!shallow) {
+                        out.numIntKeys++;
+                    }
                     break;
                 case ns.TLV_TYPE.PUB_KEY:
-                    out.numPubKeys++;
+                    if (!shallow) {
+                        out.numPubKeys++;
+                    }
                     break;
                 default:
                     // Ignoring all others.
@@ -846,51 +901,54 @@ define([
             message = tlv.rest;
         }
 
-        // Complete some details of the message.
-        if (out.messageType !== null) {
-            // Auxiliary vs. initial agreement.
-            if (out.messageType & (1 << ns._AUX_BIT)) {
-                out.agreement = 'auxiliary';
-            } else {
-                out.agreement = 'initial';
-            }
+        if (!shallow) {
+            // Complete some details of the message.
+            if (out.messageType !== null
+                    && out.messageTypeString !== 'PARTICIPANT_DATA') {
+                // Auxiliary vs. initial agreement.
+                if (out.messageTypeNumber & (1 << ns._AUX_BIT)) {
+                    out.agreement = 'auxiliary';
+                } else {
+                    out.agreement = 'initial';
+                }
 
-            // Upflow or downflow.
-            if (out.messageType & (1 << ns._DOWN_BIT)) {
-                out.flow = 'down';
-            } else {
-                out.flow = 'up';
-            }
+                // Upflow or downflow.
+                if (out.messageTypeNumber & (1 << ns._DOWN_BIT)) {
+                    out.flow = 'down';
+                } else {
+                    out.flow = 'up';
+                }
 
-            // Group Key Agreement.
-            if (out.messageType & (1 << ns._GKA_BIT)) {
-                out.agreement += ', GKE';
-            }
+                // Group Key Agreement.
+                if (out.messageTypeNumber & (1 << ns._GKA_BIT)) {
+                    out.agreement += ', GKE';
+                }
 
-            // Signature Key Exchange.
-            if (out.messageType & (1 << ns._SKE_BIT)) {
-                out.agreement += ', SKE';
-            }
+                // Signature Key Exchange.
+                if (out.messageTypeNumber & (1 << ns._SKE_BIT)) {
+                    out.agreement += ', SKE';
+                }
 
-            // Operation.
-            out.operation = _OPERATION_MAPPING[(out.messageType & ns._OPERATION_MASK)
-                                               >>> ns._OP_BITS];
+                // Operation.
+                out.operation = _OPERATION_MAPPING[(out.messageTypeNumber & ns._OPERATION_MASK)
+                                                   >>> ns._OP_BITS];
 
-            // Initiator or participant.
-            if (out.messageType & (1 << ns._INIT_BIT)) {
-                out.origin = 'initiator';
-            } else {
-                out.origin = 'participant';
-            }
-            if (out.members.length === 0) {
-                out.origin = '???';
-            } else if (out.members.indexOf(out.source) >= 0) {
-                out.origin = 'outsider';
-            }
+                // Initiator or participant.
+                if (out.messageTypeNumber & (1 << ns._INIT_BIT)) {
+                    out.origin = 'initiator';
+                } else {
+                    out.origin = 'participant';
+                }
+                if (out.members.length === 0) {
+                    out.origin = '???';
+                } else if (out.members.indexOf(out.source) >= 0) {
+                    out.origin = 'outsider';
+                }
 
-            // Recovery.
-            if (out.messageType & (1 << ns._RECOVER_BIT)) {
-                out.recover = true;
+                // Recovery.
+                if (out.messageTypeNumber & (1 << ns._RECOVER_BIT)) {
+                    out.recover = true;
+                }
             }
         }
         return out;
@@ -1065,8 +1123,8 @@ define([
             content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
 
             // Compute the content signature.
-            var signature = ns.signDataMessage('datamsgsig' + sidkeyHash + content,
-                                               privKey, pubKey);
+            var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                           content, privKey, pubKey, sidkeyHash);
 
             // Assemble everything.
             out = ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
@@ -1099,8 +1157,8 @@ define([
                 out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
             }
             // Sign `out` and prepend signature.
-            var signature = ns.signDataMessage('protomsgsig' + out,
-                                               privKey, pubKey);
+            var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                           out, privKey, pubKey);
             out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
         }
 
@@ -1165,8 +1223,8 @@ define([
         var out = 'from "' + from +'":' + severity + ':' + message;
         var signature = '';
         if (privKey) {
-            signature = ns.signDataMessage('errormsgsig' + out,
-                                           privKey, pubKey);
+            signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_ERROR,
+                                       out, privKey, pubKey);
         }
         return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
     };
@@ -1282,20 +1340,30 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
+     * @param category {integer}
+     *     Message category indication, one of
+     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
      * @param data {string}
      *     Binary string data message.
      * @param privKey {string}
      *     Binary string representation of the ephemeral private key.
      * @param pubKey {string}
      *     Binary string representation of the ephemeral public key.
+     * @property sidkeyHash {string}
+     *     On {MPENC_DATA_MESSAGE} relevant only. A hash value hinting at the
+     *     right combination of session ID and group key used for a data message.
      * @returns {string}
      *     Binary string representation of the signature.
      */
-    ns.signDataMessage = function(data, privKey, pubKey) {
+    ns.signMessage= function(category, data, privKey, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        return jodid25519.eddsa.sign(data, privKey, pubKey);
+        var prefix = _MAGIC_NUMBERS[category];
+        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+            prefix += sidkeyHash;
+        }
+        return jodid25519.eddsa.sign(prefix + data, privKey, pubKey);
     };
 
 
@@ -1305,20 +1373,30 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
+     * @param category {integer}
+     *     Message category indication, one of
+     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
      * @param data {string}
      *     Binary string data message.
      * @param signature {string}
      *     Binary string representation of the signature.
      * @param pubKey {string}
      *     Binary string representation of the ephemeral public key.
+     * @property sidkeyHash {string}
+     *     On {MPENC_DATA_MESSAGE} relevant only. A hash value hinting at the
+     *     right combination of session ID and group key used for a data message.
      * @returns {bool}
      *     True if the signature verifies, false otherwise.
      */
-    ns.verifyDataMessage = function(data, signature, pubKey) {
+    ns.verifyMessageSignature = function(category, data, signature, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        return jodid25519.eddsa.verify(signature, data, pubKey);
+        var prefix = _MAGIC_NUMBERS[category];
+        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+            prefix += sidkeyHash;
+        }
+        return jodid25519.eddsa.verify(signature, prefix + data, pubKey);
     };
 
 
