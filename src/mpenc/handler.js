@@ -10,9 +10,9 @@ define([
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
-    "mpenc/session",
+    "mpenc/greet/keystore",
     "megalogger",
-], function(assert, utils, struct, cliques, ske, codec, session, MegaLogger) {
+], function(assert, utils, struct, cliques, ske, codec, keystore, MegaLogger) {
     "use strict";
 
     /**
@@ -195,8 +195,8 @@ define([
      *      participant ID.
      * @property cliquesMember {CliquesMember}
      *     Reference to CLIQUES protocol handler with the same participant ID.
-     * @property sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
+     * @property sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
      * @property state {integer}
      *     Current state of the mpENC protocol handler according to {STATE}.
      * @property recovering {bool}
@@ -217,8 +217,8 @@ define([
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.sessionTracker = new session.SessionTracker(name,
-                                                         function() { return 20; });
+        this.sessionKeyStore = new keystore.KeyStore(name,
+                                                     function() { return 20; });
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
@@ -229,13 +229,13 @@ define([
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
         // Set up a trial buffer for trial decryption.
-        var decryptTarget = new ns.DecryptTrialTarget(this.sessionTracker,
+        var decryptTarget = new ns.DecryptTrialTarget(this.sessionKeyStore,
                                                       this.uiQueue, 100);
         this.tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir
-                && this.sessionTracker,
+                && this.sessionKeyStore,
                 'Constructor call missing required parameters.');
 
         // Make protocol handlers for sub tasks.
@@ -295,7 +295,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker)
+                                             this.sessionKeyStore)
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -346,7 +346,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -417,7 +417,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -425,10 +425,10 @@ define([
 
         if (this.askeMember.isSessionAcknowledged()) {
             this.state = ns.STATE.READY;
-            this.sessionTracker.update(this.askeMember.sessionId,
-                                       this.askeMember.members,
-                                       this.askeMember.ephemeralPubKeys,
-                                       this.cliquesMember.groupKey.substring(0, 16));
+            this.sessionKeyStore.update(this.askeMember.sessionId,
+                                        this.askeMember.members,
+                                        this.askeMember.ephemeralPubKeys,
+                                        this.cliquesMember.groupKey.substring(0, 16));
             this.recovering = false;
             this.stateUpdatedCallback(this);
         }
@@ -476,7 +476,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -520,10 +520,10 @@ define([
         this.stateUpdatedCallback(this);
 
         var outContent = this._refresh();
-        this.sessionTracker.update(this.askeMember.sessionId,
-                                   this.askeMember.members,
-                                   this.askeMember.ephemeralPubKeys,
-                                   this.cliquesMember.groupKey.substring(0, 16));
+        this.sessionKeyStore.update(this.askeMember.sessionId,
+                                    this.askeMember.members,
+                                    this.askeMember.ephemeralPubKeys,
+                                    this.cliquesMember.groupKey.substring(0, 16));
         if (outContent) {
             var outMessage = {
                 from: this.id,
@@ -531,7 +531,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -577,7 +577,7 @@ define([
                 message: codec.encodeMessage(outContent,
                                              this.askeMember.ephemeralPrivKey,
                                              this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -714,7 +714,7 @@ define([
                         message: codec.encodeMessage(outContent,
                                                      this.askeMember.ephemeralPrivKey,
                                                      this.askeMember.ephemeralPubKey,
-                                                     this.sessionTracker),
+                                                     this.sessionKeyStore),
                     };
                     this.protocolOutQueue.push(outMessage);
                     this.queueUpdatedCallback(this);
@@ -824,7 +824,7 @@ define([
             message: codec.encodeMessage(messageContent,
                                          this.askeMember.ephemeralPrivKey,
                                          this.askeMember.ephemeralPubKey,
-                                         this.sessionTracker,
+                                         this.sessionKeyStore,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -867,7 +867,7 @@ define([
             message: codec.encodeMessage(messageContent,
                                          this.askeMember.ephemeralPrivKey,
                                          this.askeMember.ephemeralPubKey,
-                                         this.sessionTracker,
+                                         this.sessionKeyStore,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -1033,10 +1033,10 @@ define([
         if (this.askeMember.isSessionAcknowledged()) {
             // We have seen and verified all broadcasts from others.
             newState = ns.STATE.READY;
-            this.sessionTracker.update(this.askeMember.sessionId,
-                                       this.askeMember.members,
-                                       this.askeMember.ephemeralPubKeys,
-                                       this.cliquesMember.groupKey.substring(0, 16));
+            this.sessionKeyStore.update(this.askeMember.sessionId,
+                                        this.askeMember.members,
+                                        this.askeMember.ephemeralPubKeys,
+                                        this.cliquesMember.groupKey.substring(0, 16));
             logger.debug('Reached READY state.');
             this.recovering = false;
         }
@@ -1204,8 +1204,8 @@ define([
      *
      * @constructor
      * @implements {mpenc/helper/struct.TrialTarget}
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
+     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
      * @param outQueue {array}
      *     Output queue to receive successfully trialled parameters (messages).
      * @param maxSize {integer}
@@ -1213,15 +1213,15 @@ define([
      * @returns {module:mpenc/handler.DecryptTrialTarget}
      * @memberOf! module:mpenc/handler#
      *
-     * @property sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
-     * @property outQueue {array}
+     * @property _sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
+     * @property _outQueue {array}
      *     Output queue to receive successfully trialled parameters (messages).
-     * @property maxSize {integer}
+     * @property _maxSize {integer}
      *     Maximum number of elements to be held in trial buffer.
      */
-    function DecryptTrialTarget(sessionTracker, outQueue, maxSize) {
-        this._sessionTracker = sessionTracker;
+    function DecryptTrialTarget(sessionKeyStore, outQueue, maxSize) {
+        this._sessionKeyStore = sessionKeyStore;
         this._outQueue = outQueue;
         this._maxSize = maxSize;
     }
@@ -1232,20 +1232,20 @@ define([
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
         var author = wireMessage.from;
-        var sessionID = this._sessionTracker.sessionIDs[0];
-        var groupKey = this._sessionTracker.sessions[sessionID].groupKeys[0];
+        var sessionID = this._sessionKeyStore.sessionIDs[0];
+        var groupKey = this._sessionKeyStore.sessions[sessionID].groupKeys[0];
 
         if (author) {
-            var signingPubKey = this._sessionTracker.pubKeyMap[author];
+            var signingPubKey = this._sessionKeyStore.pubKeyMap[author];
             var categorised = codec.categoriseMessage(wireMessage.message);
             var inspected = codec.inspectMessageContent(categorised.content);
             var decoded = null;
 
             // Loop over (session ID, group key) combos, starting with the latest.
             outer: // Label to break out of outer loop.
-            for (var sidNo in this._sessionTracker.sessionIDs) {
-                var sessionID = this._sessionTracker.sessionIDs[sidNo];
-                var session = this._sessionTracker.sessions[sessionID];
+            for (var sidNo in this._sessionKeyStore.sessionIDs) {
+                var sessionID = this._sessionKeyStore.sessionIDs[sidNo];
+                var session = this._sessionKeyStore.sessions[sessionID];
                 for (var gkNo in session.groupKeys) {
                     var groupKey = session.groupKeys[gkNo];
                     var sidkeyHash = utils.sha256(sessionID + groupKey);

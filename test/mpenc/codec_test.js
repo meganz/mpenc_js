@@ -253,16 +253,16 @@ define([
             });
 
             it('data message', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
                 };
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
@@ -270,18 +270,18 @@ define([
             });
 
             it('data message with second group key', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID, 'foo'],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID, 'foo'],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     sid: _td.SESSION_ID,
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY, 'foo']
                 };
-                sessionTracker.sessions['foo'] = {};
+                sessionKeyStore.sessions['foo'] = {};
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
@@ -289,9 +289,9 @@ define([
             });
 
             it('data message with exponential padding', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     sid: _td.SESSION_ID,
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
@@ -299,7 +299,7 @@ define([
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker, 32);
+                                                     sessionKeyStore, 32);
                 // 4 TLVs with 136 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)

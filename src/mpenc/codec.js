@@ -1088,9 +1088,9 @@ define([
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Seession tracker object. Mandatory for data messages, ignored for
-     *     protocol messages.
+     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information. Mandatory for
+     *     data messages, ignored for protocol messages.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -1100,14 +1100,14 @@ define([
      *     A binary message representation.
      */
     ns.encodeMessageContent = function(message, privKey, pubKey,
-                                       sessionTracker, paddingSize) {
+                                       sessionKeyStore, paddingSize) {
         var out = '';
         if (typeof(message) === 'string' || message instanceof String) {
             // We want message attributes in this order:
             // sid/key hint, message signature, protocol version, message type,
             // iv, message data
-            var sessionID = sessionTracker.sessionIDs[0];
-            var groupKey = sessionTracker.sessions[sessionID].groupKeys[0];
+            var sessionID = sessionKeyStore.sessionIDs[0];
+            var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
 
             // Three portions: unsigned content (hint), signature, rest.
             // Compute info for the SIDKEY_HINT and signature.
@@ -1176,9 +1176,9 @@ define([
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Seession tracker object. Mandatory for data messages, ignored for
-     *     protocol messages.
+     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information. Mandatory for
+     *     data messages, ignored for protocol messages.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -1188,13 +1188,13 @@ define([
      *     A wire ready message representation.
      */
     ns.encodeMessage = function(message, privKey, pubKey,
-                                sessionTracker, paddingSize) {
+                                sessionKeyStore, paddingSize) {
         if (message === null || message === undefined) {
             return null;
         }
         paddingSize = paddingSize | 0;
         var content = ns.encodeMessageContent(message, privKey, pubKey,
-                                              sessionTracker, paddingSize);
+                                              sessionKeyStore, paddingSize);
         return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
     };
 
