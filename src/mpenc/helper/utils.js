@@ -398,21 +398,6 @@ define([
 
 
     /**
-     * Stringification of an object (potentially with nested sub-objects).
-     *
-     * @param input {object}
-     *     The object to be stringified.
-     * @returns {string}
-     *     String serialised version of the object.
-     */
-    ns._objectToString = function(input) {
-        // TODO: Do we want a more canonical stringification that will be convergent for these two test cases?
-        //       E. g. all object properties sorted in lexical order?
-        return JSON.stringify(input);
-    };
-
-
-    /**
      * Hashes an object (potentially with nested sub-objects), to have a simply
      * comparable and indexable representation of it.
      *

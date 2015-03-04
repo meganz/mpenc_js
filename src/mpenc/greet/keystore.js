@@ -6,8 +6,9 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
+    "mpenc/helper/struct",
     "megalogger",
-], function(assert, utils, MegaLogger) {
+], function(assert, utils, struct, MegaLogger) {
     "use strict";
 
     /**
@@ -142,7 +143,7 @@ define([
      */
     KeyStore.prototype.addSession = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
-            var message = 'Attept to add a session with an already existing ID on '
+            var message = 'Attempt to add a session with an already existing ID on '
                         + this.name + '.';
             logger.error(message);
             throw new Error(message)
@@ -236,8 +237,9 @@ define([
     KeyStore.prototype.update = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
             // Session already stored.
-            _assert(utils.arrayEqual(members, this.sessions[sid].members),
-                    'Attept to update ' + this.name
+            _assert(struct.ImmutableSet(members)
+                    .equals(struct.ImmutableSet(this.sessions[sid].members)),
+                    'Attempt to update ' + this.name
                     + ' with mis-matching members for a sesssion.')
             this.addGroupKey(sid, groupKey);
         } else {

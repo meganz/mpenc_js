@@ -86,7 +86,7 @@ define([
                 var pubKeys = ['Crabbe', 'Goyle'];
                 var pubKeysDir = {'Vincent': 'Crabbe', 'Gregory': 'Goyle'};
                 var groupKey = 'foo';
-                var errorMessage = 'Attept to add a session with an already existing ID on classic combos.';
+                var errorMessage = 'Attempt to add a session with an already existing ID on classic combos.';
                 assert.throws(function() { store.addSession(_td.SESSION_ID, members, pubKeys, groupKey); },
                               errorMessage);
                 assert.deepEqual(store.sessionIDs, _td.SESSION_KEY_STORE.sessionIDs);
@@ -227,6 +227,20 @@ define([
                 assert.strictEqual(store.sessions[_td.SESSION_ID].groupKeys[0], 'foo');
             });
 
+            it('new group key, reordered participants', function() {
+                var store = new ns.KeyStore('classic combos', stub());
+                store.sessionIDs = utils.clone(_td.SESSION_KEY_STORE.sessionIDs);
+                store.sessions = utils.clone(_td.SESSION_KEY_STORE.sessions);
+                var members = ['Moe', 'Curly', 'Larry'];
+                var pubKeys = ['Howard', 'Howard', 'Fine'];
+                var pubKeysDir = {'Moe': 'Howard', 'Larry': 'Fine', 'Curly': 'Howard'};
+                var groupKey = 'foo';
+                store.update(_td.SESSION_ID, members, pubKeys, groupKey);
+                assert.deepEqual(store.sessionIDs, _td.SESSION_KEY_STORE.sessionIDs);
+                assert.lengthOf(store.sessions[_td.SESSION_ID].groupKeys, 2);
+                assert.strictEqual(store.sessions[_td.SESSION_ID].groupKeys[0], 'foo');
+            });
+
             it('mismatching participants', function() {
                 var store = new ns.KeyStore('classic combos', stub());
                 store.sessionIDs = utils.clone(_td.SESSION_KEY_STORE.sessionIDs);
@@ -235,7 +249,7 @@ define([
                 var pubKeys = ['Crabbe', 'Goyle'];
                 var pubKeysDir = {'Vincent': 'Crabbe', 'Gregory': 'Goyle'};
                 var groupKey = 'foo';
-                var errorMessage = 'Attept to update classic combos with mis-matching members for a sesssion.';
+                var errorMessage = 'Attempt to update classic combos with mis-matching members for a sesssion.';
                 sandbox.stub(MegaLogger._logRegistry.assert, '_log');
                 assert.throws(function() { store.update(_td.SESSION_ID, members, pubKeys, groupKey); },
                               errorMessage);
