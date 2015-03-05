@@ -397,19 +397,5 @@ define([
     };
 
 
-    /**
-     * Hashes an object (potentially with nested sub-objects), to have a simply
-     * comparable and indexable representation of it.
-     *
-     * @param input {object}
-     *     The object to be hashed.
-     * @returns {string}
-     *     Hashed version of the object.
-     */
-    ns.objectToHash = function(input) {
-        return ns.sha256(ns._objectToString(input)).substring(0, 16);
-    };
-
-
     return ns;
 });

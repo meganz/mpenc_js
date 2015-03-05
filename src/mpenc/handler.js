@@ -534,8 +534,6 @@ define([
                 } else {
                     decodedMessage = codec.decodeMessageContent(classify.content);
                 }
-//                this.recovering = greeter.isRecoverBitOnMessageType(decodedMessage.messageType);
-//                dump(this.recovering, btoa(decodedMessage.messageType));
                 // This is an mpenc.greet message.
                 var oldState = this.greet.state;
                 try {
@@ -553,7 +551,7 @@ define([
                 } catch (e) {
                     if (e.message.lastIndexOf('Session authentication by member') === 0) {
                         this.sendError(ns.ERROR.TERMINAL, e.message);
-                        return null;
+                        return;
                     } else {
                         throw e;
                     }

@@ -1336,6 +1336,62 @@ define([
                 assert.lengthOf(participant.uiQueue, 0);
             });
 
+            it('downflow message with invalid session auth', function() {
+                var message = { source: '5', dest: '',
+                                messageType: greeter.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                members: ['1', '2', '3', '4', '5'],
+                                intKeys: [[], [], [], [], []],
+                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
+                                            '5*3*2*1*G', '4*3*2*1*G'],
+                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
+                                sessionSignature: 'bar' };
+                var participant = new ns.ProtocolHandler('2', 'foo',
+                                                         _td.ED25519_PRIV_KEY,
+                                                         _td.ED25519_PUB_KEY,
+                                                         _td.STATIC_PUB_KEY_DIR);
+                participant.sessionKeyStore = _dummySessionStore();
+                sandbox.stub(codec, 'categoriseMessage').returns(
+                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                          content: 'foo' });
+                sandbox.stub(codec, 'decodeMessageContent').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                sandbox.spy(participant, 'quit');
+                sandbox.stub(participant.greet, 'processMessage')
+                        .throws(new Error('Session authentication by member 5 failed.'));
+                sandbox.stub(participant.greet, 'getEphemeralPrivKey').returns(_td.ED25519_PRIV_KEY);
+                sandbox.stub(participant.greet, 'getEphemeralPubKey').returns(_td.ED25519_PUB_KEY);
+                sandbox.stub(participant.greet, 'quit').returns(
+                        { dest: '',
+                          source: participant.id,
+                          messageType: greeter.MESSAGE_TYPE.QUIT_DOWN });
+                sandbox.stub(codec, 'encodeMessage', _echo);
+                participant.processMessage(message);
+                assert.strictEqual(codec.categoriseMessage.callCount, 1);
+                assert.strictEqual(codec.decodeMessageContent.callCount, 1);
+                assert.strictEqual(participant.greet.processMessage.callCount, 1);
+                assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
+                assert.strictEqual(participant.greet.getEphemeralPubKey.callCount, 4);
+                assert.strictEqual(codec.encodeMessage.callCount, 1);
+                // To send two messages.
+                assert.lengthOf(participant.protocolOutQueue, 2);
+                assert.lengthOf(participant.uiQueue, 0);
+                // An error message.
+                var outMessage = participant.protocolOutQueue[0];
+                assert.strictEqual(outMessage.message,
+                                   '?mpENC Error:Ppt8GIrMisvCt0epOcOszUrpweZ5yXwnovrd+3zXZ9tF/4kd8gaV42fb9Q3psB1/z8Dftr3Ai7NOVjHHSlqrCQ==:from "2":TERMINAL:Session authentication by member 5 failed.');
+                assert.strictEqual(outMessage.from, participant.id);
+                assert.strictEqual(outMessage.to, '');
+                // And a QUIT message.
+                assert.strictEqual(participant.quit.callCount, 1);
+                assert.strictEqual(participant.greet.quit.callCount, 1);
+                outMessage = participant.protocolOutQueue[1];
+                assert.strictEqual(outMessage.message.source, participant.id);
+                assert.strictEqual(outMessage.from, participant.id);
+                assert.strictEqual(outMessage.message.dest, '');
+                assert.strictEqual(outMessage.to, '');
+                assert.strictEqual(outMessage.message.messageType, greeter.MESSAGE_TYPE.QUIT_DOWN);
+            });
+
             it('on own greet message with flushed ephemeralPubKeys', function() {
                 var participant = new ns.ProtocolHandler('1', 'foo',
                                                          _td.ED25519_PRIV_KEY,
@@ -1345,8 +1401,8 @@ define([
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.greet.askeMember.ephemeralPubKeys = [];
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: '1'};
+                var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
+                                from: '1' };
                 sandbox.stub(codec, 'categoriseMessage').returns(
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
