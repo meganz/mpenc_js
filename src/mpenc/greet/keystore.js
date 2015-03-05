@@ -1,31 +1,33 @@
 /**
  * @fileOverview
- * Implementation of tools for tracking session-related information.
+ * Implementation of tools for storing session-related key information.
  */
 
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
+    "mpenc/helper/struct",
     "megalogger",
-], function(assert, utils, MegaLogger) {
+], function(assert, utils, struct, MegaLogger) {
     "use strict";
 
     /**
-     * @exports mpenc/session
-     * Implementation of tools for tracking session-related information.
+     * @exports mpenc/greet/keystore
+     * Implementation of tools for storing session-related key information.
      *
      * @description
-     * <p>Implementation of tools for tracking session-related information.</p>
+     * <p>Implementation of tools for storing session-related key information.
+     * </p>
      *
      * <p>
-     * The information tracked for the current and previous sessions is required
+     * The information stored for the current and previous sessions is required
      * for the implementation of trial decryption, ratchets, etc.</p>
      */
     var ns = {};
 
     var _assert = assert.assert;
 
-    var logger = MegaLogger.getLogger('session', undefined, 'mpenc');
+    var logger = MegaLogger.getLogger('keystore', undefined, 'greet');
 
     /*
      * Created: 12 Feb 2015 Guy K. Kloss <gk@mega.co.nz>
@@ -47,15 +49,14 @@ define([
 
 
     /**
-     * A _SessionItem holds information of a specific session in the
-     * {SessionTracker}.
+     * A _SessionItem holds information of a specific session in the {KeyStore}.
      *
      * @constructor
      * @param members {array<string>}
      *     Array of the participant IDs for this session.
      * @param groupKey {string}
      *     The (first) group key used in this session.
-     * @returns {module:mpenc/handler/_SessionItem}
+     * @returns {module:mpenc/greet/keystore._SessionItem}
      *
      * @property members {array<string>}
      *     Array of the participant IDs for this session.
@@ -69,30 +70,31 @@ define([
     };
 
     /** @class
-     * @see module:mpenc/handler#_SessionItem */
+     * @see module:mpenc/greet/keystore#_SessionItem */
     ns._SessionItem = _SessionItem;
 
 
     /**
-     * A SessionTracker holds information of different sessions encountered.
+     * A KeyStore holds key information of different (sub-) sessions
+     * encountered.
      *
      * <p>If the buffer goes above capacity, the oldest item is automatically
      * dropped without being tried again.</p>
      *
      * @constructor
      * @param name {string}
-     *     Name for this tracker (e. g. the chat room name).
+     *     Name for this store (e. g. the chat room name).
      * @param maxSizeFunc {maxSizeFunc}
      *     Function to determine the buffer capacity.
      * @param drop {boolean}
      *     Whether to drop items that overflow the buffer according to
      *     maxSizeFunc, or merely log a warning that the buffer is over
      *     capacity (optional, default: true).
-     * @returns {module:mpenc/handler/SessionTracker}
-     * @memberOf! module:mpenc/handler#
+     * @returns {module:mpenc/greet/keystore.KeyStore}
+     * @memberOf! module:mpenc/greet/keystore#
      *
      * @property name {string}
-     *     Name of tracker.
+     *     Name of store.
      * @property maxSizeFunc {maxSizeFunc}
      *     Callback function to determine the max sizing of the buffer.
      * @property drop {boolean}
@@ -106,7 +108,7 @@ define([
      * @property pubKeyMap {object}
      *     An object that maps participant IDs to ephemeral public signing keys.
      */
-    var SessionTracker = function(name, maxSizeFunc, drop) {
+    var KeyStore = function(name, maxSizeFunc, drop) {
         this.name = name || '';
         this.maxSizeFunc = maxSizeFunc;
         if (drop === undefined) {
@@ -122,12 +124,12 @@ define([
     };
 
     /** @class
-     * @see module:mpenc/handler#SessionTracker */
-    ns.SessionTracker = SessionTracker;
+     * @see module:mpenc/greet/keystore#KeyStore */
+    ns.KeyStore = KeyStore;
 
 
     /**
-     * Adds a new session object to the tracked sessions.
+     * Adds a new session object to the key store.
      *
      * @method
      * @param sid {string}
@@ -139,9 +141,9 @@ define([
      * @param groupKey {string}
      *     Group key of the new session.
      */
-    SessionTracker.prototype.addSession = function(sid, members, pubKeys, groupKey) {
+    KeyStore.prototype.addSession = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
-            var message = 'Attept to add a session with an already existing ID on '
+            var message = 'Attempt to add a session with an already existing ID on '
                         + this.name + '.';
             logger.error(message);
             throw new Error(message)
@@ -187,10 +189,10 @@ define([
      * @param groupKey {string}
      *     New group key of the session.
      */
-    SessionTracker.prototype.addGroupKey = function(sid, groupKey) {
+    KeyStore.prototype.addGroupKey = function(sid, groupKey) {
         if (this.sessions[sid].groupKeys.indexOf(groupKey) >= 0) {
             logger.info(this.name
-                        + ' ignores adding a group key already tracked.');
+                        + ' ignores adding a group key already stored.');
         } else {
             this.sessions[sid].groupKeys.unshift(groupKey);
             if (this.sessionIDs.indexOf(sid) > 0) {
@@ -209,14 +211,14 @@ define([
      * @param groupKey {string}
      *     New group key of the session.
      */
-    SessionTracker.prototype.addGroupKeyLastSession = function(groupKey) {
+    KeyStore.prototype.addGroupKeyLastSession = function(groupKey) {
         var sid = this.sessionIDs[0];
         this.addGroupKey(sid, groupKey);
     };
 
 
     /**
-     * Updates the tracker with the new given session information. If the
+     * Updates the store with the new given session information. If the
      * session ID is previously unknown, a new {_SessionItem} will be added,
      * otherwise only the new group key will be added.
      *
@@ -232,11 +234,12 @@ define([
      * @throws
      *     Error if the participants list mismatches for an existing session ID.
      */
-    SessionTracker.prototype.update = function(sid, members, pubKeys, groupKey) {
+    KeyStore.prototype.update = function(sid, members, pubKeys, groupKey) {
         if (this.sessionIDs.indexOf(sid) >= 0) {
-            // Session already tracked.
-            _assert(utils.arrayEqual(members, this.sessions[sid].members),
-                    'Attept to update ' + this.name
+            // Session already stored.
+            _assert(struct.ImmutableSet(members)
+                    .equals(struct.ImmutableSet(this.sessions[sid].members)),
+                    'Attempt to update ' + this.name
                     + ' with mis-matching members for a sesssion.')
             this.addGroupKey(sid, groupKey);
         } else {

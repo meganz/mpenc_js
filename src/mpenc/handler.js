@@ -7,12 +7,11 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
     "mpenc/helper/struct",
-    "mpenc/greet/cliques",
-    "mpenc/greet/ske",
+    "mpenc/greet/greeter",
     "mpenc/codec",
-    "mpenc/session",
+    "mpenc/greet/keystore",
     "megalogger",
-], function(assert, utils, struct, cliques, ske, codec, session, MegaLogger) {
+], function(assert, utils, struct, greeter, codec, keystore, MegaLogger) {
     "use strict";
 
     /**
@@ -54,43 +53,6 @@ define([
      * but WITHOUT ANY WARRANTY; without even the implied warranty of
      * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
      */
-
-
-    /**
-     * "Enumeration" defining the different stable and intermediate states of
-     * the mpENC module.
-     *
-     * @property NULL {integer}
-     *     Uninitialised (default) state.
-     * @property INIT_UPFLOW {integer}
-     *     During process of initial protocol upflow.
-     * @property INIT_DOWNFLOW {integer}
-     *     During process of initial protocol downflow.
-     * @property READY {integer}
-     *     Default state during general usage of mpENC. No protocol/key
-     *     negotiation going on, and a valid group key is available.
-     * @property AUX_UPFLOW {integer}
-     *     During process of auxiliary protocol upflow.
-     * @property AUX_DOWNFLOW {integer}
-     *     During process of auxiliary protocol downflow.
-     * @property QUIT {integer}
-     *     After quitting participation.
-     */
-    ns.STATE = {
-        NULL:          0x00,
-        INIT_UPFLOW:   0x01,
-        INIT_DOWNFLOW: 0x02,
-        READY:         0x03,
-        AUX_UPFLOW:    0x04,
-        AUX_DOWNFLOW:  0x05,
-        QUIT:          0x06,
-    };
-
-    // Add reverse mapping to string representation.
-    var _STATE_MAPPING = {};
-    for (var propName in ns.STATE) {
-        _STATE_MAPPING[ns.STATE[propName]] = propName;
-    }
 
 
     /**
@@ -190,17 +152,11 @@ define([
      *     Queue for messages to display in the UI. Contains objects with
      *     attributes `type` (can be strings 'message', 'info', 'warn' and
      *     'error') and `message`.
-     * @property askeMember {SignatureKeyExchangeMember}
-     *      Reference to signature key exchange protocol handler with the same
-     *      participant ID.
-     * @property cliquesMember {CliquesMember}
-     *     Reference to CLIQUES protocol handler with the same participant ID.
-     * @property sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
-     * @property state {integer}
-     *     Current state of the mpENC protocol handler according to {STATE}.
-     * @property recovering {bool}
-     *     `true` if in recovery mode state, usually `false`.
+     * @property sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
+     * @property greet {mpenc.greet.greeter.GreetWrapper}
+     *     A wrapper interfacing to the different greet (key agreement)
+     *     protocol objects involved.
      * @property exponentialPadding {integer}
      *     Number of bytes to pad the cipher text to come out as (0 to turn off
      *     padding). If the clear text will result in a larger cipher text than
@@ -217,59 +173,30 @@ define([
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.sessionTracker = new session.SessionTracker(name,
-                                                         function() { return 20; });
+        this.sessionKeyStore = new keystore.KeyStore(name,
+                                                     function() { return 20; });
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
         this.queueUpdatedCallback = queueUpdatedCallback || function() {};
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
-        this.state = ns.STATE.NULL;
-        this.recovering = false;
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
         // Set up a trial buffer for trial decryption.
-        var decryptTarget = new ns.DecryptTrialTarget(this.sessionTracker,
+        var decryptTarget = new ns.DecryptTrialTarget(this.sessionKeyStore,
                                                       this.uiQueue, 100);
         this.tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
+        this.greet = new greeter.GreetWrapper(this.id,
+                                              this.privKey, this.pubKey,
+                                              this.staticPubKeyDir);
+
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir
-                && this.sessionTracker,
+                && this.sessionKeyStore,
                 'Constructor call missing required parameters.');
 
-        // Make protocol handlers for sub tasks.
-        this.cliquesMember = new cliques.CliquesMember(this.id);
-        this.askeMember = new ske.SignatureKeyExchangeMember(this.id);
-        this.askeMember.staticPrivKey = privKey;
-        this.askeMember.staticPubKeyDir = staticPubKeyDir;
-
         return this;
-    };
-
-
-    /**
-     * Mechanism to start the protocol negotiation with the group participants.
-     *
-     * @method
-     * @param otherMembers {Array}
-     *     Iterable of other members for the group (excluding self).
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Un-encoded message content.
-     */
-    ns.ProtocolHandler.prototype._start = function(otherMembers) {
-        _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
-
-        var cliquesMessage = this.cliquesMember.ika(otherMembers);
-        var askeMessage = this.askeMember.commit(otherMembers);
-
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_INIT_INITIATOR_UP;
-        } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
-        }
-        return protocolMessage;
     };
 
 
@@ -281,46 +208,25 @@ define([
      *     Iterable of other members for the group (excluding self).
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
-        _assert(this.state === ns.STATE.NULL,
+        _assert(this.greet.state === greeter.STATE.NULL,
                 'start() can only be called from an uninitialised state.');
         logger.debug('Invoking initial START flow operation.');
-        this.state = ns.STATE.INIT_UPFLOW;
+        this.greet.state = greeter.STATE.INIT_UPFLOW;
         this.stateUpdatedCallback(this);
 
-        var outContent = this._start(otherMembers);
+        var outContent = this.greet.start(otherMembers);
         if (outContent) {
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker)
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore)
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
         }
-    };
-
-
-    /**
-     * Mechanism to start a new upflow for joining new members.
-     *
-     * @method
-     * @param newMembers {Array}
-     *     Iterable of new members to join the group.
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Un-encoded message content.
-     */
-    ns.ProtocolHandler.prototype._join = function(newMembers) {
-        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
-
-        var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
-        var askeMessage = this.askeMember.join(newMembers);
-
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
-        return protocolMessage;
     };
 
 
@@ -332,53 +238,25 @@ define([
      *     Iterable of new members to join the group.
      */
     ns.ProtocolHandler.prototype.join = function(newMembers) {
-        _assert(this.state === ns.STATE.READY,
+        _assert(this.greet.state === greeter.STATE.READY,
                 'join() can only be called from a ready state.');
         logger.debug('Invoking JOIN flow operation.');
-        this.state = ns.STATE.AUX_UPFLOW;
+        this.greet.state = greeter.STATE.AUX_UPFLOW;
         this.stateUpdatedCallback(this);
 
-        var outContent = this._join(newMembers);
+        var outContent = this.greet.join(newMembers);
         if (outContent) {
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
         }
-    };
-
-
-    /**
-     * Mechanism to start a new downflow for excluding members.
-     *
-     * @method
-     * @param excludeMembers {Array}
-     *     Iterable of members to exclude from the group.
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Un-encoded message content.
-     */
-    ns.ProtocolHandler.prototype._exclude = function(excludeMembers) {
-        _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
-        _assert(excludeMembers.indexOf(this.id) < 0,
-                'Cannot exclude mysefl.');
-
-        var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
-        var askeMessage = this.askeMember.exclude(excludeMembers);
-
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
-        } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
-        }
-
-        return protocolMessage;
     };
 
 
@@ -390,19 +268,19 @@ define([
      *     Iterable of members to exclude from the group.
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
-        if (this.recovering) {
-            _assert((this.state === ns.STATE.INIT_DOWNFLOW)
-                    || (this.state === ns.STATE.AUX_DOWNFLOW),
+        if (this.greet.recovering) {
+            _assert((this.greet.state === greeter.STATE.INIT_DOWNFLOW)
+                    || (this.greet.state === greeter.STATE.AUX_DOWNFLOW),
                     'exclude() for recovery can only be called from a ready or downflow state.');
         } else {
-            _assert(this.state === ns.STATE.READY,
+            _assert(this.greet.state === greeter.STATE.READY,
                     'exclude() can only be called from a ready state.');
         }
         logger.debug('Invoking EXCLUDE flow operation.');
-        this.state = ns.STATE.AUX_DOWNFLOW;
+        this.greet.state = greeter.STATE.AUX_DOWNFLOW;
         this.stateUpdatedCallback(this);
 
-        var outContent = this._exclude(excludeMembers);
+        var outContent = this.greet.exclude(excludeMembers);
         if (outContent.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
@@ -415,40 +293,22 @@ define([
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
         }
 
-        if (this.askeMember.isSessionAcknowledged()) {
-            this.state = ns.STATE.READY;
-            this.sessionTracker.update(this.askeMember.sessionId,
-                                       this.askeMember.members,
-                                       this.askeMember.ephemeralPubKeys,
-                                       this.cliquesMember.groupKey.substring(0, 16));
-            this.recovering = false;
+        if (this.greet.isSessionAcknowledged()) {
+            this.greet.state = greeter.STATE.READY;
+            this.sessionKeyStore.update(this.greet.getSessionId(),
+                                        this.greet.getMembers(),
+                                        this.greet.getEphemeralPubKeys(),
+                                        this.greet.getGroupKey().substring(0, 16));
             this.stateUpdatedCallback(this);
         }
-    };
-
-
-    /**
-     * Mechanism to start the downflow for quitting participation.
-     *
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Un-encoded message content.
-     * @method
-     */
-    ns.ProtocolHandler.prototype._quit = function() {
-        this.cliquesMember.akaQuit();
-        var askeMessage = this.askeMember.quit();
-
-        var protocolMessage = this._mergeMessages(null, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
-        return protocolMessage;
     };
 
 
@@ -458,49 +318,29 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.quit = function() {
-        if (this.state === ns.STATE.QUIT) {
+        if (this.greet.state === greeter.STATE.QUIT) {
             // Nothing do do here.
             return;
         }
-        _assert(this.askeMember.ephemeralPrivKey !== null,
+        _assert(this.greet.getEphemeralPrivKey() !== null,
                 'Not participating.');
         logger.debug('Invoking QUIT request containing private signing key.');
-        this.state = ns.STATE.QUIT;
+        this.greet.state = greeter.STATE.QUIT;
         this.stateUpdatedCallback(this);
 
-        var outContent = this._quit();
+        var outContent = this.greet.quit();
         if (outContent) {
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
         }
-    };
-
-
-    /**
-     * Mechanism to refresh group key.
-     *
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Un-encoded message content.
-     * @method
-     */
-    ns.ProtocolHandler.prototype._refresh = function() {
-        var cliquesMessage = this.cliquesMember.akaRefresh();
-
-        var protocolMessage = this._mergeMessages(cliquesMessage, null);
-        if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
-        } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN;
-        }
-        return protocolMessage;
     };
 
 
@@ -510,28 +350,28 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.refresh = function() {
-        _assert((this.state === ns.STATE.READY)
-                || (this.state === ns.STATE.INIT_DOWNFLOW)
-                || (this.state === ns.STATE.AUX_DOWNFLOW),
+        _assert((this.greet.state === greeter.STATE.READY)
+                || (this.greet.state === greeter.STATE.INIT_DOWNFLOW)
+                || (this.greet.state === greeter.STATE.AUX_DOWNFLOW),
                 'refresh() can only be called from a ready or downflow states.');
         logger.debug('Invoking REFRESH flow operation.');
-        this.state = ns.STATE.READY;
+        this.greet.state = greeter.STATE.READY;
         this.refreshing = false;
         this.stateUpdatedCallback(this);
 
-        var outContent = this._refresh();
-        this.sessionTracker.update(this.askeMember.sessionId,
-                                   this.askeMember.members,
-                                   this.askeMember.ephemeralPubKeys,
-                                   this.cliquesMember.groupKey.substring(0, 16));
+        var outContent = this.greet.refresh();
+        this.sessionKeyStore.update(this.greet.getSessionId(),
+                                    this.greet.getMembers(),
+                                    this.greet.getEphemeralPubKeys(),
+                                    this.greet.getGroupKey().substring(0, 16));
         if (outContent) {
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -548,11 +388,11 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.fullRefresh = function(keepMembers) {
-        this.state = ns.STATE.INIT_UPFLOW;
+        this.greet.state = greeter.STATE.INIT_UPFLOW;
         this.stateUpdatedCallback(this);
 
         // Remove ourselves from members list to keep (if we're in there).
-        var otherMembers = utils.clone(this.cliquesMember.members);
+        var otherMembers = utils.clone(this.greet.getMembers());
         if (keepMembers) {
             otherMembers = utils.clone(keepMembers);
         }
@@ -562,7 +402,7 @@ define([
         }
 
         // Now start a normal upflow for an initial agreement.
-        var outContent = this._start(otherMembers);
+        var outContent = this.greet.start(otherMembers);
         if (outContent.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
@@ -575,9 +415,9 @@ define([
                 from: this.id,
                 to: outContent.dest,
                 message: codec.encodeMessage(outContent,
-                                             this.askeMember.ephemeralPrivKey,
-                                             this.askeMember.ephemeralPubKey,
-                                             this.sessionTracker),
+                                             this.greet.getEphemeralPrivKey(),
+                                             this.greet.getEphemeralPubKey(),
+                                             this.sessionKeyStore),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -590,9 +430,9 @@ define([
      *
      * An attempt is made to do so with as little protocol overhead as possible.
      *
-     * @param keepMembers {Array}
-     *     Iterable of members to keep in the group (exclude others). This list
-     *     should include the one self. (Optional parameter.)
+     * @param keepMembers {Array<string>}
+     *     Members to keep in the group (exclude others). This list should
+     *     include the one self. (Optional parameter, empty keeps all.)
      * @method
      */
     ns.ProtocolHandler.prototype.recover = function(keepMembers) {
@@ -602,24 +442,24 @@ define([
 
         if (keepMembers && (keepMembers.length > 0)) {
             // Sort through keepMembers (they may be in "odd" order).
-            for (var i = 0; i < this.askeMember.members.length; i++) {
-                var index = keepMembers.indexOf(this.askeMember.members[i]);
+            for (var i = 0; i < this.greet.getMembers().length; i++) {
+                var index = keepMembers.indexOf(this.greet.getMembers()[i]);
                 if (index < 0) {
-                    toExclude.push(this.askeMember.members[i]);
+                    toExclude.push(this.greet.getMembers()[i]);
                 } else {
-                    toKeep.push(this.askeMember.members[i]);
+                    toKeep.push(this.greet.getMembers()[i]);
                 }
             }
             _assert(toKeep.length === keepMembers.length,
                     'Mismatch between members to keep and current members.');
         }
 
-        this.recovering = true;
-        if ((this.state === ns.STATE.READY)
-                || (this.state === ns.STATE.INIT_DOWNFLOW)
-                || (this.state === ns.STATE.AUX_DOWNFLOW)) {
+        this.greet.recovering = true;
+        if ((this.greet.state === greeter.STATE.READY)
+                || (this.greet.state === greeter.STATE.INIT_DOWNFLOW)
+                || (this.greet.state === greeter.STATE.AUX_DOWNFLOW)) {
             if (toExclude.length > 0) {
-                this.askeMember.discardAuthentications();
+                this.greet.discardAuthentications();
                 this.exclude(toExclude);
             } else {
                 // TODO: Check, whether this would only work for isSessionAcknowledged(),
@@ -627,7 +467,7 @@ define([
                 this.refresh();
             }
         } else {
-            this.askeMember.discardAuthentications();
+            this.greet.discardAuthentications();
             this.fullRefresh((toKeep.length > 0) ? toKeep : undefined);
         }
     };
@@ -685,23 +525,37 @@ define([
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 var decodedMessage = null;
-                if (this.askeMember.ephemeralPubKey) {
+                if (this.greet.getEphemeralPubKey()) {
                     // In case of a key refresh (groupKey existent),
                     // the signing pubKeys won't be part of the message.
-                    var signingPubKey = this.askeMember.getMemberEphemeralPubKey(wireMessage.from);
-                    if ((wireMessage.from === this.id) && (!signingPubKey)) {
-                        logger.debug('Using own ephemeral signing pub key, not taken from list.');
-                        signingPubKey = this.askeMember.ephemeralPubKey;
-                    }
+                    var signingPubKey = this.greet.getEphemeralPubKey(wireMessage.from);
                     decodedMessage = codec.decodeMessageContent(classify.content,
                                                                 signingPubKey);
                 } else {
                     decodedMessage = codec.decodeMessageContent(classify.content);
                 }
-
                 // This is an mpenc.greet message.
-                var oldState = this.state;
-                var keyingMessageResult = this._processKeyingMessage(decodedMessage);
+                var oldState = this.greet.state;
+                try {
+                    var keyingMessageResult = this.greet.processMessage(decodedMessage);
+                    if (keyingMessageResult && keyingMessageResult.newState !== null) {
+                        if (keyingMessageResult.newState === greeter.STATE.QUIT) {
+                            this.quit();
+                        } else if (keyingMessageResult.newState === greeter.STATE.READY) {
+                            this.sessionKeyStore.update(this.greet.getSessionId(),
+                                                        this.greet.getMembers(),
+                                                        this.greet.getEphemeralPubKeys(),
+                                                        this.greet.getGroupKey().substring(0, 16));
+                        }
+                    }
+                } catch (e) {
+                    if (e.message.lastIndexOf('Session authentication by member') === 0) {
+                        this.sendError(ns.ERROR.TERMINAL, e.message);
+                        return;
+                    } else {
+                        throw e;
+                    }
+                }
                 if (keyingMessageResult === null) {
                     return;
                 }
@@ -712,9 +566,9 @@ define([
                         from: this.id,
                         to: outContent.dest,
                         message: codec.encodeMessage(outContent,
-                                                     this.askeMember.ephemeralPrivKey,
-                                                     this.askeMember.ephemeralPubKey,
-                                                     this.sessionTracker),
+                                                     this.greet.getEphemeralPrivKey(),
+                                                     this.greet.getEphemeralPubKey(),
+                                                     this.sessionKeyStore),
                     };
                     this.protocolOutQueue.push(outMessage);
                     this.queueUpdatedCallback(this);
@@ -725,14 +579,14 @@ define([
                         (keyingMessageResult.newState !== oldState)) {
                     // Update the state if required.
                     logger.debug('Reached new state: '
-                                 + _STATE_MAPPING[keyingMessageResult.newState]);
-                    this.state = keyingMessageResult.newState;
+                                 + greeter.STATE_MAPPING[keyingMessageResult.newState]);
+                    this.greet.state = keyingMessageResult.newState;
                     this.stateUpdatedCallback(this);
                 }
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
                 var decodedMessage = null;
-                _assert(this.state === ns.STATE.READY,
+                _assert(this.greet.state === greeter.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
 
                 this.tryDecrypt.trial(wireMessage);
@@ -774,7 +628,7 @@ define([
 
                 // Complete the origin attribute with further knowledge.
                 if (result.origin === '???') {
-                    if (this.askeMember.members.indexOf(result.from) >= 0) {
+                    if (this.greet.getMembers().indexOf(result.from) >= 0) {
                         if (result.isInitiator()) {
                             result.origin = 'initiator';
                         } else {
@@ -815,16 +669,16 @@ define([
      *     plain text (unencrypted) in the implementation.
      */
     ns.ProtocolHandler.prototype.send = function(messageContent, metadata) {
-        _assert(this.state === ns.STATE.READY,
+        _assert(this.greet.state === greeter.STATE.READY,
                 'Messages can only be sent in ready state.');
         var outMessage = {
             from: this.id,
             to: '',
             metadata: metadata,
             message: codec.encodeMessage(messageContent,
-                                         this.askeMember.ephemeralPrivKey,
-                                         this.askeMember.ephemeralPubKey,
-                                         this.sessionTracker,
+                                         this.greet.getEphemeralPrivKey(),
+                                         this.greet.getEphemeralPubKey(),
+                                         this.sessionKeyStore,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -856,7 +710,7 @@ define([
      *     plain text (unencrypted) in the implementation.
      */
     ns.ProtocolHandler.prototype.sendTo = function(messageContent, to, metadata) {
-        _assert(this.state === ns.STATE.READY,
+        _assert(this.greet.state === greeter.STATE.READY,
                 'Messages can only be sent in initialised state.');
         _assert(to && (to.length > 0),
                 'A recipient has to be given.');
@@ -865,9 +719,9 @@ define([
             to: to,
             metadata: metadata,
             message: codec.encodeMessage(messageContent,
-                                         this.askeMember.ephemeralPrivKey,
-                                         this.askeMember.ephemeralPubKey,
-                                         this.sessionTracker,
+                                         this.greet.getEphemeralPrivKey(),
+                                         this.greet.getEphemeralPubKey(),
+                                         this.sessionKeyStore,
                                          this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
@@ -897,8 +751,8 @@ define([
             message: codec.encodeErrorMessage(this.id,
                                               _ERROR_MAPPING[severity],
                                               messageContent,
-                                              this.askeMember.ephemeralPrivKey,
-                                              this.askeMember.ephemeralPubKey),
+                                              this.greet.getEphemeralPrivKey(),
+                                              this.greet.getEphemeralPubKey()),
         };
         this.protocolOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -906,149 +760,6 @@ define([
         if (severity === ns.ERROR.TERMINAL) {
             this.quit();
         }
-    };
-
-
-    /**
-     * Handles keying protocol execution with all participants.
-     *
-     * @method
-     * @param message {mpenc.codec.ProtocolMessage}
-     *     Received message (decoded). See {@link mpenc.codec.ProtocolMessage}.
-     * @returns {object}
-     *     Object containing the decoded message content as
-     *     {mpenc.codec.ProtocolMessage} in attribute `decodedMessage` and
-     *     optional (null if not used) the new the ProtocolHandler state in
-     *     attribute `newState`.
-     */
-    ns.ProtocolHandler.prototype._processKeyingMessage = function(message) {
-        logger.debug('Processing message of type '
-                     + message.getMessageTypeString());
-        if (this.state === ns.STATE.QUIT) {
-            // We're not par of this session, get out of here.
-            logger.debug("Ignoring message as we're in state QUIT.");
-            return null;
-        }
-
-        // If I'm not part of it any more, go and quit.
-        if (message.members && (message.members.length > 0)
-                && (message.members.indexOf(this.id) === -1)) {
-            this.quit();
-            return null;
-        }
-
-        // Ignore the message if it is not for me.
-        if ((message.dest !== '') && (message.dest !== this.id)) {
-            return null;
-        }
-
-        // Ignore the message if it is from me.
-        if (message.source === this.id) {
-            return null;
-        }
-
-        // State transitions.
-        if (message.isRecover()) {
-            // We're getting this message as part of a recovery flow.
-            this.recovering = true;
-            // In case of an upflow, we must also discard session authentications.
-            if (!message.isDownflow()) {
-                this.askeMember.discardAuthentications();
-            }
-        }
-
-        var inCliquesMessage = this._getCliquesMessage(message);
-        var inAskeMessage = this._getAskeMessage(message);
-        var outCliquesMessage = null;
-        var outAskeMessage = null;
-        var outMessage = null;
-        var newState = null;
-
-        // Three cases: QUIT, upflow or downflow message.
-        if (message.messageType === codec.MESSAGE_TYPE.QUIT_DOWN) {
-            // QUIT message.
-            _assert(message.signingKey,
-                    'Inconsistent message content with message type (signingKey).');
-            // Sender is quitting participation.
-            this.askeMember.oldEphemeralKeys[message.source] = {
-                    priv: message.signingKey,
-                    pub:  this.askeMember.ephemeralPubKeys[message.source]
-            };
-        } else if (message.isDownflow()) {
-            // Downflow message.
-            if (message.isGKA()) {
-                this.cliquesMember.downflow(inCliquesMessage);
-            }
-            if (message.isSKE()) {
-                try {
-                    outAskeMessage = this.askeMember.downflow(inAskeMessage);
-                } catch (e) {
-                    if (e.message.lastIndexOf('Session authentication by member') === 0) {
-                        this.sendError(ns.ERROR.TERMINAL, e.message);
-                        return null;
-                    } else {
-                        throw e;
-                    }
-                }
-            }
-            outMessage = this._mergeMessages(null, outAskeMessage);
-            if (outMessage) {
-                outMessage.messageType = message.messageType;
-                // In case we're receiving it from an initiator.
-                outMessage.clearInitiator(true);
-                // Confirmations (subsequent) downflow messages don't have a GKA.
-                outMessage.clearGKA();
-                // Handle state transitions.
-                if (message.isAuxiliary()) {
-                    newState = ns.STATE.AUX_DOWNFLOW;
-                } else {
-                    newState = ns.STATE.INIT_DOWNFLOW;
-                }
-            }
-        } else {
-            // Upflow message.
-            outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
-            outAskeMessage = this.askeMember.upflow(inAskeMessage);
-            outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);
-            outMessage.messageType = message.messageType;
-            // In case we're receiving it from an initiator.
-            outMessage.clearInitiator();
-            // Handle state transitions.
-            if (outMessage.dest === '') {
-                outMessage.setDownflow();
-                if (message.isAuxiliary()) {
-                    newState = ns.STATE.AUX_DOWNFLOW;
-                } else {
-                    newState = ns.STATE.INIT_DOWNFLOW;
-                }
-            } else {
-                if (message.isAuxiliary()) {
-                    newState = ns.STATE.AUX_UPFLOW;
-                } else {
-                    newState = ns.STATE.INIT_UPFLOW;
-                }
-            }
-        }
-
-        if (this.askeMember.isSessionAcknowledged()) {
-            // We have seen and verified all broadcasts from others.
-            newState = ns.STATE.READY;
-            this.sessionTracker.update(this.askeMember.sessionId,
-                                       this.askeMember.members,
-                                       this.askeMember.ephemeralPubKeys,
-                                       this.cliquesMember.groupKey.substring(0, 16));
-            logger.debug('Reached READY state.');
-            this.recovering = false;
-        }
-
-        if (outMessage) {
-            logger.debug('Sending message of type '
-                         + outMessage.getMessageTypeString());
-        } else {
-            logger.debug('No message to send.');
-        }
-        return { decodedMessage: outMessage,
-                 newState: newState };
     };
 
 
@@ -1064,18 +775,13 @@ define([
      *     signature verifies) and `message` {string} (message content).
      */
     ns.ProtocolHandler.prototype._processErrorMessage = function(content) {
-
         var contentParts = content.split(':');
         var signatureString = contentParts[0];
         var result = { from: contentParts[1].split('"')[1],
                        severity: ns.ERROR[contentParts[2]],
                        signatureOk: null,
                        message: contentParts[3] };
-        var memberPos = this.askeMember.members.indexOf(result.from);
-        var pubKey = undefined;
-        if (this.askeMember.ephemeralPubKeys) {
-            pubKey = this.askeMember.ephemeralPubKeys[memberPos];
-        }
+        var pubKey = this.greet.getEphemeralPubKey(result.from);
         if ((signatureString.length >= 0) && (pubKey !== undefined)) {
             var cutOffPos = content.indexOf(':');
             var data = content.substring(cutOffPos + 1);
@@ -1087,115 +793,6 @@ define([
     };
 
 
-    /**
-     * Merges the contents of the messages for ASKE and CLIQUES into one message.
-     *
-     * @method
-     * @param cliquesMessage {mpenc.greet.cliques.CliquesMessage}
-     *     Message from CLIQUES protocol workflow.
-     * @param askeMessage {mpenc.greet.ske.SignatureKeyExchangeMessage}
-     *     Message from ASKE protocol workflow.
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Joined message (not wire encoded).
-     */
-    ns.ProtocolHandler.prototype._mergeMessages = function(cliquesMessage,
-                                                           askeMessage) {
-        // Are we done already?
-        if (!cliquesMessage && !askeMessage) {
-            return null;
-        }
-
-        var newMessage = new codec.ProtocolMessage(this.id);
-
-        if (cliquesMessage && askeMessage) {
-            _assert(cliquesMessage.source === askeMessage.source,
-                    "Message source mismatch, this shouldn't happen.");
-            _assert(cliquesMessage.dest === askeMessage.dest,
-                    "Message destination mismatch, this shouldn't happen.");
-        }
-
-        // Empty objects to simplify further logic.
-        cliquesMessage = cliquesMessage || {};
-        askeMessage = askeMessage || {};
-
-        newMessage.dest = cliquesMessage.dest || askeMessage.dest || '';
-        newMessage.members = cliquesMessage.members || askeMessage.members;
-        newMessage.intKeys = cliquesMessage.intKeys || null;
-        newMessage.debugKeys = cliquesMessage.debugKeys || null;
-        newMessage.nonces = askeMessage.nonces || null;
-        newMessage.pubKeys = askeMessage.pubKeys || null;
-        newMessage.sessionSignature = askeMessage.sessionSignature || null;
-        newMessage.signingKey = askeMessage.signingKey || null;
-
-        return newMessage;
-    };
-
-
-    /**
-     * Extracts a CLIQUES message out of the received protocol handler message.
-     *
-     * @method
-     * @param message {mpenc.codec.ProtocolMessage}
-     *     Message from protocol handler.
-     * @returns {mpenc.greet.cliques.CliquesMessage}
-     *     Extracted message.
-     */
-    ns.ProtocolHandler.prototype._getCliquesMessage = function(message) {
-        var newMessage = cliques.CliquesMessage(this.id);
-        newMessage.source = message.source;
-        newMessage.dest = message.dest;
-        newMessage.members = message.members;
-        newMessage.intKeys = message.intKeys;
-        newMessage.debugKeys = message.debugKeys;
-
-        // Upflow or downflow.
-        if (message.isDownflow()) {
-            newMessage.flow = 'down';
-        } else {
-            newMessage.flow = 'up';
-        }
-
-        // IKA or AKA.
-        if (message.getOperation() === 'START') {
-            newMessage.agreement = 'ika';
-        } else {
-            newMessage.agreement = 'aka';
-        }
-
-        return newMessage;
-    };
-
-
-    /**
-     * Extracts a ASKE message out of the received protocol handler message.
-     *
-     * @method
-     * @param message {mpenc.greet.codec.ProtocolMessage}
-     *     Message from protocol handler.
-     * @returns {mpenc.greet.ske.SignatureKeyExchangeMessage}
-     *     Extracted message.
-     */
-    ns.ProtocolHandler.prototype._getAskeMessage = function(message) {
-        var newMessage = ske.SignatureKeyExchangeMessage(this.id);
-        newMessage.source = message.source;
-        newMessage.dest = message.dest;
-        newMessage.members = message.members;
-        newMessage.nonces = message.nonces;
-        newMessage.pubKeys = message.pubKeys;
-        newMessage.sessionSignature = message.sessionSignature;
-        newMessage.signingKey = message.signingKey;
-
-        // Upflow or downflow.
-        if (message.isDownflow()) {
-            newMessage.flow = 'down';
-        } else {
-            newMessage.flow = 'up';
-        }
-
-        return newMessage;
-    };
-
-
 
     /**
      * Trial target holding the data structures to accept positively tried
@@ -1204,8 +801,8 @@ define([
      *
      * @constructor
      * @implements {mpenc/helper/struct.TrialTarget}
-     * @param sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
+     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
      * @param outQueue {array}
      *     Output queue to receive successfully trialled parameters (messages).
      * @param maxSize {integer}
@@ -1213,17 +810,17 @@ define([
      * @returns {module:mpenc/handler.DecryptTrialTarget}
      * @memberOf! module:mpenc/handler#
      *
-     * @property sessionTracker {mpenc.session.SessionTracker}
-     *     Tracker for (sub-) session related information.
-     * @property outQueue {array}
+     * @property _sessionKeyStore {mpenc.greet.keystore.KeyStore}
+     *     Store for (sub-) session related keys and information.
+     * @property _outQueue {array}
      *     Output queue to receive successfully trialled parameters (messages).
-     * @property maxSize {integer}
+     * @property _maxSize {integer}
      *     Maximum number of elements to be held in trial buffer.
      */
-    function DecryptTrialTarget(sessionTracker, outQueue, maxSize) {
-        this._sessionTracker = sessionTracker;
+    function DecryptTrialTarget(sessionKeyStore, outQueue, maxSize) {
+        this._sessionKeyStore = sessionKeyStore;
         this._outQueue = outQueue;
-        this._maxSize = maxSize;
+            this._maxSize = maxSize;
     }
     ns.DecryptTrialTarget = DecryptTrialTarget;
 
@@ -1232,20 +829,20 @@ define([
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
         var author = wireMessage.from;
-        var sessionID = this._sessionTracker.sessionIDs[0];
-        var groupKey = this._sessionTracker.sessions[sessionID].groupKeys[0];
+        var sessionID = this._sessionKeyStore.sessionIDs[0];
+        var groupKey = this._sessionKeyStore.sessions[sessionID].groupKeys[0];
 
         if (author) {
-            var signingPubKey = this._sessionTracker.pubKeyMap[author];
+            var signingPubKey = this._sessionKeyStore.pubKeyMap[author];
             var categorised = codec.categoriseMessage(wireMessage.message);
             var inspected = codec.inspectMessageContent(categorised.content);
             var decoded = null;
 
             // Loop over (session ID, group key) combos, starting with the latest.
             outer: // Label to break out of outer loop.
-            for (var sidNo in this._sessionTracker.sessionIDs) {
-                var sessionID = this._sessionTracker.sessionIDs[sidNo];
-                var session = this._sessionTracker.sessions[sessionID];
+            for (var sidNo in this._sessionKeyStore.sessionIDs) {
+                var sessionID = this._sessionKeyStore.sessionIDs[sidNo];
+                var session = this._sessionKeyStore.sessions[sessionID];
                 for (var gkNo in session.groupKeys) {
                     var groupKey = session.groupKeys[gkNo];
                     var sidkeyHash = utils.sha256(sessionID + groupKey);
@@ -1269,10 +866,19 @@ define([
             if (decoded) {
                 wireMessage.type = 'message';
                 wireMessage.message = decoded.data;
+                logger.debug('Message from "' + author
+                             + ' successfully decrypted.');
                 this._outQueue.push(wireMessage);
                 return true;
+            } else {
+                logger.debug('Message from "' + author
+                             + ' not decrypted, will be stashed in trial buffer.');
             }
+        } else {
+            logger.warn('No message author for message available, '
+                        + 'will not be able to decrypt: ' + wireMessage.message);
         }
+
         return false;
     };
 

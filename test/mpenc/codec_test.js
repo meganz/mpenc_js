@@ -24,6 +24,7 @@
 define([
     "mpenc/codec",
     "mpenc/version",
+    "mpenc/greet/greeter",
     "mpenc/helper/utils",
     "jodid25519",
     "asmcrypto",
@@ -31,7 +32,7 @@ define([
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, jodid25519, asmCrypto, MegaLogger,
+], function(ns, version, greeter, utils, jodid25519, asmCrypto, MegaLogger,
             chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
@@ -180,12 +181,12 @@ define([
 
             it('greet message', function() {
                 assert.strictEqual(ns.getMessageType(_td.DOWNFLOW_MESSAGE_STRING),
-                                   ns.MESSAGE_TYPE.QUIT_DOWN);
+                                   greeter.MESSAGE_TYPE.QUIT_DOWN);
             });
 
             it('data message', function() {
                 assert.ok(ns.getMessageType(_td.DATA_MESSAGE_STRING),
-                          ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                          greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
             });
         });
 
@@ -253,16 +254,16 @@ define([
             });
 
             it('data message', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
                 };
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
@@ -270,18 +271,18 @@ define([
             });
 
             it('data message with second group key', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID, 'foo'],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID, 'foo'],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     sid: _td.SESSION_ID,
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY, 'foo']
                 };
-                sessionTracker.sessions['foo'] = {};
+                sessionKeyStore.sessions['foo'] = {};
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker);
+                                                     sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
@@ -289,9 +290,9 @@ define([
             });
 
             it('data message with exponential padding', function() {
-                var sessionTracker = { sessionIDs: [_td.SESSION_ID],
-                                       sessions: {} };
-                sessionTracker.sessions[_td.SESSION_ID] = {
+                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
+                                        sessions: {} };
+                sessionKeyStore.sessions[_td.SESSION_ID] = {
                     sid: _td.SESSION_ID,
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
@@ -299,7 +300,7 @@ define([
                 var result = ns.encodeMessageContent('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
-                                                     sessionTracker, 32);
+                                                     sessionKeyStore, 32);
                 // 4 TLVs with 136 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
@@ -403,14 +404,14 @@ define([
             it('upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.INIT_INITIATOR_UP);
                 assert.strictEqual(result.messageTypeNumber, 0x9c);
                 assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
                 assert.strictEqual(result.from, '1');
                 assert.strictEqual(result.to, '2');
                 assert.strictEqual(result.origin, 'initiator');
                 assert.strictEqual(result.operation, 'START');
-                assert.strictEqual(result.agreement, 'initial, GKE, SKE');
+                assert.strictEqual(result.agreement, 'initial, GKA, SKE');
                 assert.strictEqual(result.flow, 'up');
                 assert.strictEqual(result.recover, false);
                 assert.deepEqual(result.members, ['1', '2', '3', '4', '5', '6']);
@@ -425,7 +426,7 @@ define([
             it('downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.QUIT_DOWN);
                 assert.strictEqual(result.messageTypeNumber, 0xd3);
                 assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
                 assert.strictEqual(result.from, '1');
@@ -447,7 +448,7 @@ define([
             it('data message', function() {
                 var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
                 assert.strictEqual(result.messageTypeNumber, 0x00);
                 assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
                 assert.strictEqual(result.from, null);
@@ -469,7 +470,7 @@ define([
             it('shallow, upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.INIT_INITIATOR_UP);
                 assert.strictEqual(result.messageTypeNumber, 0x9c);
                 assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
                 assert.strictEqual(result.sidkeyHint, null);
@@ -480,7 +481,7 @@ define([
             it('shallow, downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.QUIT_DOWN);
                 assert.strictEqual(result.messageTypeNumber, 0xd3);
                 assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
                 assert.strictEqual(result.sidkeyHint, null);
@@ -491,7 +492,7 @@ define([
             it('shallow, data message', function() {
                 var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
                 assert.strictEqual(result.messageTypeNumber, 0x00);
                 assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
                 assert.strictEqual(result.sidkeyHint, '\u0054');
@@ -895,141 +896,6 @@ define([
             for (var i = 0; i < tests.length; i++) {
                 assert.strictEqual(ns.getQueryMessage(tests[i]), expected[i]);
             }
-        });
-    });
-
-    describe("_messageTypeFromNumber() and _messageTypeToNumber()", function() {
-        var messageTypes = {// Data message.
-                            '\u0000\u0000': 0x000, // PARTICIPANT_DATA
-                            // Initial start sequence.
-                            '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
-                            '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
-                            '\u0000\u001e': 0x01e, // INIT_PARTICIPANT_DOWN
-                            '\u0000\u001a': 0x01a, // INIT_PARTICIPANT_CONFIRM_DOWN
-                            '\u0001\u009c': 0x19c, // RECOVER_INIT_INITIATOR_UP
-                            '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
-                            '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
-                            '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
-                            // Join sequence.
-                            '\u0000\u00ad': 0x0ad, // JOIN_AUX_INITIATOR_UP
-                            '\u0000\u002d': 0x02d, // JOIN_AUX_PARTICIPANT_UP
-                            '\u0000\u002f': 0x02f, // JOIN_AUX_PARTICIPANT_DOWN
-                            '\u0000\u002b': 0x02b, // JOIN_AUX_PARTICIPANT_CONFIRM_DOWN
-                            // Exclude sequence.
-                            '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
-                            '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
-                            '\u0001\u00bf': 0x1bf, // RECOVER_EXCLUDE_AUX_INITIATOR_DOWN
-                            '\u0001\u003b': 0x13b, // RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
-                            // Refresh sequence.
-                            '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
-                            '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
-                            '\u0001\u00c7': 0x1c7, // RECOVER_REFRESH_AUX_INITIATOR_DOWN
-                            '\u0001\u0047': 0x147, // RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:
-                            // Quit indication.
-                            '\u0000\u00d3': 0x0d3  // QUIT_DOWN
-        };
-        var messageTypeNumbers = {};
-        for (var msgType in messageTypes) {
-            messageTypeNumbers[messageTypes[msgType]] = msgType;
-        }
-
-        it('_messageTypeFromNumber()', function() {
-            for (var number in messageTypeNumbers) {
-                assert.strictEqual(ns._messageTypeFromNumber(number),
-                                   messageTypeNumbers[number]);
-            }
-        });
-
-        it('_messageTypeToNumber()', function() {
-            for (var type in messageTypes) {
-                assert.strictEqual(ns._messageTypeToNumber(type),
-                                   messageTypes[type]);
-            }
-        });
-
-        it('round trip', function() {
-            for (var type in messageTypes) {
-                var number = ns._messageTypeToNumber(type);
-                assert.strictEqual(ns._messageTypeFromNumber(number), type);
-            }
-        });
-    });
-
-    describe("ProtocolMessage class", function() {
-        describe("_readBit()", function() {
-            it('downflow on INIT_PARTICIPANT_UP', function() {
-                var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u001c', // INIT_PARTICIPANT_UP
-                assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
-            });
-
-            it('downflow on QUIT_DOWN', function() {
-                var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u00d3'; // QUIT_DOWN
-                assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
-            });
-        });
-
-        describe("_setBit()", function() {
-            it('on valid transitions', function() {
-                var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
-                var expected = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP];
-                for (var i in tests) {
-                    message.messageType = tests[i][0];
-                    var bit = tests[i][1];
-                    var targetValue = tests[i][2];
-                    message._setBit(bit, targetValue);
-                    assert.strictEqual(message.messageType, expected[i]);
-                }
-            });
-
-            it('on invalid transitions', function() {
-                var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
-                for (var i in tests) {
-                    message.messageType = tests[i][0];
-                    var bit = tests[i][1];
-                    var targetValue = tests[i][2];
-                    assert.throws(function() { message._setBit(bit, targetValue); },
-                                  'Illegal message type!');
-                }
-            });
-
-            it('on silenced invalid transitions', function() {
-                var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
-                for (var i in tests) {
-                    message.messageType = tests[i][0];
-                    var bit = tests[i][1];
-                    var targetValue = tests[i][2];
-                    message._setBit(bit, targetValue, true);
-                    assert.match(MegaLogger._logRegistry.codec._log.getCall(i).args[1],
-                                 /^Arrived at an illegal message type, but was told to ignore it:/);
-                    assert.notStrictEqual(message.messageType, tests[i][0]);
-                }
-            });
-        });
-
-        describe("#clearGKA(), isGKA()", function() {
-            it('on valid transitions', function() {
-                var message = new ns.ProtocolMessage();
-                var tests = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                             ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
-                for (var i in tests) {
-                    message.messageType = tests[i];
-                    message.clearGKA();
-                    assert.strictEqual(message.isGKA(), false);
-                }
-            });
         });
     });
 });
