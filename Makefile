@@ -102,7 +102,7 @@ $(BUILD_DEP_ALL) $(DEP_JSBN) $(DEP_ES6COLL):
 	touch .npm-build-deps
 
 clean:
-	rm -rf doc/api/ coverage/ build/ mpenc.js
+	rm -rf doc/api/ coverage/ build/ mpenc.js test-results.xml
 
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
