@@ -35,7 +35,7 @@ mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
 	sed -e 's,$<,$@,g' "$<" > "$@"
 
 test: $(KARMA) $(R_JS) $(DEP_ALL) .npm-build-deps
-	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --browsers PhantomJS
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --colors=false --browsers PhantomJS
 
 # use e.g. `make BROWSER=Chrome browser-test` to use a different browser
 browser-test:
