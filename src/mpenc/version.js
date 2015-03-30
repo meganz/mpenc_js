@@ -3,7 +3,7 @@
  */
 
 /*
- * Created: 11 Feb 2014-2015 Guy K. Kloss <gk@mega.co.nz>
+ * Created: 11 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
  *
  * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
  *     http://mega.co.nz/

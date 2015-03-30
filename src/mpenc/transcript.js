@@ -16,7 +16,7 @@ define([], function() {
     var ns = {};
 
     /*
-     * Created: 28 Mar 2014-2015 Ximin Luo <xl@mega.co.nz>
+     * Created: 28 Mar 2014 Ximin Luo <xl@mega.co.nz>
      *
      * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/

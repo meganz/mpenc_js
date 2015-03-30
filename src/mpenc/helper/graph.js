@@ -20,7 +20,7 @@ define([
     var ns = {};
 
     /*
-     * Created: 02 Sep 2014-2015 Ximin Luo <xl@mega.co.nz>
+     * Created: 02 Sep 2014 Ximin Luo <xl@mega.co.nz>
      *
      * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
      *     http://mega.co.nz/
