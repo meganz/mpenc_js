@@ -33,11 +33,11 @@
   "readmeFilename": "README.md",
   "dependencies": {
     "jsbn": "*",
-    "asmcrypto.js": "vibornoff/asmcrypto.js",
-    "es6-collections": "infinity0/es6-collections",
-    "jodid25519": "meganz/jodid25519",
+    "asmcrypto.js": "git+https://github.com/vibornoff/asmcrypto.js#v0.0.7",
+    "es6-collections": "git+https://github.com/WebReflection/es6-collections",
+    "jodid25519": "git+https://github.com/meganz/jodid25519",
     "lru-cache": "~2.5.0",
-    "megalogger": "meganz/megalogger"
+    "megalogger": "git+https://github.com/meganz/megalogger"
   },
   "devDependencies": {
     "almond": "~0.2.9",
