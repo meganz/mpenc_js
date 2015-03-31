@@ -1,6 +1,19 @@
-/**
- * @fileOverview
- * Implementation of tools for storing session-related key information.
+/*
+ * Created: 12 Feb 2015 Guy K. Kloss <gk@mega.co.nz>
+ *
+ * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
+ *     http://mega.co.nz/
+ *
+ * This file is part of the multi-party chat encryption suite.
+ *
+ * This code is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License version 3
+ * as published by the Free Software Foundation. See the accompanying
+ * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
+ *
+ * This code is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 define([
@@ -13,8 +26,6 @@ define([
 
     /**
      * @exports mpenc/greet/keystore
-     * Implementation of tools for storing session-related key information.
-     *
      * @description
      * <p>Implementation of tools for storing session-related key information.
      * </p>
@@ -28,25 +39,6 @@ define([
     var _assert = assert.assert;
 
     var logger = MegaLogger.getLogger('keystore', undefined, 'greet');
-
-    /*
-     * Created: 12 Feb 2015 Guy K. Kloss <gk@mega.co.nz>
-     *
-     * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
-     *     http://mega.co.nz/
-     *
-     * This file is part of the multi-party chat encryption suite.
-     *
-     * This code is free software: you can redistribute it and/or modify
-     * it under the terms of the GNU Affero General Public License version 3
-     * as published by the Free Software Foundation. See the accompanying
-     * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     *
-     * This code is distributed in the hope that it will be useful,
-     * but WITHOUT ANY WARRANTY; without even the implied warranty of
-     * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-     */
-
 
     /**
      * A _SessionItem holds information of a specific session in the {KeyStore}.

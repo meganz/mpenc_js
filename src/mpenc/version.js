@@ -1,7 +1,3 @@
-/**
- * @fileOverview Metadata about the mpENC library
- */
-
 /*
  * Created: 11 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
  *

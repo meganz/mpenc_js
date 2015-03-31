@@ -1,7 +1,3 @@
-/**
- * @fileOverview JavaScript mpENC implementation.
- */
-
 /*
  * Created: 11 Feb 2014 Guy K. Kloss <gk@mega.co.nz>
  *
@@ -30,9 +26,8 @@ define([
 
     /**
      * @exports mpenc
-     * The multi-party encrypted chat protocol, public API.
-     *
      * @description
+     * The multi-party encrypted chat protocol, public API.
      * This is eventually to be extended towards the mpOTR standard, currently
      * under development.
      *

@@ -1,6 +1,19 @@
-/**
- * @fileOverview
- * Implementation of group key agreement based on CLIQUES.
+/*
+ * Created: 20 Jan 2014 Guy K. Kloss <gk@mega.co.nz>
+ *
+ * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
+ *     http://mega.co.nz/
+ *
+ * This file is part of the multi-party chat encryption suite.
+ *
+ * This code is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License version 3
+ * as published by the Free Software Foundation. See the accompanying
+ * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
+ *
+ * This code is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 define([
@@ -12,8 +25,6 @@ define([
 
     /**
      * @exports mpenc/greet/cliques
-     * Implementation of group key agreement based on CLIQUES.
-     *
      * @description
      * <p>Implementation of group key agreement based on CLIQUES.</p>
      *
@@ -29,24 +40,6 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
-
-    /*
-     * Created: 20 Jan 2014 Guy K. Kloss <gk@mega.co.nz>
-     *
-     * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
-     *     http://mega.co.nz/
-     *
-     * This file is part of the multi-party chat encryption suite.
-     *
-     * This code is free software: you can redistribute it and/or modify
-     * it under the terms of the GNU Affero General Public License version 3
-     * as published by the Free Software Foundation. See the accompanying
-     * LICENSE file or <https://www.gnu.org/licenses/> if it is unavailable.
-     *
-     * This code is distributed in the hope that it will be useful,
-     * but WITHOUT ANY WARRANTY; without even the implied warranty of
-     * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-     */
 
     /**
      * Carries message content for the CLIQUES protocol.
