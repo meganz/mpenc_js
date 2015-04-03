@@ -168,4 +168,105 @@ define([
         })
     });
 
+    describe("timer", function() {
+        describe("defaultMsTimer", function() {
+            it("oneTimeoutOrder", function(done) {
+                var timer = ns.defaultMsTimer;
+                timer(2, function() { logs.push("cb1"); });
+                timer(1, function() { logs.push("cb0"); });
+                timer(2, function() { logs.push("cb2"); });
+                // wait a bit longer because browsers do delay clamping
+                timer(10, function() {
+                    assertLog("cb0");
+                    assertLog("cb1");
+                    assertLog("cb2");
+                    assert.deepEqual(logs, []);
+                    done();
+                });
+            });
+
+            it("oneTimeoutOrderAdd", function(done) {
+                var timer = ns.defaultMsTimer;
+                timer(2, function() { logs.push("cb1"); });
+                timer(1, function() {
+                    logs.push("cb0");
+                    timer(1, function() { logs.push("cb2"); });
+                });
+                // wait a bit longer because browsers do delay clamping
+                timer(15, function() {
+                    assertLog("cb0");
+                    assertLog("cb1");
+                    assertLog("cb2");
+                    assert.deepEqual(logs, []);
+                    done();
+                });
+            });
+        });
+
+        describe("subscribe timeout", function() {
+            var timer = ns.defaultMsTimer;
+
+            var cb_x = function() {
+                logs.push("called x");
+            };
+            var fail_x = function() {
+                logs.push("timeout x");
+            };
+
+            it("default, no allowFireLater", function(done) {
+                var obs = new ns.Observable();
+                var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x)(cb_x);
+                timer(20, function() {
+                    assertLog("timeout x");
+                    assert.deepEqual(logs, []);
+                    obs.publish(1);
+                    assert(!cancel_x());
+                    assert.deepEqual(logs, []);
+                    done();
+                });
+            });
+
+            it("allowFireLater", function(done) {
+                var obs = new ns.Observable();
+                var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x, true)(cb_x);
+                timer(5, function() {
+                    obs.publish(1);
+                });
+                timer(20, function() {
+                    assertLog("timeout x");
+                    assertLog("called x");
+                    assert.deepEqual(logs, []);
+                    assert(cancel_x());
+                    done();
+                });
+            });
+        });
+    });
+
+    // polyfill for PhantomJS
+    if (!Function.prototype.bind) {
+      Function.prototype.bind = function(oThis) {
+        if (typeof this !== 'function') {
+          // closest thing possible to the ECMAScript 5
+          // internal IsCallable function
+          throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+        }
+
+        var aArgs   = Array.prototype.slice.call(arguments, 1),
+            fToBind = this,
+            fNOP    = function() {},
+            fBound  = function() {
+              return fToBind.apply(this instanceof fNOP
+                     ? this
+                     : oThis,
+                     aArgs.concat(Array.prototype.slice.call(arguments)));
+            };
+
+        fNOP.prototype = this.prototype;
+        fBound.prototype = new fNOP();
+
+        return fBound;
+      };
+    }
+
 });

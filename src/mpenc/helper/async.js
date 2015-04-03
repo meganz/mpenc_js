@@ -59,6 +59,23 @@ define([
      * @see module:mpenc/helper/async.Observable#subscribe
      */
 
+    /**
+     * 2-arg function for scheduling actions to be run in the future.
+     *
+     * One pattern is to use this as an input to {@link module:mpenc/helper/async.Subscribe#withBackup}:
+     *
+     * <pre>
+     * myObservable.subscribe
+     *      .withBackup(timer.bind(null, myInterval), timeoutCb)(successCb)
+     * </pre>
+     *
+     * @callback timer
+     * @param ticks {number} Number of ticks in the future to schedule the
+     *      action for. How long this is in real terms is defined by the timer.
+     * @param action {function} Function to run.
+     * @returns canceller {module:mpenc/helper/async~canceller}
+     */
+
 
     /**
      * A subscribe-function with child tweaked subscribe-functions.
@@ -108,6 +125,43 @@ define([
         };
         cancel = this(wrapped_sub);
         return cancel;
+    };
+
+    /**
+     * A subscribe-function that registers subscriptions with a secondary
+     * backup subscription fired from a different context.
+     *
+     * If the primary subscription is fired first or cancelled, the secondary
+     * subscription is also cancelled. If the secondary subscription is fired
+     * first, the primary one is cancelled, but allowRecover overrides this.
+     *
+     * @param backup {module:mpenc/helper/async~subscribe}
+     *      Subscribe-function for the secondary item/event.
+     * @param bSub {module:mpenc/helper/async~subscriber}
+     *      Subscriber to call if the secondary subscription fires.
+     * @param allowRecover {boolean} Allow the primary subscription to fire,
+     *      even if the secondary subscription is fired first.
+     * @returns {module:mpenc/helper/async~subscribe} Tweaked subscribe-function
+     */
+    Subscribe.prototype.withBackup = function(backup, bSub, allowRecover) {
+        var self = this;
+        return function(sub) {
+            var cancel;
+            var realbSub = (allowRecover)? bSub: function() {
+                cancel();
+                return bSub();
+            };
+            var cancelErr = backup(realbSub);
+            var wrapped_sub = function(item) {
+                cancelErr();
+                return sub(item);
+            };
+            cancel = self(wrapped_sub);
+            return function() {
+                cancelErr();
+                return cancel();
+            };
+        };
     };
 
     Object.freeze(Subscribe.prototype);
@@ -276,6 +330,36 @@ define([
         };
     };
     ns.combinedCancel = combinedCancel;
+
+
+    /**
+     * A wrapper around window.setTimeout that follows the timer interface.
+     *
+     * A tick is 1 millisecond.
+     *
+     * @param ticks {number} Number of ticks later to schedule the action for.
+     *      How long this is in real terms is defined by the timer.
+     * @param action {function} 0-arg function to run.
+     * @returns canceller {module:mpenc/helper/async~canceller}
+     * @see module:mpenc/helper/async~timer
+     * @memberOf! module:mpenc/helper/async
+     */
+    var defaultMsTimer = function(ticks, action) {
+        if (ticks <= 0) {
+            throw new Error("ticks must be > 0");
+        }
+        var cancel = setTimeout(action, ticks);
+        var not_yet_cancelled = true;
+        return function() {
+            // of course someone else could call this and mess up our return value
+            // we can't do anything about that; they are bad people
+            clearTimeout(cancel);
+            var r = not_yet_cancelled;
+            not_yet_cancelled = false;
+            return r;
+        }
+    };
+    ns.defaultMsTimer = defaultMsTimer;
 
     return ns;
 });
