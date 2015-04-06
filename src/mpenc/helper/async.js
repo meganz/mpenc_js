@@ -17,10 +17,11 @@
  */
 
 define([
+    "mpenc/helper/assert",
     "mpenc/helper/struct",
     "es6-collections",
     "megalogger"
-], function(struct, es6_shim, MegaLogger) {
+], function(assert, struct, es6_shim, MegaLogger) {
     "use strict";
 
     /**
@@ -31,6 +32,7 @@ define([
     var ns = {};
 
     var logger = MegaLogger.getLogger("async");
+    var assert = assert.assert;
 
     /**
      * 0-arg function to cancel a subscription; does not throw an exception.
@@ -348,7 +350,13 @@ define([
         if (ticks <= 0) {
             throw new Error("ticks must be > 0");
         }
-        var cancel = setTimeout(action, ticks);
+        var cancel = setTimeout(function() {
+            try {
+                action();
+            } catch (e) {
+                __SubscriberFailure_publishGlobal(action, undefined, e);
+            }
+        }, ticks);
         var not_yet_cancelled = true;
         return function() {
             // of course someone else could call this and mess up our return value
@@ -360,6 +368,143 @@ define([
         }
     };
     ns.defaultMsTimer = defaultMsTimer;
+
+
+    /**
+     * Repeatedly schedule calls to an action until stopped.
+     *
+     * @class
+     * @param timer {module:mpenc/helper/async~timer} To execute the calls.
+     * @param intervals {(number|Iterable|Iterator)} An iterable of int, that
+     *      represents the ticks between calls. Alternatively, a single int,
+     *      interpreted as a non-terminating constant sequence. If the iterable
+     *      runs out of elements, the calls stop.
+     * @param action {function} 0-arg function to run. Return true to tell the
+     *      monitor to stop, e.g. if the task it represents "finishes". If the
+     *      action throws an exception, the monitor also stops.
+     * @param name {string=} Optional name for the monitor, for logging.
+     * @memberOf! module:mpenc/helper/async
+     */
+    var Monitor = function(timer, intervals, action, name) {
+        if (!(this instanceof Monitor)) {
+            return new Monitor(timer, intervals, action, name);
+        }
+
+        this._timer = timer
+        this._action = action
+        this._name = name;
+
+        this._intervals = null;
+        this._cancel = null;
+        this._stopped = true;
+
+        this.reset(intervals);
+    };
+
+    Monitor.prototype._next = function() {
+        var next = this._intervals.next();
+        if (next.done) {
+            this.stop();
+            return;
+        }
+        logger.debug("monitor " + this._name + " timed in " + next.value + " ticks");
+        this._cancel = this._timer(next.value, this._run.bind(this));
+    };
+
+    Monitor.prototype._run = function() {
+        if (this._stopped) {
+            throw new Error("monitor " + this._name + " attempted to run even though stopped, faulty timer?");
+        }
+        var stop = true;
+        try {
+            stop = !!this._action();
+        } catch(e) {
+            __SubscriberFailure_publishGlobal(this._action, undefined, e);
+        } finally {
+            if (stop) {
+                this.stop();
+            } else if (!this._stopped) { // e.g. if _action() called stop()
+                this._next();
+            }
+        }
+    };
+
+    Monitor.prototype.state = function() {
+        if (this._stopped) {
+            assert(!this._cancel);
+            assert(!this._intervals);
+            return "STOPPED";
+        } else if (this._cancel) {
+            assert(this._intervals);
+            return "RUNNING";
+        } else {
+            assert(this._intervals);
+            return "PAUSED";
+        }
+    };
+
+    /**
+     * Pause the monitor.
+     *
+     * The currently-scheduled action is cancelled.
+     */
+    Monitor.prototype.pause = function() {
+        if (this.state() !== "RUNNING") {
+            throw new Error("can only pause running monitor");
+        }
+        this._cancel();
+        this._cancel = null;
+    };
+
+    /**
+     * Resume the monitor.
+     *
+     * The action is scheduled with the next interval in the sequence.
+     */
+    Monitor.prototype.resume = function() {
+        if (this.state() !== "PAUSED") {
+            throw new Error("can only resume paused monitor");
+        }
+        this._next();
+    };
+
+    /**
+     * Reset the interval sequence.
+     *
+     * The currently-scheduled action is cancelled, and re-scheduled with
+     * a *new* sequence.
+     *
+     * @param intervals {(number|Iterable|Iterator)} see constructor
+     */
+    Monitor.prototype.reset = function(intervals) {
+        if (this._cancel) {
+            this.pause();
+        }
+        if (typeof intervals === "number") {
+            var k = intervals;
+            intervals = { next: function() { return { done: false, value: k }; } };
+        }
+        this._intervals = struct.toIterator(intervals);
+        this._stopped = false;
+        this.resume();
+        assert(this.state() == "RUNNING");
+    };
+
+    /**
+     * Stop the monitor.
+     *
+     * No more actions will be scheduled, until a reset.
+     */
+    Monitor.prototype.stop = function() {
+        if (this._cancel) {
+            this.pause();
+        }
+        this._intervals = null;
+        this._stopped = true;
+        assert(this.state() == "STOPPED");
+    };
+
+    ns.Monitor = Monitor;
 
     return ns;
 });

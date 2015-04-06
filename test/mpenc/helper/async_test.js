@@ -243,6 +243,101 @@ define([
         });
     });
 
+    describe("Monitor", function() {
+        var timer = ns.defaultMsTimer;
+
+        it("basic usage", function(done) {
+            var called = 0
+            var times = 3;
+            var act = function() {
+                logs.push("called act-basic");
+                called += 1;
+                if (called >= times) {
+                    return true;
+                }
+            };
+            var mon = new ns.Monitor(timer, 1, act);
+            assert(mon.state() == "RUNNING");
+            mon.pause();
+            assert.throws(mon.pause.bind(mon));
+            assert(mon.state() == "PAUSED");
+            mon.resume();
+            assert.throws(mon.resume.bind(mon));
+            timer(50, function() {
+                assert.equal(called, 3);
+                assertLog("called act-basic");
+                assertLog("called act-basic");
+                assertLog("called act-basic");
+                assert(mon.state() == "STOPPED");
+                mon.stop();
+                assert(mon.state() == "STOPPED");
+                assert.throws(mon.pause.bind(mon));
+                assert.throws(mon.resume.bind(mon));
+                done();
+            });
+        });
+
+        it("fail SubscriberFailure", function(done) {
+            var called = 0
+            var times = 1;
+            var act = function() {
+                logs.push("called act-sf");
+                called += 1;
+                if (called >= times) {
+                    throw new Error("fail action");
+                }
+            };
+            var mon = new ns.Monitor(timer, 1, act);
+            timer(20, function() {
+                assert.equal(called, 1);
+                assertLog("called act-sf");
+                assert(logs.shift() instanceof ns.SubscriberFailure);
+                done();
+            });
+        });
+
+        it("finite seq", function(done) {
+            var act = function() {
+                logs.push("called act-fs");
+            };
+            var mon = new ns.Monitor(timer, [1, 1, 1, 1], act);
+            timer(2, function() { logs.push("called middle"); });
+            assert(mon.state() == "RUNNING");
+            timer(50, function() {
+                assertLog("called act-fs");
+                assertLog("called middle"); // not sure if ordering is part of JS spec
+                // but this works on phantomJS/firefox/chrome. if it fails elsewhere, we'll need to be less strict
+                assertLog("called act-fs");
+                assertLog("called act-fs");
+                assertLog("called act-fs");
+                assert(mon.state() == "STOPPED");
+                done();
+            });
+        });
+
+        it("reset", function(done) {
+            var act = function() {
+                logs.push("called act-reset");
+            };
+            var mon = new ns.Monitor(timer, [1, 1], act);
+            assert(mon.state() == "RUNNING");
+            timer(30, function() {
+                assertLog("called act-reset");
+                assertLog("called act-reset");
+                assert(mon.state() == "STOPPED");
+                assert.deepEqual(logs, []);
+                mon.reset([1, 1, 1]);
+                timer(40, function() {
+                    assertLog("called act-reset");
+                    assertLog("called act-reset");
+                    assertLog("called act-reset");
+                    assert(mon.state() == "STOPPED");
+                    done();
+                });
+            });
+        });
+    });
+
     // polyfill for PhantomJS
     if (!Function.prototype.bind) {
       Function.prototype.bind = function(oThis) {
