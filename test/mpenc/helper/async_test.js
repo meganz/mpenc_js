@@ -33,6 +33,14 @@ define([
     var cancel_sub = null;
     var assertLog = function(x) { assert.strictEqual(logs.shift(), x); }
 
+    var oldTimer = ns.defaultMsTimer;
+    // For some reason, web standards don't guarantee that in
+    //   setTimeout(f, x); setTimeout(g, y);
+    // where y >= x, that g runs strictly after f.
+    // So we do this stupid hack that "approximates" this behaviour, to make
+    // our tests a bit easier to write.
+    ns.defaultMsTimer = function(ticks, action) { return oldTimer(ticks*10, action); };
+
     beforeEach(function() {
         logs = [];
         cancel_sub = ns.SubscriberFailure.subscribeGlobal(function(item) { logs.push(item); });
