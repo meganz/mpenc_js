@@ -118,6 +118,69 @@ define([
     };
     ns.iteratorToArray = iteratorToArray;
 
+
+    var _setPropertyAlias = function(cls, alias, prop) {
+        Object.defineProperty(cls.prototype, alias, {
+            get: function() { return this[prop]; },
+            set: function(v) { this[prop] = v; }
+        });
+    };
+
+    /**
+     * Create a class that represents an immutable tuple with named fields.
+     *
+     * Similar to collections.namedtuple in Python. One may access the fields
+     * either by name or by numerical index.
+     *
+     * <pre>
+     * > var Point = createTupleClass("x", "y");
+     * undefined
+     * > var treasure = Point(2, 3);
+     * undefined
+     * > treasure
+     * { '0': 2,
+     *   '1': 3,
+     *   length: 2 }
+     * > treasure.x
+     * 2
+     * > treasure.y
+     * 3
+     * > treasure instanceof Point
+     * true
+     * > treasure instanceof Array
+     * true
+     * > Point.prototype.d = function() { return Math.sqrt(this.x*this.x + this.y*this.y); };
+     * > treasure.d()
+     * 3.605551275463989
+     * </pre>
+     *
+     * @param fieldNames {...string} Names of fields to alias to each numerical
+     *      index within the tuple.
+     * @memberOf! module:mpenc/helper/struct
+     */
+    var createTupleClass = function() {
+        var fields = Array.prototype.slice.call(arguments);
+        var cls = function() {
+            if (!(this instanceof cls)) {
+                var args = Array.prototype.concat.apply([undefined], arguments);
+                return new (Function.prototype.bind.apply(cls, args));
+            }
+            for (var i=0; i<arguments.length; i++) {
+                this[i] = arguments[i];
+            }
+            this.length = arguments.length;
+            Object.freeze(this);
+        };
+        cls.prototype = Object.create(Array.prototype);
+        cls.prototype.constructor = cls;
+        for (var i=0; i<fields.length; i++) {
+            _setPropertyAlias(cls, fields[i], i);
+        }
+        return cls;
+    };
+    ns.createTupleClass = createTupleClass;
+
+
     /**
      * An immutable set, implemented using sorted arrays. Does not scale to
      * massive sizes, but should be adequate for representing (e.g.) members
