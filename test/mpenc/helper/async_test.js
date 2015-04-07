@@ -23,8 +23,9 @@
 
 define([
     "mpenc/helper/async",
+    "mpenc/helper/struct",
     "chai",
-], function(ns, chai) {
+], function(ns, struct, chai) {
     "use strict";
 
     var assert = chai.assert;
@@ -174,6 +175,142 @@ define([
             obs.publish(4);
             assert.deepEqual(logs, []);
         })
+    });
+
+    describe("events", function() {
+        var Evt1 = struct.createTupleClass("x", "y");
+        var Evt2 = struct.createTupleClass("x", "y", "z");
+
+        it("basic events", function() {
+            var events = new ns.EventContext([Evt1, Evt2]);
+
+            var cancel_x = events.subscribe(Evt1)(function(evt) {
+                logs.push("x got: (" + evt.x + ", " + evt.y + ")");
+            });
+
+            var cancel_y = events.subscribe(Evt1, [3])(function(evt) {
+                logs.push("y got: (" + evt.x + ", " + evt.y + ")");
+            });
+
+            var z = function(evt) {
+                throw new Error("fail z");
+            };
+            var cancel_z = events.subscribe(Evt1, [3, 5])(z);
+
+            //console.log(events.activeChildren(Evt1));
+            events.publish(Evt1(1, 3));
+            assertLog("x got: (1, 3)");
+
+            events.publish(Evt1(3, 4));
+            assertLog("y got: (3, 4)");
+            assertLog("x got: (3, 4)");
+
+            events.publish(Evt1(3, 5));
+            var p = logs.shift();
+            assert(p instanceof ns.SubscriberFailure);
+            assert.deepEqual(p.sub, z);
+            assert.deepEqual(p.item, Evt1(3, 5));
+            assertLog("y got: (3, 5)");
+            assertLog("x got: (3, 5)");
+
+            assert(cancel_x());
+            assert(!cancel_x());
+            assert(cancel_y());
+            assert(!cancel_y());
+            assert(cancel_z());
+            assert(!cancel_z());
+
+            events.publish(Evt1(3, 5));
+            assert.deepEqual(logs, []);
+        });
+
+        it("bubble-capture", function() {
+            var events = ns.EventContext([Evt1]);
+
+            events.subscribe(Evt1, [], true)(function(evt) { logs.push("outer called c 1"); });
+            events.subscribe(Evt1, [], true)(function(evt) { logs.push("outer called c 2"); });
+            events.subscribe(Evt1, [1])(function(evt) { logs.push("inner called"); });
+            events.subscribe(Evt1)(function(evt) { logs.push("outer called b 1"); });
+            events.subscribe(Evt1)(function(evt) { logs.push("outer called b 2"); });
+
+            events.publish(Evt1(1, 2));
+
+            // same order as browsers
+            assertLog("outer called c 1");
+            assertLog("outer called c 2");
+            assertLog("inner called");
+            assertLog("outer called b 1");
+            assertLog("outer called b 2");
+        });
+
+        it("subscriber failed", function() {
+            var events = ns.EventContext([Evt1]);
+            cancel_sub(); // don't log SubscriberFailures, we have too many
+
+            var cancel_x = events.subscribe(Evt1)(function(evt) {
+                logs.push("called x");
+                throw new Error("fail x");
+            });
+
+            var called_y = 0;
+            var cancel_y = events.subscribe(Evt1)(function() {
+                called_y += 1;
+                if (called_y < 2) {
+                    logs.push("called y, 1");
+                } else {
+                    logs.push("called y, 2");
+                    throw new Error("fail y");
+                }
+            });
+
+            events.publish(Evt1(1, 2));
+            events.publish(Evt1(1, 2));
+            assertLog("called x");
+            assertLog("called y, 1");
+            assertLog("called x");
+            assertLog("called y, 2");
+            assert(cancel_y());
+        });
+
+        it("subscriber cancel", function() {
+            var events = ns.EventContext([Evt1]);
+
+            var cancel_x = events.subscribe(Evt1)(function(evt) {
+                logs.push("called x");
+            });
+
+            var cancel_y = events.subscribe(Evt1)(function(evt) {
+                cancel_x();
+                logs.push("called y, cancelled x");
+            });
+
+            events.publish(Evt1(1, 2));
+            assertLog("called x");
+            assertLog("called y, cancelled x");
+
+            events.publish(Evt1(1, 2));
+            assertLog("called y, cancelled x");
+        });
+
+        it("subscriber cancel self", function() {
+            var events = ns.EventContext([Evt1]);
+
+            var cancel_x = events.subscribe(Evt1)(function(evt) {
+                logs.push("called x");
+            });
+
+            var cancel_y = events.subscribe(Evt1)(function(evt) {
+                logs.push("called y, cancelled y");
+                cancel_y();
+            });
+
+            events.publish(Evt1(1, 2));
+            assertLog("called x");
+            assertLog("called y, cancelled y");
+
+            events.publish(Evt1(1, 2));
+            assertLog("called x");
+        });
     });
 
     describe("timer", function() {

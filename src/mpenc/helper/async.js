@@ -296,7 +296,7 @@ define([
      * Stop logging all subscriber failures in the entire program.
      */
     SubscriberFailure.cancelGlobalLog = __SubscriberFailure_global.subscribe(function(f) {
-        logger.warn("subscriber (" + f.sub + ") failed on (" + f.item + "): " + f.error)
+        logger.warn("subscriber (" + f.sub + ") failed on (" + f.item + "): " + f.error);
         logger.debug(f.error.stack);
     });
 
@@ -332,6 +332,205 @@ define([
         };
     };
     ns.combinedCancel = combinedCancel;
+
+
+    var _AutoNode = function(mkchild, cleanup) {
+        if (!(this instanceof _AutoNode)) {
+            return new _AutoNode(mkchild, cleanup);
+        }
+        this._mkchild = mkchild;
+        this._cleanup = cleanup || function(){};
+        this._child = new Map();
+    };
+
+    _AutoNode.prototype.size = function() {
+        var i = 0;
+        this._child.forEach(function(v, k) {
+            i += v.size();
+        });
+        return i;
+    };
+
+    _AutoNode.prototype.has = function(k) {
+        return this._child.has(k);
+    };
+
+    _AutoNode.prototype.get = function(k) {
+        if (!this.has(k)) {
+            var o = this._mkchild(this._cleanChild.bind(this, k));
+            this._child.set(k, o);
+        }
+        return this._child.get(k);
+    };
+
+    _AutoNode.prototype._maybeClean = function() {
+        if (!this.size()) {
+            this._cleanup(this);
+        }
+    };
+
+    _AutoNode.prototype._cleanChild = function(key, subj) {
+        assert(this._child.has(key));
+        assert(this._child.get(key) === subj);
+        logger.debug("AutoNode deleting key: " + key);
+        this._child.delete(key);
+        this._maybeClean();
+    };
+
+    _AutoNode.prototype.getDescendant = function(path) {
+        path = path || [];
+        var node = this;
+        for (var i=0; i<path.length; i++) {
+            node = node.get(path[i]);
+        }
+        return node;
+    };
+
+    _AutoNode.prototype.activeChildren = function() {
+        var active = [];
+        this._child.forEach(function(v, k) {
+            if (v.size()) {
+                active.push(k);
+            }
+        });
+        return active;
+    };
+
+    var _ObservableNode = function(cleanup) {
+        if (!(this instanceof _ObservableNode)) {
+            return new _ObservableNode(cleanup);
+        }
+        _AutoNode.call(this, function(c) { return new _ObservableNode(c); }, cleanup);
+        this._capture = Observable();
+        this._bubble = Observable();
+        this._publishing = false;
+    };
+    _ObservableNode.prototype = Object.create(_AutoNode.prototype);
+
+    _ObservableNode.prototype.size = function() {
+        return this._capture.size() + this._bubble.size() + _AutoNode.prototype.size.call(this);
+    };
+
+    _ObservableNode.prototype._maybeClean = function() {
+        if (!this._publishing) {
+            _AutoNode.prototype._maybeClean.call(this);
+        }
+    };
+
+    _ObservableNode.prototype.subscribe = function(sub, useCapture) {
+        var obs = (useCapture)? this._capture: this._bubble;
+        var cancel = obs.subscribe(sub);
+        var self = this;
+        return function() {
+            return cancel()? (!!self._maybeClean() || true): false;
+        };
+    };
+
+    _ObservableNode.prototype.pubDeep = function(evt, i) {
+        if (!i) i = 0;
+        this._publishing = true;
+        this._capture.publish(evt);
+        if (i < evt.length && this._child.has(evt[i])) {
+            this.get(evt[i]).pubDeep(evt, i+1);
+        }
+        this._bubble.publish(evt);
+        this._publishing = false;
+        this._maybeClean();
+    };
+
+    Object.freeze(_ObservableNode.prototype);
+
+    /**
+     * Context for publishing and subscribing to events.
+     *
+     * @class
+     * @param evtcls {Array} Possible event types published by this context.
+     *      It should be an array of classes that represent Array-like objects,
+     *      with a length and numerical indexes. See also {@link
+     *      module:mpenc/helper/struct.createTupleClass} for compatible types.
+     * @memberOf! module:mpenc/helper/async
+     */
+    var EventContext = function(evtcls) {
+        if (!(this instanceof EventContext)) {
+            return new EventContext(evtcls);
+        }
+        _AutoNode.call(this, function(c) { return new _ObservableNode(); });
+        var evtcls = new struct.ImmutableSet(evtcls)
+        var non_evtcls = evtcls.toArray().filter(function(ec) {
+            return (typeof ec.prototype.length !== "number");
+        });
+        if (non_evtcls.length) {
+            throw new Error("not a valid event class: " + non_evtcls);
+        }
+        this._evtcls = evtcls;
+    };
+
+    EventContext.maybeInject = function(evtctx, evtcls) {
+        if (!evtctx) {
+            return new EventContext(evtcls);
+        } else if (new struct.ImmutableSet(evtcls).subtract(evtctx.evtcls()).size() === 0) {
+            return evtctx;
+        } else {
+            throw new Error("inject evt does not support " + evtcls);
+        }
+    };
+
+    EventContext.prototype = Object.create(_AutoNode.prototype);
+
+    EventContext.prototype.evtcls = function() {
+        return this._evtcls;
+    };
+
+    EventContext.prototype.get = function(evtcls) {
+        if (!this._evtcls.has(evtcls)) {
+            throw new Error("not an expected event class: " + evtcls + " not in " + this._evtcls);
+        }
+        return _AutoNode.prototype.get.call(this, evtcls);
+    };
+
+    /**
+     * Returns a Subscribe function to add subscribers to matching events.
+     *
+     * @param evtcls {function} Matching event type.
+     * @param prefix {Array} Matching event prefix.
+     * @param useCapture {boolean} Whether to fire the subscription before
+     *      ones with longer matching prefixes. Default: false, fire after.
+     * @returns {module:mpenc/helper/async~subscriber}
+     */
+    EventContext.prototype.subscribe = function(evtcls, prefix, useCapture) {
+        useCapture = !!useCapture;
+        var subs = this.get(evtcls).getDescendant(prefix);
+        return Subscribe.wrap(function(sub) { return subs.subscribe(sub, useCapture); });
+    };
+
+    /**
+     * Publish an event, firing all subscriptions.
+     *
+     * @param evt {object} Event to publish
+     */
+    EventContext.prototype.publish = function(evt) {
+        var evtcls = evt.constructor;
+        if (this.has(evtcls)) {
+            this.get(evtcls).pubDeep(evt);
+        }
+    };
+
+    EventContext.prototype.activeChildren = function(evtcls, prefix) {
+        var subs = this.get(evtcls).getDescendant(prefix);
+        return subs.activeChildren();
+    };
+
+    /**
+     * Subscribe to and republish events from another EventContext.
+     */
+    EventContext.prototype.chainFrom = function(evtctx, evtcls) {
+        return combinedCancel(new struct.ImmutableSet(evtcls).toArray().map(function(ec) {
+            evtctx.subscribe(ec)(this.publish.bind(this));
+        }));
+    };
+
+    Object.freeze(EventContext.prototype);
+    ns.EventContext = EventContext;
 
 
     /**
