@@ -44,6 +44,8 @@ define([
     /**
      * Wrapper around a "get()"-capable object (e.g. Map) that throws
      * <code>ReferenceError</code> when the result is <code>undefined</code>.
+     *
+     * @memberOf! module:mpenc/helper/struct
      */
     var safeGet = function(gettable, key) {
         var result = gettable.get(key);
@@ -53,6 +55,31 @@ define([
         return result;
     };
     ns.safeGet = safeGet;
+
+    /**
+     * Force an iterable or iterator into an iterator.
+     *
+     * @param iter {(Iterable|Iterator)} Iterable to unwrap or Iterator
+     * @returns {Iterator}
+     * @memberOf! module:mpenc/helper/struct
+     */
+    var toIterator = function(iter) {
+        if (typeof Symbol !== "undefined" && iter[Symbol.iterator]) {
+            return iter[Symbol.iterator](); // assume already iterator
+        } else if ("@@iterator" in iter) {
+            return iter["@@iterator"]();
+        } else if ("next" in iter) {
+            return iter;
+        } else if (iter instanceof Array) {
+            // polyfill in for older JS that doesn't have Array implement Iterable
+            // only works when array is not mutated during iteration
+            var i = 0;
+            return { next: function() { return { done: i>=iter.length, value: iter[i++] }; } };
+        } else {
+            throw new Error("not an iterable or iterator: " + iter);
+        }
+    };
+    ns.toIterator = toIterator;
 
     /**
      * Apply a function to an ES6 iterator, ignoring its "return value".
