@@ -213,8 +213,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore)
+                                             this.greet.getEphemeralPubKey())
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -243,8 +242,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore),
+                                             this.greet.getEphemeralPubKey()),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -286,8 +284,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore),
+                                             this.greet.getEphemeralPubKey()),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -327,8 +324,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore),
+                                             this.greet.getEphemeralPubKey()),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -362,8 +358,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore),
+                                             this.greet.getEphemeralPubKey()),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -408,8 +403,7 @@ define([
                 to: outContent.dest,
                 message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey(),
-                                             this.sessionKeyStore),
+                                             this.greet.getEphemeralPubKey()),
             };
             this.protocolOutQueue.push(outMessage);
             this.queueUpdatedCallback(this);
@@ -559,8 +553,7 @@ define([
                         to: outContent.dest,
                         message: codec.encodeGreetMessage(outContent,
                                                      this.greet.getEphemeralPrivKey(),
-                                                     this.greet.getEphemeralPubKey(),
-                                                     this.sessionKeyStore),
+                                                     this.greet.getEphemeralPubKey()),
                     };
                     this.protocolOutQueue.push(outMessage);
                     this.queueUpdatedCallback(this);

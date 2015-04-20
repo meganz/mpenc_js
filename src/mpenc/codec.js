@@ -765,9 +765,6 @@ define([
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
-     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
-     *     Store for (sub-) session related keys and information. Mandatory for
-     *     data messages, ignored for protocol messages.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -776,8 +773,7 @@ define([
      * @returns {string}
      *     A wire ready message representation.
      */
-    ns.encodeGreetMessage = function(message, privKey, pubKey,
-                                     sessionKeyStore, paddingSize) {
+    ns.encodeGreetMessage = function(message, privKey, pubKey, paddingSize) {
         if (message === null || message === undefined) {
             return null;
         }

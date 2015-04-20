@@ -255,10 +255,10 @@ define([
 
             it('null message', function() {
                 assert.strictEqual(ns.encodeGreetMessage(null,
-                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
+                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY),
                                    null);
                 assert.strictEqual(ns.encodeGreetMessage(undefined,
-                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
+                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY),
                                    null);
             });
         });
