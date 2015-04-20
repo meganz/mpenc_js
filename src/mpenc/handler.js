@@ -211,7 +211,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore)
@@ -241,7 +241,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore),
@@ -284,7 +284,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore),
@@ -325,7 +325,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore),
@@ -360,7 +360,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore),
@@ -406,7 +406,7 @@ define([
             var outMessage = {
                 from: this.id,
                 to: outContent.dest,
-                message: codec.encodeMessage(outContent,
+                message: codec.encodeGreetMessage(outContent,
                                              this.greet.getEphemeralPrivKey(),
                                              this.greet.getEphemeralPubKey(),
                                              this.sessionKeyStore),
@@ -521,10 +521,10 @@ define([
                     // In case of a key refresh (groupKey existent),
                     // the signing pubKeys won't be part of the message.
                     var signingPubKey = this.greet.getEphemeralPubKey(wireMessage.from);
-                    decodedMessage = codec.decodeMessageContent(classify.content,
+                    decodedMessage = codec.decodeGreetMessage(classify.content,
                                                                 signingPubKey);
                 } else {
-                    decodedMessage = codec.decodeMessageContent(classify.content);
+                    decodedMessage = codec.decodeGreetMessage(classify.content);
                 }
                 // This is an mpenc.greet message.
                 var oldState = this.greet.state;
@@ -557,7 +557,7 @@ define([
                     var outMessage = {
                         from: this.id,
                         to: outContent.dest,
-                        message: codec.encodeMessage(outContent,
+                        message: codec.encodeGreetMessage(outContent,
                                                      this.greet.getEphemeralPrivKey(),
                                                      this.greet.getEphemeralPubKey(),
                                                      this.sessionKeyStore),
@@ -667,7 +667,7 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: codec.encodeMessage(messageContent,
+            message: codec.encodeDataMessage(messageContent,
                                          this.greet.getEphemeralPrivKey(),
                                          this.greet.getEphemeralPubKey(),
                                          this.sessionKeyStore,
@@ -710,7 +710,7 @@ define([
             from: this.id,
             to: to,
             metadata: metadata,
-            message: codec.encodeMessage(messageContent,
+            message: codec.encodeDataMessage(messageContent,
                                          this.greet.getEphemeralPrivKey(),
                                          this.greet.getEphemeralPubKey(),
                                          this.sessionKeyStore,
@@ -845,7 +845,7 @@ define([
                                                                      signingPubKey,
                                                                      sidkeyHash);
                         if (verifySig === true) {
-                            decoded = codec.decodeMessageContent(categorised.content,
+                            decoded = codec.decodeDataMessage(categorised.content,
                                                                  signingPubKey,
                                                                  sessionID,
                                                                  groupKey);

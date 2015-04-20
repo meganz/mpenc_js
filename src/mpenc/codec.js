@@ -264,21 +264,7 @@ define([
     };
 
 
-    /**
-     * Decodes a given TLV encoded protocol message content into an object.
-     *
-     * @param message {string}
-     *     A binary message representation.
-     * @param pubKey {string}
-     *     Sender's (ephemeral) public signing key.
-     * @param sessionID {string}
-     *     Session ID.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
-     * @returns {mpenc.greeter.greet.ProtocolMessage}
-     *     Message as JavaScript object.
-     */
-    ns.decodeMessageContent = function(message, pubKey, sessionID, groupKey) {
+    var _decodeMessageTLVs = function(message, pubKey, sessionID, groupKey) {
         if (!message) {
             return null;
         }
@@ -361,61 +347,100 @@ define([
             message = tlv.rest;
         }
 
-        // Some specifics depending on the type of mpENC message.
-        var sidkeyHash = '';
-        if (out.data) {
-            // Checking of session/group key.
-            sidkeyHash = utils.sha256(sessionID + groupKey);
-            _assert(out.sidkeyHint === sidkeyHash[0],
-                    'Session ID/group key hint mismatch.');
-
-            // Some further crypto processing on data messages.
-            out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
-            debugOutput.push('decryptDataMessage: ' + out.data);
-        } else {
-            // Some sanity checks for keying messages.
-            _assert(out.intKeys.length <= out.members.length,
-                    'Number of intermediate keys cannot exceed number of members.');
-            _assert(out.nonces.length <= out.members.length,
-                    'Number of nonces cannot exceed number of members.');
-            _assert(out.pubKeys.length <= out.members.length,
-                    'Number of public keys cannot exceed number of members.');
-        }
-
+        _assert(out.protocol === version.PROTOCOL_VERSION,
+                'Received wrong protocol version: ' + out.protocol.charCodeAt(0) + '.');
         // Debugging output.
         logger.debug('mpENC decoded message debug: ', debugOutput);
 
+        return out;
+    };
+
+
+    /**
+     * Decodes a given TLV encoded Greet message into an object.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @param sessionID {string}
+     *     Session ID.
+     * @param groupKey {string}
+     *     Symmetric group encryption key to encrypt message.
+     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
+        var out = _decodeMessageTLVs(message, pubKey, sessionID, groupKey);
+
+        // Some specifics depending on the type of mpENC message.
+        var sidkeyHash = '';
+        _assert(!out.data);
+        // Some sanity checks for keying messages.
+        _assert(out.intKeys.length <= out.members.length,
+                'Number of intermediate keys cannot exceed number of members.');
+        _assert(out.nonces.length <= out.members.length,
+                'Number of nonces cannot exceed number of members.');
+        _assert(out.pubKeys.length <= out.members.length,
+                'Number of public keys cannot exceed number of members.');
+
         // Check signature, if present.
+        // TODO SECURITY REVIEW: why "if present"?
         if (out.signature) {
             if (!pubKey) {
                 var index = out.members.indexOf(out.source);
                 pubKey = out.pubKeys[index];
             }
-
-            // Data message signatures are verified through trial decryption.
-            if (out.messageType !== greeter.MESSAGE_TYPE.PARTICIPANT_DATA) {
-                try {
-                    out.signatureOk = ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
-                                                                out.rawMessage,
-                                                                out.signature,
-                                                                pubKey,
-                                                                sidkeyHash);
-                    _assert(out.signatureOk,
-                            'Signature of message does not verify!');
-                } catch (e) {
-                    out.signatureOk = false;
-                    _assert(out.signatureOk,
-                            'Signature of message does not verify: ' + e + '!');
-                }
+            try {
+                out.signatureOk = ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                            out.rawMessage,
+                                                            out.signature,
+                                                            pubKey,
+                                                            sidkeyHash);
+                _assert(out.signatureOk,
+                        'Signature of message does not verify!');
+            } catch (e) {
+                out.signatureOk = false;
+                _assert(out.signatureOk,
+                        'Signature of message does not verify: ' + e + '!');
             }
         }
-
-        _assert(out.protocol === version.PROTOCOL_VERSION,
-                'Received wrong protocol version: ' + out.protocol.charCodeAt(0) + '.');
-
         return out;
     };
 
+
+    /**
+     * Decodes a given TLV encoded data message into an object.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @param sessionID {string}
+     *     Session ID.
+     * @param groupKey {string}
+     *     Symmetric group encryption key to encrypt message.
+     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    ns.decodeDataMessage = function(message, pubKey, sessionID, groupKey) {
+        var out = _decodeMessageTLVs(message, pubKey, sessionID, groupKey);
+
+        // Some specifics depending on the type of mpENC message.
+        var sidkeyHash = '';
+        _assert(out.data);
+        // Checking of session/group key.
+        sidkeyHash = utils.sha256(sessionID + groupKey);
+        _assert(out.sidkeyHint === sidkeyHash[0],
+                'Session ID/group key hint mismatch.');
+
+        // Some further crypto processing on data messages.
+        out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
+        logger.debug('mpENC decrypted data message debug: ', out.data);
+
+        // Data message signatures are verified through trial decryption.
+        return out;
+    };
 
     /**
      * Inspects a given TLV encoded protocol message to extract information
@@ -671,12 +696,16 @@ define([
     };
 
 
+    var ENCODED_VERSION;
+    var ENCODED_TYPE_MESSAGE_DATA;
+
+
     /**
-     * Encodes a given protocol message content into a binary string message
-     * consisting of a sequence of TLV binary strings.
+     * Encodes a given data message ready to be put onto the wire, using
+     * base64 encoding for the binary message pay load.
      *
-     * @param message {mpenc.greet.greeter.ProtocolMessage}
-     *     Message as JavaScript object.
+     * @param message {string}
+     *     Message as string.
      * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
@@ -690,77 +719,44 @@ define([
      *     cipher text than paddingSize, power of two exponential padding sizes
      *     will be used.
      * @returns {string}
-     *     A binary message representation.
+     *     A wire ready message representation.
      */
-    ns.encodeMessageContent = function(message, privKey, pubKey,
-                                       sessionKeyStore, paddingSize) {
-        var out = '';
-        if (typeof(message) === 'string' || message instanceof String) {
-            // We want message attributes in this order:
-            // sid/key hint, message signature, protocol version, message type,
-            // iv, message data
-            var sessionID = sessionKeyStore.sessionIDs[0];
-            var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
-
-            // Three portions: unsigned content (hint), signature, rest.
-            // Compute info for the SIDKEY_HINT and signature.
-            var sidkeyHash = utils.sha256(sessionID + groupKey);
-
-            // Rest (protocol version, message type, iv, message data).
-            var content = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION,
-                                       version.PROTOCOL_VERSION);
-            content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE,
-                                    greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
-            var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
-            content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-            content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
-
-            // Compute the content signature.
-            var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                                           content, privKey, pubKey, sidkeyHash);
-
-            // Assemble everything.
-            out = ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
-            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature);
-            out += content;
-        } else {
-            out = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
-            // Process message attributes in this order:
-            // messageType, source, dest, members, intKeys, nonces, pubKeys,
-            // sessionSignature, signingKey
-            out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, message.messageType);
-            out += ns.encodeTLV(ns.TLV_TYPE.SOURCE, message.source);
-            out += ns.encodeTLV(ns.TLV_TYPE.DEST, message.dest);
-            if (message.members) {
-                out += ns._encodeTlvArray(ns.TLV_TYPE.MEMBER, message.members);
-            }
-            if (message.intKeys) {
-                out += ns._encodeTlvArray(ns.TLV_TYPE.INT_KEY, message.intKeys);
-            }
-            if (message.nonces) {
-                out += ns._encodeTlvArray(ns.TLV_TYPE.NONCE, message.nonces);
-            }
-            if (message.pubKeys) {
-                out += ns._encodeTlvArray(ns.TLV_TYPE.PUB_KEY, message.pubKeys);
-            }
-            if (message.sessionSignature) {
-                out += ns.encodeTLV(ns.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
-            }
-            if (message.signingKey) {
-                out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
-            }
-            // Sign `out` and prepend signature.
-            var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
-                                           out, privKey, pubKey);
-            out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
+    ns.encodeDataMessage = function(message, privKey, pubKey,
+                                    sessionKeyStore, paddingSize) {
+        if (message === null || message === undefined) {
+            return null;
         }
+        paddingSize = paddingSize | 0;
+        var out = '';
+        // We want message attributes in this order:
+        // sid/key hint, message signature, protocol version, message type,
+        // iv, message data
+        var sessionID = sessionKeyStore.sessionIDs[0];
+        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
 
-        return out;
+        // Three portions: unsigned content (hint), signature, rest.
+        // Compute info for the SIDKEY_HINT and signature.
+        var sidkeyHash = utils.sha256(sessionID + groupKey);
+
+        // Rest (protocol version, message type, iv, message data).
+        var content = ENCODED_VERSION + ENCODED_TYPE_MESSAGE_DATA;
+        var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
+        content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
+        content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
+
+        // Compute the content signature.
+        var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                       content, privKey, pubKey, sidkeyHash);
+
+        // Assemble everything.
+        out = ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
+        out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature);
+        out += content;
+        return _PROTOCOL_PREFIX + ':' + btoa(out) + '.';
     };
 
-
     /**
-     * Encodes a given protocol message ready to be put onto the wire, using
+     * Encodes a given greet message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
      * @param message {mpenc.greet.greeter.ProtocolMessage}
@@ -780,17 +776,45 @@ define([
      * @returns {string}
      *     A wire ready message representation.
      */
-    ns.encodeMessage = function(message, privKey, pubKey,
-                                sessionKeyStore, paddingSize) {
+    ns.encodeGreetMessage = function(message, privKey, pubKey,
+                                     sessionKeyStore, paddingSize) {
         if (message === null || message === undefined) {
             return null;
         }
         paddingSize = paddingSize | 0;
-        var content = ns.encodeMessageContent(message, privKey, pubKey,
-                                              sessionKeyStore, paddingSize);
-        return _PROTOCOL_PREFIX + ':' + btoa(content) + '.';
-    };
 
+        var out = ENCODED_VERSION;
+        // Process message attributes in this order:
+        // messageType, source, dest, members, intKeys, nonces, pubKeys,
+        // sessionSignature, signingKey
+        out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, message.messageType);
+        out += ns.encodeTLV(ns.TLV_TYPE.SOURCE, message.source);
+        out += ns.encodeTLV(ns.TLV_TYPE.DEST, message.dest);
+        if (message.members) {
+            out += ns._encodeTlvArray(ns.TLV_TYPE.MEMBER, message.members);
+        }
+        if (message.intKeys) {
+            out += ns._encodeTlvArray(ns.TLV_TYPE.INT_KEY, message.intKeys);
+        }
+        if (message.nonces) {
+            out += ns._encodeTlvArray(ns.TLV_TYPE.NONCE, message.nonces);
+        }
+        if (message.pubKeys) {
+            out += ns._encodeTlvArray(ns.TLV_TYPE.PUB_KEY, message.pubKeys);
+        }
+        if (message.sessionSignature) {
+            out += ns.encodeTLV(ns.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
+        }
+        if (message.signingKey) {
+            out += ns.encodeTLV(ns.TLV_TYPE.SIGNING_KEY, message.signingKey);
+        }
+        // Sign `out` and prepend signature.
+        var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                       out, privKey, pubKey);
+        out = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
+
+        return _PROTOCOL_PREFIX + ':' + btoa(out) + '.';
+    };
 
     /**
      * Encodes a given error message ready to be put onto the wire, using
@@ -1005,6 +1029,11 @@ define([
     ns.getQueryMessage = function(text) {
         return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
     };
+
+
+    ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
+    ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
+
 
     return ns;
 });

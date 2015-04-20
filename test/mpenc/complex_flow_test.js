@@ -71,7 +71,7 @@ define([
             var groupKey = sessionID
                          ? senderParticipant.sessionKeyStore.sessions[sessionID].groupKeys[0]
                          : undefined;
-            return codec.decodeMessageContent(content,
+            return codec.decodeGreetMessage(content,
                                               senderParticipant.greet.getEphemeralPubKey(),
                                               sessionID, groupKey);
         } else {

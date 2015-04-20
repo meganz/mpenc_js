@@ -222,37 +222,48 @@ define([
             });
         });
 
-        describe("encodeMessageContent()", function() {
+        describe("encodeGreetMessage()", function() {
             it('upflow message', function() {
                 sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
+                var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
-                assert.lengthOf(result, 60);
+                assert.lengthOf(atob(result.slice(7, -1)), 61);
             });
 
             it('upflow message binary', function() {
-                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
+                var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
-                assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
+                assert.strictEqual(atob(result.slice(7, -1)), _td.UPFLOW_MESSAGE_STRING);
             });
 
             it('downflow message for quit', function() {
                 sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
+                var result = ns.encodeGreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
-                assert.lengthOf(result, 24);
+                assert.lengthOf(atob(result.slice(7, -1)), 25);
             });
 
             it('downflow message for quit binary', function() {
-                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
+                var result = ns.encodeGreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY);
-                assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_STRING);
+                assert.strictEqual(atob(result.slice(7, -1)), _td.DOWNFLOW_MESSAGE_STRING);
             });
 
+            it('null message', function() {
+                assert.strictEqual(ns.encodeGreetMessage(null,
+                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
+                                   null);
+                assert.strictEqual(ns.encodeGreetMessage(undefined,
+                                   _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
+                                   null);
+            });
+        });
+
+        describe("encodeDataMessage()", function() {
             it('data message', function() {
                 var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
                                         sessions: {} };
@@ -260,14 +271,14 @@ define([
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
                 };
-                var result = ns.encodeMessageContent('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore);
+                var result = ns.encodeDataMessage('foo',
+                                                  _td.ED25519_PRIV_KEY,
+                                                  _td.ED25519_PUB_KEY,
+                                                  sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(result, 109);
+                assert.lengthOf(atob(result.slice(7, -1)), 109);
             });
 
             it('data message with second group key', function() {
@@ -279,14 +290,14 @@ define([
                     groupKeys: [_td.GROUP_KEY, 'foo']
                 };
                 sessionKeyStore.sessions['foo'] = {};
-                var result = ns.encodeMessageContent('foo',
+                var result = ns.encodeDataMessage('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
                                                      sessionKeyStore);
                 // 4 TLVs with 109 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(result, 109);
+                assert.lengthOf(atob(result.slice(7, -1)), 109);
             });
 
             it('data message with exponential padding', function() {
@@ -297,20 +308,20 @@ define([
                     members: ['Moe', 'Larry', 'Curly'],
                     groupKeys: [_td.GROUP_KEY]
                 };
-                var result = ns.encodeMessageContent('foo',
+                var result = ns.encodeDataMessage('foo',
                                                      _td.ED25519_PRIV_KEY,
                                                      _td.ED25519_PUB_KEY,
                                                      sessionKeyStore, 32);
                 // 4 TLVs with 136 bytes:
                 // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
                 // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-                assert.lengthOf(result, 136);
+                assert.lengthOf(atob(result.slice(7, -1)), 136);
             });
         });
 
-        describe("decodeMessageContent()", function() {
+        describe("decodeGreetMessage()", function() {
             it('upflow message', function() {
-                var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
+                var result = ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
@@ -323,7 +334,7 @@ define([
             });
 
             it('upflow message, debug on', function() {
-                ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
+                ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                         _td.ED25519_PUB_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
@@ -338,7 +349,7 @@ define([
             });
 
             it('downflow message for quit', function() {
-                var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
+                var result = ns.decodeGreetMessage(_td.DOWNFLOW_MESSAGE_STRING,
                                                      _td.ED25519_PUB_KEY);
                 assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
                 assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
@@ -350,12 +361,14 @@ define([
                 var message = _td.UPFLOW_MESSAGE_STRING.substring(68, 72)
                             + String.fromCharCode(77)
                             + _td.UPFLOW_MESSAGE_STRING.substring(73);
-                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY); },
+                assert.throws(function() { ns.decodeGreetMessage(message, _td.ED25519_PUB_KEY); },
                               'Received wrong protocol version: 77');
             });
+        });
 
+        describe("decodeDataMessage()", function() {
             it('data message', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
+                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING,
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
@@ -365,7 +378,7 @@ define([
             });
 
             it('data message with second group key', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING2,
+                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING2,
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
@@ -375,7 +388,7 @@ define([
             });
 
             it('data message, debug on', function() {
-                ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
+                ns.decodeDataMessage(_td.DATA_MESSAGE_STRING,
                                         _td.ED25519_PUB_KEY,
                                         _td.SESSION_ID, _td.GROUP_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
@@ -385,12 +398,14 @@ define([
                                             'protocol: 1',
                                             'messageType: 0x0 (PARTICIPANT_DATA)',
                                             'messageIV: qq36/fToW+Z7I7b5',
-                                            'rawDataMessage: aU6y8g8=',
-                                            'decryptDataMessage: foo']]]);
+                                            'rawDataMessage: aU6y8g8=']]]);
+                log = MegaLogger._logRegistry.codec._log.getCall(1).args;
+                assert.deepEqual(log, [0, ['mpENC decrypted data message debug: ',
+                                           'foo']]);
             });
 
             it('data message with exponential padding', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
+                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING32,
                                                      _td.ED25519_PUB_KEY,
                                                      _td.SESSION_ID, _td.GROUP_KEY);
                 assert.lengthOf(result.signature, 64);
@@ -499,68 +514,6 @@ define([
                 assert.lengthOf(result.messageSignature, 64);
                 assert.lengthOf(result.signedContent, 36);
             });
-        });
-    });
-
-    describe("encodeMessage()", function() {
-        it('upflow message', function() {
-            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
-        });
-
-        it('upflow message binary', function() {
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
-        });
-
-        it('downflow message on quit', function() {
-            var message = _td.DOWNFLOW_MESSAGE_CONTENT;
-            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
-        });
-
-        it('downflow message on quit binary', function() {
-            var result = ns.encodeMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                          _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_PAYLOAD);
-        });
-
-        it('null message', function() {
-            assert.strictEqual(ns.encodeMessage(null,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
-                               null);
-            assert.strictEqual(ns.encodeMessage(undefined,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
-                               null);
-        });
-
-        it('data message', function() {
-            var message = 'wha tekau ma rua';
-            sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
-                               [message, _td.ED25519_PRIV_KEY,
-                                _td.ED25519_PUB_KEY, {}, 0]);
-            assert.strictEqual(result, '?mpENC:NDI=.');
-        });
-
-        it('data message with exponential padding', function() {
-            var message = 'wha tekau ma rua';
-            sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {}, 32);
-            sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
-                             [message, _td.ED25519_PRIV_KEY,
-                              _td.ED25519_PUB_KEY, {}, 32]);
-            assert.strictEqual(result, '?mpENC:NDI=.');
         });
     });
 
