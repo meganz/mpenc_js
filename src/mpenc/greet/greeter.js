@@ -234,12 +234,13 @@ define([
      * @property recovering {bool}
      *     `true` if in recovery mode state, usually `false`.
      */
-    var GreetWrapper = function(id, privKey, pubKey, staticPubKeyDir) {
+    var GreetWrapper = function(id, privKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
         this.state = ns.STATE.NULL;
+        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.recovering = false;
 
         // Sanity check.
@@ -256,6 +257,10 @@ define([
     };
     ns.GreetWrapper = GreetWrapper;
 
+    GreetWrapper.prototype._updateState = function(state) {
+        this.state = state;
+        this.stateUpdatedCallback(this);
+    };
 
     /**
      * Mechanism to start the protocol negotiation with the group participants.
@@ -267,6 +272,8 @@ define([
      *     Un-encoded message content.
      */
     GreetWrapper.prototype.start = function(otherMembers) {
+        _assert(this.state === ns.STATE.NULL,
+                'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
@@ -278,6 +285,7 @@ define([
         } else {
             protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
         }
+        this._updateState(ns.STATE.INIT_UPFLOW);
         return protocolMessage;
     };
 
@@ -292,6 +300,8 @@ define([
      *     Un-encoded message content.
      */
     GreetWrapper.prototype.join = function(newMembers) {
+        _assert(this.state === ns.STATE.READY,
+                'join() can only be called from a ready state.');
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
 
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
@@ -299,6 +309,7 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         protocolMessage.messageType = codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
+        this._updateState(ns.STATE.AUX_UPFLOW);
         return protocolMessage;
     };
 
@@ -313,6 +324,15 @@ define([
      *     Un-encoded message content.
      */
     GreetWrapper.prototype.exclude = function(excludeMembers) {
+        if (this.recovering) {
+            _assert((this.state === ns.STATE.READY)
+                    || (this.state === ns.STATE.INIT_DOWNFLOW)
+                    || (this.state === ns.STATE.AUX_DOWNFLOW),
+                    'exclude() for recovery can only be called from a ready or downflow state.');
+        } else {
+            _assert(this.state === ns.STATE.READY,
+                    'exclude() can only be called from a ready state.');
+        }
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
@@ -333,6 +353,11 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
+        if (this.isSessionAcknowledged()) {
+            this._updateState(ns.STATE.READY);
+        } else {
+            this._updateState(ns.STATE.AUX_DOWNFLOW);
+        }
         return protocolMessage;
     };
 
@@ -345,11 +370,19 @@ define([
      * @method
      */
     GreetWrapper.prototype.quit = function() {
+        if (this.state === ns.STATE.QUIT) {
+            return; // Nothing do do here.
+        }
+
+        _assert(this.getEphemeralPrivKey() !== null,
+                'Not participating.');
+
         this.cliquesMember.akaQuit();
         var askeMessage = this.askeMember.quit();
 
         var protocolMessage = this._mergeMessages(null, askeMessage);
         protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
+        this._updateState(ns.STATE.QUIT);
         return protocolMessage;
     };
 
@@ -362,6 +395,10 @@ define([
      * @method
      */
     GreetWrapper.prototype.refresh = function() {
+        _assert((this.state === ns.STATE.READY)
+                || (this.state === ns.STATE.INIT_DOWNFLOW)
+                || (this.state === ns.STATE.AUX_DOWNFLOW),
+                'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
         var protocolMessage = this._mergeMessages(cliquesMessage, null);
@@ -372,11 +409,12 @@ define([
         }
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
+        this._updateState(ns.STATE.READY);
         return protocolMessage;
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(from, content, pushCallback, stateUpdatedCallback) {
+    GreetWrapper.prototype.processIncoming = function(from, content, pushCallback) {
         var decodedMessage = null;
         // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
         if (this.getEphemeralPubKey()) {
@@ -408,7 +446,7 @@ define([
             // Update the state if required.
             logger.debug('Reached new state: '
                          + ns.STATE_MAPPING[keyingMessageResult.newState]);
-            stateUpdatedCallback(keyingMessageResult.newState);
+            this._updateState(keyingMessageResult.newState);
         }
     };
 

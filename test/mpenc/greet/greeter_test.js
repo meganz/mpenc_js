@@ -357,6 +357,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.READY;
                 assert.throws(function() { participant.join([]); },
                               'No members to add.');
             });
@@ -368,6 +369,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaJoin = sinon_spy();
                 participant.askeMember.join = sinon_spy();
+                participant.state = ns.STATE.READY;
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
                 var otherMembers = ['6', '7'];
                 var message = participant.join(otherMembers);
@@ -384,6 +386,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.READY;
                 assert.throws(function() { participant.exclude([]); },
                               'No members to exclude.');
             });
@@ -393,6 +396,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
+                participant.state = ns.STATE.READY;
                 assert.throws(function() { participant.exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
@@ -404,6 +408,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaExclude = sinon_spy();
                 participant.askeMember.exclude = sinon_spy();
+                participant.state = ns.STATE.READY;
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
                 var message = participant.exclude(['1', '4']);
                 sinon_assert.calledOnce(participant.cliquesMember.akaExclude);
@@ -439,6 +444,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant._mergeMessages = stub().returns(new codec.ProtocolMessage());
                 participant.cliquesMember.akaRefresh = sinon_spy();
+                participant.state = ns.STATE.READY;
                 var message = participant.refresh();
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
                 sinon_assert.calledOnce(participant._mergeMessages);

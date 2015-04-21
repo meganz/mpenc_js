@@ -179,7 +179,8 @@ define([
 
         this.greet = new greeter.GreetWrapper(this.id,
                                               privKey, pubKey,
-                                              staticPubKeyDir);
+                                              staticPubKeyDir,
+                                              function(greet) { self.stateUpdatedCallback(self); });
 
         // Sanity check.
         _assert(this.id && privKey && pubKey && staticPubKeyDir && this._sessionKeyStore,
@@ -223,11 +224,6 @@ define([
         this.queueUpdatedCallback(this);
     };
 
-    ns.ProtocolHandler.prototype._updateGreetState = function(state) {
-        this.greet.state = state;
-        this.stateUpdatedCallback(this);
-    };
-
     /**
      * Start the protocol negotiation with the group participants.
      *
@@ -236,10 +232,7 @@ define([
      *     Iterable of other members for the group (excluding self).
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
-        _assert(this.greet.state === greeter.STATE.NULL,
-                'start() can only be called from an uninitialised state.');
         logger.debug('Invoking initial START flow operation.');
-        this._updateGreetState(greeter.STATE.INIT_UPFLOW);
         this._pushGreetMessage(this.greet.start(otherMembers));
     };
 
@@ -252,10 +245,7 @@ define([
      *     Iterable of new members to join the group.
      */
     ns.ProtocolHandler.prototype.join = function(newMembers) {
-        _assert(this.greet.state === greeter.STATE.READY,
-                'join() can only be called from a ready state.');
         logger.debug('Invoking JOIN flow operation.');
-        this._updateGreetState(greeter.STATE.AUX_UPFLOW);
         this._pushGreetMessage(this.greet.join(newMembers));
     };
 
@@ -268,16 +258,7 @@ define([
      *     Iterable of members to exclude from the group.
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
-        if (this.greet.recovering) {
-            _assert((this.greet.state === greeter.STATE.INIT_DOWNFLOW)
-                    || (this.greet.state === greeter.STATE.AUX_DOWNFLOW),
-                    'exclude() for recovery can only be called from a ready or downflow state.');
-        } else {
-            _assert(this.greet.state === greeter.STATE.READY,
-                    'exclude() can only be called from a ready state.');
-        }
         logger.debug('Invoking EXCLUDE flow operation.');
-        this._updateGreetState(greeter.STATE.AUX_DOWNFLOW);
 
         var outContent = this.greet.exclude(excludeMembers);
         if (outContent.members.length === 1) {
@@ -287,10 +268,8 @@ define([
             return;
         }
         this._pushGreetMessage(outContent);
-
         if (this.greet.isSessionAcknowledged()) {
             this._messageSecurity = this._newMessageSecurity(this.greet);
-            this._updateGreetState(greeter.STATE.READY);
         }
     };
 
@@ -301,14 +280,7 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.quit = function() {
-        if (this.greet.state === greeter.STATE.QUIT) {
-            // Nothing do do here.
-            return;
-        }
-        _assert(this.greet.getEphemeralPrivKey() !== null,
-                'Not participating.');
         logger.debug('Invoking QUIT request containing private signing key.');
-        this._updateGreetState(greeter.STATE.QUIT);
         this._pushGreetMessage(this.greet.quit());
     };
 
@@ -319,13 +291,8 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.refresh = function() {
-        _assert((this.greet.state === greeter.STATE.READY)
-                || (this.greet.state === greeter.STATE.INIT_DOWNFLOW)
-                || (this.greet.state === greeter.STATE.AUX_DOWNFLOW),
-                'refresh() can only be called from a ready or downflow states.');
         logger.debug('Invoking REFRESH flow operation.');
         this.refreshing = false;
-        this._updateGreetState(greeter.STATE.READY);
 
         var outContent = this.greet.refresh();
         this._messageSecurity = this._newMessageSecurity(this.greet);
@@ -341,9 +308,7 @@ define([
      *     should include the one self. (Optional parameter.)
      * @method
      */
-    ns.ProtocolHandler.prototype.fullRefresh = function(keepMembers) {
-        this._updateGreetState(greeter.STATE.INIT_UPFLOW);
-
+    ns.ProtocolHandler.prototype._fullRefresh = function(keepMembers) {
         // Remove ourselves from members list to keep (if we're in there).
         var otherMembers = utils.clone(this.greet.getMembers());
         if (keepMembers) {
@@ -354,6 +319,9 @@ define([
             otherMembers.splice(myPos, 1);
         }
 
+        // This is a bit of a hack, but we're going to get rid of recover()
+        // anyways, so don't worry too much about making this clean.
+        this.greet.state = greeter.STATE.NULL;
         // Now start a normal upflow for an initial agreement.
         var outContent = this.greet.start(otherMembers);
         if (outContent.members.length === 1) {
@@ -409,7 +377,7 @@ define([
             }
         } else {
             this.greet.discardAuthentications();
-            this.fullRefresh((toKeep.length > 0) ? toKeep : undefined);
+            this._fullRefresh((toKeep.length > 0) ? toKeep : undefined);
         }
     };
 
@@ -467,7 +435,7 @@ define([
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 try {
                     var oldState = this.greet.state;
-                    this.greet.processIncoming(wireMessage.from, classify.content, this._pushGreetMessage.bind(this), this._updateGreetState.bind(this));
+                    this.greet.processIncoming(wireMessage.from, classify.content, this._pushGreetMessage.bind(this));
                     var newState = this.greet.state;
                     if (newState !== oldState) {
                         if (newState === greeter.STATE.QUIT) {
