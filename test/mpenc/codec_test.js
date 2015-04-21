@@ -46,7 +46,6 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
-        sandbox.stub(MegaLogger._logRegistry.codec, '_log');
     });
 
     afterEach(function() {
@@ -263,62 +262,6 @@ define([
             });
         });
 
-        describe("encodeDataMessage()", function() {
-            it('data message', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
-                var result = ns.encodeDataMessage('foo',
-                                                  _td.ED25519_PRIV_KEY,
-                                                  _td.ED25519_PUB_KEY,
-                                                  sessionKeyStore);
-                // 4 TLVs with 109 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(atob(result.slice(7, -1)), 109);
-            });
-
-            it('data message with second group key', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID, 'foo'],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY, 'foo']
-                };
-                sessionKeyStore.sessions['foo'] = {};
-                var result = ns.encodeDataMessage('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore);
-                // 4 TLVs with 109 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(atob(result.slice(7, -1)), 109);
-            });
-
-            it('data message with exponential padding', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
-                var result = ns.encodeDataMessage('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore, 32);
-                // 4 TLVs with 136 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-                assert.lengthOf(atob(result.slice(7, -1)), 136);
-            });
-        });
-
         describe("decodeGreetMessage()", function() {
             it('upflow message', function() {
                 var result = ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
@@ -334,6 +277,7 @@ define([
             });
 
             it('upflow message, debug on', function() {
+                sandbox.stub(MegaLogger._logRegistry.codec, '_log');
                 ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                         _td.ED25519_PUB_KEY);
                 var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
@@ -363,55 +307,6 @@ define([
                             + _td.UPFLOW_MESSAGE_STRING.substring(73);
                 assert.throws(function() { ns.decodeGreetMessage(message, _td.ED25519_PUB_KEY); },
                               'Received wrong protocol version: 77');
-            });
-        });
-
-        describe("decodeDataMessage()", function() {
-            it('data message', function() {
-                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-
-            it('data message with second group key', function() {
-                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING2,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-
-            it('data message, debug on', function() {
-                ns.decodeDataMessage(_td.DATA_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY,
-                                        _td.SESSION_ID, _td.GROUP_KEY);
-                var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['sidkeyHint: 0x54',
-                                            'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
-                                            'protocol: 1',
-                                            'messageType: 0x0 (PARTICIPANT_DATA)',
-                                            'messageIV: qq36/fToW+Z7I7b5',
-                                            'rawDataMessage: aU6y8g8=']]]);
-                log = MegaLogger._logRegistry.codec._log.getCall(1).args;
-                assert.deepEqual(log, [0, ['mpENC decrypted data message debug: ',
-                                           'foo']]);
-            });
-
-            it('data message with exponential padding', function() {
-                var result = ns.decodeDataMessage(_td.DATA_MESSAGE_STRING32,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
             });
         });
 
@@ -538,154 +433,6 @@ define([
             assert.strictEqual(ns.signMessage.callCount, 0);
             assert.strictEqual(result, '?mpENC Error::from "a.dumbledore@hogwarts.ac.uk/android123"'
                                + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
-        });
-    });
-
-    describe("encryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.encryptDataMessage(tests[i], key), null);
-            }
-        });
-
-        it('data messages', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-
-        it('data messages with exponential padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 32;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                            '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(result.data.length % paddingSize, 0);
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-
-        it('data messages explicitly without padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 0;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-    });
-
-    describe("decryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.decryptDataMessage(tests[i], key, iv), null);
-            }
-        });
-
-        it('data messages', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H0=',
-                         '6H/R1g==',
-                         '6HGhi6z7+lgyR6wtKss=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                         '6HexIFGySvliTa0h',
-                         '6G2tJ2ay/R0uBuRkDphJAkEV',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-
-        it('data messages with exponential padding', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                         '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-    });
-
-    describe("encryptDataMessage()/decryptDataMessage()", function() {
-        it('several round trips', function() {
-            for (var i = 0; i < 5; i++) {
-                var key = jodid25519.utils.bytes2string(utils._newKey08(128));
-                var messageLength = Math.floor(256 * Math.random());
-                var message = _tu.cheapRandomString(messageLength);
-                var encryptResult = ns.encryptDataMessage(message, key);
-                var cipher = encryptResult.data;
-                var iv = encryptResult.iv;
-                var clear = ns.decryptDataMessage(cipher, key, iv);
-                assert.strictEqual(message, clear);
-            }
         });
     });
 

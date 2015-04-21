@@ -22,9 +22,10 @@ define([
     "mpenc/helper/struct",
     "mpenc/greet/greeter",
     "mpenc/codec",
+    "mpenc/message",
     "mpenc/greet/keystore",
     "megalogger",
-], function(assert, utils, struct, greeter, codec, keystore, MegaLogger) {
+], function(assert, utils, struct, greeter, codec, message, keystore, MegaLogger) {
     "use strict";
 
     /**
@@ -154,19 +155,13 @@ define([
      *     padding). If the clear text will result in a larger cipher text than
      *     exponentialPadding, power of two exponential padding sizes will be
      *     used.
-     * @property tryDecrypt {mpenc/helper/struct.TrialBuffer}
-     *     Trial buffer for message decryption.
      */
     ns.ProtocolHandler = function(id, name, privKey, pubKey, staticPubKeyDir,
                                   queueUpdatedCallback, stateUpdatedCallback,
                                   exponentialPadding) {
         this.id = id;
         this.name = name;
-        this.privKey = privKey;
-        this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.sessionKeyStore = new keystore.KeyStore(name,
-                                                     function() { return 20; });
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
@@ -174,23 +169,41 @@ define([
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
+        this._messageSecurity = null;
+        this._sessionKeyStore = new keystore.KeyStore(name, function() { return 20; });
+
         // Set up a trial buffer for trial decryption.
-        var decryptTarget = new ns.DecryptTrialTarget(this.sessionKeyStore,
-                                                      this.uiQueue, 100);
-        this.tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
+        var self = this;
+        var decryptTarget = new ns.DecryptTrialTarget(
+            function(wireMessage) {
+                return self._messageSecurity.decrypt(wireMessage);
+            }, this.uiQueue, 100);
+        this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
         this.greet = new greeter.GreetWrapper(this.id,
-                                              this.privKey, this.pubKey,
+                                              privKey, pubKey,
                                               this.staticPubKeyDir);
 
         // Sanity check.
-        _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir
-                && this.sessionKeyStore,
+        _assert(this.id && privKey && pubKey && this.staticPubKeyDir && this._sessionKeyStore,
                 'Constructor call missing required parameters.');
 
         return this;
     };
 
+    ns.ProtocolHandler.prototype._newMessageSecurity = function(greet) {
+        // TODO(xl): eventually it should be possible to create a new immutable
+        // sessionKeyStore directly from the greet, instead of a single mutable
+        // store that persists across key changes. see mpenc_py for the general idea
+        this._sessionKeyStore.update(greet.getSessionId(),
+                                     greet.getMembers(),
+                                     greet.getEphemeralPubKeys(),
+                                     greet.getGroupKey().substring(0, 16));
+        return new message.MessageSecurity(
+            greet.getEphemeralPrivKey(),
+            greet.getEphemeralPubKey(),
+            this._sessionKeyStore)
+    };
 
     /**
      * Start the protocol negotiation with the group participants.
@@ -292,10 +305,7 @@ define([
 
         if (this.greet.isSessionAcknowledged()) {
             this.greet.state = greeter.STATE.READY;
-            this.sessionKeyStore.update(this.greet.getSessionId(),
-                                        this.greet.getMembers(),
-                                        this.greet.getEphemeralPubKeys(),
-                                        this.greet.getGroupKey().substring(0, 16));
+            this._messageSecurity = this._newMessageSecurity(this.greet);
             this.stateUpdatedCallback(this);
         }
     };
@@ -348,10 +358,7 @@ define([
         this.stateUpdatedCallback(this);
 
         var outContent = this.greet.refresh();
-        this.sessionKeyStore.update(this.greet.getSessionId(),
-                                    this.greet.getMembers(),
-                                    this.greet.getEphemeralPubKeys(),
-                                    this.greet.getGroupKey().substring(0, 16));
+        this._messageSecurity = this._newMessageSecurity(this.greet);
         if (outContent) {
             var outMessage = {
                 from: this.id,
@@ -528,10 +535,7 @@ define([
                         if (keyingMessageResult.newState === greeter.STATE.QUIT) {
                             this.quit();
                         } else if (keyingMessageResult.newState === greeter.STATE.READY) {
-                            this.sessionKeyStore.update(this.greet.getSessionId(),
-                                                        this.greet.getMembers(),
-                                                        this.greet.getEphemeralPubKeys(),
-                                                        this.greet.getGroupKey().substring(0, 16));
+                            this._messageSecurity = this._newMessageSecurity(this.greet);
                         }
                     }
                 } catch (e) {
@@ -574,7 +578,7 @@ define([
                 _assert(this.greet.state === greeter.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
 
-                this.tryDecrypt.trial(wireMessage);
+                this._tryDecrypt.trial(wireMessage);
                 break;
             default:
                 _assert(false, 'Received unknown message category: ' + classify.category);
@@ -660,11 +664,7 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: codec.encodeDataMessage(messageContent,
-                                         this.greet.getEphemeralPrivKey(),
-                                         this.greet.getEphemeralPubKey(),
-                                         this.sessionKeyStore,
-                                         this.exponentialPadding),
+            message: this._messageSecurity.encrypt(messageContent, this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -703,11 +703,7 @@ define([
             from: this.id,
             to: to,
             metadata: metadata,
-            message: codec.encodeDataMessage(messageContent,
-                                         this.greet.getEphemeralPrivKey(),
-                                         this.greet.getEphemeralPubKey(),
-                                         this.sessionKeyStore,
-                                         this.exponentialPadding),
+            message: this._messageSecurity.encrypt(messageContent, this.exponentialPadding),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -802,10 +798,10 @@ define([
      * @property _maxSize {integer}
      *     Maximum number of elements to be held in trial buffer.
      */
-    function DecryptTrialTarget(sessionKeyStore, outQueue, maxSize) {
-        this._sessionKeyStore = sessionKeyStore;
+    function DecryptTrialTarget(decryptor, outQueue, maxSize) {
+        this._decryptor = decryptor;
         this._outQueue = outQueue;
-            this._maxSize = maxSize;
+        this._maxSize = maxSize;
     }
     ns.DecryptTrialTarget = DecryptTrialTarget;
 
@@ -813,57 +809,13 @@ define([
     // See TrialTarget#tryMe.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
-        var author = wireMessage.from;
-        var sessionID = this._sessionKeyStore.sessionIDs[0];
-        var groupKey = this._sessionKeyStore.sessions[sessionID].groupKeys[0];
-
-        if (author) {
-            var signingPubKey = this._sessionKeyStore.pubKeyMap[author];
-            var categorised = codec.categoriseMessage(wireMessage.message);
-            var inspected = codec.inspectMessageContent(categorised.content);
-            var decoded = null;
-
-            // Loop over (session ID, group key) combos, starting with the latest.
-            outer: // Label to break out of outer loop.
-            for (var sidNo in this._sessionKeyStore.sessionIDs) {
-                var sessionID = this._sessionKeyStore.sessionIDs[sidNo];
-                var session = this._sessionKeyStore.sessions[sessionID];
-                for (var gkNo in session.groupKeys) {
-                    var groupKey = session.groupKeys[gkNo];
-                    var sidkeyHash = utils.sha256(sessionID + groupKey);
-                    if (inspected.sidkeyHint === sidkeyHash[0]) {
-                        var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                                                                     inspected.signedContent,
-                                                                     inspected.messageSignature,
-                                                                     signingPubKey,
-                                                                     sidkeyHash);
-                        if (verifySig === true) {
-                            decoded = codec.decodeDataMessage(categorised.content,
-                                                                 signingPubKey,
-                                                                 sessionID,
-                                                                 groupKey);
-                            break outer;
-                        }
-                    }
-                }
-            }
-
-            if (decoded) {
-                wireMessage.type = 'message';
-                wireMessage.message = decoded.data;
-                logger.debug('Message from "' + author
-                             + ' successfully decrypted.');
-                this._outQueue.push(wireMessage);
-                return true;
-            } else {
-                logger.debug('Message from "' + author
-                             + ' not decrypted, will be stashed in trial buffer.');
-            }
-        } else {
-            logger.warn('No message author for message available, '
-                        + 'will not be able to decrypt: ' + wireMessage.message);
+        var decrypted = this._decryptor(wireMessage);
+        if (decrypted) {
+            this._outQueue.push(decrypted);
+            return true;
         }
-
+        logger.debug('Message from "' + author
+                     + ' not decrypted, will be stashed in trial buffer.');
         return false;
     };
 

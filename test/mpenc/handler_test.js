@@ -25,6 +25,7 @@ define([
     "mpenc/handler",
     "mpenc/helper/utils",
     "mpenc/codec",
+    "mpenc/message",
     "mpenc/version",
     "mpenc/greet/keystore",
     "mpenc/greet/greeter",
@@ -36,7 +37,7 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, version, keystore, greeter, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, codec, message, version, keystore, greeter, asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -52,6 +53,13 @@ define([
         store.sessions = utils.clone(_td.SESSION_KEY_STORE.sessions);
         store.pubKeyMap = utils.clone(_td.SESSION_KEY_STORE.pubKeyMap);
         return store;
+    }
+
+    function _dummyMessageSecurity(greet) {
+        return new message.MessageSecurity(
+            greet ? greet.getEphemeralPrivKey() : stub(),
+            greet ? greet.getEphemeralPubKey() : stub(),
+            _dummySessionStore());
     }
 
     MegaLogger._logRegistry.assert.options.isEnabled = false;
@@ -102,11 +110,11 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                var sessionKeyStore = _dummySessionStore();
+                var messageSecurity = _dummyMessageSecurity();
                 var message = { from: 'Moe',
                                 to: '',
                                 message: _td.DATA_MESSAGE_PAYLOAD };
-                var target = new ns.DecryptTrialTarget(sessionKeyStore, [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
@@ -118,19 +126,19 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'inspectMessageContent');
-                sandbox.spy(codec, 'decodeDataMessage');
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var sessionKeyStore = _dummySessionStore();
-                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
+                var messageSecurity = _dummyMessageSecurity();
+                messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
+                sandbox.spy(messageSecurity, 'decrypt');
                 var message = { from: 'Moe',
                                 to: '',
                                 message: _td.DATA_MESSAGE_PAYLOAD };
-                var target = new ns.DecryptTrialTarget(sessionKeyStore, [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(codec.inspectMessageContent.callCount, 1);
-                assert.strictEqual(codec.decodeDataMessage.callCount, 1);
+                assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
 
@@ -140,21 +148,22 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'inspectMessageContent');
-                sandbox.spy(codec, 'decodeDataMessage');
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var sessionKeyStore = _dummySessionStore();
+                var messageSecurity = _dummyMessageSecurity();
+                var sessionKeyStore = messageSecurity._sessionKeyStore;
                 sessionKeyStore.sessionIDs.unshift('foo');
                 sessionKeyStore.sessions['foo'] = utils.clone(sessionKeyStore.sessions[_td.SESSION_ID]);
                 sessionKeyStore.sessions['foo'].groupKeys[0] = atob('Dw4NDAsKCQgHBgUEAwIBAA==');
+                sandbox.spy(messageSecurity, 'decrypt');
                 var message = { from: 'Moe',
                                 to: '',
                                 message: _td.DATA_MESSAGE_PAYLOAD };
-                var target = new ns.DecryptTrialTarget(sessionKeyStore, [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(codec.inspectMessageContent.callCount, 1);
-                assert.strictEqual(codec.decodeDataMessage.callCount, 1);
+                assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
 
@@ -165,19 +174,19 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'inspectMessageContent');
-                sandbox.spy(codec, 'decodeDataMessage');
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var sessionKeyStore = _dummySessionStore();
-                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
+                var messageSecurity = _dummyMessageSecurity();
+                messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
+                sandbox.spy(messageSecurity, 'decrypt');
                 var message = { from: 'Moe',
                                 to: '',
                                 message: _td.DATA_MESSAGE_PAYLOAD };
-                var target = new ns.DecryptTrialTarget(sessionKeyStore, [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(codec.inspectMessageContent.callCount, 1);
-                assert.strictEqual(codec.decodeDataMessage.callCount, 1);
+                assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
             });
         });
@@ -202,7 +211,6 @@ define([
                 assert.deepEqual(handler.greet.askeMember.staticPrivKey, _td.ED25519_PRIV_KEY);
                 assert.ok(handler.greet.staticPubKeyDir);
                 assert.ok(handler.greet.cliquesMember);
-                assert.ok(handler.sessionKeyStore);
             });
         });
 
@@ -213,7 +221,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: "I'm puttin' the band back together!",
                                dest: 'elwood@blues.org/ios1234'};
                 sandbox.stub(codec, 'encodeGreetMessage', _echo);
@@ -236,7 +243,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var illegalStates = [greeter.STATE.INIT_UPFLOW,
                                      greeter.STATE.INIT_DOWNFLOW,
                                      greeter.STATE.READY,
@@ -257,7 +263,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.READY;
                 var message = {message: "I'm puttin' the band back together!",
                                dest: 'ray@charles.org/ios1234'};
@@ -281,7 +286,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var illegalStates = [greeter.STATE.NULL,
                                      greeter.STATE.INIT_UPFLOW,
                                      greeter.STATE.INIT_DOWNFLOW,
@@ -302,7 +306,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.READY;
                 var message = {message: "You're fired!",
                                members: ['a.dumbledore@hogwarts.ac.uk/android123', 'further.staff'],
@@ -327,7 +330,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.AUX_DOWNFLOW;
                 participant.greet.recovering = true;
                 var message = {message: "He's dead, Jim!",
@@ -354,7 +356,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var illegalStates = [greeter.STATE.NULL,
                                      greeter.STATE.INIT_UPFLOW,
                                      greeter.STATE.INIT_DOWNFLOW,
@@ -373,7 +374,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.recovering = true;
                 var illegalStates = [greeter.STATE.NULL,
                                      greeter.STATE.INIT_UPFLOW,
@@ -391,7 +391,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.READY;
                 participant.members = ['chingachgook@mohicans.org/android123',
                                        'uncas@mohicans.org/ios1234'];
@@ -413,7 +412,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.QUIT;
                 sandbox.spy(participant.greet, 'quit');
                 participant.quit();
@@ -426,7 +424,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.READY;
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 var message = {signingKey: 'Sledge Hammer',
@@ -452,7 +449,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.NULL;
                 assert.throws(function() { participant.quit(); },
                               'Not participating.');
@@ -468,7 +464,6 @@ define([
                                                                         _td.ED25519_PRIV_KEY,
                                                                         _td.ED25519_PUB_KEY,
                                                                         _td.STATIC_PUB_KEY_DIR);
-                    participants[i.toString()].sessionKeyStore = _dummySessionStore();
                 }
 
                 // Start.
@@ -500,7 +495,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.READY;
                 participant.greet.cliquesMember.groupKey = "Parents Just Don't Understand";
                 participant.greet.askeMember.ephemeralPubKeys = [];
@@ -526,7 +520,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var illegalStates = [greeter.STATE.NULL,
                                      greeter.STATE.INIT_UPFLOW,
                                      greeter.STATE.AUX_UPFLOW];
@@ -544,7 +537,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.AUX_UPFLOW;
                 var members = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
                                'Saturn', 'Uranus', 'Neptune', 'Pluto'];
@@ -579,7 +571,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.AUX_UPFLOW;
                 var members = ['chingachgook@mohicans.org/android123',
                                'uncas@mohicans.org/ios1234'];
@@ -604,7 +595,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.AUX_DOWNFLOW;
                 sandbox.stub(participant, 'refresh');
                 participant.recover();
@@ -618,7 +608,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.AUX_UPFLOW;
                 sandbox.stub(participant.greet, 'discardAuthentications');
                 sandbox.stub(participant, 'fullRefresh');
@@ -634,7 +623,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state =  greeter.STATE.AUX_DOWNFLOW;
                 var message = { message: "You're dead!",
                                 dest: '' };
@@ -665,7 +653,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
                                                         'q.quirrell@hogwarts.ac.uk/wp8possessed666',
                                                         'm.mcgonagall@hogwarts.ac.uk/ios456'];
@@ -696,7 +683,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
                                                         'q.quirrell@hogwarts.ac.uk/wp8possessed666',
                                                         'm.mcgonagall@hogwarts.ac.uk/ios456'];
@@ -719,7 +705,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['q.quirrell@hogwarts.ac.uk/wp8possessed666',
                                                         'm.mcgonagall@hogwarts.ac.uk/ios456'];
                 participant.greet.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
@@ -744,7 +729,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 sandbox.stub(codec, 'verifyMessageSignature');
                 var result = participant._processErrorMessage(content);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
@@ -759,12 +743,12 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.exponentialPadding = 0;
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
@@ -781,11 +765,11 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
@@ -802,7 +786,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.INIT_DOWNFLOW;
                 assert.throws(function() { participant.send('Wassup?'); },
                               'Messages can only be sent in ready state.');
@@ -816,12 +799,12 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.exponentialPadding = 0;
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 var message = 'Whispers in the morning ...';
                 participant.sendTo(message, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.messageOutQueue, 1);
@@ -838,11 +821,11 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 var message = 'Whispers in the morning ...';
                 participant.sendTo(message, 'my_man@rush.com/ios12345');
                 assert.lengthOf(participant.messageOutQueue, 1);
@@ -861,10 +844,10 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.AUX_DOWNFLOW;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 sandbox.stub(participant, 'quit');
                 var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
                 participant.sendError(ns.ERROR.TERMINAL, message);
@@ -882,7 +865,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = 'Problem retrieving public key for: PointyHairedBoss';
                 assert.throws(function() { participant.sendError(42, message); },
                               'Illegal error severity: 42.');
@@ -895,7 +877,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
                                from: 'kiri@singer.org.nz/waiata42'};
                 var result = participant.inspectMessage(message);
@@ -907,7 +888,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: '?mpENC Error:Hatschi!',
                                from: 'common@cold.govt.nz/flu2'};
                 var result = participant.inspectMessage(message);
@@ -919,7 +899,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.READY;
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
@@ -932,7 +911,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
                 var result = participant.inspectMessage(message);
@@ -944,7 +922,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
                               from: '1', to: '2', origin: null,
@@ -969,7 +946,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
                               from: '1', to: '2', origin: null,
@@ -994,7 +970,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: '1'};
@@ -1018,7 +993,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
                 var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                from: '1'};
@@ -1038,7 +1012,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1064,7 +1037,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1090,7 +1062,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = [];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1116,7 +1087,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1142,7 +1112,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1168,7 +1137,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
                               from: '1', to: '5', origin: null,
@@ -1193,7 +1161,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
                 sandbox.stub(codec, 'inspectMessageContent').returns(
                              {type: null, protocol: 1,
@@ -1221,7 +1188,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
                                from: 'kiri@singer.org.nz/waiata42'};
                 participant.processMessage(message);
@@ -1250,7 +1216,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
                                           severity: ns.ERROR.TERMINAL,
                                           signatureOk: true,
@@ -1279,7 +1244,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
                                           severity: ns.ERROR.WARNING,
                                           signatureOk: true,
@@ -1307,7 +1271,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.greet.cliquesMember.groupKey = groupKey;
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
@@ -1350,7 +1313,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 sandbox.stub(codec, 'categoriseMessage').returns(
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
@@ -1397,7 +1359,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.cliquesMember.groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.greet.askeMember.ephemeralPubKeys = [];
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
@@ -1429,18 +1390,18 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 participant.greet.state = greeter.STATE.READY;
                 var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.greet.cliquesMember.groupKey = groupKey;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
-                sandbox.stub(participant.tryDecrypt, 'trial');
+                sandbox.stub(participant._tryDecrypt, 'trial');
                 participant.processMessage(message);
-                assert.strictEqual(participant.tryDecrypt.trial.callCount, 1);
-                assert.lengthOf(participant.tryDecrypt.trial.getCall(0).args, 1);
-                assert.deepEqual(participant.tryDecrypt.trial.getCall(0).args[0], message);
+                assert.strictEqual(participant._tryDecrypt.trial.callCount, 1);
+                assert.lengthOf(participant._tryDecrypt.trial.getCall(0).args, 1);
+                assert.deepEqual(participant._tryDecrypt.trial.getCall(0).args[0], message);
             });
 
             it('on query message', function() {
@@ -1448,7 +1409,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();
@@ -1461,7 +1421,6 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                participant.sessionKeyStore = _dummySessionStore();
                 var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();

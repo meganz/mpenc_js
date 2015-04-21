@@ -48,6 +48,8 @@ define([
 
     var logger = MegaLogger.getLogger('codec', undefined, 'mpenc');
 
+    ns.PROTOCOL_PREFIX = _PROTOCOL_PREFIX;
+
     /**
      * Carries information extracted from a received mpENC protocol message for
      * the greet protocol (key exchange and agreement).
@@ -264,7 +266,17 @@ define([
     };
 
 
-    var _decodeMessageTLVs = function(message, pubKey, sessionID, groupKey) {
+    /**
+     * Partially decodes a given TLV encoded message into basic objects.
+     *
+     * No cryptographic operations (e.g. verify or decrypt) are attempted.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     *     Partially populated Message as JavaScript object.
+     */
+    ns.decodeMessageTLVs = function(message) {
         if (!message) {
             return null;
         }
@@ -371,7 +383,7 @@ define([
      *     Message as JavaScript object.
      */
     ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
-        var out = _decodeMessageTLVs(message, pubKey, sessionID, groupKey);
+        var out = ns.decodeMessageTLVs(message);
 
         // Some specifics depending on the type of mpENC message.
         var sidkeyHash = '';
@@ -408,39 +420,6 @@ define([
         return out;
     };
 
-
-    /**
-     * Decodes a given TLV encoded data message into an object.
-     *
-     * @param message {string}
-     *     A binary message representation.
-     * @param pubKey {string}
-     *     Sender's (ephemeral) public signing key.
-     * @param sessionID {string}
-     *     Session ID.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
-     * @returns {mpenc.greeter.greet.ProtocolMessage}
-     *     Message as JavaScript object.
-     */
-    ns.decodeDataMessage = function(message, pubKey, sessionID, groupKey) {
-        var out = _decodeMessageTLVs(message, pubKey, sessionID, groupKey);
-
-        // Some specifics depending on the type of mpENC message.
-        var sidkeyHash = '';
-        _assert(out.data);
-        // Checking of session/group key.
-        sidkeyHash = utils.sha256(sessionID + groupKey);
-        _assert(out.sidkeyHint === sidkeyHash[0],
-                'Session ID/group key hint mismatch.');
-
-        // Some further crypto processing on data messages.
-        out.data = ns.decryptDataMessage(out.data, groupKey, out.iv);
-        logger.debug('mpENC decrypted data message debug: ', out.data);
-
-        // Data message signatures are verified through trial decryption.
-        return out;
-    };
 
     /**
      * Inspects a given TLV encoded protocol message to extract information
@@ -696,65 +675,6 @@ define([
     };
 
 
-    var ENCODED_VERSION;
-    var ENCODED_TYPE_MESSAGE_DATA;
-
-
-    /**
-     * Encodes a given data message ready to be put onto the wire, using
-     * base64 encoding for the binary message pay load.
-     *
-     * @param message {string}
-     *     Message as string.
-     * @param privKey {string}
-     *     Sender's (ephemeral) private signing key.
-     * @param pubKey {string}
-     *     Sender's (ephemeral) public signing key.
-     * @param sessionKeyStore {mpenc.greet.keystore.KeyStore}
-     *     Store for (sub-) session related keys and information. Mandatory for
-     *     data messages, ignored for protocol messages.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {string}
-     *     A wire ready message representation.
-     */
-    ns.encodeDataMessage = function(message, privKey, pubKey,
-                                    sessionKeyStore, paddingSize) {
-        if (message === null || message === undefined) {
-            return null;
-        }
-        paddingSize = paddingSize | 0;
-        var out = '';
-        // We want message attributes in this order:
-        // sid/key hint, message signature, protocol version, message type,
-        // iv, message data
-        var sessionID = sessionKeyStore.sessionIDs[0];
-        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
-
-        // Three portions: unsigned content (hint), signature, rest.
-        // Compute info for the SIDKEY_HINT and signature.
-        var sidkeyHash = utils.sha256(sessionID + groupKey);
-
-        // Rest (protocol version, message type, iv, message data).
-        var content = ENCODED_VERSION + ENCODED_TYPE_MESSAGE_DATA;
-        var encrypted = ns.encryptDataMessage(message, groupKey, paddingSize);
-        content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-        content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, encrypted.data);
-
-        // Compute the content signature.
-        var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                                       content, privKey, pubKey, sidkeyHash);
-
-        // Assemble everything.
-        out = ns.encodeTLV(ns.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
-        out += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature);
-        out += content;
-        return _PROTOCOL_PREFIX + ':' + btoa(out) + '.';
-    };
-
     /**
      * Encodes a given greet message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
@@ -779,7 +699,7 @@ define([
         }
         paddingSize = paddingSize | 0;
 
-        var out = ENCODED_VERSION;
+        var out = ns.ENCODED_VERSION;
         // Process message attributes in this order:
         // messageType, source, dest, members, intKeys, nonces, pubKeys,
         // sessionSignature, signingKey
@@ -864,86 +784,8 @@ define([
      * @returns {integer}
      *     A 16-bit unsigned integer.
      */
-    ns._bin2short= function(value) {
+    ns._bin2short = function(value) {
         return (value.charCodeAt(0) << 8) | value.charCodeAt(1);
-    };
-
-
-    /**
-     * Encrypts a given data message.
-     *
-     * The data message is encrypted using AES-128-CTR, and a new random
-     * IV/nonce (12 byte) is generated and returned.
-     *
-     * @param data {string}
-     *     Binary string data message.
-     * @param key {string}
-     *     Binary string representation of 128-bit encryption key.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {Object}
-     *     An object containing the message (in `data`, binary string) and
-     *     the IV used (in `iv`, binary string).
-     */
-    ns.encryptDataMessage = function(data, key, paddingSize) {
-        if (data === null || data === undefined) {
-            return null;
-        }
-        paddingSize = paddingSize | 0;
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = utils._newKey08(96);
-        // Protect multi-byte characters.
-        var dataBytes = unescape(encodeURIComponent(data));
-        // Prepend length in bytes to message.
-        _assert(dataBytes.length < 0xffff,
-                'Message size too large for encryption scheme.');
-        dataBytes = ns._short2bin(dataBytes.length) + dataBytes;
-        if (paddingSize) {
-            // Compute exponential padding size.
-            var exponentialPaddingSize = paddingSize
-                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
-                                                         / Math.log(2))) + 1;
-            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
-            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
-        }
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
-        return { data: jodid25519.utils.bytes2string(cipherBytes),
-                 iv: jodid25519.utils.bytes2string(nonceBytes) };
-    };
-
-
-    /**
-     * Decrypts a given data message.
-     *
-     * The data message is decrypted using AES-128-CTR.
-     *
-     * @param data {string}
-     *     Binary string data message.
-     * @param key {string}
-     *     Binary string representation of 128-bit encryption key.
-     * @param iv {string}
-     *     Binary string representation of 96-bit nonce/IV.
-     * @returns {string}
-     *     The clear text message as a binary string.
-     */
-    ns.decryptDataMessage = function(data, key, iv) {
-        if (data === null || data === undefined) {
-            return null;
-        }
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = jodid25519.utils.string2bytes(iv);
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var clearBytes = asmCrypto.AES_CTR.decrypt(data, keyBytes, ivBytes);
-        // Strip off message size and zero padding.
-        var clearString = jodid25519.utils.bytes2string(clearBytes);
-        var messageSize = ns._bin2short(clearString.slice(0, 2));
-        clearString = clearString.slice(2, messageSize + 2);
-        // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(clearString));
     };
 
 
@@ -1027,8 +869,8 @@ define([
     };
 
 
-    ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
-    ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
+    ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
+    ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
 
 
     return ns;

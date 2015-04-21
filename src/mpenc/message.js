@@ -17,8 +17,14 @@
  */
 
 define([
-    "mpenc/helper/struct"
-], function(struct) {
+    "mpenc/helper/assert",
+    "mpenc/helper/struct",
+    "mpenc/helper/utils",
+    "mpenc/codec",
+    "asmcrypto",
+    "jodid25519",
+    "megalogger",
+], function(assert, struct, utils, codec, asmCrypto, jodid25519, MegaLogger) {
     "use strict";
 
     /**
@@ -27,6 +33,10 @@ define([
      * Message interfaces.
      */
     var ns = {};
+
+    var _assert = assert.assert;
+
+    var logger = MegaLogger.getLogger('message', undefined, 'mpenc');
 
     var Set = struct.ImmutableSet;
 
@@ -78,6 +88,234 @@ define([
 
     Object.freeze(Message.prototype);
     ns.Message = Message;
+
+
+    /**
+     * TODO(xl): document
+     *
+     * @memberOf module:mpenc/message
+     */
+    var MessageSecurity = function(ephemeralPrivKey, ephemeralPubKey, sessionKeyStore) {
+        this._privKey = ephemeralPrivKey;
+        this._pubKey = ephemeralPubKey;
+        this._sessionKeyStore = sessionKeyStore;
+    };
+
+    /**
+     * Encodes a given data message ready to be put onto the wire, using
+     * base64 encoding for the binary message pay load.
+     *
+     * @param message {string}
+     *     Message as string.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
+     * @returns {string}
+     *     A wire ready message representation.
+     */
+    MessageSecurity.prototype.encrypt = function(message, paddingSize) {
+        if (message === null || message === undefined) {
+            return null;
+        }
+        var privKey = this._privKey;
+        var pubKey = this._pubKey;
+        var sessionKeyStore = this._sessionKeyStore;
+        paddingSize = paddingSize | 0;
+
+        var out = '';
+        // We want message attributes in this order:
+        // sid/key hint, message signature, protocol version, message type,
+        // iv, message data
+        var sessionID = sessionKeyStore.sessionIDs[0];
+        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
+
+        // Three portions: unsigned content (hint), signature, rest.
+        // Compute info for the SIDKEY_HINT and signature.
+        var sidkeyHash = utils.sha256(sessionID + groupKey);
+
+        // Rest (protocol version, message type, iv, message data).
+        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_MESSAGE_DATA;
+        var encrypted = ns._encryptDataMessage(message, groupKey, paddingSize);
+        content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
+        content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
+
+        // Compute the content signature.
+        var signature = codec.signMessage(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                       content, privKey, pubKey, sidkeyHash);
+
+        // Assemble everything.
+        out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
+        out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
+        out += content;
+        return codec.PROTOCOL_PREFIX + ':' + btoa(out) + '.';
+    };
+
+    /**
+     * Decodes a given TLV encoded data message into an object.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @param sessionID {string}
+     *     Session ID.
+     * @param groupKey {string}
+     *     Symmetric group encryption key to encrypt message.
+     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    MessageSecurity.prototype.decrypt = function(wireMessage) {
+        var sessionKeyStore = this._sessionKeyStore;
+
+        var author = wireMessage.from;
+        var sessionID = sessionKeyStore.sessionIDs[0];
+        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
+
+        if (!author) {
+            logger.warn('No message author for message available, '
+                        + 'will not be able to decrypt: ' + wireMessage.message);
+            return null;
+        }
+
+        var signingPubKey = sessionKeyStore.pubKeyMap[author];
+        var categorised = codec.categoriseMessage(wireMessage.message);
+        var inspected = codec.inspectMessageContent(categorised.content);
+        var decoded = null;
+
+        // Loop over (session ID, group key) combos, starting with the latest.
+        outer: // Label to break out of outer loop.
+        for (var sidNo in sessionKeyStore.sessionIDs) {
+            var sessionID = sessionKeyStore.sessionIDs[sidNo];
+            var session = sessionKeyStore.sessions[sessionID];
+            for (var gkNo in session.groupKeys) {
+                var groupKey = session.groupKeys[gkNo];
+                var sidkeyHash = utils.sha256(sessionID + groupKey);
+                if (inspected.sidkeyHint === sidkeyHash[0]) {
+                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                                                                 inspected.signedContent,
+                                                                 inspected.messageSignature,
+                                                                 signingPubKey,
+                                                                 sidkeyHash);
+                    if (verifySig === true) {
+                        decoded = _decrypt(categorised.content,
+                                           signingPubKey,
+                                           sessionID,
+                                           groupKey);
+                        break outer;
+                    }
+                }
+            }
+        }
+
+        if (!decoded) {
+            return null;
+        }
+
+        wireMessage.type = 'message';
+        wireMessage.message = decoded.data;
+        logger.debug('Message from "' + author + '" successfully decrypted.');
+        return wireMessage;
+    };
+
+    /**
+     * Encrypts a given data message.
+     *
+     * The data message is encrypted using AES-128-CTR, and a new random
+     * IV/nonce (12 byte) is generated and returned.
+     *
+     * @param data {string}
+     *     Binary string data message.
+     * @param key {string}
+     *     Binary string representation of 128-bit encryption key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
+     * @returns {Object}
+     *     An object containing the message (in `data`, binary string) and
+     *     the IV used (in `iv`, binary string).
+     */
+    ns._encryptDataMessage = function(data, key, paddingSize) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        paddingSize = paddingSize | 0;
+        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
+        var nonceBytes = utils._newKey08(96);
+        // Protect multi-byte characters.
+        var dataBytes = unescape(encodeURIComponent(data));
+        // Prepend length in bytes to message.
+        _assert(dataBytes.length < 0xffff,
+                'Message size too large for encryption scheme.');
+        dataBytes = codec._short2bin(dataBytes.length) + dataBytes;
+        if (paddingSize) {
+            // Compute exponential padding size.
+            var exponentialPaddingSize = paddingSize
+                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
+                                                         / Math.log(2))) + 1;
+            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
+            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
+        }
+        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
+        return { data: jodid25519.utils.bytes2string(cipherBytes),
+                 iv: jodid25519.utils.bytes2string(nonceBytes) };
+    };
+
+    var _decrypt = function(message, pubKey, sessionID, groupKey) {
+        var out = codec.decodeMessageTLVs(message);
+
+        // Some specifics depending on the type of mpENC message.
+        var sidkeyHash = '';
+        _assert(out.data);
+        // Checking of session/group key.
+        sidkeyHash = utils.sha256(sessionID + groupKey);
+        _assert(out.sidkeyHint === sidkeyHash[0],
+                'Session ID/group key hint mismatch.');
+
+        // Some further crypto processing on data messages.
+        out.data = ns._decryptDataMessage(out.data, groupKey, out.iv);
+        logger.debug('mpENC decrypted data message debug: ', out.data);
+
+        // Data message signatures are verified through trial decryption.
+        return out;
+    };
+
+    /**
+     * Decrypts a given data message.
+     *
+     * The data message is decrypted using AES-128-CTR.
+     *
+     * @param data {string}
+     *     Binary string data message.
+     * @param key {string}
+     *     Binary string representation of 128-bit encryption key.
+     * @param iv {string}
+     *     Binary string representation of 96-bit nonce/IV.
+     * @returns {string}
+     *     The clear text message as a binary string.
+     */
+    ns._decryptDataMessage = function(data, key, iv) {
+        if (data === null || data === undefined) {
+            return null;
+        }
+        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
+        var nonceBytes = jodid25519.utils.string2bytes(iv);
+        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var clearBytes = asmCrypto.AES_CTR.decrypt(data, keyBytes, ivBytes);
+        // Strip off message size and zero padding.
+        var clearString = jodid25519.utils.bytes2string(clearBytes);
+        var messageSize = codec._bin2short(clearString.slice(0, 2));
+        clearString = clearString.slice(2, messageSize + 2);
+        // Undo protection for multi-byte characters.
+        return decodeURIComponent(escape(clearString));
+    };
+
+    ns.MessageSecurity = MessageSecurity;
+
 
     return ns;
 });
