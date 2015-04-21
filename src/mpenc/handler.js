@@ -111,7 +111,8 @@ define([
      * @param pubKey {string}
      *     This participant's static/long term public key.
      * @param staticPubKeyDir {PubKeyDir}
-     *     Public key directory object.
+     *     Public key directory object. An object with a `get(key)` method,
+     *     returning the static public key of indicated by member ID `ky`.
      * @param queueUpdatedCallback {Function}
      *      A callback function, that will be called every time something was
      *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
@@ -133,9 +134,6 @@ define([
      *     This participant's static/long term private key.
      * @property pubKey {string}
      *     This participant's static/long term public key.
-     * @property staticPubKeyDir {object}
-     *     An object with a `get(key)` method, returning the static public key of
-     *     indicated by member ID `ky`.
      * @property protocolOutQueue {Array}
      *     Queue for outgoing protocol related (non-user) messages, prioritised
      *     in processing over user messages.
@@ -161,7 +159,6 @@ define([
                                   exponentialPadding) {
         this.id = id;
         this.name = name;
-        this.staticPubKeyDir = staticPubKeyDir;
         this.protocolOutQueue = [];
         this.messageOutQueue = [];
         this.uiQueue = [];
@@ -182,10 +179,10 @@ define([
 
         this.greet = new greeter.GreetWrapper(this.id,
                                               privKey, pubKey,
-                                              this.staticPubKeyDir);
+                                              staticPubKeyDir);
 
         // Sanity check.
-        _assert(this.id && privKey && pubKey && this.staticPubKeyDir && this._sessionKeyStore,
+        _assert(this.id && privKey && pubKey && staticPubKeyDir && this._sessionKeyStore,
                 'Constructor call missing required parameters.');
 
         return this;

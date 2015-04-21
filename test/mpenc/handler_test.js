@@ -207,9 +207,7 @@ define([
                                                      _td.STATIC_PUB_KEY_DIR);
                 assert.strictEqual(handler.id, '42');
                 assert.strictEqual(handler.name, 'HHGTTG');
-                assert.ok(handler.staticPubKeyDir.get('3'));
                 assert.deepEqual(handler.greet.askeMember.staticPrivKey, _td.ED25519_PRIV_KEY);
-                assert.ok(handler.greet.staticPubKeyDir);
                 assert.ok(handler.greet.cliquesMember);
             });
         });
