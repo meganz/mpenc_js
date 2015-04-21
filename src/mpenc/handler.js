@@ -465,20 +465,8 @@ define([
                 this.start(wireMessage.from);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
-                var decodedMessage = null;
-                // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
-                if (this.greet.getEphemeralPubKey()) {
-                    // In case of a key refresh (groupKey existent),
-                    // the signing pubKeys won't be part of the message.
-                    // TODO(gk): xl: but we're not checking if this is a key refresh here?
-                    var signingPubKey = this.greet.getEphemeralPubKey(wireMessage.from);
-                    decodedMessage = codec.decodeGreetMessage(classify.content,
-                                                                signingPubKey);
-                } else {
-                    decodedMessage = codec.decodeGreetMessage(classify.content);
-                }
                 var self = this;
-                this.greet.processIncoming(decodedMessage,
+                this.greet.processIncoming(wireMessage.from, classify.content,
                     this.quit.bind(this),
                     function(greet) { self._messageSecurity = self._newMessageSecurity(greet); },
                     function(e) { self.sendError(ns.ERROR.TERMINAL, e.message); },

@@ -21,8 +21,9 @@ define([
     "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
+    "mpenc/codec",
     "megalogger",
-], function(assert, utils, cliques, ske, MegaLogger) {
+], function(assert, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -44,243 +45,6 @@ define([
     var _assert = assert.assert;
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
-
-    // Message type bit mapping
-    ns._AUX_BIT = 0;
-    ns._DOWN_BIT = 1;
-    ns._GKA_BIT = 2;
-    ns._SKE_BIT = 3;
-    ns._OP_BITS = 4;
-    ns._INIT_BIT = 7;
-    ns._RECOVER_BIT = 8;
-    ns._OPERATION = { DATA: 0x00,
-                      START: 0x01,
-                      JOIN: 0x02,
-                      EXCLUDE: 0x03,
-                      REFRESH: 0x04,
-                      QUIT: 0x05 };
-    ns._OPERATION_MASK = 0x07 << ns._OP_BITS;
-    // Add reverse mapping to string representation.
-    ns.OPERATION_MAPPING = {};
-    for (var propName in ns._OPERATION) {
-        ns.OPERATION_MAPPING[ns._OPERATION[propName]] = propName;
-    }
-
-
-    /**
-     * "Enumeration" message types.
-     *
-     * @property PARTICIPANT_DATA {string}
-     *     Data message.
-     * @property INIT_INITIATOR_UP {string}
-     *     Initiator initial upflow.
-     * @property INIT_PARTICIPANT_UP {string}
-     *     Participant initial upflow message.
-     * @property INIT_PARTICIPANT_DOWN {string}
-     *     Participant initial downflow.
-     * @property INIT_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant initial subsequent downflow.
-     * @property RECOVER_INIT_INITIATOR_UP {string}
-     *     Initiator initial upflow for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_UP {string}
-     *     Participant initial upflow message for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_DOWN {string}
-     *     Participant initial downflow for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant initial subsequent downflow for recovery.
-     * @property JOIN_AUX_INITIATOR_UP {string}
-     *     Initiator aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_UP {string}
-     *     Participant aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux join downflow.
-     * @property JOIN_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux join subsequent downflow.
-     * @property EXCLUDE_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux exclude downflow.
-     * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux exclude subsequent.
-     * @property RECOVER_EXCLUDE_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux exclude downflow for recovery.
-     * @property RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux exclude subsequent for recovery.
-     * @property REFRESH_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux refresh downflow.
-     * @property REFRESH_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux refresh downflow.
-     * @property RECOVER_REFRESH_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux refresh downflow. for recovery
-     * @property RECOVER_REFRESH_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux refresh downflow for recovery.
-     * @property QUIT_DOWN {string}
-     *     Indicating departure. (Must be followed by an exclude sequence.)
-     */
-    ns.MESSAGE_TYPE = {
-        // Data message.
-        PARTICIPANT_DATA:                      '\u0000\u0000', // 0b00000000
-        // Initial start sequence.
-        INIT_INITIATOR_UP:                     '\u0000\u009c', // 0b10011100
-        INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
-        INIT_PARTICIPANT_DOWN:                 '\u0000\u001e', // 0b00011110
-        INIT_PARTICIPANT_CONFIRM_DOWN:         '\u0000\u001a', // 0b00011010
-        RECOVER_INIT_INITIATOR_UP:             '\u0001\u009c', // 0b10011100
-        RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
-        RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
-        RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
-        // Join sequence.
-        JOIN_AUX_INITIATOR_UP:                 '\u0000\u00ad', // 0b10101101
-        JOIN_AUX_PARTICIPANT_UP:               '\u0000\u002d', // 0b00101101
-        JOIN_AUX_PARTICIPANT_DOWN:             '\u0000\u002f', // 0b00101111
-        JOIN_AUX_PARTICIPANT_CONFIRM_DOWN:     '\u0000\u002b', // 0b00101011
-        // Exclude sequence.
-        EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
-        EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
-        RECOVER_EXCLUDE_AUX_INITIATOR_DOWN:    '\u0001\u00bf', // 0b10111111
-        RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN: '\u0001\u003b', // 0b00111011
-        // Refresh sequence.
-        REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
-        REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
-        RECOVER_REFRESH_AUX_INITIATOR_DOWN:    '\u0001\u00c7', // 0b11000111
-        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:  '\u0001\u0047', // 0b01000111
-        // Quit indication.
-        QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
-    };
-
-
-    /** Mapping of message type to string representation. */
-    ns.MESSAGE_TYPE_MAPPING = {};
-    for (var propName in ns.MESSAGE_TYPE) {
-        ns.MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
-    }
-
-
-    /**
-     * Converts a message type string to a number.
-     *
-     * @param typeString {string}
-     * @return {integer}
-     *     Number representing the message type.
-     */
-    ns.messageTypeToNumber = function(typeString) {
-        return (typeString.charCodeAt(0) << 8)
-                | typeString.charCodeAt(1);
-    };
-
-
-    /**
-     * Converts a message type number to a message type string.
-     *
-     * @param typeNumber {integer}
-     * @return {string}
-     *     Two character string of message type.
-     */
-    ns.messageTypeFromNumber = function(typeNumber) {
-        return String.fromCharCode(typeNumber >>> 8)
-               + String.fromCharCode(typeNumber & 0xff);
-    };
-
-
-    // Checks whether a specific bit is set on a message type.
-    function _isBitSetOnMessageType(messageType, bit) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
-        }
-        return ((messageType & (1 << bit)) > 0);
-    }
-
-
-    /**
-     * Inspects the AUX bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isAuxBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._AUX_BIT);
-    };
-
-
-    /**
-     * Inspects the DOWN bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isDownBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._DOWN_BIT);
-    };
-
-
-    /**
-     * Inspects the GKA bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isGkaBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._GKA_BIT);
-    };
-
-
-    /**
-     * Inspects the SKE bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isSkeBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._SKE_BIT);
-    };
-
-
-    /**
-     * Inspects the INIT bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isInitBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._INIT_BIT);
-    };
-
-
-    /**
-     * Inspects the RECOVER bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isRecoverBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._RECOVER_BIT);
-    };
-
-
-    /**
-     * Inspects the OPERATION bits of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {integer}
-     *     Number of the operation.
-     */
-    ns.getOperationOnMessageType = function(messageType) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
-        }
-        return (messageType & ns._OPERATION_MASK) >>> ns._OP_BITS;
-    };
 
 
     /**
@@ -317,290 +81,6 @@ define([
     ns.STATE_MAPPING = {};
     for (var propName in ns.STATE) {
         ns.STATE_MAPPING[ns.STATE[propName]] = propName;
-    }
-
-
-    /**
-     * Carries message content for the mpENC protocol flow and data messages.
-     *
-     * @constructor
-     * @param source {string}
-     *     Message originator (from).
-     * @returns {mpenc.greet.greeter.ProtocolMessage}
-     *
-     * @property source {string|object}
-     *     Message originator (from) or a {ProtocolMessage} object to copy.
-     * @property dest {string}
-     *     Message destination (to).
-     * @property messageType {string}
-     *     mpENC protocol message type, one of {mpenc.greet.greeter.MESSAGE_TYPE}.
-     * @property sidkeyHint {string}
-     *     One character string (a single byte), hinting at the right
-     *     combination of session ID and group key used for a data message.
-     * @property members {Array<string>}
-     *     List (array) of all participating members.
-     * @property intKeys {Array<string>}
-     *     List (array) of intermediate keys for group key agreement.
-     * @property debugKeys {Array<string>}
-     *     List (array) of keying debugging strings.
-     * @property nonces {Array<string>}
-     *     Nonces of members for ASKE.
-     * @property pubKeys {Array<string>}
-     *     Ephemeral public signing key of members.
-     * @property sessionSignature {string}
-     *     Session acknowledgement signature using sender's static key.
-     * @property signingKey {string}
-     *     Ephemeral private signing key for session (upon quitting participation).
-     * @property signature {string}
-     *     Binary signature string for the message
-     * @property signatureOk {bool}
-     *     Indicator whether the message validates. after message decoding.
-     * @property rawMessage {string}
-     *     The raw message, after splitting off the signature. Can be used to
-     *     re-verify the signature, if needed.
-     * @property protocol {string}
-     *     Single byte string indicating the protocol version using the binary
-     *     version of the character.
-     * @property data {string}
-     *     Binary string containing the decrypted pay load of the message.
-     */
-    var ProtocolMessage = function(source) {
-        if (source === undefined) {
-            source = {};
-        }
-        if (source instanceof Object) {
-            this.source = source.source || '';
-        } else {
-            this.source = source || '';
-        }
-        this.dest = source.dest || '';
-        this.messageType = source.messageType || null;
-        this.sidkeyHint = source.sidkeyHint || null;
-        this.members = source.members || [];
-        this.intKeys = source.intKeys || [];
-        this.debugKeys = source.debugKeys || [];
-        this.nonces = source.nonces || [];
-        this.pubKeys = source.pubKeys || [];
-        this.sessionSignature = source.sessionSignature || null;
-        this.signingKey = source.signingKey || null;
-        this.signature = source.signature || null;
-        this.signatureOk = source.signatureOk || false;
-        this.rawMessage = source.rawMessage || null;
-        this.protocol = source.protocol || null;
-        this.data = source.data || null;
-
-        return this;
-    };
-    ns.ProtocolMessage = ProtocolMessage;
-
-
-    /**
-     * Returns a numeric representation of the message type.
-     *
-     * @method
-     * @returns {integer}
-     *     Message type as numeric value.
-     */
-    ProtocolMessage.prototype.getMessageTypeNumber = function() {
-        return ns.messageTypeToNumber(this.messageType);
-    };
-
-
-
-
-
-    /**
-     * Returns a string representation of the message type.
-     *
-     * @method
-     * @returns {string}
-     *     Message type as human readable string.
-     */
-    ProtocolMessage.prototype.getMessageTypeString = function() {
-        return ns.MESSAGE_TYPE_MAPPING[this.messageType];
-    };
-
-
-    /**
-     * Sets a bit on the message type to a particular value.
-     *
-     * @method
-     * @param {integer}
-     *     Bit number to modify.
-     * @param {bool}
-     *     Value to set bit to.
-     * @param {bool}
-     *     If `true`, no checks for legal message transitions are performed
-     *     (default: false).
-     * @throws {Error}
-     *     In case of a resulting illegal/non-existent message type.
-     */
-    ProtocolMessage.prototype._setBit= function(bit, value, noMessageCheck) {
-        var newMessageTypeNum = this.getMessageTypeNumber();
-        if (value === true || value === 1) {
-            newMessageTypeNum |= 1 << bit;
-        } else if (value === 0 || value === false) {
-            newMessageTypeNum &= 0xffff - (1 << bit);
-        } else {
-            throw new Error("Illegal value for set/clear bit operation.");
-        }
-        var newMessageType = ns.messageTypeFromNumber(newMessageTypeNum);
-        if (ns.MESSAGE_TYPE_MAPPING[newMessageType] === undefined) {
-            if (noMessageCheck !== true && noMessageCheck !== 1) {
-                throw new Error("Illegal message type!");
-            } else {
-                this.messageType = newMessageType;
-                logger.debug('Arrived at an illegal message type, but was told to ignore it: '
-                             + newMessageType);
-            }
-        } else {
-            this.messageType = newMessageType;
-        }
-    };
-
-
-    /**
-     * Reads a bit on the message type to a particular value.
-     *
-     * @method
-     * @param {integer}
-     *     Bit number to read.
-     * @return {bool}
-     *     Value of bit.
-     */
-    ProtocolMessage.prototype._readBit= function(bit) {
-        return (_isBitSetOnMessageType(this.messageType, bit));
-    };
-
-
-    /**
-     * Returns whether the message is for an auxiliary protocol flow.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for an auxiliary protocol flow.
-     */
-    ProtocolMessage.prototype.isAuxiliary = function() {
-        return this._readBit(ns._AUX_BIT);
-    };
-
-
-    /**
-     * Returns whether the message is for the downflow (broadcast).
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a downflow message.
-     */
-    ProtocolMessage.prototype.isDownflow = function() {
-        return this._readBit(ns._DOWN_BIT);
-    };
-
-
-    /**
-     * Sets the downflow bit on the message type.
-     *
-     * @method
-     * @param {bool}
-     *     If `true`, no checks for legal message transitions are performed
-     *     (default: false).
-     * @throws {Error}
-     *     In case of a resulting illegal/non-existent message type.
-     */
-    ProtocolMessage.prototype.setDownflow = function(noMessageCheck) {
-        return this._setBit(ns._DOWN_BIT, true, noMessageCheck);
-    };
-
-
-    /**
-     * Returns whether the message is for the Group Key Agreement.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a message containing GKA content.
-     */
-    ProtocolMessage.prototype.isGKA = function() {
-        return this._readBit(ns._GKA_BIT);
-    };
-
-
-    /**
-     * Clears the Group Key Agreement bit on the message type.
-     *
-     * @method
-     * @param {bool}
-     *     If `true`, no checks for legal message transitions are performed
-     *     (default: false).
-     * @throws {Error}
-     *     In case of a resulting illegal/non-existent message type.
-     */
-    ProtocolMessage.prototype.clearGKA = function(noMessageCheck) {
-        return this._setBit(ns._GKA_BIT, false, noMessageCheck);
-    };
-
-
-    /**
-     * Returns whether the message is for the Signature Key Exchange.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a message containing SKE content.
-     */
-    ProtocolMessage.prototype.isSKE = function() {
-        return this._readBit(ns._SKE_BIT);
-    };
-
-
-    /**
-     * Returns whether the message is from the protocol flow initiator.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a message from the protocol flow initiator.
-     */
-    ProtocolMessage.prototype.isInitiator = function() {
-        return this._readBit(ns._INIT_BIT);
-    };
-
-
-    /**
-     * Clears the initiator bit on the message type.
-     *
-     * @method
-     * @param {bool}
-     *     If `true`, no checks for legal message transitions are performed
-     *     (default: false).
-     * @throws {Error}
-     *     In case of a resulting illegal/non-existent message type.
-     */
-    ProtocolMessage.prototype.clearInitiator = function(noMessageCheck) {
-        return this._setBit(ns._INIT_BIT, false, noMessageCheck);
-    };
-
-
-    /**
-     * Returns whether the message is for a recovery protocol flow.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a message for a recovery flow.
-     */
-    ProtocolMessage.prototype.isRecover = function() {
-        return this._readBit(ns._RECOVER_BIT);
-    }
-
-
-    /**
-     * Returns the protocol operation of the message.
-     *
-     * @method
-     * @returns {string}
-     *     A clear text expression of the type of protocol operation.
-     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
-     */
-    ProtocolMessage.prototype.getOperation = function() {
-        return ns.OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)
-                                    >>> ns._OP_BITS];
     }
 
 
@@ -683,9 +163,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.RECOVER_INIT_INITIATOR_UP;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_INIT_INITIATOR_UP;
         } else {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.INIT_INITIATOR_UP;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
         }
         return protocolMessage;
     };
@@ -707,7 +187,7 @@ define([
         var askeMessage = this.askeMember.join(newMembers);
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.messageType = ns.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
+        protocolMessage.messageType = codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
         return protocolMessage;
     };
 
@@ -731,9 +211,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
         }
 
         // We need to update the session state.
@@ -758,7 +238,7 @@ define([
         var askeMessage = this.askeMember.quit();
 
         var protocolMessage = this._mergeMessages(null, askeMessage);
-        protocolMessage.messageType = ns.MESSAGE_TYPE.QUIT_DOWN;
+        protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
         return protocolMessage;
     };
 
@@ -775,9 +255,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, null);
         if (this.recovering) {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.messageType = ns.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN;
+            protocolMessage.messageType = codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         }
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
@@ -785,8 +265,20 @@ define([
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(decodedMessage,
+    GreetWrapper.prototype.processIncoming = function(from, content,
             quitCallback, readyCallback, errorCallback, pushCallback, stateUpdatedCallback) {
+        var decodedMessage = null;
+        // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
+        if (this.getEphemeralPubKey()) {
+            // In case of a key refresh (groupKey existent),
+            // the signing pubKeys won't be part of the message.
+            // TODO(gk): xl: but we're not checking if this is a key refresh here?
+            var signingPubKey = this.getEphemeralPubKey(from);
+            decodedMessage = codec.decodeGreetMessage(content,
+                                                        signingPubKey);
+        } else {
+            decodedMessage = codec.decodeGreetMessage(content);
+        }
         var oldState = this.state;
         try {
             var keyingMessageResult = this._processMessage(decodedMessage);
@@ -886,7 +378,7 @@ define([
         var newState = null;
 
         // Three cases: QUIT, upflow or downflow message.
-        if (message.messageType === ns.MESSAGE_TYPE.QUIT_DOWN) {
+        if (message.messageType === codec.MESSAGE_TYPE.QUIT_DOWN) {
             // QUIT message.
             _assert(message.signingKey,
                     'Inconsistent message content with message type (signingKey).');
@@ -983,7 +475,7 @@ define([
             return null;
         }
 
-        var newMessage = new ns.ProtocolMessage(this.id);
+        var newMessage = new codec.ProtocolMessage(this.id);
 
         if (cliquesMessage && askeMessage) {
             _assert(cliquesMessage.source === askeMessage.source,
