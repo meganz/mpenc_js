@@ -356,7 +356,7 @@ define([
             });
         });
 
-        describe('#processMessage() method', function() {
+        describe('#_processMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2',
                                 messageType: ns.MESSAGE_TYPE.INIT_INITIATOR_UP,
@@ -374,7 +374,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_UPFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
@@ -409,7 +409,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.NULL;
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
@@ -444,7 +444,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.AUX_DOWNFLOW;
                 participant.askeMember.authenticatedMembers= [true, true, true, true, true]
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(participant.recovering, true);
                 assert.deepEqual(participant.askeMember.authenticatedMembers, [false, false, false, false, true]);
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
@@ -479,7 +479,7 @@ define([
                 sandbox.spy(participant.askeMember, 'upflow');
                 sandbox.stub(participant.askeMember, 'downflow');
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.ProtocolMessage({dest: ''}));
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -511,7 +511,7 @@ define([
                                                                                              dest: '',
                                                                                              flow: 'down',
                                                                                              signingKey: _td.ED25519_PRIV_KEY }));
-                assert.throws(function() { participant.processMessage(new ns.ProtocolMessage(message)); },
+                assert.throws(function() { participant._processMessage(new ns.ProtocolMessage(message)); },
                               'Session authentication by member 5 failed.');
             });
 
@@ -537,7 +537,7 @@ define([
                 sandbox.stub(participant.askeMember, 'downflow');
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.ProtocolMessage({dest: ''}));
                 sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.READY);
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -554,7 +554,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
                 participant.askeMember.ephemeralPubKeys = {'1': _td.ED25519_PUB_KEY};
-                var result = participant.processMessage(
+                var result = participant._processMessage(
                         new ns.ProtocolMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].priv, _td.ED25519_PRIV_KEY);
                 assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
@@ -566,7 +566,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.QUIT;
-                var result = participant.processMessage(
+                var result = participant._processMessage(
                         new ns.ProtocolMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(result, null);
                 assert.strictEqual(participant.state, ns.STATE.QUIT);
@@ -581,7 +581,7 @@ define([
                                 messageType: ns.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.READY;
-                var result = participant.processMessage(
+                var result = participant._processMessage(
                         new ns.ProtocolMessage(message));
                 assert.deepEqual(result,
                                  { decodedMessage: null, newState: ns.STATE.QUIT });
@@ -596,7 +596,7 @@ define([
                                 messageType: ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '3', '2', '4', '5'] };
                 participant.state = ns.STATE.INIT_UPFLOW;
-                var result = participant.processMessage(
+                var result = participant._processMessage(
                         new ns.ProtocolMessage(message));
                 assert.strictEqual(result, null);
             });
@@ -610,7 +610,7 @@ define([
                                 messageType: ns.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.AUX_DOWNFLOW;
-                var result = participant.processMessage(new ns.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.ProtocolMessage(message));
                 assert.strictEqual(result, null);
             });
         });

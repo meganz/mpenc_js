@@ -785,6 +785,46 @@ define([
     };
 
 
+    GreetWrapper.prototype.processIncoming = function(decodedMessage,
+            quitCallback, readyCallback, errorCallback, pushCallback, stateUpdatedCallback) {
+        var oldState = this.state;
+        try {
+            var keyingMessageResult = this._processMessage(decodedMessage);
+            if (keyingMessageResult && keyingMessageResult.newState !== null) {
+                if (keyingMessageResult.newState === ns.STATE.QUIT) {
+                    quitCallback();
+                } else if (keyingMessageResult.newState === ns.STATE.READY) {
+                    readyCallback(this);
+                }
+            }
+        } catch (e) {
+            if (e.message.lastIndexOf('Session authentication by member') === 0) {
+                errorCallback(e);
+                return;
+            } else {
+                throw e;
+            }
+        }
+        if (keyingMessageResult === null) {
+            return;
+        }
+        var outContent = keyingMessageResult.decodedMessage;
+
+        if (outContent) {
+            pushCallback(outContent);
+        } else {
+            // Nothing to do, we're done here.
+            // TODO(gk): xl: does this mean we should actually break here?
+        }
+        if (keyingMessageResult.newState &&
+                (keyingMessageResult.newState !== oldState)) {
+            // Update the state if required.
+            logger.debug('Reached new state: '
+                         + ns.STATE_MAPPING[keyingMessageResult.newState]);
+            stateUpdatedCallback(keyingMessageResult.newState);
+        }
+    };
+
     /**
      * Handles greet (key agreement) protocol execution with all participants.
      *
@@ -797,7 +837,7 @@ define([
      *     optional (null if not used) the new the GreetWrapper state in
      *     attribute `newState`.
      */
-    GreetWrapper.prototype.processMessage = function(message) {
+    GreetWrapper.prototype._processMessage = function(message) {
         logger.debug('Processing message of type '
                      + message.getMessageTypeString());
         if (this.state === ns.STATE.QUIT) {

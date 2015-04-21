@@ -466,52 +466,25 @@ define([
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 var decodedMessage = null;
+                // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
                 if (this.greet.getEphemeralPubKey()) {
                     // In case of a key refresh (groupKey existent),
                     // the signing pubKeys won't be part of the message.
+                    // TODO(gk): xl: but we're not checking if this is a key refresh here?
                     var signingPubKey = this.greet.getEphemeralPubKey(wireMessage.from);
                     decodedMessage = codec.decodeGreetMessage(classify.content,
                                                                 signingPubKey);
                 } else {
                     decodedMessage = codec.decodeGreetMessage(classify.content);
                 }
-                // This is an mpenc.greet message.
-                var oldState = this.greet.state;
-                try {
-                    var keyingMessageResult = this.greet.processMessage(decodedMessage);
-                    if (keyingMessageResult && keyingMessageResult.newState !== null) {
-                        if (keyingMessageResult.newState === greeter.STATE.QUIT) {
-                            this.quit();
-                        } else if (keyingMessageResult.newState === greeter.STATE.READY) {
-                            this._messageSecurity = this._newMessageSecurity(this.greet);
-                        }
-                    }
-                } catch (e) {
-                    if (e.message.lastIndexOf('Session authentication by member') === 0) {
-                        this.sendError(ns.ERROR.TERMINAL, e.message);
-                        return;
-                    } else {
-                        throw e;
-                    }
-                }
-                if (keyingMessageResult === null) {
-                    return;
-                }
-                var outContent = keyingMessageResult.decodedMessage;
-
-                if (outContent) {
-                    this._pushGreetMessage(outContent);
-                } else {
-                    // Nothing to do, we're done here.
-                    // TODO(gk): xl: does this mean we should actually break here?
-                }
-                if(keyingMessageResult.newState &&
-                        (keyingMessageResult.newState !== oldState)) {
-                    // Update the state if required.
-                    logger.debug('Reached new state: '
-                                 + greeter.STATE_MAPPING[keyingMessageResult.newState]);
-                    this._updateGreetState(keyingMessageResult.newState);
-                }
+                var self = this;
+                this.greet.processIncoming(decodedMessage,
+                    this.quit.bind(this),
+                    function(greet) { self._messageSecurity = self._newMessageSecurity(greet); },
+                    function(e) { self.sendError(ns.ERROR.TERMINAL, e.message); },
+                    this._pushGreetMessage.bind(this),
+                    this._updateGreetState.bind(this)
+                    );
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
                 var decodedMessage = null;

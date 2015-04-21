@@ -1232,7 +1232,7 @@ define([
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
-                sandbox.stub(participant.greet, 'processMessage').returns(
+                sandbox.stub(participant.greet, '_processMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
                 sandbox.stub(participant.greet, 'getEphemeralPubKey').returns(_td.ED25519_PUB_KEY);
@@ -1243,7 +1243,7 @@ define([
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(codec.decodeGreetMessage);
-                sinon_assert.calledOnce(participant.greet.processMessage);
+                sinon_assert.calledOnce(participant.greet._processMessage);
                 sinon_assert.calledOnce(codec.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
@@ -1271,7 +1271,7 @@ define([
                           content: 'foo' });
                 sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.spy(participant, 'quit');
-                sandbox.stub(participant.greet, 'processMessage')
+                sandbox.stub(participant.greet, '_processMessage')
                         .throws(new Error('Session authentication by member 5 failed.'));
                 sandbox.stub(participant.greet, 'getEphemeralPrivKey').returns(_td.ED25519_PRIV_KEY);
                 sandbox.stub(participant.greet, 'getEphemeralPubKey').returns(_td.ED25519_PUB_KEY);
@@ -1283,7 +1283,7 @@ define([
                 participant.processMessage(message);
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(codec.decodeGreetMessage.callCount, 1);
-                assert.strictEqual(participant.greet.processMessage.callCount, 1);
+                assert.strictEqual(participant.greet._processMessage.callCount, 1);
                 assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
                 assert.strictEqual(participant.greet.getEphemeralPubKey.callCount, 4);
                 assert.strictEqual(codec.encodeGreetMessage.callCount, 1);
@@ -1321,7 +1321,7 @@ define([
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
-                sandbox.stub(participant.greet, 'processMessage').returns(
+                sandbox.stub(participant.greet, '_processMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
                 sandbox.stub(codec, 'encodeGreetMessage', _echo);
@@ -1329,7 +1329,7 @@ define([
                 sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(codec.decodeGreetMessage);
                 assert.strictEqual(codec.decodeGreetMessage.getCall(0).args[1], _td.ED25519_PUB_KEY);
-                sinon_assert.calledOnce(participant.greet.processMessage);
+                sinon_assert.calledOnce(participant.greet._processMessage);
                 sinon_assert.calledOnce(codec.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
