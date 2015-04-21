@@ -85,6 +85,117 @@ define([
 
 
     /**
+     * Decodes a given TLV encoded Greet message into an object.
+     *
+     * @param message {string}
+     *     A binary message representation.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @param sessionID {string}
+     *     Session ID.
+     * @param groupKey {string}
+     *     Symmetric group encryption key to encrypt message.
+     * @returns {mpenc.codec.ProtocolMessage}
+     *     Message as JavaScript object.
+     */
+    ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
+        var out = codec.decodeMessageTLVs(message);
+
+        // Some specifics depending on the type of mpENC message.
+        var sidkeyHash = '';
+        _assert(!out.data);
+        // Some sanity checks for keying messages.
+        _assert(out.intKeys.length <= out.members.length,
+                'Number of intermediate keys cannot exceed number of members.');
+        _assert(out.nonces.length <= out.members.length,
+                'Number of nonces cannot exceed number of members.');
+        _assert(out.pubKeys.length <= out.members.length,
+                'Number of public keys cannot exceed number of members.');
+
+        // Check signature, if present.
+        // TODO SECURITY REVIEW: why "if present"?
+        if (out.signature) {
+            if (!pubKey) {
+                var index = out.members.indexOf(out.source);
+                pubKey = out.pubKeys[index];
+            }
+            try {
+                out.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                                            out.rawMessage,
+                                                            out.signature,
+                                                            pubKey,
+                                                            sidkeyHash);
+                _assert(out.signatureOk,
+                        'Signature of message does not verify!');
+            } catch (e) {
+                out.signatureOk = false;
+                _assert(out.signatureOk,
+                        'Signature of message does not verify: ' + e + '!');
+            }
+        }
+        return out;
+    };
+
+
+    /**
+     * Encodes a given greet message ready to be put onto the wire, using
+     * base64 encoding for the binary message pay load.
+     *
+     * @param message {mpenc.codec.ProtocolMessage}
+     *     Message as JavaScript object.
+     * @param privKey {string}
+     *     Sender's (ephemeral) private signing key.
+     * @param pubKey {string}
+     *     Sender's (ephemeral) public signing key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
+     * @returns {string}
+     *     A wire ready message representation.
+     */
+    ns.encodeGreetMessage = function(message, privKey, pubKey, paddingSize) {
+        if (message === null || message === undefined) {
+            return null;
+        }
+        paddingSize = paddingSize | 0;
+
+        var out = codec.ENCODED_VERSION;
+        // Process message attributes in this order:
+        // messageType, source, dest, members, intKeys, nonces, pubKeys,
+        // sessionSignature, signingKey
+        out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_TYPE, message.messageType);
+        out += codec.encodeTLV(codec.TLV_TYPE.SOURCE, message.source);
+        out += codec.encodeTLV(codec.TLV_TYPE.DEST, message.dest);
+        if (message.members) {
+            out += codec._encodeTlvArray(codec.TLV_TYPE.MEMBER, message.members);
+        }
+        if (message.intKeys) {
+            out += codec._encodeTlvArray(codec.TLV_TYPE.INT_KEY, message.intKeys);
+        }
+        if (message.nonces) {
+            out += codec._encodeTlvArray(codec.TLV_TYPE.NONCE, message.nonces);
+        }
+        if (message.pubKeys) {
+            out += codec._encodeTlvArray(codec.TLV_TYPE.PUB_KEY, message.pubKeys);
+        }
+        if (message.sessionSignature) {
+            out += codec.encodeTLV(codec.TLV_TYPE.SESSION_SIGNATURE, message.sessionSignature);
+        }
+        if (message.signingKey) {
+            out += codec.encodeTLV(codec.TLV_TYPE.SIGNING_KEY, message.signingKey);
+        }
+        // Sign `out` and prepend signature.
+        var signature = codec.signMessage(codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                                       out, privKey, pubKey);
+        out = codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
+
+        return codec.encodeWireMessage(out);
+    };
+
+
+    /**
      * Implementation of a protocol handler with its state machine.
      *
      * @constructor
@@ -274,10 +385,10 @@ define([
             // the signing pubKeys won't be part of the message.
             // TODO(gk): xl: but we're not checking if this is a key refresh here?
             var signingPubKey = this.getEphemeralPubKey(from);
-            decodedMessage = codec.decodeGreetMessage(content,
+            decodedMessage = ns.decodeGreetMessage(content,
                                                         signingPubKey);
         } else {
-            decodedMessage = codec.decodeGreetMessage(content);
+            decodedMessage = ns.decodeGreetMessage(content);
         }
         var oldState = this.state;
         try {

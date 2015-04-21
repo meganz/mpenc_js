@@ -205,7 +205,7 @@ define([
     ns.ProtocolHandler.prototype._pushGreetMessage = function(outContent) {
         if (outContent) {
             this._pushMessage(outContent.dest,
-                codec.encodeGreetMessage(
+                greeter.encodeGreetMessage(
                     outContent,
                     this.greet.getEphemeralPrivKey(),
                     this.greet.getEphemeralPubKey()

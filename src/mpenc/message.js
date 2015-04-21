@@ -149,7 +149,7 @@ define([
         out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
         out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
         out += content;
-        return codec.PROTOCOL_PREFIX + ':' + btoa(out) + '.';
+        return codec.encodeWireMessage(out);
     };
 
     /**

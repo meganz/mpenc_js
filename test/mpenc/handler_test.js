@@ -221,10 +221,10 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 var message = {message: "I'm puttin' the band back together!",
                                dest: 'elwood@blues.org/ios1234'};
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(participant.greet, 'start').returns(message);
                 participant.start(['elwood@blues.org/ios1234']);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.start);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -264,10 +264,10 @@ define([
                 participant.greet.state = greeter.STATE.READY;
                 var message = {message: "I'm puttin' the band back together!",
                                dest: 'ray@charles.org/ios1234'};
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(participant.greet, 'join').returns(message);
                 participant.join(['ray@charles.org/ios1234']);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.join);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -308,10 +308,10 @@ define([
                 var message = {message: "You're fired!",
                                members: ['a.dumbledore@hogwarts.ac.uk/android123', 'further.staff'],
                                dest: ''};
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(participant.greet, 'exclude').returns(message);
                 participant.exclude(['g.lockhart@hogwarts.ac.uk/ios1234']);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.exclude);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -333,10 +333,10 @@ define([
                 var message = {message: "He's dead, Jim!",
                                members: ['mccoy@ncc-1701.mil/android123', 'kirk@ncc-1701.mil/android456'],
                                dest: ''};
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(participant.greet, 'exclude').returns(message);
                 participant.exclude(['red.shirt@ncc-1701.mil/ios1234']);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.exclude);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -427,10 +427,10 @@ define([
                 var message = {signingKey: 'Sledge Hammer',
                                source: 'peter@genesis.co.uk/android4711',
                                dest: ''};
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.greet.quit = stub().returns(message);
                 participant.quit();
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.quit);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -498,10 +498,10 @@ define([
                 participant.greet.askeMember.ephemeralPubKeys = [];
                 var message = { message: "Fresh Prince",
                                 dest: '' };
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.greet.refresh = stub().returns(message);
                 participant.refresh();
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.refresh);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -544,12 +544,12 @@ define([
                                 members: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
                                           'Saturn', 'Uranus', 'Neptune'],
                                 dest: 'Mercury' };
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(participant.greet, 'start').returns(message);
                 var keepMembers = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
                                    'Saturn', 'Uranus', 'Neptune'];
                 participant.fullRefresh(keepMembers);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet.start);
                 sinon.assert.calledWith(participant.greet.start,
                                         ['Mercury', 'Venus', 'Mars', 'Jupiter',
@@ -629,7 +629,7 @@ define([
                                                         'o-ren@ishi.jp/ios1234'];
                 sandbox.stub(participant.greet, 'discardAuthentications');
                 sandbox.stub(participant, 'exclude');
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.recover(['beatrix@kiddo.com/android123', 'o-ren@ishi.jp/ios1234']);
                 sinon_assert.calledOnce(participant.greet.discardAuthentications);
                 sinon_assert.calledOnce(participant.exclude);
@@ -1231,7 +1231,7 @@ define([
                 sandbox.stub(codec, 'categoriseMessage').returns(
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
-                sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
@@ -1239,12 +1239,12 @@ define([
                 sandbox.stub(participant.greet, 'getEphemeralPrivKey').returns(_td.ED25519_PRIV_KEY);
                 sandbox.stub(participant.greet, 'getMembers').returns([]);
                 sandbox.stub(participant.greet, 'getEphemeralPubKeys').returns([]);
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.categoriseMessage);
-                sinon_assert.calledOnce(codec.decodeGreetMessage);
+                sinon_assert.calledOnce(greeter.decodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet._processMessage);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(participant.protocolOutQueue[0].from, '2');
@@ -1269,7 +1269,7 @@ define([
                 sandbox.stub(codec, 'categoriseMessage').returns(
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
-                sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.spy(participant, 'quit');
                 sandbox.stub(participant.greet, '_processMessage')
                         .throws(new Error('Session authentication by member 5 failed.'));
@@ -1279,14 +1279,14 @@ define([
                         { dest: '',
                           source: participant.id,
                           messageType: codec.MESSAGE_TYPE.QUIT_DOWN });
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.processMessage(message);
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
-                assert.strictEqual(codec.decodeGreetMessage.callCount, 1);
+                assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
                 assert.strictEqual(participant.greet._processMessage.callCount, 1);
                 assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
                 assert.strictEqual(participant.greet.getEphemeralPubKey.callCount, 4);
-                assert.strictEqual(codec.encodeGreetMessage.callCount, 1);
+                assert.strictEqual(greeter.encodeGreetMessage.callCount, 1);
                 // To send two messages.
                 assert.lengthOf(participant.protocolOutQueue, 2);
                 assert.lengthOf(participant.uiQueue, 0);
@@ -1320,17 +1320,17 @@ define([
                 sandbox.stub(codec, 'categoriseMessage').returns(
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
-                sandbox.stub(codec, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
+                sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
-                sandbox.stub(codec, 'encodeGreetMessage', _echo);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.categoriseMessage);
-                sinon_assert.calledOnce(codec.decodeGreetMessage);
-                assert.strictEqual(codec.decodeGreetMessage.getCall(0).args[1], _td.ED25519_PUB_KEY);
+                sinon_assert.calledOnce(greeter.decodeGreetMessage);
+                assert.strictEqual(greeter.decodeGreetMessage.getCall(0).args[1], _td.ED25519_PUB_KEY);
                 sinon_assert.calledOnce(participant.greet._processMessage);
-                sinon_assert.calledOnce(codec.encodeGreetMessage);
+                sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].message, _td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(participant.protocolOutQueue[0].from, '1');
