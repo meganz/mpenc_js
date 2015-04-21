@@ -465,14 +465,25 @@ define([
                 this.start(wireMessage.from);
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
-                var self = this;
-                this.greet.processIncoming(wireMessage.from, classify.content,
-                    this.quit.bind(this),
-                    function(greet) { self._messageSecurity = self._newMessageSecurity(greet); },
-                    function(e) { self.sendError(ns.ERROR.TERMINAL, e.message); },
-                    this._pushGreetMessage.bind(this),
-                    this._updateGreetState.bind(this)
-                    );
+                try {
+                    var oldState = this.greet.state;
+                    this.greet.processIncoming(wireMessage.from, classify.content, this._pushGreetMessage.bind(this), this._updateGreetState.bind(this));
+                    var newState = this.greet.state;
+                    if (newState !== oldState) {
+                        if (newState === greeter.STATE.QUIT) {
+                            this.quit();
+                        } else if (newState === greeter.STATE.READY) {
+                            this._messageSecurity = this._newMessageSecurity(this.greet);
+                        }
+                    }
+                } catch (e) {
+                    if (e.message.lastIndexOf('Session authentication by member') === 0) {
+                        this.sendError(ns.ERROR.TERMINAL, e.message);
+                        return;
+                    } else {
+                        throw e;
+                    }
+                }
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
                 var decodedMessage = null;

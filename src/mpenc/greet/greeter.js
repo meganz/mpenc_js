@@ -376,8 +376,7 @@ define([
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(from, content,
-            quitCallback, readyCallback, errorCallback, pushCallback, stateUpdatedCallback) {
+    GreetWrapper.prototype.processIncoming = function(from, content, pushCallback, stateUpdatedCallback) {
         var decodedMessage = null;
         // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
         if (this.getEphemeralPubKey()) {
@@ -391,23 +390,7 @@ define([
             decodedMessage = ns.decodeGreetMessage(content);
         }
         var oldState = this.state;
-        try {
-            var keyingMessageResult = this._processMessage(decodedMessage);
-            if (keyingMessageResult && keyingMessageResult.newState !== null) {
-                if (keyingMessageResult.newState === ns.STATE.QUIT) {
-                    quitCallback();
-                } else if (keyingMessageResult.newState === ns.STATE.READY) {
-                    readyCallback(this);
-                }
-            }
-        } catch (e) {
-            if (e.message.lastIndexOf('Session authentication by member') === 0) {
-                errorCallback(e);
-                return;
-            } else {
-                throw e;
-            }
-        }
+        var keyingMessageResult = this._processMessage(decodedMessage);
         if (keyingMessageResult === null) {
             return;
         }
@@ -419,6 +402,7 @@ define([
             // Nothing to do, we're done here.
             // TODO(gk): xl: does this mean we should actually break here?
         }
+
         if (keyingMessageResult.newState &&
                 (keyingMessageResult.newState !== oldState)) {
             // Update the state if required.
