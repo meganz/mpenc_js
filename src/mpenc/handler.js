@@ -202,6 +202,32 @@ define([
             this._sessionKeyStore)
     };
 
+    ns.ProtocolHandler.prototype._pushGreetMessage = function(outContent) {
+        if (outContent) {
+            this._pushMessage(outContent.dest,
+                codec.encodeGreetMessage(
+                    outContent,
+                    this.greet.getEphemeralPrivKey(),
+                    this.greet.getEphemeralPubKey()
+                )
+            );
+        }
+    };
+
+    ns.ProtocolHandler.prototype._pushMessage = function(to, message) {
+        this.protocolOutQueue.push({
+            from: this.id,
+            to: to,
+            message: message
+        });
+        this.queueUpdatedCallback(this);
+    };
+
+    ns.ProtocolHandler.prototype._updateGreetState = function(state) {
+        this.greet.state = state;
+        this.stateUpdatedCallback(this);
+    };
+
     /**
      * Start the protocol negotiation with the group participants.
      *
@@ -213,21 +239,8 @@ define([
         _assert(this.greet.state === greeter.STATE.NULL,
                 'start() can only be called from an uninitialised state.');
         logger.debug('Invoking initial START flow operation.');
-        this.greet.state = greeter.STATE.INIT_UPFLOW;
-        this.stateUpdatedCallback(this);
-
-        var outContent = this.greet.start(otherMembers);
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey())
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._updateGreetState(greeter.STATE.INIT_UPFLOW);
+        this._pushGreetMessage(this.greet.start(otherMembers));
     };
 
 
@@ -242,21 +255,8 @@ define([
         _assert(this.greet.state === greeter.STATE.READY,
                 'join() can only be called from a ready state.');
         logger.debug('Invoking JOIN flow operation.');
-        this.greet.state = greeter.STATE.AUX_UPFLOW;
-        this.stateUpdatedCallback(this);
-
-        var outContent = this.greet.join(newMembers);
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey()),
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._updateGreetState(greeter.STATE.AUX_UPFLOW);
+        this._pushGreetMessage(this.greet.join(newMembers));
     };
 
 
@@ -277,8 +277,7 @@ define([
                     'exclude() can only be called from a ready state.');
         }
         logger.debug('Invoking EXCLUDE flow operation.');
-        this.greet.state = greeter.STATE.AUX_DOWNFLOW;
-        this.stateUpdatedCallback(this);
+        this._updateGreetState(greeter.STATE.AUX_DOWNFLOW);
 
         var outContent = this.greet.exclude(excludeMembers);
         if (outContent.members.length === 1) {
@@ -287,23 +286,11 @@ define([
             this.quit();
             return;
         }
-
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey()),
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._pushGreetMessage(outContent);
 
         if (this.greet.isSessionAcknowledged()) {
-            this.greet.state = greeter.STATE.READY;
             this._messageSecurity = this._newMessageSecurity(this.greet);
-            this.stateUpdatedCallback(this);
+            this._updateGreetState(greeter.STATE.READY);
         }
     };
 
@@ -321,21 +308,8 @@ define([
         _assert(this.greet.getEphemeralPrivKey() !== null,
                 'Not participating.');
         logger.debug('Invoking QUIT request containing private signing key.');
-        this.greet.state = greeter.STATE.QUIT;
-        this.stateUpdatedCallback(this);
-
-        var outContent = this.greet.quit();
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey()),
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._updateGreetState(greeter.STATE.QUIT);
+        this._pushGreetMessage(this.greet.quit());
     };
 
 
@@ -350,23 +324,12 @@ define([
                 || (this.greet.state === greeter.STATE.AUX_DOWNFLOW),
                 'refresh() can only be called from a ready or downflow states.');
         logger.debug('Invoking REFRESH flow operation.');
-        this.greet.state = greeter.STATE.READY;
         this.refreshing = false;
-        this.stateUpdatedCallback(this);
+        this._updateGreetState(greeter.STATE.READY);
 
         var outContent = this.greet.refresh();
         this._messageSecurity = this._newMessageSecurity(this.greet);
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey()),
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._pushGreetMessage(outContent);
     };
 
 
@@ -379,8 +342,7 @@ define([
      * @method
      */
     ns.ProtocolHandler.prototype.fullRefresh = function(keepMembers) {
-        this.greet.state = greeter.STATE.INIT_UPFLOW;
-        this.stateUpdatedCallback(this);
+        this._updateGreetState(greeter.STATE.INIT_UPFLOW);
 
         // Remove ourselves from members list to keep (if we're in there).
         var otherMembers = utils.clone(this.greet.getMembers());
@@ -400,18 +362,7 @@ define([
             this.quit();
             return;
         }
-
-        if (outContent) {
-            var outMessage = {
-                from: this.id,
-                to: outContent.dest,
-                message: codec.encodeGreetMessage(outContent,
-                                             this.greet.getEphemeralPrivKey(),
-                                             this.greet.getEphemeralPubKey()),
-            };
-            this.protocolOutQueue.push(outMessage);
-            this.queueUpdatedCallback(this);
-        }
+        this._pushGreetMessage(outContent);
     };
 
 
@@ -549,25 +500,17 @@ define([
                 var outContent = keyingMessageResult.decodedMessage;
 
                 if (outContent) {
-                    var outMessage = {
-                        from: this.id,
-                        to: outContent.dest,
-                        message: codec.encodeGreetMessage(outContent,
-                                                     this.greet.getEphemeralPrivKey(),
-                                                     this.greet.getEphemeralPubKey()),
-                    };
-                    this.protocolOutQueue.push(outMessage);
-                    this.queueUpdatedCallback(this);
+                    this._pushGreetMessage(outContent);
                 } else {
                     // Nothing to do, we're done here.
+                    // TODO(gk): xl: does this mean we should actually break here?
                 }
                 if(keyingMessageResult.newState &&
                         (keyingMessageResult.newState !== oldState)) {
                     // Update the state if required.
                     logger.debug('Reached new state: '
                                  + greeter.STATE_MAPPING[keyingMessageResult.newState]);
-                    this.greet.state = keyingMessageResult.newState;
-                    this.stateUpdatedCallback(this);
+                    this._updateGreetState(keyingMessageResult.newState);
                 }
                 break;
             case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
@@ -669,45 +612,6 @@ define([
 
 
     /**
-     * Sends a message confidentially to an individual participant.
-     *
-     * *Warning:*
-     *
-     * A directed message is sent to one recipient only *to avoid network
-     * traffic.* For the current implementation, from a protection point of
-     * view the message has to be considered public in a group communication
-     * context. This means, that this mechanism is unsuitable for exchanging
-     * conversation transcripts with group participants in the presence of
-     * participants who are not entitled to *all* messages within the
-     * transcript!
-     *
-     * @method
-     * @param messageContent {string}
-     *     Unencrypted message content to be sent (plain text or HTML).
-     * @param to {string}
-     *     Recipient of a directed message (optional, default is to send to
-     *     entire group). *Note:* See warning on confidentiality above!
-     * @param metadata {*}
-     *     Use this argument to pass additional meta-data to be used later in
-     *     plain text (unencrypted) in the implementation.
-     */
-    ns.ProtocolHandler.prototype.sendTo = function(messageContent, to, metadata) {
-        _assert(this.greet.state === greeter.STATE.READY,
-                'Messages can only be sent in initialised state.');
-        _assert(to && (to.length > 0),
-                'A recipient has to be given.');
-        var outMessage = {
-            from: this.id,
-            to: to,
-            metadata: metadata,
-            message: this._messageSecurity.encrypt(messageContent, this.exponentialPadding),
-        };
-        this.messageOutQueue.push(outMessage);
-        this.queueUpdatedCallback(this);
-    };
-
-
-    /**
      * Sends an mpENC protocol error message to the current group.
      *
      * @method
@@ -723,17 +627,11 @@ define([
         }
 
         var textMessage = severityString + ': ' + messageContent;
-        var outMessage = {
-            from: this.id,
-            to: '',
-            message: codec.encodeErrorMessage(this.id,
+        this._pushMessage('', codec.encodeErrorMessage(this.id,
                                               _ERROR_MAPPING[severity],
                                               messageContent,
                                               this.greet.getEphemeralPrivKey(),
-                                              this.greet.getEphemeralPubKey()),
-        };
-        this.protocolOutQueue.push(outMessage);
-        this.queueUpdatedCallback(this);
+                                              this.greet.getEphemeralPubKey()));
 
         if (severity === ns.ERROR.TERMINAL) {
             this.quit();

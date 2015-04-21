@@ -790,51 +790,6 @@ define([
             });
         });
 
-        describe('#sendTo() method', function() {
-            it('send a directed message confidentially', function() {
-                var participant = new ns.ProtocolHandler('jennifer@rush.com/android123',
-                                                         '80s Pop',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.exponentialPadding = 0;
-                participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
-                participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
-                participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant.greet.state = greeter.STATE.READY;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
-                var message = 'Whispers in the morning ...';
-                participant.sendTo(message, 'my_man@rush.com/ios12345');
-                assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 188);
-                assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
-                assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
-                assert.lengthOf(participant.protocolOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-            });
-
-            it('send a directed message confidentially with exponential padding', function() {
-                var participant = new ns.ProtocolHandler('jennifer@rush.com/android123',
-                                                         '80s Pop',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.cliquesMember.groupKey = _td.GROUP_KEY;
-                participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
-                participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant.greet.state = greeter.STATE.READY;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
-                var message = 'Whispers in the morning ...';
-                participant.sendTo(message, 'my_man@rush.com/ios12345');
-                assert.lengthOf(participant.messageOutQueue, 1);
-                assert.lengthOf(participant.messageOutQueue[0].message, 320);
-                assert.strictEqual(participant.messageOutQueue[0].from, 'jennifer@rush.com/android123');
-                assert.strictEqual(participant.messageOutQueue[0].to, 'my_man@rush.com/ios12345');
-                assert.lengthOf(participant.protocolOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-            });
-        });
-
         describe('#sendError() method', function() {
             it('send an mpENC protocol error message', function() {
                 var participant = new ns.ProtocolHandler('a.dumbledore@hogwarts.ac.uk/android123',
