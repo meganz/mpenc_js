@@ -779,90 +779,6 @@ define([
     }
 
 
-    /**
-     * Partially decodes a given TLV encoded message into basic objects.
-     *
-     * No cryptographic operations (e.g. verify or decrypt) are attempted.
-     *
-     * @param message {string}
-     *     A binary message representation.
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Partially populated Message as JavaScript object.
-     */
-    ns.decodeGreetMessageTLVs = function(message) {
-        if (!message) {
-            return null;
-        }
-
-        var out = new ns.ProtocolMessage();
-        var debugOutput = [];
-
-        while (message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            switch (tlv.type) {
-                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
-                    out.signature = tlv.value;
-                    out.rawMessage = tlv.rest;
-                    debugOutput.push('messageSignature: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.PROTOCOL_VERSION:
-                    out.protocol = tlv.value;
-                    debugOutput.push('protocol: ' + tlv.value.charCodeAt(0));
-                    break;
-                case ns.TLV_TYPE.MESSAGE_TYPE:
-                    out.messageType = tlv.value;
-                    debugOutput.push('messageType: 0x'
-                                     + out.getMessageTypeNumber().toString(16)
-                                     + ' (' + out.getMessageTypeString() + ')');
-                    break;
-                case ns.TLV_TYPE.SOURCE:
-                    out.source = tlv.value;
-                    debugOutput.push('from: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.DEST:
-                    out.dest = tlv.value;
-                    debugOutput.push('to: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.MEMBER:
-                    out.members.push(tlv.value);
-                    debugOutput.push('member: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.INT_KEY:
-                    out.intKeys.push(tlv.value);
-                    debugOutput.push('intKey: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.NONCE:
-                    out.nonces.push(tlv.value);
-                    debugOutput.push('nonce: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.PUB_KEY:
-                    out.pubKeys.push(tlv.value);
-                    debugOutput.push('pubKey: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SESSION_SIGNATURE:
-                    out.sessionSignature = tlv.value;
-                    debugOutput.push('sessionSignature: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SIGNING_KEY:
-                    out.signingKey = tlv.value;
-                    debugOutput.push('signingKey: ' + btoa(tlv.value));
-                    break;
-                default:
-                    _assert(false, 'Received unknown TLV type: ' + tlv.type);
-                    break;
-            }
-
-            message = tlv.rest;
-        }
-
-        _assert(out.protocol === version.PROTOCOL_VERSION,
-                'Received wrong protocol version: ' + out.protocol.charCodeAt(0) + '.');
-        // Debugging output.
-        logger.debug('mpENC decoded message debug: ', debugOutput);
-
-        return out;
-    };
-
     ns.popTLV = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
         if (tlv.type !== type) {
@@ -872,7 +788,8 @@ define([
         return tlv.rest;
     };
 
-    ns.popStandardFields = function(message, expectedType, debugOutput) {
+
+    ns.popStandardFields = function(message, typeFilter, typeFilterString, debugOutput) {
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
             if (value !== version.PROTOCOL_VERSION) {
@@ -882,14 +799,35 @@ define([
             debugOutput.push('protocol: ' + value.charCodeAt(0));
         });
         rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
-            if (value !== expectedType) {
-                throw new Error("decode failed; expected MESSAGE_TYPE "
-                                + expectedType + " but got " + value);
+            if (!typeFilter(value)) {
+                throw new Error("decode failed; expected type filter failed: "
+                                + typeFilterString + " but got " + value);
             }
             debugOutput.push('messageType: 0x'
                              + ns.messageTypeToNumber(value).toString(16)
                              + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
         });
+        return rest;
+    };
+
+
+    ns.popTLVMaybe = function(message, type, action) {
+        var tlv = ns.decodeTLV(message);
+        if (tlv.type !== type) {
+            return message;
+        }
+        action(tlv.value);
+        return tlv.rest;
+    };
+
+
+    ns.popTLVAll = function(message, type, action) {
+        var oldrest;
+        var rest = message;
+        do {
+            oldrest = rest;
+            rest = ns.popTLVMaybe(rest, type, action);
+        } while (rest !== oldrest);
         return rest;
     };
 

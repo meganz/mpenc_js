@@ -112,10 +112,10 @@ define([
         });
 
         it('upflow message, debug on', function() {
-            sandbox.stub(MegaLogger._logRegistry.codec, '_log');
+            sandbox.stub(MegaLogger._logRegistry.greeter, '_log');
             ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                     _td.ED25519_PUB_KEY);
-            var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
+            var log = MegaLogger._logRegistry.greeter._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
                                         'protocol: 1',
@@ -141,7 +141,7 @@ define([
                         + String.fromCharCode(77)
                         + _td.UPFLOW_MESSAGE_STRING.substring(73);
             assert.throws(function() { ns.decodeGreetMessage(message, _td.ED25519_PUB_KEY); },
-                          'Received wrong protocol version: 77');
+                          'decode failed; expected PROTOCOL_VERSION');
         });
     });
 

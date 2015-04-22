@@ -44,6 +44,7 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+    var _T = codec.TLV_TYPE;
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
 
@@ -100,7 +101,7 @@ define([
      *     Message as JavaScript object.
      */
     ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
-        var out = codec.decodeGreetMessageTLVs(message);
+        var out = _decode(message);
 
         // Some specifics depending on the type of mpENC message.
         var sidkeyHash = '';
@@ -134,6 +135,81 @@ define([
                         'Signature of message does not verify: ' + e + '!');
             }
         }
+        return out;
+    };
+
+
+    var _decode = function(message) {
+        if (!message) {
+            return null;
+        }
+
+        var out = new codec.ProtocolMessage();
+        var debugOutput = [];
+        var rest = message;
+
+        rest = codec.popTLVMaybe(rest, _T.MESSAGE_SIGNATURE, function(value) {
+            out.signature = value;
+            debugOutput.push('messageSignature: ' + btoa(value));
+        });
+        if (rest !== message) {
+            // there was a signature
+            out.rawMessage = rest;
+        }
+
+        rest = codec.popStandardFields(rest, function(type) {
+            if (type === codec.MESSAGE_TYPE.PARTICIPANT_DATA) {
+                return false;
+            } else {
+                out.messageType = type;
+                return true;
+            }
+        }, "not PARTICIPANT_DATA", debugOutput);
+        out.protocol = codec.PROTOCOL_VERSION;
+
+        rest = codec.popTLV(rest, _T.SOURCE, function(value) {
+            out.source = value;
+            debugOutput.push('from: ' + value);
+        });
+
+        rest = codec.popTLV(rest, _T.DEST, function(value) {
+            out.dest = value;
+            debugOutput.push('to: ' + value);
+        });
+
+        rest = codec.popTLVAll(rest, _T.MEMBER, function(value) {
+            out.members.push(value);
+            debugOutput.push('member: ' + value);
+        });
+
+        rest = codec.popTLVAll(rest, _T.INT_KEY, function(value) {
+            out.intKeys.push(value);
+            debugOutput.push('intKey: ' + btoa(value));
+        });
+
+        rest = codec.popTLVAll(rest, _T.NONCE, function(value) {
+            out.nonces.push(value);
+            debugOutput.push('nonce: ' + btoa(value));
+        });
+
+        rest = codec.popTLVAll(rest, _T.PUB_KEY, function(value) {
+            out.pubKeys.push(value);
+            debugOutput.push('pubKey: ' + btoa(value));
+        });
+
+        rest = codec.popTLVMaybe(rest, _T.SESSION_SIGNATURE, function(value) {
+            out.sessionSignature = value;
+            debugOutput.push('sessionSignature: ' + btoa(value));
+        });
+
+        rest = codec.popTLVMaybe(rest, _T.SIGNING_KEY, function(value) {
+            out.signingKey = value;
+            debugOutput.push('signingKey: ' + btoa(value));
+        });
+
+        // TODO(xl): maybe complain if too much junk afterwards
+        // Debugging output.
+        logger.debug('mpENC decoded message debug: ', debugOutput);
         return out;
     };
 

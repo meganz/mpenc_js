@@ -295,7 +295,9 @@ define([
         var out = _inspect(message, debugOutput);
         var rest = out.rawMessage;
 
-        rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.PARTICIPANT_DATA, debugOutput);
+        rest = codec.popStandardFields(rest,
+            function(t) { return t === codec.MESSAGE_TYPE.PARTICIPANT_DATA; },
+            "PARTICIPANT DATA", debugOutput);
         out.protocol = codec.PROTOCOL_VERSION;
         out.messageType = codec.MESSAGE_TYPE.PARTICIPANT_DATA;
 
