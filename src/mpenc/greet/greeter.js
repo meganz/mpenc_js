@@ -18,12 +18,13 @@
 
 define([
     "mpenc/helper/assert",
+    "mpenc/helper/async",
     "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
     "megalogger",
-], function(assert, utils, cliques, ske, codec, MegaLogger) {
+], function(assert, async, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -243,6 +244,8 @@ define([
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.recovering = false;
 
+        this._send = new async.Observable(true);
+
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
                 'Constructor call missing required parameters.');
@@ -268,14 +271,26 @@ define([
         }, this), message);
     };
 
+    GreetWrapper.prototype._encodeAndPublish = function(protocolMessage) {
+        if (!protocolMessage) return;
+        var payload = ns.encodeGreetMessage(
+            protocolMessage,
+            this.getEphemeralPrivKey(),
+            this.getEphemeralPubKey());
+        // TODO(xl): use a RawSendT instead of Array[2]
+        this._send.publish([protocolMessage.dest, payload]);
+    };
+
+    GreetWrapper.prototype.subscribeSend = function(subscriber) {
+        return this._send.subscribe(subscriber);
+    };
+
     /**
      * Mechanism to start the protocol negotiation with the group participants.
      *
      * @method
      * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      */
     GreetWrapper.prototype.start = function(otherMembers) {
         this._assertState([ns.STATE.NULL],
@@ -291,8 +306,15 @@ define([
         } else {
             protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
         }
-        this._updateState(ns.STATE.INIT_UPFLOW);
-        return protocolMessage;
+
+        if (protocolMessage.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
+        } else {
+            this._encodeAndPublish(protocolMessage);
+            this._updateState(ns.STATE.INIT_UPFLOW);
+        }
     };
 
 
@@ -302,8 +324,6 @@ define([
      * @method
      * @param newMembers {Array}
      *     Iterable of new members to include into the group.
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      */
     GreetWrapper.prototype.include = function(newMembers) {
         this._assertState([ns.STATE.READY],
@@ -316,7 +336,7 @@ define([
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         protocolMessage.messageType = codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateState(ns.STATE.AUX_UPFLOW);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
@@ -326,8 +346,6 @@ define([
      * @method
      * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      */
     GreetWrapper.prototype.exclude = function(excludeMembers) {
         if (this.recovering) {
@@ -357,20 +375,24 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
-        if (this.isSessionAcknowledged()) {
-            this._updateState(ns.STATE.READY);
+        if (protocolMessage.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
         } else {
-            this._updateState(ns.STATE.AUX_DOWNFLOW);
+            if (this.isSessionAcknowledged()) {
+                this._updateState(ns.STATE.READY);
+            } else {
+                this._updateState(ns.STATE.AUX_DOWNFLOW);
+            }
+            this._encodeAndPublish(protocolMessage);
         }
-        return protocolMessage;
     };
 
 
     /**
      * Mechanism to start the downflow for quitting participation.
      *
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      * @method
      */
     GreetWrapper.prototype.quit = function() {
@@ -387,15 +409,13 @@ define([
         var protocolMessage = this._mergeMessages(null, askeMessage);
         protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
         this._updateState(ns.STATE.QUIT);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
     /**
      * Mechanism to refresh group key.
      *
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      * @method
      */
     GreetWrapper.prototype.refresh = function() {
@@ -412,20 +432,18 @@ define([
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
         this._updateState(ns.STATE.READY);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(from, content, pushCallback) {
+    GreetWrapper.prototype.processIncoming = function(from, content) {
         var decodedMessage = null;
-        // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
             // the signing pubKeys won't be part of the message.
             // TODO(gk): xl: but we're not checking if this is a key refresh here?
             var signingPubKey = this.getEphemeralPubKey(from);
-            decodedMessage = ns.decodeGreetMessage(content,
-                                                        signingPubKey);
+            decodedMessage = ns.decodeGreetMessage(content, signingPubKey);
         } else {
             decodedMessage = ns.decodeGreetMessage(content);
         }
@@ -434,15 +452,7 @@ define([
         if (keyingMessageResult === null) {
             return;
         }
-        var outContent = keyingMessageResult.decodedMessage;
-
-        if (outContent) {
-            pushCallback(outContent);
-        } else {
-            // Nothing to do, we're done here.
-            // TODO(gk): xl: does this mean we should actually break here?
-        }
-
+        this._encodeAndPublish(keyingMessageResult.decodedMessage);
         if (keyingMessageResult.newState &&
                 (keyingMessageResult.newState !== oldState)) {
             // Update the state if required.

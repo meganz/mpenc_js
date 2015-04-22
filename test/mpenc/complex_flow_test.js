@@ -186,7 +186,7 @@ define([
             }
 
             // '2' starts upflow for join.
-            participants[1].join(newMembers);
+            participants[1].include(newMembers);
             message = participants[1].protocolOutQueue.shift();
             payload = _getPayload(message, _getSender(message, participants, members));
 

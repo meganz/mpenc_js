@@ -323,11 +323,11 @@ define([
                 var message = {message: "He's dead, Jim!",
                                members: ['mccoy@ncc-1701.mil/android123', 'kirk@ncc-1701.mil/android456'],
                                dest: ''};
+                sandbox.stub(participant.greet.cliquesMember, "akaExclude", stub());
+                sandbox.stub(participant.greet.askeMember, "exclude", stub());
+                sandbox.stub(participant.greet, "_mergeMessages").returns(message);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(participant.greet, 'exclude').returns(message);
-                participant.exclude(['red.shirt@ncc-1701.mil/ios1234']);
-                sinon_assert.calledOnce(greeter.encodeGreetMessage);
-                sinon_assert.calledOnce(participant.greet.exclude);
+                participant.exclude(['kirk@ncc-1701.mil/android456']);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'mccoy@ncc-1701.mil/android123');
@@ -385,11 +385,13 @@ define([
                 var message = {message: "My poor son!",
                                members: ['chingachgook@mohicans.org/android123'],
                                dest: ''};
-                sandbox.stub(participant.greet, 'exclude').returns(message);
-                sandbox.stub(participant, 'quit');
+                sandbox.stub(participant.greet.cliquesMember, "akaExclude", stub());
+                sandbox.stub(participant.greet.askeMember, "exclude", stub());
+                sandbox.stub(participant.greet, "_mergeMessages").returns(message);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(participant.greet, 'quit');
                 participant.exclude(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(participant.greet.exclude);
-                sinon_assert.calledOnce(participant.quit);
+                sinon_assert.calledOnce(participant.greet.quit);
             });
         });
 
@@ -488,11 +490,9 @@ define([
                 participant.greet.askeMember.ephemeralPubKeys = [];
                 var message = { message: "Fresh Prince",
                                 dest: '' };
-                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                participant.greet.refresh = stub().returns(message);
+                sandbox.stub(greeter, 'encodeGreetMessage').returns(message);
                 participant.refresh();
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
-                sinon_assert.calledOnce(participant.greet.refresh);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'dj.jazzy.jeff@rapper.com/android123');
@@ -561,11 +561,11 @@ define([
                 var message = {message: "The last of us!",
                                members: ['chingachgook@mohicans.org/android123'],
                                dest: ''};
-                sandbox.stub(participant.greet, 'start').returns(message);
-                sandbox.stub(participant, 'quit');
+                sandbox.stub(participant.greet, '_mergeMessages').returns(message);
+                sandbox.stub(participant.greet, 'quit');
                 participant._fullRefresh(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(participant.greet.start);
-                sinon_assert.calledOnce(participant.quit);
+                sinon_assert.calledOnce(participant.greet._mergeMessages);
+                sinon_assert.calledOnce(participant.greet.quit);
             });
         });
 
@@ -1253,12 +1253,14 @@ define([
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
-                sandbox.spy(participant, 'quit');
                 sandbox.stub(participant.greet, '_processMessage')
                         .throws(new Error('Session authentication by member 5 failed.'));
                 sandbox.stub(participant.greet, 'getEphemeralPrivKey').returns(_td.ED25519_PRIV_KEY);
                 sandbox.stub(participant.greet, 'getEphemeralPubKey').returns(_td.ED25519_PUB_KEY);
-                sandbox.stub(participant.greet, 'quit').returns(
+                sandbox.spy(participant.greet, 'quit');
+                sandbox.stub(participant.greet.cliquesMember, "akaQuit", stub());
+                sandbox.stub(participant.greet.askeMember, "quit", stub());
+                sandbox.stub(participant.greet, '_mergeMessages').returns(
                         { dest: '',
                           source: participant.id,
                           messageType: codec.MESSAGE_TYPE.QUIT_DOWN });
@@ -1267,8 +1269,9 @@ define([
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
                 assert.strictEqual(participant.greet._processMessage.callCount, 1);
-                assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 2);
+                assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
                 assert.strictEqual(participant.greet.getEphemeralPubKey.callCount, 4);
+                assert.strictEqual(participant.greet._mergeMessages.callCount, 1);
                 assert.strictEqual(greeter.encodeGreetMessage.callCount, 1);
                 // To send two messages.
                 assert.lengthOf(participant.protocolOutQueue, 2);
@@ -1280,7 +1283,6 @@ define([
                 assert.strictEqual(outMessage.from, participant.id);
                 assert.strictEqual(outMessage.to, '');
                 // And a QUIT message.
-                assert.strictEqual(participant.quit.callCount, 1);
                 assert.strictEqual(participant.greet.quit.callCount, 1);
                 outMessage = participant.protocolOutQueue[1];
                 assert.strictEqual(outMessage.message.source, participant.id);

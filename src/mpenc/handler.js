@@ -169,18 +169,24 @@ define([
         this._messageSecurity = null;
         this._sessionKeyStore = new keystore.KeyStore(name, function() { return 20; });
 
-        // Set up a trial buffer for trial decryption.
         var self = this;
+
+        // Set up a trial buffer for trial decryption.
         var decryptTarget = new ns.DecryptTrialTarget(
             function(wireMessage) {
                 return self._messageSecurity.decrypt(wireMessage);
             }, this.uiQueue, 100);
         this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
+        // Set up component to manage membership operations
         this.greet = new greeter.GreetWrapper(this.id,
                                               privKey, pubKey,
                                               staticPubKeyDir,
                                               function(greet) { self.stateUpdatedCallback(self); });
+        var cancelGreet = this.greet.subscribeSend(function(send_out) {
+            var to = send_out[0], payload = send_out[1];
+            self._pushMessage(to, payload);
+        });
 
         // Sanity check.
         _assert(this.id && privKey && pubKey && staticPubKeyDir && this._sessionKeyStore,
@@ -203,18 +209,6 @@ define([
             this._sessionKeyStore)
     };
 
-    ns.ProtocolHandler.prototype._pushGreetMessage = function(outContent) {
-        if (outContent) {
-            this._pushMessage(outContent.dest,
-                greeter.encodeGreetMessage(
-                    outContent,
-                    this.greet.getEphemeralPrivKey(),
-                    this.greet.getEphemeralPubKey()
-                )
-            );
-        }
-    };
-
     ns.ProtocolHandler.prototype._pushMessage = function(to, message) {
         this.protocolOutQueue.push({
             from: this.id,
@@ -233,7 +227,7 @@ define([
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
         logger.debug('Invoking initial START flow operation.');
-        this._pushGreetMessage(this.greet.start(otherMembers));
+        this.greet.start(otherMembers);
     };
 
 
@@ -246,7 +240,7 @@ define([
      */
     ns.ProtocolHandler.prototype.include = function(newMembers) {
         logger.debug('Invoking INCLUDE flow operation.');
-        this._pushGreetMessage(this.greet.include(newMembers));
+        this.greet.include(newMembers);
     };
 
 
@@ -259,15 +253,7 @@ define([
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
         logger.debug('Invoking EXCLUDE flow operation.');
-
-        var outContent = this.greet.exclude(excludeMembers);
-        if (outContent.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            this.quit();
-            return;
-        }
-        this._pushGreetMessage(outContent);
+        this.greet.exclude(excludeMembers);
         if (this.greet.isSessionAcknowledged()) {
             this._messageSecurity = this._newMessageSecurity(this.greet);
         }
@@ -281,7 +267,7 @@ define([
      */
     ns.ProtocolHandler.prototype.quit = function() {
         logger.debug('Invoking QUIT request containing private signing key.');
-        this._pushGreetMessage(this.greet.quit());
+        this.greet.quit();
     };
 
 
@@ -292,9 +278,8 @@ define([
      */
     ns.ProtocolHandler.prototype.refresh = function() {
         logger.debug('Invoking REFRESH flow operation.');
-        var outContent = this.greet.refresh();
+        this.greet.refresh();
         this._messageSecurity = this._newMessageSecurity(this.greet);
-        this._pushGreetMessage(outContent);
     };
 
 
@@ -313,14 +298,7 @@ define([
         // anyways, so don't worry too much about making this clean.
         this.greet.state = greeter.STATE.NULL;
         // Now start a normal upflow for an initial agreement.
-        var outContent = this.greet.start(otherMembers);
-        if (outContent.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            this.quit();
-            return;
-        }
-        this._pushGreetMessage(outContent);
+        this.greet.start(otherMembers);
     };
 
 
@@ -425,7 +403,7 @@ define([
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 try {
                     var oldState = this.greet.state;
-                    this.greet.processIncoming(wireMessage.from, classify.content, this._pushGreetMessage.bind(this));
+                    this.greet.processIncoming(wireMessage.from, classify.content);
                     var newState = this.greet.state;
                     if (newState !== oldState) {
                         if (newState === greeter.STATE.QUIT) {
