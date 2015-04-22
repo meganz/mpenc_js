@@ -334,11 +334,11 @@ define([
                             '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
                             '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
                             '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
-                            // Join sequence.
-                            '\u0000\u00ad': 0x0ad, // JOIN_AUX_INITIATOR_UP
-                            '\u0000\u002d': 0x02d, // JOIN_AUX_PARTICIPANT_UP
-                            '\u0000\u002f': 0x02f, // JOIN_AUX_PARTICIPANT_DOWN
-                            '\u0000\u002b': 0x02b, // JOIN_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Include sequence.
+                            '\u0000\u00ad': 0x0ad, // INCLUDE_AUX_INITIATOR_UP
+                            '\u0000\u002d': 0x02d, // INCLUDE_AUX_PARTICIPANT_UP
+                            '\u0000\u002f': 0x02f, // INCLUDE_AUX_PARTICIPANT_DOWN
+                            '\u0000\u002b': 0x02b, // INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
                             // Exclude sequence.
                             '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
                             '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN

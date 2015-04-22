@@ -75,7 +75,7 @@ define([
      *     Message destination's participant ID.
      * @property operation {string}
      *     A clear text expression of the type of protocol operation.
-     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      * @property messageSignature {string}
      *     Signature of message.
      * @property signedContent {string}
@@ -273,7 +273,7 @@ define([
     ns._RECOVER_BIT = 8;
     ns._OPERATION = { DATA: 0x00,
                       START: 0x01,
-                      JOIN: 0x02,
+                      INCLUDE: 0x02,
                       EXCLUDE: 0x03,
                       REFRESH: 0x04,
                       QUIT: 0x05 };
@@ -306,14 +306,14 @@ define([
      *     Participant initial downflow for recovery.
      * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant initial subsequent downflow for recovery.
-     * @property JOIN_AUX_INITIATOR_UP {string}
-     *     Initiator aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_UP {string}
-     *     Participant aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux join downflow.
-     * @property JOIN_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux join subsequent downflow.
+     * @property INCLUDE_AUX_INITIATOR_UP {string}
+     *     Initiator aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_UP {string}
+     *     Participant aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux include downflow.
+     * @property INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux include subsequent downflow.
      * @property EXCLUDE_AUX_INITIATOR_DOWN {string}
      *     Initiator aux exclude downflow.
      * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
@@ -345,11 +345,11 @@ define([
         RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
         RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
         RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
-        // Join sequence.
-        JOIN_AUX_INITIATOR_UP:                 '\u0000\u00ad', // 0b10101101
-        JOIN_AUX_PARTICIPANT_UP:               '\u0000\u002d', // 0b00101101
-        JOIN_AUX_PARTICIPANT_DOWN:             '\u0000\u002f', // 0b00101111
-        JOIN_AUX_PARTICIPANT_CONFIRM_DOWN:     '\u0000\u002b', // 0b00101011
+        // Include sequence.
+        INCLUDE_AUX_INITIATOR_UP:              '\u0000\u00ad', // 0b10101101
+        INCLUDE_AUX_PARTICIPANT_UP:            '\u0000\u002d', // 0b00101101
+        INCLUDE_AUX_PARTICIPANT_DOWN:          '\u0000\u002f', // 0b00101111
+        INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u002b', // 0b00101011
         // Exclude sequence.
         EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
         EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
@@ -777,7 +777,7 @@ define([
      * @method
      * @returns {string}
      *     A clear text expression of the type of protocol operation.
-     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      */
     ProtocolMessage.prototype.getOperation = function() {
         return ns.OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)

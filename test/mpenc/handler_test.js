@@ -249,7 +249,7 @@ define([
             });
         });
 
-        describe('#join() method', function() {
+        describe('#include() method', function() {
             it('add members to group', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
                                                          'Blues Brothers',
@@ -258,7 +258,7 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.greet.state = greeter.STATE.READY;
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                participant.join(['ray@charles.org/ios1234']);
+                participant.include(['ray@charles.org/ios1234']);
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'jake@blues.org/android123');
@@ -281,8 +281,8 @@ define([
                                      greeter.STATE.AUX_DOWNFLOW];
                 for (var i = 0; i < illegalStates.length; i++) {
                     participant.greet.state = illegalStates[i];
-                    assert.throws(function() { participant.join(); },
-                                  'join() can only be called from a ready state.');
+                    assert.throws(function() { participant.include(); },
+                                  'include() can only be called from a ready state.');
                 }
             });
         });
@@ -993,7 +993,7 @@ define([
                 assert.ok(_tu.deepCompare(result, expected));
             });
 
-            it('join me message', function() {
+            it('include me message', function() {
                 var participant = new ns.ProtocolHandler('5', 'foo',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -1011,14 +1011,14 @@ define([
                 var expected = {protocol: 1,
                                 from: '1', to: '5', origin: '???',
                                 agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: null, negotiation: 'join me',
+                                fromInitiator: null, negotiation: 'include me',
                                 members: ['1', '2', '3', '4', '5'],
                                 numNonces: 4, numIntKeys: 5, numPubKeys: 4};
                 var result = participant.inspectMessage(message);
                 assert.ok(_tu.deepCompare(result, expected));
             });
 
-            it("join other message", function() {
+            it("include other message", function() {
                 var participant = new ns.ProtocolHandler('4', 'foo',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -1036,14 +1036,14 @@ define([
                 var expected = {protocol: 1,
                                 from: '1', to: '5', origin: 'participant',
                                 agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: true, negotiation: 'join other',
+                                fromInitiator: true, negotiation: 'include other',
                                 members: ['1', '2', '3', '4', '5'],
                                 numNonces: 4, numIntKeys: 5, numPubKeys: 4};
                 var result = participant.inspectMessage(message);
                 assert.ok(_tu.deepCompare(result, expected));
             });
 
-            it("join other message chained", function() {
+            it("include other message chained", function() {
                 var participant = new ns.ProtocolHandler('4', 'foo',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -1061,14 +1061,14 @@ define([
                 var expected = {protocol: 1,
                                 from: '5', to: '6', origin: 'outsider',
                                 agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: false, negotiation: 'join other',
+                                fromInitiator: false, negotiation: 'include other',
                                 members: ['1', '2', '3', '4', '5', '6'],
                                 numNonces: 5, numIntKeys: 6, numPubKeys: 5};
                 var result = participant.inspectMessage(message);
                 assert.ok(_tu.deepCompare(result, expected));
             });
 
-            it("join message (not involved)", function() {
+            it("include message (not involved)", function() {
                 var participant = new ns.ProtocolHandler('4', 'foo',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -1085,7 +1085,7 @@ define([
                 var expected = {protocol: 1,
                                 from: '1', to: '5', origin: '???',
                                 agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: null, negotiation: 'join (not involved)',
+                                fromInitiator: null, negotiation: 'include (not involved)',
                                 members: ['1', '2', '3', '5'],
                                 numNonces: 3, numIntKeys: 4, numPubKeys: 3};
                 var result = participant.inspectMessage(message);

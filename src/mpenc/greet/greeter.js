@@ -297,24 +297,24 @@ define([
 
 
     /**
-     * Mechanism to start a new upflow for joining new members.
+     * Mechanism to start a new upflow for including new members.
      *
      * @method
      * @param newMembers {Array}
-     *     Iterable of new members to join the group.
+     *     Iterable of new members to include into the group.
      * @returns {ProtocolMessage}
      *     Un-encoded message content.
      */
-    GreetWrapper.prototype.join = function(newMembers) {
+    GreetWrapper.prototype.include = function(newMembers) {
         this._assertState([ns.STATE.READY],
-                'join() can only be called from a ready state.');
+                'include() can only be called from a ready state.');
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
 
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
+        protocolMessage.messageType = codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateState(ns.STATE.AUX_UPFLOW);
         return protocolMessage;
     };

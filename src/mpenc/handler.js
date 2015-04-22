@@ -238,15 +238,15 @@ define([
 
 
     /**
-     * Start a new upflow for joining new members.
+     * Start a new upflow for including new members.
      *
      * @method
      * @param newMembers {Array}
-     *     Iterable of new members to join the group.
+     *     Iterable of new members to include into the group.
      */
-    ns.ProtocolHandler.prototype.join = function(newMembers) {
-        logger.debug('Invoking JOIN flow operation.');
-        this._pushGreetMessage(this.greet.join(newMembers));
+    ns.ProtocolHandler.prototype.include = function(newMembers) {
+        logger.debug('Invoking INCLUDE flow operation.');
+        this._pushGreetMessage(this.greet.include(newMembers));
     };
 
 
@@ -298,14 +298,6 @@ define([
     };
 
 
-    /**
-     * Fully re-run whole key agreements, but retain the ephemeral signing key.
-     *
-     * @param keepMembers {Array}
-     *     Iterable of members to keep in the group (exclude others). This list
-     *     should include the one self. (Optional parameter.)
-     * @method
-     */
     ns.ProtocolHandler.prototype._fullRefresh = function(keepMembers) {
         // Remove ourselves from members list to keep (if we're in there).
         var otherMembers = utils.clone(this.greet.getMembers());

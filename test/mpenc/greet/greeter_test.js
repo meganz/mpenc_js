@@ -351,14 +351,14 @@ define([
             });
         });
 
-        describe('#join() method', function() {
-            it('join empty member list', function() {
+        describe('#inclnude() method', function() {
+            it('include empty member list', function() {
                 var participant = new ns.GreetWrapper('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
-                assert.throws(function() { participant.join([]); },
+                assert.throws(function() { participant.include([]); },
                               'No members to add.');
             });
 
@@ -372,11 +372,11 @@ define([
                 participant.state = ns.STATE.READY;
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
                 var otherMembers = ['6', '7'];
-                var message = participant.join(otherMembers);
+                var message = participant.include(otherMembers);
                 sinon_assert.calledOnce(participant.cliquesMember.akaJoin);
                 sinon_assert.calledOnce(participant.askeMember.join);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP);
+                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP);
             });
         });
 
