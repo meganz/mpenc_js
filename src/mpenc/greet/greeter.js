@@ -262,6 +262,12 @@ define([
         this.stateUpdatedCallback(this);
     };
 
+    GreetWrapper.prototype._assertState = function(valid, message) {
+        _assert(valid.some(function(v) {
+            return this.state === v;
+        }, this), message);
+    };
+
     /**
      * Mechanism to start the protocol negotiation with the group participants.
      *
@@ -272,7 +278,7 @@ define([
      *     Un-encoded message content.
      */
     GreetWrapper.prototype.start = function(otherMembers) {
-        _assert(this.state === ns.STATE.NULL,
+        this._assertState([ns.STATE.NULL],
                 'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
@@ -300,7 +306,7 @@ define([
      *     Un-encoded message content.
      */
     GreetWrapper.prototype.join = function(newMembers) {
-        _assert(this.state === ns.STATE.READY,
+        this._assertState([ns.STATE.READY],
                 'join() can only be called from a ready state.');
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
 
@@ -325,12 +331,10 @@ define([
      */
     GreetWrapper.prototype.exclude = function(excludeMembers) {
         if (this.recovering) {
-            _assert((this.state === ns.STATE.READY)
-                    || (this.state === ns.STATE.INIT_DOWNFLOW)
-                    || (this.state === ns.STATE.AUX_DOWNFLOW),
+            this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                     'exclude() for recovery can only be called from a ready or downflow state.');
         } else {
-            _assert(this.state === ns.STATE.READY,
+            this._assertState([ns.STATE.READY],
                     'exclude() can only be called from a ready state.');
         }
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
@@ -395,9 +399,7 @@ define([
      * @method
      */
     GreetWrapper.prototype.refresh = function() {
-        _assert((this.state === ns.STATE.READY)
-                || (this.state === ns.STATE.INIT_DOWNFLOW)
-                || (this.state === ns.STATE.AUX_DOWNFLOW),
+        this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
@@ -475,9 +477,8 @@ define([
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
             if (this.state !== ns.STATE.QUIT) {
-                this.state = ns.STATE.QUIT;
                 return { decodedMessage: null,
-                         newState: this.state };
+                         newState: ns.STATE.QUIT };
             } else {
                 return null;
             }

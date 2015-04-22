@@ -292,8 +292,6 @@ define([
      */
     ns.ProtocolHandler.prototype.refresh = function() {
         logger.debug('Invoking REFRESH flow operation.');
-        this.refreshing = false;
-
         var outContent = this.greet.refresh();
         this._messageSecurity = this._newMessageSecurity(this.greet);
         this._pushGreetMessage(outContent);
