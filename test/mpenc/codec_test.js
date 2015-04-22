@@ -24,7 +24,6 @@
 define([
     "mpenc/codec",
     "mpenc/version",
-    "mpenc/greet/greeter",
     "mpenc/helper/utils",
     "jodid25519",
     "asmcrypto",
@@ -32,7 +31,7 @@ define([
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, greeter, utils, jodid25519, asmCrypto, MegaLogger,
+], function(ns, version, utils, jodid25519, asmCrypto, MegaLogger,
             chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
@@ -46,7 +45,6 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
-        sandbox.stub(MegaLogger._logRegistry.codec, '_log');
     });
 
     afterEach(function() {
@@ -181,12 +179,12 @@ define([
 
             it('greet message', function() {
                 assert.strictEqual(ns.getMessageType(_td.DOWNFLOW_MESSAGE_STRING),
-                                   greeter.MESSAGE_TYPE.QUIT_DOWN);
+                                   ns.MESSAGE_TYPE.QUIT_DOWN);
             });
 
             it('data message', function() {
                 assert.ok(ns.getMessageType(_td.DATA_MESSAGE_STRING),
-                          greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
+                          ns.MESSAGE_TYPE.PARTICIPANT_DATA);
             });
         });
 
@@ -222,189 +220,11 @@ define([
             });
         });
 
-        describe("encodeMessageContent()", function() {
-            it('upflow message', function() {
-                sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                assert.lengthOf(result, 60);
-            });
-
-            it('upflow message binary', function() {
-                var result = ns.encodeMessageContent(_td.UPFLOW_MESSAGE_CONTENT,
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
-            });
-
-            it('downflow message for quit', function() {
-                sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                assert.lengthOf(result, 24);
-            });
-
-            it('downflow message for quit binary', function() {
-                var result = ns.encodeMessageContent(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY);
-                assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_STRING);
-            });
-
-            it('data message', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
-                var result = ns.encodeMessageContent('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore);
-                // 4 TLVs with 109 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(result, 109);
-            });
-
-            it('data message with second group key', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID, 'foo'],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY, 'foo']
-                };
-                sessionKeyStore.sessions['foo'] = {};
-                var result = ns.encodeMessageContent('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore);
-                // 4 TLVs with 109 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-                assert.lengthOf(result, 109);
-            });
-
-            it('data message with exponential padding', function() {
-                var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
-                                        sessions: {} };
-                sessionKeyStore.sessions[_td.SESSION_ID] = {
-                    sid: _td.SESSION_ID,
-                    members: ['Moe', 'Larry', 'Curly'],
-                    groupKeys: [_td.GROUP_KEY]
-                };
-                var result = ns.encodeMessageContent('foo',
-                                                     _td.ED25519_PRIV_KEY,
-                                                     _td.ED25519_PUB_KEY,
-                                                     sessionKeyStore, 32);
-                // 4 TLVs with 136 bytes:
-                // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-                // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-                assert.lengthOf(result, 136);
-            });
-        });
-
-        describe("decodeMessageContent()", function() {
-            it('upflow message', function() {
-                var result = ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY);
-                assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
-                assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
-                assert.deepEqual(result.members, _td.UPFLOW_MESSAGE_CONTENT.members);
-                assert.deepEqual(result.intKeys, _td.UPFLOW_MESSAGE_CONTENT.intKeys);
-                assert.deepEqual(result.nonces, _td.UPFLOW_MESSAGE_CONTENT.nonces);
-                assert.deepEqual(result.pubKeys, _td.UPFLOW_MESSAGE_CONTENT.pubKeys);
-                assert.strictEqual(result.sessionSignature, _td.UPFLOW_MESSAGE_CONTENT.sessionSignature);
-            });
-
-            it('upflow message, debug on', function() {
-                ns.decodeMessageContent(_td.UPFLOW_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY);
-                var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
-                                            'protocol: 1',
-                                            'messageType: 0x9c (INIT_INITIATOR_UP)',
-                                            'from: 1', 'to: 2',
-                                            'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
-                                            'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                            'nonce: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
-                                            'pubKey: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=']]]);
-            });
-
-            it('downflow message for quit', function() {
-                var result = ns.decodeMessageContent(_td.DOWNFLOW_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY);
-                assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
-                assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
-                assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
-                assert.strictEqual(result.signingKey, _td.DOWNFLOW_MESSAGE_CONTENT.signingKey);
-            });
-
-            it('wrong protocol version', function() {
-                var message = _td.UPFLOW_MESSAGE_STRING.substring(68, 72)
-                            + String.fromCharCode(77)
-                            + _td.UPFLOW_MESSAGE_STRING.substring(73);
-                assert.throws(function() { ns.decodeMessageContent(message, _td.ED25519_PUB_KEY); },
-                              'Received wrong protocol version: 77');
-            });
-
-            it('data message', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-
-            it('data message with second group key', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING2,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-
-            it('data message, debug on', function() {
-                ns.decodeMessageContent(_td.DATA_MESSAGE_STRING,
-                                        _td.ED25519_PUB_KEY,
-                                        _td.SESSION_ID, _td.GROUP_KEY);
-                var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                           ['sidkeyHint: 0x54',
-                                            'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
-                                            'protocol: 1',
-                                            'messageType: 0x0 (PARTICIPANT_DATA)',
-                                            'messageIV: qq36/fToW+Z7I7b5',
-                                            'rawDataMessage: aU6y8g8=',
-                                            'decryptDataMessage: foo']]]);
-            });
-
-            it('data message with exponential padding', function() {
-                var result = ns.decodeMessageContent(_td.DATA_MESSAGE_STRING32,
-                                                     _td.ED25519_PUB_KEY,
-                                                     _td.SESSION_ID, _td.GROUP_KEY);
-                assert.lengthOf(result.signature, 64);
-                assert.strictEqual(result.protocol, _td.DATA_MESSAGE_CONTENT.protocol);
-                assert.lengthOf(result.iv, 12);
-                assert.strictEqual(result.data, _td.DATA_MESSAGE_CONTENT.data);
-            });
-        });
-
         describe("inspectMessageContent()", function() {
             it('upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
                 assert.strictEqual(result.messageTypeNumber, 0x9c);
                 assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
                 assert.strictEqual(result.from, '1');
@@ -426,7 +246,7 @@ define([
             it('downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
                 assert.strictEqual(result.messageTypeNumber, 0xd3);
                 assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
                 assert.strictEqual(result.from, '1');
@@ -448,7 +268,7 @@ define([
             it('data message', function() {
                 var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
                 assert.strictEqual(result.messageTypeNumber, 0x00);
                 assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
                 assert.strictEqual(result.from, null);
@@ -470,7 +290,7 @@ define([
             it('shallow, upflow message', function() {
                 var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
                 assert.strictEqual(result.messageTypeNumber, 0x9c);
                 assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
                 assert.strictEqual(result.sidkeyHint, null);
@@ -481,7 +301,7 @@ define([
             it('shallow, downflow message for quit', function() {
                 var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
                 assert.strictEqual(result.messageTypeNumber, 0xd3);
                 assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
                 assert.strictEqual(result.sidkeyHint, null);
@@ -492,7 +312,7 @@ define([
             it('shallow, data message', function() {
                 var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING, true);
                 assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, greeter.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
                 assert.strictEqual(result.messageTypeNumber, 0x00);
                 assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
                 assert.strictEqual(result.sidkeyHint, '\u0054');
@@ -502,65 +322,139 @@ define([
         });
     });
 
-    describe("encodeMessage()", function() {
-        it('upflow message', function() {
-            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
+    describe("messageTypeFromNumber() and messageTypeToNumber()", function() {
+        var messageTypes = {// Data message.
+                            '\u0000\u0000': 0x000, // PARTICIPANT_DATA
+                            // Initial start sequence.
+                            '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
+                            '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
+                            '\u0000\u001e': 0x01e, // INIT_PARTICIPANT_DOWN
+                            '\u0000\u001a': 0x01a, // INIT_PARTICIPANT_CONFIRM_DOWN
+                            '\u0001\u009c': 0x19c, // RECOVER_INIT_INITIATOR_UP
+                            '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
+                            '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
+                            '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
+                            // Join sequence.
+                            '\u0000\u00ad': 0x0ad, // JOIN_AUX_INITIATOR_UP
+                            '\u0000\u002d': 0x02d, // JOIN_AUX_PARTICIPANT_UP
+                            '\u0000\u002f': 0x02f, // JOIN_AUX_PARTICIPANT_DOWN
+                            '\u0000\u002b': 0x02b, // JOIN_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Exclude sequence.
+                            '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
+                            '\u0001\u00bf': 0x1bf, // RECOVER_EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0001\u003b': 0x13b, // RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Refresh sequence.
+                            '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
+                            '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
+                            '\u0001\u00c7': 0x1c7, // RECOVER_REFRESH_AUX_INITIATOR_DOWN
+                            '\u0001\u0047': 0x147, // RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:
+                            // Quit indication.
+                            '\u0000\u00d3': 0x0d3  // QUIT_DOWN
+        };
+        var messageTypeNumbers = {};
+        for (var msgType in messageTypes) {
+            messageTypeNumbers[messageTypes[msgType]] = msgType;
+        }
+
+        it('messageTypeFromNumber()', function() {
+            for (var number in messageTypeNumbers) {
+                assert.strictEqual(ns.messageTypeFromNumber(number),
+                                   messageTypeNumbers[number]);
+            }
         });
 
-        it('upflow message binary', function() {
-            var result = ns.encodeMessage(_td.UPFLOW_MESSAGE_CONTENT, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, _td.UPFLOW_MESSAGE_PAYLOAD);
+        it('messageTypeToNumber()', function() {
+            for (var type in messageTypes) {
+                assert.strictEqual(ns.messageTypeToNumber(type),
+                                   messageTypes[type]);
+            }
         });
 
-        it('downflow message on quit', function() {
-            var message = _td.DOWNFLOW_MESSAGE_CONTENT;
-            sandbox.stub(ns, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, '?mpENC:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.');
+        it('round trip', function() {
+            for (var type in messageTypes) {
+                var number = ns.messageTypeToNumber(type);
+                assert.strictEqual(ns.messageTypeFromNumber(number), type);
+            }
+        });
+    });
+
+    describe("ProtocolMessage class", function() {
+        describe("_readBit()", function() {
+            it('downflow on INIT_PARTICIPANT_UP', function() {
+                var message = new ns.ProtocolMessage();
+                message.messageType = '\u0000\u001c', // INIT_PARTICIPANT_UP
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
+            });
+
+            it('downflow on QUIT_DOWN', function() {
+                var message = new ns.ProtocolMessage();
+                message.messageType = '\u0000\u00d3'; // QUIT_DOWN
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
+            });
         });
 
-        it('downflow message on quit binary', function() {
-            var result = ns.encodeMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
-                                          _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {});
-            assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_PAYLOAD);
+        describe("_setBit()", function() {
+            it('on valid transitions', function() {
+                var message = new ns.ProtocolMessage();
+                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
+                             [ns.MESSAGE_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
+                var expected = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP];
+                for (var i in tests) {
+                    message.messageType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    message._setBit(bit, targetValue);
+                    assert.strictEqual(message.messageType, expected[i]);
+                }
+            });
+
+            it('on invalid transitions', function() {
+                var message = new ns.ProtocolMessage();
+                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                for (var i in tests) {
+                    message.messageType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    assert.throws(function() { message._setBit(bit, targetValue); },
+                                  'Illegal message type!');
+                }
+            });
+
+            it('on silenced invalid transitions', function() {
+                sandbox.stub(MegaLogger._logRegistry.codec, '_log');
+                var message = new ns.ProtocolMessage();
+                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                for (var i in tests) {
+                    message.messageType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    message._setBit(bit, targetValue, true);
+                    assert.match(MegaLogger._logRegistry.codec._log.getCall(i).args[1],
+                                 /^Arrived at an illegal message type, but was told to ignore it:/);
+                    assert.notStrictEqual(message.messageType, tests[i][0]);
+                }
+            });
         });
 
-        it('null message', function() {
-            assert.strictEqual(ns.encodeMessage(null,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
-                               null);
-            assert.strictEqual(ns.encodeMessage(undefined,
-                                                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {}),
-                               null);
-        });
-
-        it('data message', function() {
-            var message = 'wha tekau ma rua';
-            sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {});
-            sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
-                               [message, _td.ED25519_PRIV_KEY,
-                                _td.ED25519_PUB_KEY, {}, 0]);
-            assert.strictEqual(result, '?mpENC:NDI=.');
-        });
-
-        it('data message with exponential padding', function() {
-            var message = 'wha tekau ma rua';
-            sandbox.stub(ns, 'encodeMessageContent').returns('42');
-            var result = ns.encodeMessage(message, _td.ED25519_PRIV_KEY,
-                                          _td.ED25519_PUB_KEY, {}, 32);
-            sinon_assert.calledOnce(ns.encodeMessageContent);
-            assert.deepEqual(ns.encodeMessageContent.getCall(0).args,
-                             [message, _td.ED25519_PRIV_KEY,
-                              _td.ED25519_PUB_KEY, {}, 32]);
-            assert.strictEqual(result, '?mpENC:NDI=.');
+        describe("#clearGKA(), isGKA()", function() {
+            it('on valid transitions', function() {
+                var message = new ns.ProtocolMessage();
+                var tests = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                             ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
+                for (var i in tests) {
+                    message.messageType = tests[i];
+                    message.clearGKA();
+                    assert.strictEqual(message.isGKA(), false);
+                }
+            });
         });
     });
 
@@ -585,154 +479,6 @@ define([
             assert.strictEqual(ns.signMessage.callCount, 0);
             assert.strictEqual(result, '?mpENC Error::from "a.dumbledore@hogwarts.ac.uk/android123"'
                                + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
-        });
-    });
-
-    describe("encryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.encryptDataMessage(tests[i], key), null);
-            }
-        });
-
-        it('data messages', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-
-        it('data messages with exponential padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 32;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                            '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(result.data.length % paddingSize, 0);
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-
-        it('data messages explicitly without padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 0;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
-    });
-
-    describe("decryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.decryptDataMessage(tests[i], key, iv), null);
-            }
-        });
-
-        it('data messages', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H0=',
-                         '6H/R1g==',
-                         '6HGhi6z7+lgyR6wtKss=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                         '6HexIFGySvliTa0h',
-                         '6G2tJ2ay/R0uBuRkDphJAkEV',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-
-        it('data messages with exponential padding', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                         '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns.decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-    });
-
-    describe("encryptDataMessage()/decryptDataMessage()", function() {
-        it('several round trips', function() {
-            for (var i = 0; i < 5; i++) {
-                var key = jodid25519.utils.bytes2string(utils._newKey08(128));
-                var messageLength = Math.floor(256 * Math.random());
-                var message = _tu.cheapRandomString(messageLength);
-                var encryptResult = ns.encryptDataMessage(message, key);
-                var cipher = encryptResult.data;
-                var iv = encryptResult.iv;
-                var clear = ns.decryptDataMessage(cipher, key, iv);
-                assert.strictEqual(message, clear);
-            }
         });
     });
 

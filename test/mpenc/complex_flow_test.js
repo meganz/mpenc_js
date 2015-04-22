@@ -67,11 +67,11 @@ define([
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
             var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
-            var sessionID = senderParticipant.sessionKeyStore.sessionIDs[0];
+            var sessionID = senderParticipant._sessionKeyStore.sessionIDs[0];
             var groupKey = sessionID
-                         ? senderParticipant.sessionKeyStore.sessions[sessionID].groupKeys[0]
+                         ? senderParticipant._sessionKeyStore.sessions[sessionID].groupKeys[0]
                          : undefined;
-            return codec.decodeMessageContent(content,
+            return greeter.decodeGreetMessage(content,
                                               senderParticipant.greet.getEphemeralPubKey(),
                                               sessionID, groupKey);
         } else {
@@ -493,7 +493,7 @@ define([
             payload = _getPayload(message, participants[0]);
             assert.strictEqual(payload.source, '1');
             assert.strictEqual(payload.dest, '2');
-            assert.strictEqual(payload.messageType, greeter.MESSAGE_TYPE.INIT_INITIATOR_UP);
+            assert.strictEqual(payload.messageType, codec.MESSAGE_TYPE.INIT_INITIATOR_UP);
             assert.strictEqual(participants[0].greet.state, greeter.STATE.INIT_UPFLOW);
 
             // Process key agreement upflow.
@@ -502,7 +502,7 @@ define([
             payload = _getPayload(message, participants[1]);
             assert.strictEqual(payload.source, '2');
             assert.strictEqual(payload.dest, '');
-            assert.strictEqual(payload.messageType, greeter.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN);
+            assert.strictEqual(payload.messageType, codec.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN);
             assert.strictEqual(participants[1].greet.state, greeter.STATE.INIT_DOWNFLOW);
 
             // Downflow for both.
@@ -582,7 +582,7 @@ define([
             message = participants[0].protocolOutQueue.shift();
             payload = _getPayload(message, _getSender(message, participants, members));
             assert.strictEqual(participants[0].greet.state, greeter.STATE.QUIT);
-            assert.strictEqual(message.messageType, greeter.MESSAGE_TYPE.QUIT);
+            assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.QUIT);
         });
     });
 
