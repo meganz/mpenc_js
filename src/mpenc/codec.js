@@ -779,6 +779,18 @@ define([
     }
 
 
+    /**
+     * Decodes a given TLV value of a particular type, and do something with it.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV; throws an error if this doesn't match.
+     * @param action {function}
+     *     1-arg function to execute on the decoded value.
+     * @returns {string}
+     *     The rest of the string to decode later.
+     */
     ns.popTLV = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
         if (tlv.type !== type) {
@@ -789,7 +801,18 @@ define([
     };
 
 
-    ns.popStandardFields = function(message, typeFilter, typeFilterString, debugOutput) {
+    /**
+     * Decodes a given TLV value of a particular type, and do something with it.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param typeFilter {string}
+     *     1-arg function to execute on decoded MESSAGE_TYPE; should return
+     *     true if it's good or false if it's bad (and an error will be thrown).
+     * @returns {string}
+     *     The rest of the string to decode later.
+     */
+    ns.popStandardFields = function(message, typeFilter, typeFilterDesc, debugOutput) {
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
             if (value !== version.PROTOCOL_VERSION) {
@@ -801,7 +824,7 @@ define([
         rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
             if (!typeFilter(value)) {
                 throw new Error("decode failed; expected type filter failed: "
-                                + typeFilterString + " but got " + value);
+                                + typeFilterDesc + " but got " + value);
             }
             debugOutput.push('messageType: 0x'
                              + ns.messageTypeToNumber(value).toString(16)
@@ -811,6 +834,10 @@ define([
     };
 
 
+    /**
+     * Decodes a given TLV value. If it matchs the expected type, run the action.
+     * Otherwise do nothing and return the original string.
+     */
     ns.popTLVMaybe = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
         if (tlv.type !== type) {
@@ -821,6 +848,10 @@ define([
     };
 
 
+    /**
+     * Keep decoding TLV values of a particular type, executing the action on
+     * each decoded value. Stop when the next value is not of the expected type.
+     */
     ns.popTLVAll = function(message, type, action) {
         var oldrest;
         var rest = message;
@@ -947,10 +978,17 @@ define([
     };
 
 
+    /**
+     * Encodes an mpENC TLV string suitable for sending onto the wire.
+     */
     ns.encodeWireMessage = function(contents) {
         return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
     };
 
+
+    /**
+     * Decodes an mpENC wire message into a TLV string.
+     */
     ns.decodeWireMessage = function(wireMessage) {
         return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
