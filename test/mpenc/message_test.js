@@ -23,7 +23,7 @@
 
 define([
     "mpenc/message",
-    "mpenc/version",
+    "mpenc/codec",
     "mpenc/helper/utils",
     "jodid25519",
     "asmcrypto",
@@ -31,14 +31,14 @@ define([
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, jodid25519, asmCrypto, MegaLogger,
+], function(ns, codec, utils, jodid25519, asmCrypto, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
 
     var assert = chai.assert;
 
     // set test data
-    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
+    _td.DATA_MESSAGE_CONTENT.protocol = codec.PROTOCOL_VERSION;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -105,7 +105,7 @@ define([
             var sessionKeyStore = _dummySessionKeyStore();
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
             var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: _td.DATA_MESSAGE_STRING });
+                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING) });
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
@@ -118,7 +118,7 @@ define([
             sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
             var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: _td.DATA_MESSAGE_STRING2 });
+                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING2) });
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
@@ -135,9 +135,9 @@ define([
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
 
             var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: _td.DATA_MESSAGE_STRING });
+                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING) });
 
-            var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
+            var log = MegaLogger._logRegistry.message._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['sidkeyHint: 0x54',
                                         'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
@@ -145,7 +145,7 @@ define([
                                         'messageType: 0x0 (PARTICIPANT_DATA)',
                                         'messageIV: qq36/fToW+Z7I7b5',
                                         'rawDataMessage: aU6y8g8=']]]);
-            log = MegaLogger._logRegistry.message._log.getCall(0).args;
+            log = MegaLogger._logRegistry.message._log.getCall(1).args;
             assert.deepEqual(log, [0, ['mpENC decrypted data message debug: ',
                                        'foo']]);
         });
@@ -155,7 +155,7 @@ define([
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
 
             var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: _td.DATA_MESSAGE_STRING32 });
+                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING32) });
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);

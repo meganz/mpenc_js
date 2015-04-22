@@ -179,8 +179,6 @@ define([
     /**
      * "Enumeration" for TLV record types.
      *
-     * @property PADDING {integer}
-     *     Can be used for arbitrary length of padding byte sequences.
      * @property PROTOCOL_VERSION {integer}
      *     Indicates the protocol version to be used as a 16-bit unsigned integer.
      * @property DATA_MESSAGE {string}
@@ -218,7 +216,6 @@ define([
      *     from a chat.
      */
     ns.TLV_TYPE = {
-        PADDING:           0x0000,
         PROTOCOL_VERSION:  0x0001,
         DATA_MESSAGE:      0x0002,
         MESSAGE_SIGNATURE: 0x0003,
@@ -587,9 +584,6 @@ define([
     };
 
 
-
-
-
     /**
      * Returns a string representation of the message type.
      *
@@ -795,7 +789,7 @@ define([
      * @returns {mpenc.codec.ProtocolMessage}
      *     Partially populated Message as JavaScript object.
      */
-    ns.decodeMessageTLVs = function(message) {
+    ns.decodeGreetMessageTLVs = function(message) {
         if (!message) {
             return null;
         }
@@ -806,13 +800,20 @@ define([
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
             switch (tlv.type) {
-                case ns.TLV_TYPE.PADDING:
-                    // Completely ignore this.
-                    debugOutput.push('padding: ' + tlv.value.length);
+                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
+                    out.signature = tlv.value;
+                    out.rawMessage = tlv.rest;
+                    debugOutput.push('messageSignature: ' + btoa(tlv.value));
                     break;
                 case ns.TLV_TYPE.PROTOCOL_VERSION:
                     out.protocol = tlv.value;
                     debugOutput.push('protocol: ' + tlv.value.charCodeAt(0));
+                    break;
+                case ns.TLV_TYPE.MESSAGE_TYPE:
+                    out.messageType = tlv.value;
+                    debugOutput.push('messageType: 0x'
+                                     + out.getMessageTypeNumber().toString(16)
+                                     + ' (' + out.getMessageTypeString() + ')');
                     break;
                 case ns.TLV_TYPE.SOURCE:
                     out.source = tlv.value;
@@ -821,12 +822,6 @@ define([
                 case ns.TLV_TYPE.DEST:
                     out.dest = tlv.value;
                     debugOutput.push('to: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.MESSAGE_TYPE:
-                    out.messageType = tlv.value;
-                    debugOutput.push('messageType: 0x'
-                                     + out.getMessageTypeNumber().toString(16)
-                                     + ' (' + out.getMessageTypeString() + ')');
                     break;
                 case ns.TLV_TYPE.MEMBER:
                     out.members.push(tlv.value);
@@ -852,24 +847,6 @@ define([
                     out.signingKey = tlv.value;
                     debugOutput.push('signingKey: ' + btoa(tlv.value));
                     break;
-                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
-                    out.signature = tlv.value;
-                    out.rawMessage = tlv.rest;
-                    debugOutput.push('messageSignature: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.MESSAGE_IV:
-                    out.iv = tlv.value;
-                    debugOutput.push('messageIV: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SIDKEY_HINT:
-                    out.sidkeyHint = tlv.value;
-                    debugOutput.push('sidkeyHint: 0x'
-                                     + tlv.value.charCodeAt(0).toString(16));
-                    break;
-                case ns.TLV_TYPE.DATA_MESSAGE:
-                    out.data = tlv.value;
-                    debugOutput.push('rawDataMessage: ' + btoa(out.data));
-                    break;
                 default:
                     _assert(false, 'Received unknown TLV type: ' + tlv.type);
                     break;
@@ -884,6 +861,36 @@ define([
         logger.debug('mpENC decoded message debug: ', debugOutput);
 
         return out;
+    };
+
+    ns.popTLV = function(message, type, action) {
+        var tlv = ns.decodeTLV(message);
+        if (tlv.type !== type) {
+            throw new Error("decode failed; expected TLV " + type + " but got " + tlv.type);
+        }
+        action(tlv.value);
+        return tlv.rest;
+    };
+
+    ns.popStandardFields = function(message, expectedType, debugOutput) {
+        var rest = message;
+        rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
+            if (value !== version.PROTOCOL_VERSION) {
+                throw new Error("decode failed; expected PROTOCOL_VERSION "
+                                + version.PROTOCOL_VERSION + " but got " + value);
+            }
+            debugOutput.push('protocol: ' + value.charCodeAt(0));
+        });
+        rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
+            if (value !== expectedType) {
+                throw new Error("decode failed; expected MESSAGE_TYPE "
+                                + expectedType + " but got " + value);
+            }
+            debugOutput.push('messageType: 0x'
+                             + ns.messageTypeToNumber(value).toString(16)
+                             + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
+        });
+        return rest;
     };
 
 
@@ -1018,14 +1025,6 @@ define([
     };
 
 
-    /**
-     * Determines of a messages message type.
-     *
-     * @param message {string}
-     *     A wire protocol message representation.
-     * @returns {string}
-     *     The two byte message type string.
-     */
     ns.getMessageType = function(message) {
         if (!message) {
             return undefined;
@@ -1138,6 +1137,15 @@ define([
             out += ns.encodeTLV(tlvType, valueArray[i]);
         }
         return out;
+    };
+
+
+    ns.encodeWireMessage = function(contents) {
+        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
+    };
+
+    ns.decodeWireMessage = function(wireMessage) {
+        return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
 
 
@@ -1278,13 +1286,9 @@ define([
     };
 
 
-    ns.encodeWireMessage = function(contents) {
-        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
-    };
-
-
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
     ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+    ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
 
     return ns;

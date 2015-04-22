@@ -632,8 +632,7 @@ define([
     // See TrialTarget#paramId.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.paramId = function(wireMessage) {
-        var categorised = codec.categoriseMessage(wireMessage.message);
-        return utils.sha256(categorised.content);
+        return utils.sha256(wireMessage.message);
     };
 
 

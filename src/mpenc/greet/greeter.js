@@ -100,7 +100,7 @@ define([
      *     Message as JavaScript object.
      */
     ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
-        var out = codec.decodeMessageTLVs(message);
+        var out = codec.decodeGreetMessageTLVs(message);
 
         // Some specifics depending on the type of mpENC message.
         var sidkeyHash = '';

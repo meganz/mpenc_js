@@ -82,17 +82,12 @@ define([
     describe("DecryptTrialTarget class", function() {
         describe('#paramId method', function() {
             it('simple ID of message', function() {
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                      content: 'foo' }
-                );
                 sandbox.stub(utils, 'sha256', _echo);
                 var message = { from: 'somebody',
                                 to: 'someone else',
-                                message: _td.DATA_MESSAGE_STRING };
+                                message: 'foo' };
                 var target = new ns.DecryptTrialTarget(stub(), [], 42);
                 assert.strictEqual(target.paramId(message), 'foo');
-                assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
         });
@@ -125,7 +120,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
@@ -137,7 +131,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -147,7 +140,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 var sessionKeyStore = messageSecurity._sessionKeyStore;
@@ -162,7 +154,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -173,7 +164,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
@@ -185,7 +175,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
             });
