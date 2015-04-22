@@ -436,66 +436,6 @@ define([
 
 
     /**
-     * Inspects a message for its type and some meta-data.
-     *
-     * This is a "cheap" operation, that is not performing any cryptographic
-     * operations, but only looks at the components of the message payload.
-     *
-     * @method
-     * @param wireMessage {object}
-     *     Received message (wire encoded). The message contains an attribute
-     *     `message` carrying either an {@link mpenc.codec.ProtocolMessage}
-     *     or {@link mpenc.codec.DataMessage} payload.
-     * @returns {object}
-     *     Message meta-data.
-     */
-    ns.ProtocolHandler.prototype.inspectMessage = function(wireMessage) {
-        var classify = codec.categoriseMessage(wireMessage.message);
-        var result = {};
-
-        switch (classify.category) {
-            case codec.MESSAGE_CATEGORY.PLAIN:
-                result.type = 'plain';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_QUERY:
-                result.type = 'mpENC query';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
-                result = codec.inspectMessageContent(classify.content);
-
-                // Complete the origin attribute with further knowledge.
-                if (result.origin === '???') {
-                    if (this.greet.getMembers().indexOf(result.from) >= 0) {
-                        if (result.isInitiator()) {
-                            result.origin = 'initiator';
-                        } else {
-                            result.origin = 'participant';
-                        }
-                    } else {
-                        result.origin = 'outsider';
-                    }
-                }
-                if (result.from === this.id) {
-                    result.origin += ' (self)';
-                }
-
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
-                result.type = 'mpENC data message';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_ERROR:
-                result.type = 'mpENC error';
-                break;
-            default:
-                // Ignoring all others.
-                break;
-        }
-
-        return result;
-    };
-
-
-    /**
      * Sends a message confidentially to the current group.
      *
      * @method
