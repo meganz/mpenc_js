@@ -68,10 +68,9 @@ define([
             var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
                                                 _td.ED25519_PUB_KEY,
                                                 sessionKeyStore).encrypt('foo');
-            // 4 TLVs with 109 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(result, 109);
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 5)
+            assert.lengthOf(result, 108);
         });
 
         it('data message with second group key', function() {
@@ -82,10 +81,9 @@ define([
             var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
                                                 _td.ED25519_PUB_KEY,
                                                 sessionKeyStore).encrypt('foo');
-            // 4 TLVs with 109 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(result, 109);
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 5)
+            assert.lengthOf(result, 108);
         });
 
         it('data message with exponential padding', function() {
@@ -93,10 +91,9 @@ define([
             var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
                                                 _td.ED25519_PUB_KEY,
                                                 sessionKeyStore).encrypt('foo', 32);
-            // 4 TLVs with 136 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(result, 136);
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
+            assert.lengthOf(result, 135);
         });
     });
 
@@ -140,9 +137,9 @@ define([
             var log = MegaLogger._logRegistry.message._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['sidkeyHint: 0x54',
-                                        'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
+                                        'messageSignature: davFA6LQRVC5hN86XRxIrpjGYYVb2CZuQ3HrAldsArbkL99HCSvIRLyHk3k+Z1irSyBddivXsMLyADYPd5cIDw==',
                                         'protocol: 1',
-                                        'greetType: 0x0 (PARTICIPANT_DATA)',
+                                        'messageType: 0x3 (MPENC_DATA_MESSAGE)',
                                         'messageIV: qq36/fToW+Z7I7b5',
                                         'rawDataMessage: aU6y8g8=']]]);
             log = MegaLogger._logRegistry.message._log.getCall(1).args;

@@ -169,25 +169,6 @@ define([
             });
         });
 
-        describe("getGreetType()", function() {
-            it('empty content', function() {
-                var tests = [null, undefined, ''];
-                for (var i = 0; i < tests.length; i++) {
-                    assert.notOk(ns.getGreetType(tests[i]));
-                }
-            });
-
-            it('greet message', function() {
-                assert.strictEqual(ns.getGreetType(_td.DOWNFLOW_MESSAGE_STRING),
-                                   ns.GREET_TYPE.QUIT_DOWN);
-            });
-
-            it('data message', function() {
-                assert.ok(ns.getGreetType(_td.DATA_MESSAGE_STRING),
-                          ns.GREET_TYPE.PARTICIPANT_DATA);
-            });
-        });
-
         describe("categoriseMessage()", function() {
             it('normal categories', function() {
                 var tests = ['Klaatu barada nikto.',

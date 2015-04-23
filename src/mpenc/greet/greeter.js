@@ -100,7 +100,7 @@ define([
      * @returns {mpenc.codec.ProtocolMessage}
      *     Message as JavaScript object.
      */
-    ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
+    ns.decodeGreetMessage = function(message, pubKey) {
         var out = _decode(message);
 
         // Some specifics depending on the type of mpENC message.
@@ -157,15 +157,16 @@ define([
             out.rawMessage = rest;
         }
 
-        rest = codec.popStandardFields(rest, function(type) {
-            if (type === codec.GREET_TYPE.PARTICIPANT_DATA) {
-                return false;
-            } else {
-                out.greetType = type;
-                return true;
-            }
-        }, "not PARTICIPANT_DATA", debugOutput);
+        rest = codec.popStandardFields(rest,
+            codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE, debugOutput);
         out.protocol = codec.PROTOCOL_VERSION;
+
+        rest = codec.popTLV(rest, _T.GREET_TYPE, function(value) {
+            out.greetType = value;
+            debugOutput.push('greetType: 0x'
+                             + codec.greetTypeToNumber(value).toString(16)
+                             + ' (' + codec.GREET_TYPE_MAPPING[value] + ')');
+        });
 
         rest = codec.popTLV(rest, _T.SOURCE, function(value) {
             out.source = value;
@@ -238,7 +239,7 @@ define([
         }
         paddingSize = paddingSize | 0;
 
-        var out = codec.ENCODED_VERSION;
+        var out = codec.ENCODED_VERSION + codec.ENCODED_TYPE_GREET;
         // Process message attributes in this order:
         // greetType, source, dest, members, intKeys, nonces, pubKeys,
         // sessionSignature, signingKey

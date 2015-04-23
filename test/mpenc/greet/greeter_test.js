@@ -62,14 +62,14 @@ define([
             var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.lengthOf(result, 61);
+            assert.lengthOf(result, 66);
         });
 
         it('upflow message binary', function() {
             var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
+            assert.strictEqual(btoa(result), btoa(_td.UPFLOW_MESSAGE_STRING));
         });
 
         it('downflow message for quit', function() {
@@ -77,7 +77,7 @@ define([
             var result = ns.encodeGreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.lengthOf(result, 25);
+            assert.lengthOf(result, 30);
         });
 
         it('downflow message for quit binary', function() {
@@ -117,8 +117,9 @@ define([
                                     _td.ED25519_PUB_KEY);
             var log = MegaLogger._logRegistry.greeter._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                       ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
+                                       ['messageSignature: FOZgJa4GtQwNsqvtR7y8qVrSUcjMn50ZK8E92oZFYU/1Y4LNTG191DUfpUugi6pE0m1iFam2CXNzIKStziNcBw==',
                                         'protocol: 1',
+                                        'messageType: 0x2 (MPENC_GREET_MESSAGE)',
                                         'greetType: 0x9c (INIT_INITIATOR_UP)',
                                         'from: 1', 'to: 2',
                                         'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',

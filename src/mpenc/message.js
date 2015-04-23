@@ -137,7 +137,7 @@ define([
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
         // Rest (protocol version, message type, iv, message data).
-        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_MESSAGE_DATA;
+        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_DATA;
         var encrypted = ns._encryptDataMessage(message, groupKey, paddingSize);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
         content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
@@ -296,8 +296,7 @@ define([
         var rest = out.rawMessage;
 
         rest = codec.popStandardFields(rest,
-            function(t) { return t === codec.GREET_TYPE.PARTICIPANT_DATA; },
-            "PARTICIPANT DATA", debugOutput);
+            codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);
         out.protocol = codec.PROTOCOL_VERSION;
 
         rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {

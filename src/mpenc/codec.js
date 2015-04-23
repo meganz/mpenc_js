@@ -163,9 +163,9 @@ define([
 
 
     // Add reverse mapping to string representation.
-    var _MESSAGE_TYPE_MAPPING = {};
+    ns.MESSAGE_TYPE_MAPPING = {};
     for (var propName in ns.MESSAGE_TYPE) {
-        _MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
+        ns.MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
     }
 
 
@@ -216,12 +216,15 @@ define([
      *     from a chat.
      */
     ns.TLV_TYPE = {
-        PROTOCOL_VERSION:  0x0001,
-        DATA_MESSAGE:      0x0002,
-        MESSAGE_SIGNATURE: 0x0003,
-        MESSAGE_IV:        0x0004,
-        GREET_TYPE:      0x0005,
-        SIDKEY_HINT:       0x0006,
+        MESSAGE_SIGNATURE: 0x0003, // 3
+        PROTOCOL_VERSION:  0x0001, // 1
+        MESSAGE_TYPE:      0x0002, // 2
+        // Data messages
+        DATA_MESSAGE:      0x0010, // 16
+        MESSAGE_IV:        0x0011, // 17
+        SIDKEY_HINT:       0x0012, // 18
+        // Greet messages
+        GREET_TYPE:        0x01ff, // 511
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
         MEMBER:            0x0102, // 258
@@ -806,13 +809,12 @@ define([
      *
      * @param message {string}
      *     A binary TLV string.
-     * @param typeFilter {string}
-     *     1-arg function to execute on decoded GREET_TYPE; should return
-     *     true if it's good or false if it's bad (and an error will be thrown).
+     * @param expectedType {string}
+     *     Expected MESSAGE_TYPE, otherwise an error will be thrown.
      * @returns {string}
      *     The rest of the string to decode later.
      */
-    ns.popStandardFields = function(message, typeFilter, typeFilterDesc, debugOutput) {
+    ns.popStandardFields = function(message, expectedType, debugOutput) {
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
             if (value !== version.PROTOCOL_VERSION) {
@@ -821,14 +823,15 @@ define([
             }
             debugOutput.push('protocol: ' + value.charCodeAt(0));
         });
-        rest = ns.popTLV(rest, ns.TLV_TYPE.GREET_TYPE, function(value) {
-            if (!typeFilter(value)) {
-                throw new Error("decode failed; expected type filter failed: "
-                                + typeFilterDesc + " but got " + value);
+        rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
+            value = value.charCodeAt(0);
+            if (value !== expectedType) {
+                throw new Error("decode failed; expected message type: "
+                                + expectedType + " but got: " + value);
             }
-            debugOutput.push('greetType: 0x'
-                             + ns.greetTypeToNumber(value).toString(16)
-                             + ' (' + ns.GREET_TYPE_MAPPING[value] + ')');
+            debugOutput.push('messageType: 0x'
+                             + value.toString(16)
+                             + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
         });
         return rest;
     };
@@ -863,15 +866,15 @@ define([
     };
 
 
-    ns.getGreetType = function(message) {
+    var _getMessageType = function(message) {
         if (!message) {
             return undefined;
         }
 
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
-            if (tlv.type === ns.TLV_TYPE.GREET_TYPE) {
-                return tlv.value;
+            if (tlv.type === ns.TLV_TYPE.MESSAGE_TYPE) {
+                return tlv.value.charCodeAt(0);
             }
             message = tlv.rest;
         }
@@ -909,13 +912,8 @@ define([
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
-            if (ns.getGreetType(message) === ns.GREET_TYPE.PARTICIPANT_DATA) {
-                return { category: ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
-                         content: message };
-            } else {
-                return { category: ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                         content: message };
-            }
+            return { category: _getMessageType(message),
+                     content: message };
         }
 
         // Check for query.
@@ -1132,7 +1130,10 @@ define([
 
 
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
-    ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.GREET_TYPE, ns.GREET_TYPE.PARTICIPANT_DATA);
+    ns.ENCODED_TYPE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE));
+    ns.ENCODED_TYPE_GREET = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE));
+    ns.ENCODED_TYPE_QUERY = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_QUERY));
+    ns.ENCODED_TYPE_ERROR = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_ERROR));
     ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
 
