@@ -122,7 +122,7 @@ define([
                 pubKey = out.pubKeys[index];
             }
             try {
-                out.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                out.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                             out.rawMessage,
                                                             out.signature,
                                                             pubKey,
@@ -264,7 +264,7 @@ define([
             out += codec.encodeTLV(codec.TLV_TYPE.SIGNING_KEY, message.signingKey);
         }
         // Sign `out` and prepend signature.
-        var signature = codec.signMessage(codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+        var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                        out, privKey, pubKey);
         out = codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
 

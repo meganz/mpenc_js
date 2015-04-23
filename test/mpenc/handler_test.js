@@ -102,7 +102,7 @@ define([
         describe('#tryMe', function() {
             it('succeeding try func, not pending', function() {
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 var messageSecurity = _dummyMessageSecurity();
@@ -117,7 +117,7 @@ define([
 
             it('succeeding try func, not pending, previous group key', function() {
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -137,7 +137,7 @@ define([
 
             it('succeeding try func, not pending, previous session', function() {
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -161,7 +161,7 @@ define([
             it('succeeding try func, not pending, hint collision', function() {
                 var collidingKey = 'XqtAZ4L9eY4qFdf6XsfgsQ==';
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -836,7 +836,7 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = {message: 'dummy',
                                from: 'a.dumbledore@hogwarts.ac.uk/android123'};
-                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
@@ -864,7 +864,7 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = { message: 'dummy',
                                 from: 'a.dumbledore@hogwarts.ac.uk/android123' };
-                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_CATEGORY.MPENC_ERROR,
+                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
@@ -890,7 +890,7 @@ define([
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: 'bar@baz.nl/blah123' };
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(
@@ -928,7 +928,7 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage')
@@ -981,7 +981,7 @@ define([
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: '1' };
                 sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(

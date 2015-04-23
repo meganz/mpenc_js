@@ -153,7 +153,7 @@ define([
      * @property MPENC_ERROR {integer}
      *     Message for error in mpENC protocol.
      */
-    ns.MESSAGE_CATEGORY = {
+    ns.MESSAGE_TYPE = {
         PLAIN:               0x00,
         MPENC_QUERY:         0x01,
         MPENC_GREET_MESSAGE: 0x02,
@@ -163,17 +163,17 @@ define([
 
 
     // Add reverse mapping to string representation.
-    var _MESSAGE_CATEGORY_MAPPING = {};
-    for (var propName in ns.MESSAGE_CATEGORY) {
-        _MESSAGE_CATEGORY_MAPPING[ns.MESSAGE_CATEGORY[propName]] = propName;
+    var _MESSAGE_TYPE_MAPPING = {};
+    for (var propName in ns.MESSAGE_TYPE) {
+        _MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
     }
 
 
     // "Magic numbers" used for prepending the data for the purpose of signing.
     var _MAGIC_NUMBERS = {};
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE] = 'greetmsgsig';
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE] = 'datamsgsig';
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_ERROR] = 'errormsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE] = 'greetmsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE] = 'datamsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_ERROR] = 'errormsgsig';
 
 
     /**
@@ -884,7 +884,7 @@ define([
      *
      * @param message {string}
      *     A wire protocol message representation.
-     * @returns {mpenc.codec.MESSAGE_CATEGORY}
+     * @returns {mpenc.codec.MESSAGE_TYPE}
      *     Object indicating message `category` and extracted message `content`.
      */
     ns.categoriseMessage = function(message) {
@@ -894,7 +894,7 @@ define([
 
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
-            return { category: ns.MESSAGE_CATEGORY.PLAIN,
+            return { category: ns.MESSAGE_TYPE.PLAIN,
                      content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
@@ -902,7 +902,7 @@ define([
         // Check for error.
         var _ERROR_PREFIX = ' Error:';
         if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
-            return { category: ns.MESSAGE_CATEGORY.MPENC_ERROR,
+            return { category: ns.MESSAGE_TYPE.MPENC_ERROR,
                      content: message.substring(_PROTOCOL_PREFIX.length + 1) };
         }
 
@@ -910,10 +910,10 @@ define([
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
             if (ns.getGreetType(message) === ns.GREET_TYPE.PARTICIPANT_DATA) {
-                return { category: ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                return { category: ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                          content: message };
             } else {
-                return { category: ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                return { category: ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                          content: message };
             }
         }
@@ -921,7 +921,7 @@ define([
         // Check for query.
         var ver = /v(\d+)\?/.exec(message);
         if (ver && (ver[1] === '' + version.PROTOCOL_VERSION.charCodeAt(0))) {
-            return { category: ns.MESSAGE_CATEGORY.MPENC_QUERY,
+            return { category: ns.MESSAGE_TYPE.MPENC_QUERY,
                      content: String.fromCharCode(ver[1]) };
         }
 
@@ -1018,7 +1018,7 @@ define([
         var out = 'from "' + from +'":' + severity + ':' + message;
         var signature = '';
         if (privKey) {
-            signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_ERROR,
+            signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_ERROR,
                                        out, privKey, pubKey);
         }
         return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
@@ -1059,7 +1059,7 @@ define([
      *
      * @param category {integer}
      *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
+     *     {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param privKey {string}
@@ -1077,7 +1077,7 @@ define([
             return null;
         }
         var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+        if (category === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.sign(prefix + data, privKey, pubKey);
@@ -1092,7 +1092,7 @@ define([
      *
      * @param category {integer}
      *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
+     *     {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param signature {string}
@@ -1110,7 +1110,7 @@ define([
             return null;
         }
         var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+        if (category === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.verify(signature, prefix + data, pubKey);

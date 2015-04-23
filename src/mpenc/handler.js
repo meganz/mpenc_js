@@ -367,7 +367,7 @@ define([
         }
 
         switch (classify.category) {
-            case codec.MESSAGE_CATEGORY.MPENC_ERROR:
+            case codec.MESSAGE_TYPE.MPENC_ERROR:
                 var errorMessageResult = this._processErrorMessage(classify.content);
                 var uiMessageString = _ERROR_MAPPING[errorMessageResult.severity];
                 if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
@@ -383,7 +383,7 @@ define([
                     this.quit();
                 }
                 break;
-            case codec.MESSAGE_CATEGORY.PLAIN:
+            case codec.MESSAGE_TYPE.PLAIN:
                 var outMessage = {
                     from: this.id,
                     to: wireMessage.from,
@@ -396,11 +396,11 @@ define([
                 this.uiQueue.push(wireMessage);
                 this.queueUpdatedCallback(this);
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_QUERY:
+            case codec.MESSAGE_TYPE.MPENC_QUERY:
                 // Initiate keying protocol flow.
                 this.start(wireMessage.from);
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
+            case codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE:
                 try {
                     var oldState = this.greet.state;
                     this.greet.processIncoming(wireMessage.from, classify.content);
@@ -421,7 +421,7 @@ define([
                     }
                 }
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
+            case codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE:
                 var decodedMessage = null;
                 _assert(this.greet.state === greeter.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
@@ -509,7 +509,7 @@ define([
         if ((signatureString.length >= 0) && (pubKey !== undefined)) {
             var cutOffPos = content.indexOf(':');
             var data = content.substring(cutOffPos + 1);
-            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_ERROR,
+            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_ERROR,
                                                               data, signatureString, pubKey);
         }
 

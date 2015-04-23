@@ -195,11 +195,11 @@ define([
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
                              _td.DATA_MESSAGE_PAYLOAD,
                              '?mpENC Error:foo.'];
-                var expected = [[ns.MESSAGE_CATEGORY.PLAIN, 'Klaatu barada nikto.'],
-                                [ns.MESSAGE_CATEGORY.MPENC_QUERY, version.PROTOCOL_VERSION],
-                                [ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
-                                [ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
-                                [ns.MESSAGE_CATEGORY.MPENC_ERROR, 'foo.']];
+                var expected = [[ns.MESSAGE_TYPE.PLAIN, 'Klaatu barada nikto.'],
+                                [ns.MESSAGE_TYPE.MPENC_QUERY, version.PROTOCOL_VERSION],
+                                [ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
+                                [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
+                                [ns.MESSAGE_TYPE.MPENC_ERROR, 'foo.']];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.categoriseMessage(tests[i]);
                     assert.strictEqual(result.category, expected[i][0]);
@@ -385,7 +385,7 @@ define([
         it('null equivalents', function() {
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.strictEqual(ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                   tests[i],
                                                   _td.ED25519_PRIV_KEY,
                                                   _td.ED25519_PUB_KEY), null);
@@ -405,7 +405,7 @@ define([
                             'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                             'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                var result = ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                             tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
@@ -425,7 +425,7 @@ define([
                             'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                var result = ns.signMessage(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                             tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY,
                                             sidkeyHash);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
@@ -447,7 +447,7 @@ define([
                               'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                               'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                     tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                           'case ' + (i + 1));
             }
@@ -466,7 +466,7 @@ define([
                               'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                               'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                        tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                              'case ' + (i + 1));
             }
@@ -486,7 +486,7 @@ define([
                               'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                     tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
                                                     sidkeyHash),
                           'case ' + (i + 1));
@@ -507,7 +507,7 @@ define([
                               'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                        tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
                                                        sidkeyHash),
                              'case ' + (i + 1));
@@ -523,9 +523,9 @@ define([
                 var pubKey = jodid25519.eddsa.publicKey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
-                var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                var signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                message, privKey, pubKey);
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                     message, signature, pubKey),
                           'iteration ' + (i + 1));
             }

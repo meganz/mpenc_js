@@ -143,7 +143,7 @@ define([
         content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
 
         // Compute the content signature.
-        var signature = codec.signMessage(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+        var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                        content, privKey, pubKey, sidkeyHash);
 
         // Assemble everything.
@@ -194,7 +194,7 @@ define([
                 var groupKey = session.groupKeys[gkNo];
                 var sidkeyHash = utils.sha256(sessionID + groupKey);
                 if (inspected.sidkeyHint === sidkeyHash[0]) {
-                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                                  inspected.rawMessage,
                                                                  inspected.signature,
                                                                  signingPubKey,
