@@ -164,7 +164,7 @@ define([
      *     Session ID.
      * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     * @returns {mpenc.message.Message}
      *     Message as JavaScript object.
      */
     MessageSecurity.prototype.decrypt = function(wireMessage) {
@@ -296,10 +296,9 @@ define([
         var rest = out.rawMessage;
 
         rest = codec.popStandardFields(rest,
-            function(t) { return t === codec.MESSAGE_TYPE.PARTICIPANT_DATA; },
+            function(t) { return t === codec.GREET_TYPE.PARTICIPANT_DATA; },
             "PARTICIPANT DATA", debugOutput);
         out.protocol = codec.PROTOCOL_VERSION;
-        out.messageType = codec.MESSAGE_TYPE.PARTICIPANT_DATA;
 
         rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {
             out.iv = value;
@@ -324,7 +323,7 @@ define([
         }
 
         var debugOutput = debugOutput || [];
-        var out = new codec.ProtocolMessage(); // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
+        var out = {} // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
         var rest = message;
 
         rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {

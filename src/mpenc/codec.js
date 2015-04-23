@@ -62,12 +62,12 @@ define([
      * @property sidkeyHintNumber {integer}
      *     Hints at the right combination of session ID and group key used for
      *     a data message.
-     * @property messageType {string}
-     *     Raw mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
-     * @property messageTypeNumber {integer}
+     * @property greetType {string}
+     *     Raw mpENC protocol message type, one of {mpenc.codec.GREET_TYPE}.
+     * @property greetTypeNumber {integer}
      *     mpENC protocol message type as number, one of
-     *     {mpenc.greet.codec.MESSAGE_TYPE}.
-     * @property messageTypeString {string}
+     *     {mpenc.greet.codec.GREET_TYPE}.
+     * @property greetTypeString {string}
      *     Corresponding mpENC protocol message type indicator as a string.
      * @property from {string}
      *     Message originator's participant ID.
@@ -106,9 +106,9 @@ define([
         this.protocolVersion = null;
         this.sidkeyHint = null;
         this.sidkeyHintNumber = null;
-        this.messageType = null;
-        this.messageTypeNumber = null;
-        this.messageTypeString = null;
+        this.greetType = null;
+        this.greetTypeNumber = null;
+        this.greetTypeString = null;
         this.from = null;
         this.to = null;
         this.messageSignature = null;
@@ -136,7 +136,7 @@ define([
      *     `true` for a message from the protocol flow initiator.
      */
     ProtocolMessageInfo.prototype.isInitiator = function() {
-        return (this.messageType & (1 << ns._INIT_BIT) > 0);
+        return (this.greetType & (1 << ns._INIT_BIT) > 0);
     }
 
     /**
@@ -188,8 +188,8 @@ define([
      *     and sign *all* remaining binary content).
      * @property MESSAGE_IV {string}
      *     Random initialisation vector for encrypted message payload.
-     * @property MESSAGE_TYPE {integer}
-     *     mpENC protocol message type. See `MESSAGE_TYPE`.
+     * @property GREET_TYPE {integer}
+     *     mpENC protocol message type. See `GREET_TYPE`.
      * @property SIDKEY_HINT {integer}
      *     Hints at the right combination of session ID and group key used for
      *     a data message.
@@ -220,7 +220,7 @@ define([
         DATA_MESSAGE:      0x0002,
         MESSAGE_SIGNATURE: 0x0003,
         MESSAGE_IV:        0x0004,
-        MESSAGE_TYPE:      0x0005,
+        GREET_TYPE:      0x0005,
         SIDKEY_HINT:       0x0006,
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
@@ -330,7 +330,7 @@ define([
      * @property QUIT_DOWN {string}
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
-    ns.MESSAGE_TYPE = {
+    ns.GREET_TYPE = {
         // Data message.
         PARTICIPANT_DATA:                      '\u0000\u0000', // 0b00000000
         // Initial start sequence.
@@ -363,9 +363,9 @@ define([
 
 
     /** Mapping of message type to string representation. */
-    ns.MESSAGE_TYPE_MAPPING = {};
-    for (var propName in ns.MESSAGE_TYPE) {
-        ns.MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
+    ns.GREET_TYPE_MAPPING = {};
+    for (var propName in ns.GREET_TYPE) {
+        ns.GREET_TYPE_MAPPING[ns.GREET_TYPE[propName]] = propName;
     }
 
 
@@ -376,7 +376,7 @@ define([
      * @return {integer}
      *     Number representing the message type.
      */
-    ns.messageTypeToNumber = function(typeString) {
+    ns.greetTypeToNumber = function(typeString) {
         return (typeString.charCodeAt(0) << 8)
                 | typeString.charCodeAt(1);
     };
@@ -389,18 +389,18 @@ define([
      * @return {string}
      *     Two character string of message type.
      */
-    ns.messageTypeFromNumber = function(typeNumber) {
+    ns.greetTypeFromNumber = function(typeNumber) {
         return String.fromCharCode(typeNumber >>> 8)
                + String.fromCharCode(typeNumber & 0xff);
     };
 
 
     // Checks whether a specific bit is set on a message type.
-    function _isBitSetOnMessageType(messageType, bit) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
+    function _isBitSetOnGreetType(greetType, bit) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
         }
-        return ((messageType & (1 << bit)) > 0);
+        return ((greetType & (1 << bit)) > 0);
     }
 
 
@@ -412,8 +412,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isAuxBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._AUX_BIT);
+    ns.isAuxBitOnGreenType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._AUX_BIT);
     };
 
 
@@ -425,8 +425,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isDownBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._DOWN_BIT);
+    ns.isDownBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._DOWN_BIT);
     };
 
 
@@ -438,8 +438,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isGkaBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._GKA_BIT);
+    ns.isGkaBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._GKA_BIT);
     };
 
 
@@ -451,8 +451,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isSkeBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._SKE_BIT);
+    ns.isSkeBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._SKE_BIT);
     };
 
 
@@ -464,8 +464,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isInitBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._INIT_BIT);
+    ns.isInitBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._INIT_BIT);
     };
 
 
@@ -477,8 +477,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isRecoverBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._RECOVER_BIT);
+    ns.isRecoverBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._RECOVER_BIT);
     };
 
 
@@ -490,11 +490,11 @@ define([
      * @return {integer}
      *     Number of the operation.
      */
-    ns.getOperationOnMessageType = function(messageType) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
+    ns.getOperationOnGreetType = function(greetType) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
         }
-        return (messageType & ns._OPERATION_MASK) >>> ns._OP_BITS;
+        return (greetType & ns._OPERATION_MASK) >>> ns._OP_BITS;
     };
 
 
@@ -510,8 +510,8 @@ define([
      *     Message originator (from) or a {ProtocolMessage} object to copy.
      * @property dest {string}
      *     Message destination (to).
-     * @property messageType {string}
-     *     mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
+     * @property greetType {string}
+     *     mpENC protocol message type, one of {mpenc.codec.GREET_TYPE}.
      * @property sidkeyHint {string}
      *     One character string (a single byte), hinting at the right
      *     combination of session ID and group key used for a data message.
@@ -552,7 +552,7 @@ define([
             this.source = source || '';
         }
         this.dest = source.dest || '';
-        this.messageType = source.messageType || null;
+        this.greetType = source.greetType || null;
         this.sidkeyHint = source.sidkeyHint || null;
         this.members = source.members || [];
         this.intKeys = source.intKeys || [];
@@ -579,8 +579,8 @@ define([
      * @returns {integer}
      *     Message type as numeric value.
      */
-    ProtocolMessage.prototype.getMessageTypeNumber = function() {
-        return ns.messageTypeToNumber(this.messageType);
+    ProtocolMessage.prototype.getGreetTypeNumber = function() {
+        return ns.greetTypeToNumber(this.greetType);
     };
 
 
@@ -591,8 +591,8 @@ define([
      * @returns {string}
      *     Message type as human readable string.
      */
-    ProtocolMessage.prototype.getMessageTypeString = function() {
-        return ns.MESSAGE_TYPE_MAPPING[this.messageType];
+    ProtocolMessage.prototype.getGreetTypeString = function() {
+        return ns.GREET_TYPE_MAPPING[this.greetType];
     };
 
 
@@ -611,25 +611,25 @@ define([
      *     In case of a resulting illegal/non-existent message type.
      */
     ProtocolMessage.prototype._setBit= function(bit, value, noMessageCheck) {
-        var newMessageTypeNum = this.getMessageTypeNumber();
+        var newGreetTypeNum = this.getGreetTypeNumber();
         if (value === true || value === 1) {
-            newMessageTypeNum |= 1 << bit;
+            newGreetTypeNum |= 1 << bit;
         } else if (value === 0 || value === false) {
-            newMessageTypeNum &= 0xffff - (1 << bit);
+            newGreetTypeNum &= 0xffff - (1 << bit);
         } else {
             throw new Error("Illegal value for set/clear bit operation.");
         }
-        var newMessageType = ns.messageTypeFromNumber(newMessageTypeNum);
-        if (ns.MESSAGE_TYPE_MAPPING[newMessageType] === undefined) {
+        var newGreetType = ns.greetTypeFromNumber(newGreetTypeNum);
+        if (ns.GREET_TYPE_MAPPING[newGreetType] === undefined) {
             if (noMessageCheck !== true && noMessageCheck !== 1) {
                 throw new Error("Illegal message type!");
             } else {
-                this.messageType = newMessageType;
+                this.greetType = newGreetType;
                 logger.debug('Arrived at an illegal message type, but was told to ignore it: '
-                             + newMessageType);
+                             + newGreetType);
             }
         } else {
-            this.messageType = newMessageType;
+            this.greetType = newGreetType;
         }
     };
 
@@ -644,7 +644,7 @@ define([
      *     Value of bit.
      */
     ProtocolMessage.prototype._readBit= function(bit) {
-        return (_isBitSetOnMessageType(this.messageType, bit));
+        return (_isBitSetOnGreetType(this.greetType, bit));
     };
 
 
@@ -774,7 +774,7 @@ define([
      *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      */
     ProtocolMessage.prototype.getOperation = function() {
-        return ns.OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)
+        return ns.OPERATION_MAPPING[(this.getGreetTypeNumber() & ns._OPERATION_MASK)
                                     >>> ns._OP_BITS];
     }
 
@@ -807,7 +807,7 @@ define([
      * @param message {string}
      *     A binary TLV string.
      * @param typeFilter {string}
-     *     1-arg function to execute on decoded MESSAGE_TYPE; should return
+     *     1-arg function to execute on decoded GREET_TYPE; should return
      *     true if it's good or false if it's bad (and an error will be thrown).
      * @returns {string}
      *     The rest of the string to decode later.
@@ -821,14 +821,14 @@ define([
             }
             debugOutput.push('protocol: ' + value.charCodeAt(0));
         });
-        rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
+        rest = ns.popTLV(rest, ns.TLV_TYPE.GREET_TYPE, function(value) {
             if (!typeFilter(value)) {
                 throw new Error("decode failed; expected type filter failed: "
                                 + typeFilterDesc + " but got " + value);
             }
-            debugOutput.push('messageType: 0x'
-                             + ns.messageTypeToNumber(value).toString(16)
-                             + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
+            debugOutput.push('greetType: 0x'
+                             + ns.greetTypeToNumber(value).toString(16)
+                             + ' (' + ns.GREET_TYPE_MAPPING[value] + ')');
         });
         return rest;
     };
@@ -863,14 +863,14 @@ define([
     };
 
 
-    ns.getMessageType = function(message) {
+    ns.getGreetType = function(message) {
         if (!message) {
             return undefined;
         }
 
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
-            if (tlv.type === ns.TLV_TYPE.MESSAGE_TYPE) {
+            if (tlv.type === ns.TLV_TYPE.GREET_TYPE) {
                 return tlv.value;
             }
             message = tlv.rest;
@@ -909,7 +909,7 @@ define([
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
-            if (ns.getMessageType(message) === ns.MESSAGE_TYPE.PARTICIPANT_DATA) {
+            if (ns.getGreetType(message) === ns.GREET_TYPE.PARTICIPANT_DATA) {
                 return { category: ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                          content: message };
             } else {
@@ -1132,7 +1132,7 @@ define([
 
 
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
-    ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+    ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.GREET_TYPE, ns.GREET_TYPE.PARTICIPANT_DATA);
     ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
 

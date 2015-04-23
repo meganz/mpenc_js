@@ -158,10 +158,10 @@ define([
         }
 
         rest = codec.popStandardFields(rest, function(type) {
-            if (type === codec.MESSAGE_TYPE.PARTICIPANT_DATA) {
+            if (type === codec.GREET_TYPE.PARTICIPANT_DATA) {
                 return false;
             } else {
-                out.messageType = type;
+                out.greetType = type;
                 return true;
             }
         }, "not PARTICIPANT_DATA", debugOutput);
@@ -240,9 +240,9 @@ define([
 
         var out = codec.ENCODED_VERSION;
         // Process message attributes in this order:
-        // messageType, source, dest, members, intKeys, nonces, pubKeys,
+        // greetType, source, dest, members, intKeys, nonces, pubKeys,
         // sessionSignature, signingKey
-        out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_TYPE, message.messageType);
+        out += codec.encodeTLV(codec.TLV_TYPE.GREET_TYPE, message.greetType);
         out += codec.encodeTLV(codec.TLV_TYPE.SOURCE, message.source);
         out += codec.encodeTLV(codec.TLV_TYPE.DEST, message.dest);
         if (message.members) {
@@ -378,9 +378,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_INIT_INITIATOR_UP;
+            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_INIT_INITIATOR_UP;
         } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
+            protocolMessage.greetType = codec.GREET_TYPE.INIT_INITIATOR_UP;
         }
 
         if (protocolMessage.members.length === 1) {
@@ -410,7 +410,7 @@ define([
         var askeMessage = this.askeMember.join(newMembers);
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP;
+        protocolMessage.greetType = codec.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateState(ns.STATE.AUX_UPFLOW);
         this._encodeAndPublish(protocolMessage);
     };
@@ -440,9 +440,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
+            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
+            protocolMessage.greetType = codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
         }
 
         // We need to update the session state.
@@ -483,7 +483,7 @@ define([
         var askeMessage = this.askeMember.quit();
 
         var protocolMessage = this._mergeMessages(null, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
+        protocolMessage.greetType = codec.GREET_TYPE.QUIT_DOWN;
         this._updateState(ns.STATE.QUIT);
         this._encodeAndPublish(protocolMessage);
     };
@@ -501,9 +501,9 @@ define([
 
         var protocolMessage = this._mergeMessages(cliquesMessage, null);
         if (this.recovering) {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
+            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.messageType = codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN;
+            protocolMessage.greetType = codec.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         }
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
@@ -552,7 +552,7 @@ define([
      */
     GreetWrapper.prototype._processMessage = function(message) {
         logger.debug('Processing message of type '
-                     + message.getMessageTypeString());
+                     + message.getGreetTypeString());
         if (this.state === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
             logger.debug("Ignoring message as we're in state QUIT.");
@@ -598,7 +598,7 @@ define([
         var newState = null;
 
         // Three cases: QUIT, upflow or downflow message.
-        if (message.messageType === codec.MESSAGE_TYPE.QUIT_DOWN) {
+        if (message.greetType === codec.GREET_TYPE.QUIT_DOWN) {
             // QUIT message.
             _assert(message.signingKey,
                     'Inconsistent message content with message type (signingKey).');
@@ -617,7 +617,7 @@ define([
             }
             outMessage = this._mergeMessages(null, outAskeMessage);
             if (outMessage) {
-                outMessage.messageType = message.messageType;
+                outMessage.greetType = message.greetType;
                 // In case we're receiving it from an initiator.
                 outMessage.clearInitiator(true);
                 // Confirmations (subsequent) downflow messages don't have a GKA.
@@ -634,7 +634,7 @@ define([
             outCliquesMessage = this.cliquesMember.upflow(inCliquesMessage);
             outAskeMessage = this.askeMember.upflow(inAskeMessage);
             outMessage = this._mergeMessages(outCliquesMessage, outAskeMessage);
-            outMessage.messageType = message.messageType;
+            outMessage.greetType = message.greetType;
             // In case we're receiving it from an initiator.
             outMessage.clearInitiator();
             // Handle state transitions.
@@ -668,7 +668,7 @@ define([
 
         if (outMessage) {
             logger.debug('Sending message of type '
-                         + outMessage.getMessageTypeString());
+                         + outMessage.getGreetTypeString());
         } else {
             logger.debug('No message to send.');
         }

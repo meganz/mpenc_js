@@ -142,7 +142,7 @@ define([
                                        ['sidkeyHint: 0x54',
                                         'messageSignature: aLW0Axx5p0RVPvjoX0rug6m3VhqsGmX17MTd1eSqdUBaCqwqAO2JfxGNM0p5xoPoQFltrdCGIRvK/QxskpTHBw==',
                                         'protocol: 1',
-                                        'messageType: 0x0 (PARTICIPANT_DATA)',
+                                        'greetType: 0x0 (PARTICIPANT_DATA)',
                                         'messageIV: qq36/fToW+Z7I7b5',
                                         'rawDataMessage: aU6y8g8=']]]);
             log = MegaLogger._logRegistry.message._log.getCall(1).args;

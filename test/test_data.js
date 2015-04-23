@@ -62,7 +62,7 @@ _td.UPFLOW_MESSAGE_STRING = atob('AAMAQNwWlkP2SKJmD5Hux2K9Itmn4z4duGJvt0Bm2LqM'
 _td.UPFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '2',
-    messageType: '\u0000\u009c', // codec.MESSAGE_TYPE.INIT_INITIATOR_UP
+    greetType: '\u0000\u009c', // codec.GREET_TYPE.INIT_INITIATOR_UP
     members: ['1', '2', '3', '4', '5', '6'],
     intKeys: ['', _td.C25519_PUB_KEY],
     nonces: [_td.C25519_PUB_KEY],
@@ -74,7 +74,7 @@ _td.UPFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.UPFLOW_MESSAGE_STRING) + '.';
 _td.DOWNFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '',
-    messageType: '\u0000\u00d3', // codec.MESSAGE_TYPE.QUIT_DOWN
+    greetType: '\u0000\u00d3', // codec.GREET_TYPE.QUIT_DOWN
     signingKey: _td.ED25519_PRIV_KEY,
 };
 _td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQMTL5erm9/6IBvW0/DeWrCrCrfdJJNcUwrGVH2'
@@ -107,7 +107,7 @@ _td.DATA_MESSAGE_STRING32 = atob('AAYAAVQAAwBAGsqBp4p3VhODEBmaopnopJVPcg9hagE2'
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
     signature: 'xxx',
-    messageType: '\u0000\u0000', // codec.MESSAGE_TYPE.PARTICIPANT_DATA
+    greetType: '\u0000\u0000', // codec.GREET_TYPE.PARTICIPANT_DATA
     protocol: undefined, // define this in tests
     iv: 'xxx',
     data: 'foo',

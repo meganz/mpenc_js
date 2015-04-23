@@ -169,22 +169,22 @@ define([
             });
         });
 
-        describe("getMessageType()", function() {
+        describe("getGreetType()", function() {
             it('empty content', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
-                    assert.notOk(ns.getMessageType(tests[i]));
+                    assert.notOk(ns.getGreetType(tests[i]));
                 }
             });
 
             it('greet message', function() {
-                assert.strictEqual(ns.getMessageType(_td.DOWNFLOW_MESSAGE_STRING),
-                                   ns.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(ns.getGreetType(_td.DOWNFLOW_MESSAGE_STRING),
+                                   ns.GREET_TYPE.QUIT_DOWN);
             });
 
             it('data message', function() {
-                assert.ok(ns.getMessageType(_td.DATA_MESSAGE_STRING),
-                          ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+                assert.ok(ns.getGreetType(_td.DATA_MESSAGE_STRING),
+                          ns.GREET_TYPE.PARTICIPANT_DATA);
             });
         });
 
@@ -221,8 +221,8 @@ define([
         });
     });
 
-    describe("messageTypeFromNumber() and messageTypeToNumber()", function() {
-        var messageTypes = {// Data message.
+    describe("greetTypeFromNumber() and greetTypeToNumber()", function() {
+        var greetTypes = {// Data message.
                             '\u0000\u0000': 0x000, // PARTICIPANT_DATA
                             // Initial start sequence.
                             '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
@@ -251,29 +251,29 @@ define([
                             // Quit indication.
                             '\u0000\u00d3': 0x0d3  // QUIT_DOWN
         };
-        var messageTypeNumbers = {};
-        for (var msgType in messageTypes) {
-            messageTypeNumbers[messageTypes[msgType]] = msgType;
+        var greetTypeNumbers = {};
+        for (var msgType in greetTypes) {
+            greetTypeNumbers[greetTypes[msgType]] = msgType;
         }
 
-        it('messageTypeFromNumber()', function() {
-            for (var number in messageTypeNumbers) {
-                assert.strictEqual(ns.messageTypeFromNumber(number),
-                                   messageTypeNumbers[number]);
+        it('greetTypeFromNumber()', function() {
+            for (var number in greetTypeNumbers) {
+                assert.strictEqual(ns.greetTypeFromNumber(number),
+                                   greetTypeNumbers[number]);
             }
         });
 
-        it('messageTypeToNumber()', function() {
-            for (var type in messageTypes) {
-                assert.strictEqual(ns.messageTypeToNumber(type),
-                                   messageTypes[type]);
+        it('greetTypeToNumber()', function() {
+            for (var type in greetTypes) {
+                assert.strictEqual(ns.greetTypeToNumber(type),
+                                   greetTypes[type]);
             }
         });
 
         it('round trip', function() {
-            for (var type in messageTypes) {
-                var number = ns.messageTypeToNumber(type);
-                assert.strictEqual(ns.messageTypeFromNumber(number), type);
+            for (var type in greetTypes) {
+                var number = ns.greetTypeToNumber(type);
+                assert.strictEqual(ns.greetTypeFromNumber(number), type);
             }
         });
     });
@@ -282,13 +282,13 @@ define([
         describe("_readBit()", function() {
             it('downflow on INIT_PARTICIPANT_UP', function() {
                 var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u001c', // INIT_PARTICIPANT_UP
+                message.greetType = '\u0000\u001c', // INIT_PARTICIPANT_UP
                 assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
             });
 
             it('downflow on QUIT_DOWN', function() {
                 var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u00d3'; // QUIT_DOWN
+                message.greetType = '\u0000\u00d3'; // QUIT_DOWN
                 assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
             });
         });
@@ -296,29 +296,29 @@ define([
         describe("_setBit()", function() {
             it('on valid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
-                var expected = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
+                var expected = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue);
-                    assert.strictEqual(message.messageType, expected[i]);
+                    assert.strictEqual(message.greetType, expected[i]);
                 }
             });
 
             it('on invalid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     assert.throws(function() { message._setBit(bit, targetValue); },
@@ -329,16 +329,16 @@ define([
             it('on silenced invalid transitions', function() {
                 sandbox.stub(MegaLogger._logRegistry.codec, '_log');
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue, true);
                     assert.match(MegaLogger._logRegistry.codec._log.getCall(i).args[1],
                                  /^Arrived at an illegal message type, but was told to ignore it:/);
-                    assert.notStrictEqual(message.messageType, tests[i][0]);
+                    assert.notStrictEqual(message.greetType, tests[i][0]);
                 }
             });
         });
@@ -346,10 +346,10 @@ define([
         describe("#clearGKA(), isGKA()", function() {
             it('on valid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                             ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
+                var tests = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                             ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
                 for (var i in tests) {
-                    message.messageType = tests[i];
+                    message.greetType = tests[i];
                     message.clearGKA();
                     assert.strictEqual(message.isGKA(), false);
                 }

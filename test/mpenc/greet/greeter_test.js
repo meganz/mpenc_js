@@ -103,7 +103,7 @@ define([
                                                  _td.ED25519_PUB_KEY);
             assert.strictEqual(result.source, _td.UPFLOW_MESSAGE_CONTENT.source);
             assert.strictEqual(result.dest, _td.UPFLOW_MESSAGE_CONTENT.dest);
-            assert.strictEqual(result.messageType, _td.UPFLOW_MESSAGE_CONTENT.messageType);
+            assert.strictEqual(result.greetType, _td.UPFLOW_MESSAGE_CONTENT.greetType);
             assert.deepEqual(result.members, _td.UPFLOW_MESSAGE_CONTENT.members);
             assert.deepEqual(result.intKeys, _td.UPFLOW_MESSAGE_CONTENT.intKeys);
             assert.deepEqual(result.nonces, _td.UPFLOW_MESSAGE_CONTENT.nonces);
@@ -119,7 +119,7 @@ define([
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
                                         'protocol: 1',
-                                        'messageType: 0x9c (INIT_INITIATOR_UP)',
+                                        'greetType: 0x9c (INIT_INITIATOR_UP)',
                                         'from: 1', 'to: 2',
                                         'member: 1', 'member: 2', 'member: 3', 'member: 4', 'member: 5', 'member: 6',
                                         'intKey: ', 'intKey: hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=',
@@ -132,7 +132,7 @@ define([
                                                  _td.ED25519_PUB_KEY);
             assert.strictEqual(result.source, _td.DOWNFLOW_MESSAGE_CONTENT.source);
             assert.strictEqual(result.dest, _td.DOWNFLOW_MESSAGE_CONTENT.dest);
-            assert.strictEqual(result.messageType, _td.DOWNFLOW_MESSAGE_CONTENT.messageType);
+            assert.strictEqual(result.greetType, _td.DOWNFLOW_MESSAGE_CONTENT.greetType);
             assert.strictEqual(result.signingKey, _td.DOWNFLOW_MESSAGE_CONTENT.signingKey);
         });
 
@@ -261,7 +261,7 @@ define([
                 var message = {
                     source: '1',
                     dest: '2',
-                    messageType: codec.MESSAGE_TYPE.INIT_INITIATOR_UP,
+                    greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
                     members: ['1', '2', '3', '4', '5', '6'],
                     intKeys: null,
                     nonces: null,
@@ -290,7 +290,7 @@ define([
                 var message = {
                     source: '1',
                     dest: '2',
-                    messageType: codec.MESSAGE_TYPE.INIT_INITIATOR_UP,
+                    greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
                     members: ['1', '2', '3', '4', '5', '6'],
                     intKeys: null,
                     nonces: null,
@@ -350,7 +350,7 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.commit);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.INIT_INITIATOR_UP);
             });
         });
 
@@ -382,7 +382,7 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.join);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP);
             });
         });
 
@@ -423,7 +423,7 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.exclude);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
             });
         });
 
@@ -444,7 +444,7 @@ define([
                 sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.QUIT_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.QUIT_DOWN);
             });
         });
 
@@ -463,20 +463,20 @@ define([
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN);
             });
         });
 
         describe('#_processMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2',
-                                messageType: codec.MESSAGE_TYPE.INIT_INITIATOR_UP,
+                                greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [null, []], debugKeys: [null, '1*G'],
                                 nonces: ['foo'], pubKeys: ['foo'],
                                 sessionSignature: null };
                 var compare = { source: '2', dest: '3',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], []], debugKeys: ['2*G', '1*G', '2*1*G'],
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
@@ -490,7 +490,7 @@ define([
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
-                assert.strictEqual(output.messageType, compare.messageType);
+                assert.strictEqual(output.greetType, compare.greetType);
                 assert.deepEqual(output.members, compare.members);
                 assert.lengthOf(output.intKeys, compare.intKeys.length);
                 assert.deepEqual(output.debugKeys, compare.debugKeys);
@@ -501,7 +501,7 @@ define([
 
             it('processing for last upflow message', function() {
                 var message = { source: '4', dest: '5',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['', '', '', '', ''],
@@ -509,7 +509,7 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
                 var compare = { source: '5', dest: '',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -525,7 +525,7 @@ define([
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
-                assert.strictEqual(output.messageType, compare.messageType);
+                assert.strictEqual(output.greetType, compare.greetType);
                 assert.deepEqual(output.members, compare.members);
                 assert.lengthOf(output.intKeys, compare.intKeys.length);
                 assert.lengthOf(output.nonces, compare.nonces.length);
@@ -535,7 +535,7 @@ define([
 
             it('processing for recovery upflow message', function() {
                 var message = { source: '4', dest: '5',
-                                messageType: codec.MESSAGE_TYPE.RECOVER_INIT_PARTICIPANT_UP,
+                                greetType: codec.GREET_TYPE.RECOVER_INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['', '', '', '', ''],
@@ -543,7 +543,7 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
                 var compare = { source: '5', dest: '',
-                                messageType: codec.MESSAGE_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
+                                greetType: codec.GREET_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -562,7 +562,7 @@ define([
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
                 assert.strictEqual(output.dest, compare.dest);
-                assert.strictEqual(output.messageType, compare.messageType);
+                assert.strictEqual(output.greetType, compare.greetType);
                 assert.deepEqual(output.members, compare.members);
                 assert.lengthOf(output.intKeys, compare.intKeys.length);
                 assert.lengthOf(output.nonces, compare.nonces.length);
@@ -572,7 +572,7 @@ define([
 
             it('processing for a downflow message', function() {
                 var message = { source: '5', dest: '',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -601,7 +601,7 @@ define([
 
             it('processing for a downflow message with invalid session auth', function() {
                 var message = { source: '5', dest: '',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -628,7 +628,7 @@ define([
 
             it('processing for a downflow message after CLIQUES finish', function() {
                 var message = { source: '5', dest: '',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [], debugKeys: [],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -689,7 +689,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '1', dest: '',
-                                messageType: codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                greetType: codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.READY;
                 var result = participant._processMessage(
@@ -704,7 +704,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '3', dest: '4',
-                                messageType: codec.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '3', '2', '4', '5'] };
                 participant.state = ns.STATE.INIT_UPFLOW;
                 var result = participant._processMessage(
@@ -718,7 +718,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '1', dest: '',
-                                messageType: codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                greetType: codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.AUX_DOWNFLOW;
                 var result = participant._processMessage(new codec.ProtocolMessage(message));
