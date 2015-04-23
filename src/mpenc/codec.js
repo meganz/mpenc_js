@@ -140,7 +140,7 @@ define([
     }
 
     /**
-     * "Enumeration" protocol message category types.
+     * "Enumeration" of protocol message types.
      *
      * @property PLAIN {integer}
      *     Plain text message (not using mpENC).
@@ -288,8 +288,6 @@ define([
     /**
      * "Enumeration" message types.
      *
-     * @property PARTICIPANT_DATA {string}
-     *     Data message.
      * @property INIT_INITIATOR_UP {string}
      *     Initiator initial upflow.
      * @property INIT_PARTICIPANT_UP {string}
@@ -334,8 +332,6 @@ define([
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
     ns.GREET_TYPE = {
-        // Data message.
-        PARTICIPANT_DATA:                      '\u0000\u0000', // 0b00000000
         // Initial start sequence.
         INIT_INITIATOR_UP:                     '\u0000\u009c', // 0b10011100
         INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
@@ -883,21 +879,21 @@ define([
 
 
     /**
-     * Detects the category of a given message.
+     * Detects the type of a given message.
      *
      * @param message {string}
      *     A wire protocol message representation.
      * @returns {mpenc.codec.MESSAGE_TYPE}
-     *     Object indicating message `category` and extracted message `content`.
+     *     Object indicating message `type` and extracted message `content`.
      */
-    ns.categoriseMessage = function(message) {
+    ns.getMessageAndType = function(message) {
         if (!message) {
             return null;
         }
 
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
-            return { category: ns.MESSAGE_TYPE.PLAIN,
+            return { type: ns.MESSAGE_TYPE.PLAIN,
                      content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
@@ -905,21 +901,21 @@ define([
         // Check for error.
         var _ERROR_PREFIX = ' Error:';
         if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
-            return { category: ns.MESSAGE_TYPE.MPENC_ERROR,
+            return { type: ns.MESSAGE_TYPE.MPENC_ERROR,
                      content: message.substring(_PROTOCOL_PREFIX.length + 1) };
         }
 
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
-            return { category: _getMessageType(message),
+            return { type: _getMessageType(message),
                      content: message };
         }
 
         // Check for query.
         var ver = /v(\d+)\?/.exec(message);
         if (ver && (ver[1] === '' + version.PROTOCOL_VERSION.charCodeAt(0))) {
-            return { category: ns.MESSAGE_TYPE.MPENC_QUERY,
+            return { type: ns.MESSAGE_TYPE.MPENC_QUERY,
                      content: String.fromCharCode(ver[1]) };
         }
 
@@ -1055,9 +1051,8 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
-     * @param category {integer}
-     *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_TYPE}.
+     * @param type {integer}
+     *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param privKey {string}
@@ -1070,12 +1065,12 @@ define([
      * @returns {string}
      *     Binary string representation of the signature.
      */
-    ns.signMessage = function(category, data, privKey, pubKey, sidkeyHash) {
+    ns.signMessage = function(type, data, privKey, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
+        var prefix = _MAGIC_NUMBERS[type];
+        if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.sign(prefix + data, privKey, pubKey);
@@ -1088,9 +1083,8 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
-     * @param category {integer}
-     *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_TYPE}.
+     * @param type {integer}
+     *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param signature {string}
@@ -1103,12 +1097,12 @@ define([
      * @returns {bool}
      *     True if the signature verifies, false otherwise.
      */
-    ns.verifyMessageSignature = function(category, data, signature, pubKey, sidkeyHash) {
+    ns.verifyMessageSignature = function(type, data, signature, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
+        var prefix = _MAGIC_NUMBERS[type];
+        if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.verify(signature, prefix + data, pubKey);

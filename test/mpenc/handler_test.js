@@ -101,8 +101,8 @@ define([
 
         describe('#tryMe', function() {
             it('succeeding try func, not pending', function() {
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                    { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 var messageSecurity = _dummyMessageSecurity();
@@ -116,8 +116,8 @@ define([
             });
 
             it('succeeding try func, not pending, previous group key', function() {
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                    { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -136,8 +136,8 @@ define([
             });
 
             it('succeeding try func, not pending, previous session', function() {
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                    { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -160,8 +160,8 @@ define([
 
             it('succeeding try func, not pending, hint collision', function() {
                 var collidingKey = 'XqtAZ4L9eY4qFdf6XsfgsQ==';
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                    { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
@@ -838,12 +838,12 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = {message: 'dummy',
                                from: 'a.dumbledore@hogwarts.ac.uk/android123'};
-                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_TYPE.MPENC_ERROR,
+                sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(codec.getMessageAndType);
                 sinon_assert.calledOnce(participant._processErrorMessage);
                 sinon_assert.calledOnce(participant.quit);
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -866,12 +866,12 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = { message: 'dummy',
                                 from: 'a.dumbledore@hogwarts.ac.uk/android123' };
-                sandbox.stub(codec, 'categoriseMessage').returns({ category: codec.MESSAGE_TYPE.MPENC_ERROR,
+                sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(codec.getMessageAndType);
                 sinon_assert.calledOnce(participant._processErrorMessage);
                 assert.strictEqual(participant.quit.callCount, 0);
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -891,8 +891,8 @@ define([
                 participant.greet.cliquesMember.groupKey = groupKey;
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: 'bar@baz.nl/blah123' };
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                        { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(
@@ -905,7 +905,7 @@ define([
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(codec.getMessageAndType);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet._processMessage);
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
@@ -930,8 +930,8 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                        { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage')
@@ -948,7 +948,7 @@ define([
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
-                assert.strictEqual(codec.categoriseMessage.callCount, 1);
+                assert.strictEqual(codec.getMessageAndType.callCount, 1);
                 assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
                 assert.strictEqual(participant.greet._processMessage.callCount, 1);
                 assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
@@ -984,8 +984,8 @@ define([
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: '1' };
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                        { category: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
+                sandbox.stub(codec, 'getMessageAndType').returns(
+                        { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
                 sandbox.stub(participant.greet, '_processMessage').returns(
@@ -994,7 +994,7 @@ define([
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.categoriseMessage);
+                sinon_assert.calledOnce(codec.getMessageAndType);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);
                 assert.strictEqual(greeter.decodeGreetMessage.getCall(0).args[1], _td.ED25519_PUB_KEY);
                 sinon_assert.calledOnce(participant.greet._processMessage);

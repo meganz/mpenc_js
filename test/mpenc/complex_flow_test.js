@@ -66,7 +66,7 @@ define([
 
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
-            var content = codec.categoriseMessage(_stripProtoFromMessage(message.message)).content;
+            var content = codec.getMessageAndType(_stripProtoFromMessage(message.message)).content;
             var sessionID = senderParticipant._sessionKeyStore.sessionIDs[0];
             var groupKey = sessionID
                          ? senderParticipant._sessionKeyStore.sessions[sessionID].groupKeys[0]

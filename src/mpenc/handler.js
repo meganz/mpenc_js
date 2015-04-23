@@ -360,13 +360,13 @@ define([
      *     or {@link mpenc.codec.DataMessage} payload.
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {
-        var classify = codec.categoriseMessage(wireMessage.message);
+        var classify = codec.getMessageAndType(wireMessage.message);
 
         if (!classify) {
             return;
         }
 
-        switch (classify.category) {
+        switch (classify.type) {
             case codec.MESSAGE_TYPE.MPENC_ERROR:
                 var errorMessageResult = this._processErrorMessage(classify.content);
                 var uiMessageString = _ERROR_MAPPING[errorMessageResult.severity];
@@ -429,7 +429,7 @@ define([
                 this._tryDecrypt.trial(wireMessage);
                 break;
             default:
-                _assert(false, 'Received unknown message category: ' + classify.category);
+                _assert(false, 'Received unknown message type: ' + classify.type);
                 break;
         }
     };

@@ -169,8 +169,8 @@ define([
             });
         });
 
-        describe("categoriseMessage()", function() {
-            it('normal categories', function() {
+        describe("getMessageAndType()", function() {
+            it('normal types', function() {
                 var tests = ['Klaatu barada nikto.',
                              '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
@@ -182,29 +182,28 @@ define([
                                 [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_ERROR, 'foo.']];
                 for (var i = 0; i < tests.length; i++) {
-                    var result = ns.categoriseMessage(tests[i]);
-                    assert.strictEqual(result.category, expected[i][0]);
+                    var result = ns.getMessageAndType(tests[i]);
+                    assert.strictEqual(result.type, expected[i][0]);
                     assert.strictEqual(result.content, expected[i][1]);
                 }
             });
 
             it('unknown message', function() {
-                assert.throws(function() { ns.categoriseMessage('?mpENC...blah.'); },
+                assert.throws(function() { ns.getMessageAndType('?mpENC...blah.'); },
                               'Unknown mpENC message.');
             });
 
             it('null message', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
-                    assert.strictEqual(ns.categoriseMessage(tests[i]), null);
+                    assert.strictEqual(ns.getMessageAndType(tests[i]), null);
                 }
             });
         });
     });
 
     describe("greetTypeFromNumber() and greetTypeToNumber()", function() {
-        var greetTypes = {// Data message.
-                            '\u0000\u0000': 0x000, // PARTICIPANT_DATA
+        var greetTypes = {
                             // Initial start sequence.
                             '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
                             '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
