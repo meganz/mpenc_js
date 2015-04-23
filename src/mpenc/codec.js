@@ -236,33 +236,6 @@ define([
     };
 
 
-    /**
-     * Decodes a given binary TVL string to a type and value.
-     *
-     * @param tlv {string}
-     *     A binary TLV string.
-     * @returns {Object}
-     *     An object containing the type of string (in `type`, 16-bit unsigned
-     *     integer) and the value (in `value`, binary string of the pay load).
-     *     left over bytes from the input are returned in `rest`.
-     */
-    ns.decodeTLV = function(tlv) {
-        var type = ns._bin2short(tlv.substring(0, 2));
-        var length = ns._bin2short(tlv.substring(2, 4));
-        var value = tlv.substring(4, 4 + length);
-        _assert(length === value.length,
-                'TLV payload length does not match indicated length.');
-        if (length === 0) {
-            value = '';
-        }
-        return {
-            type: type,
-            value: value,
-            rest: tlv.substring(length + 4)
-        };
-    };
-
-
     // Message type bit mapping
     ns._AUX_BIT = 0;
     ns._DOWN_BIT = 1;
@@ -779,6 +752,33 @@ define([
 
 
     /**
+     * Decodes a given binary TLV string to a type and value.
+     *
+     * @param tlv {string}
+     *     A binary TLV string.
+     * @returns {Object}
+     *     An object containing the type of string (in `type`, 16-bit unsigned
+     *     integer) and the value (in `value`, binary string of the pay load).
+     *     left over bytes from the input are returned in `rest`.
+     */
+    ns.decodeTLV = function(tlv) {
+        var type = ns._bin2short(tlv.substring(0, 2));
+        var length = ns._bin2short(tlv.substring(2, 4));
+        var value = tlv.substring(4, 4 + length);
+        _assert(length === value.length,
+                'TLV payload length does not match indicated length.');
+        if (length === 0) {
+            value = '';
+        }
+        return {
+            type: type,
+            value: value,
+            rest: tlv.substring(length + 4)
+        };
+    };
+
+
+    /**
      * Decodes a given TLV value of a particular type, and do something with it.
      *
      * @param message {string}
@@ -801,7 +801,7 @@ define([
 
 
     /**
-     * Decodes a given TLV value of a particular type, and do something with it.
+     * Decodes PROTOCOL_VERSION and MESSAGE_TYPE, present on all messages.
      *
      * @param message {string}
      *     A binary TLV string.
