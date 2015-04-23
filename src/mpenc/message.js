@@ -35,6 +35,7 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+    var _T = codec.TLV_TYPE;
 
     var logger = MegaLogger.getLogger('message', undefined, 'mpenc');
 
@@ -179,9 +180,9 @@ define([
             return null;
         }
 
+        var message = codec.decodeWireMessage(wireMessage.message);
         var signingPubKey = sessionKeyStore.pubKeyMap[author];
-        var categorised = codec.categoriseMessage(wireMessage.message);
-        var inspected = codec.inspectMessageContent(categorised.content);
+        var inspected = _inspect(message);
         var decoded = null;
 
         // Loop over (session ID, group key) combos, starting with the latest.
@@ -194,12 +195,12 @@ define([
                 var sidkeyHash = utils.sha256(sessionID + groupKey);
                 if (inspected.sidkeyHint === sidkeyHash[0]) {
                     var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                                                                 inspected.signedContent,
-                                                                 inspected.messageSignature,
+                                                                 inspected.rawMessage,
+                                                                 inspected.signature,
                                                                  signingPubKey,
                                                                  sidkeyHash);
                     if (verifySig === true) {
-                        decoded = _decrypt(categorised.content,
+                        decoded = _decrypt(message,
                                            signingPubKey,
                                            sessionID,
                                            groupKey);
@@ -266,7 +267,7 @@ define([
     };
 
     var _decrypt = function(message, pubKey, sessionID, groupKey) {
-        var out = codec.decodeMessageTLVs(message);
+        var out = _decode(message);
 
         // Some specifics depending on the type of mpENC message.
         var sidkeyHash = '';
@@ -283,6 +284,63 @@ define([
         // Data message signatures are verified through trial decryption.
         return out;
     };
+
+    var _decode = function(message) {
+        // full decode, no crypto operations
+        if (!message) {
+            return null;
+        }
+
+        var debugOutput = [];
+        var out = _inspect(message, debugOutput);
+        var rest = out.rawMessage;
+
+        rest = codec.popStandardFields(rest,
+            function(t) { return t === codec.MESSAGE_TYPE.PARTICIPANT_DATA; },
+            "PARTICIPANT DATA", debugOutput);
+        out.protocol = codec.PROTOCOL_VERSION;
+        out.messageType = codec.MESSAGE_TYPE.PARTICIPANT_DATA;
+
+        rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {
+            out.iv = value;
+            debugOutput.push('messageIV: ' + btoa(value));
+        });
+
+        rest = codec.popTLV(rest, _T.DATA_MESSAGE, function(value) {
+            out.data = value;
+            debugOutput.push('rawDataMessage: ' + btoa(out.data));
+        });
+
+        // TODO(xl): maybe complain if too much junk afterwards
+        // Debugging output.
+        logger.debug('mpENC decoded message debug: ', debugOutput);
+        return out;
+    };
+
+    var _inspect = function(message, debugOutput) {
+        // partial decode, no crypto operations
+        if (!message) {
+            return null;
+        }
+
+        var debugOutput = debugOutput || [];
+        var out = new codec.ProtocolMessage(); // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
+        var rest = message;
+
+        rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {
+            out.sidkeyHint = value;
+            debugOutput.push('sidkeyHint: 0x'
+                             + value.charCodeAt(0).toString(16));
+        });
+
+        rest = codec.popTLV(rest, _T.MESSAGE_SIGNATURE, function(value) {
+            out.signature = value;
+            debugOutput.push('messageSignature: ' + btoa(value));
+        });
+        out.rawMessage = rest;
+
+        return out;
+    }
 
     /**
      * Decrypts a given data message.

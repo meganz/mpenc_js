@@ -219,107 +219,6 @@ define([
                 }
             });
         });
-
-        describe("inspectMessageContent()", function() {
-            it('upflow message', function() {
-                var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
-                assert.strictEqual(result.messageTypeNumber, 0x9c);
-                assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
-                assert.strictEqual(result.from, '1');
-                assert.strictEqual(result.to, '2');
-                assert.strictEqual(result.origin, 'initiator');
-                assert.strictEqual(result.operation, 'START');
-                assert.strictEqual(result.agreement, 'initial, GKA, SKE');
-                assert.strictEqual(result.flow, 'up');
-                assert.strictEqual(result.recover, false);
-                assert.deepEqual(result.members, ['1', '2', '3', '4', '5', '6']);
-                assert.strictEqual(result.numNonces, 1);
-                assert.strictEqual(result.numIntKeys, 2);
-                assert.strictEqual(result.numPubKeys, 1);
-                assert.strictEqual(result.sidkeyHint, null);
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 163);
-            });
-
-            it('downflow message for quit', function() {
-                var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
-                assert.strictEqual(result.messageTypeNumber, 0xd3);
-                assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
-                assert.strictEqual(result.from, '1');
-                assert.strictEqual(result.to, '');
-                assert.strictEqual(result.origin, '???');
-                assert.strictEqual(result.operation, 'QUIT');
-                assert.strictEqual(result.agreement, 'auxiliary');
-                assert.strictEqual(result.flow, 'down');
-                assert.strictEqual(result.recover, false);
-                assert.deepEqual(result.members, []);
-                assert.strictEqual(result.numNonces, 0);
-                assert.strictEqual(result.numIntKeys, 0);
-                assert.strictEqual(result.numPubKeys, 0);
-                assert.strictEqual(result.sidkeyHint, null);
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 56);
-            });
-
-            it('data message', function() {
-                var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
-                assert.strictEqual(result.messageTypeNumber, 0x00);
-                assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
-                assert.strictEqual(result.from, null);
-                assert.strictEqual(result.to, null);
-                assert.strictEqual(result.origin, null);
-                assert.strictEqual(result.operation, null);
-                assert.strictEqual(result.agreement, null);
-                assert.strictEqual(result.flow, null);
-                assert.strictEqual(result.recover, false);
-                assert.deepEqual(result.members, []);
-                assert.strictEqual(result.numNonces, 0);
-                assert.strictEqual(result.numIntKeys, 0);
-                assert.strictEqual(result.numPubKeys, 0);
-                assert.strictEqual(result.sidkeyHint, '\u0054');
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 36);
-            });
-
-            it('shallow, upflow message', function() {
-                var result = ns.inspectMessageContent(_td.UPFLOW_MESSAGE_STRING, true);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.INIT_INITIATOR_UP);
-                assert.strictEqual(result.messageTypeNumber, 0x9c);
-                assert.strictEqual(result.messageTypeString, 'INIT_INITIATOR_UP');
-                assert.strictEqual(result.sidkeyHint, null);
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 163);
-            });
-
-            it('shallow, downflow message for quit', function() {
-                var result = ns.inspectMessageContent(_td.DOWNFLOW_MESSAGE_STRING, true);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.QUIT_DOWN);
-                assert.strictEqual(result.messageTypeNumber, 0xd3);
-                assert.strictEqual(result.messageTypeString, 'QUIT_DOWN');
-                assert.strictEqual(result.sidkeyHint, null);
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 56);
-            });
-
-            it('shallow, data message', function() {
-                var result = ns.inspectMessageContent(_td.DATA_MESSAGE_STRING, true);
-                assert.strictEqual(result.protocolVersion, 1);
-                assert.strictEqual(result.messageType, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
-                assert.strictEqual(result.messageTypeNumber, 0x00);
-                assert.strictEqual(result.messageTypeString, 'PARTICIPANT_DATA');
-                assert.strictEqual(result.sidkeyHint, '\u0054');
-                assert.lengthOf(result.messageSignature, 64);
-                assert.lengthOf(result.signedContent, 36);
-            });
-        });
     });
 
     describe("messageTypeFromNumber() and messageTypeToNumber()", function() {
@@ -334,11 +233,11 @@ define([
                             '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
                             '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
                             '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
-                            // Join sequence.
-                            '\u0000\u00ad': 0x0ad, // JOIN_AUX_INITIATOR_UP
-                            '\u0000\u002d': 0x02d, // JOIN_AUX_PARTICIPANT_UP
-                            '\u0000\u002f': 0x02f, // JOIN_AUX_PARTICIPANT_DOWN
-                            '\u0000\u002b': 0x02b, // JOIN_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Include sequence.
+                            '\u0000\u00ad': 0x0ad, // INCLUDE_AUX_INITIATOR_UP
+                            '\u0000\u002d': 0x02d, // INCLUDE_AUX_PARTICIPANT_UP
+                            '\u0000\u002f': 0x02f, // INCLUDE_AUX_PARTICIPANT_DOWN
+                            '\u0000\u002b': 0x02b, // INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
                             // Exclude sequence.
                             '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
                             '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN

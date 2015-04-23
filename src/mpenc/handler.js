@@ -169,18 +169,24 @@ define([
         this._messageSecurity = null;
         this._sessionKeyStore = new keystore.KeyStore(name, function() { return 20; });
 
-        // Set up a trial buffer for trial decryption.
         var self = this;
+
+        // Set up a trial buffer for trial decryption.
         var decryptTarget = new ns.DecryptTrialTarget(
             function(wireMessage) {
                 return self._messageSecurity.decrypt(wireMessage);
             }, this.uiQueue, 100);
         this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
+        // Set up component to manage membership operations
         this.greet = new greeter.GreetWrapper(this.id,
                                               privKey, pubKey,
                                               staticPubKeyDir,
                                               function(greet) { self.stateUpdatedCallback(self); });
+        var cancelGreet = this.greet.subscribeSend(function(send_out) {
+            var to = send_out[0], payload = send_out[1];
+            self._pushMessage(to, payload);
+        });
 
         // Sanity check.
         _assert(this.id && privKey && pubKey && staticPubKeyDir && this._sessionKeyStore,
@@ -203,18 +209,6 @@ define([
             this._sessionKeyStore)
     };
 
-    ns.ProtocolHandler.prototype._pushGreetMessage = function(outContent) {
-        if (outContent) {
-            this._pushMessage(outContent.dest,
-                greeter.encodeGreetMessage(
-                    outContent,
-                    this.greet.getEphemeralPrivKey(),
-                    this.greet.getEphemeralPubKey()
-                )
-            );
-        }
-    };
-
     ns.ProtocolHandler.prototype._pushMessage = function(to, message) {
         this.protocolOutQueue.push({
             from: this.id,
@@ -233,20 +227,20 @@ define([
      */
     ns.ProtocolHandler.prototype.start = function(otherMembers) {
         logger.debug('Invoking initial START flow operation.');
-        this._pushGreetMessage(this.greet.start(otherMembers));
+        this.greet.start(otherMembers);
     };
 
 
     /**
-     * Start a new upflow for joining new members.
+     * Start a new upflow for including new members.
      *
      * @method
      * @param newMembers {Array}
-     *     Iterable of new members to join the group.
+     *     Iterable of new members to include into the group.
      */
-    ns.ProtocolHandler.prototype.join = function(newMembers) {
-        logger.debug('Invoking JOIN flow operation.');
-        this._pushGreetMessage(this.greet.join(newMembers));
+    ns.ProtocolHandler.prototype.include = function(newMembers) {
+        logger.debug('Invoking INCLUDE flow operation.');
+        this.greet.include(newMembers);
     };
 
 
@@ -259,15 +253,7 @@ define([
      */
     ns.ProtocolHandler.prototype.exclude = function(excludeMembers) {
         logger.debug('Invoking EXCLUDE flow operation.');
-
-        var outContent = this.greet.exclude(excludeMembers);
-        if (outContent.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            this.quit();
-            return;
-        }
-        this._pushGreetMessage(outContent);
+        this.greet.exclude(excludeMembers);
         if (this.greet.isSessionAcknowledged()) {
             this._messageSecurity = this._newMessageSecurity(this.greet);
         }
@@ -281,7 +267,7 @@ define([
      */
     ns.ProtocolHandler.prototype.quit = function() {
         logger.debug('Invoking QUIT request containing private signing key.');
-        this._pushGreetMessage(this.greet.quit());
+        this.greet.quit();
     };
 
 
@@ -292,22 +278,11 @@ define([
      */
     ns.ProtocolHandler.prototype.refresh = function() {
         logger.debug('Invoking REFRESH flow operation.');
-        this.refreshing = false;
-
-        var outContent = this.greet.refresh();
+        this.greet.refresh();
         this._messageSecurity = this._newMessageSecurity(this.greet);
-        this._pushGreetMessage(outContent);
     };
 
 
-    /**
-     * Fully re-run whole key agreements, but retain the ephemeral signing key.
-     *
-     * @param keepMembers {Array}
-     *     Iterable of members to keep in the group (exclude others). This list
-     *     should include the one self. (Optional parameter.)
-     * @method
-     */
     ns.ProtocolHandler.prototype._fullRefresh = function(keepMembers) {
         // Remove ourselves from members list to keep (if we're in there).
         var otherMembers = utils.clone(this.greet.getMembers());
@@ -323,14 +298,7 @@ define([
         // anyways, so don't worry too much about making this clean.
         this.greet.state = greeter.STATE.NULL;
         // Now start a normal upflow for an initial agreement.
-        var outContent = this.greet.start(otherMembers);
-        if (outContent.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            this.quit();
-            return;
-        }
-        this._pushGreetMessage(outContent);
+        this.greet.start(otherMembers);
     };
 
 
@@ -435,7 +403,7 @@ define([
             case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
                 try {
                     var oldState = this.greet.state;
-                    this.greet.processIncoming(wireMessage.from, classify.content, this._pushGreetMessage.bind(this));
+                    this.greet.processIncoming(wireMessage.from, classify.content);
                     var newState = this.greet.state;
                     if (newState !== oldState) {
                         if (newState === greeter.STATE.QUIT) {
@@ -464,66 +432,6 @@ define([
                 _assert(false, 'Received unknown message category: ' + classify.category);
                 break;
         }
-    };
-
-
-    /**
-     * Inspects a message for its type and some meta-data.
-     *
-     * This is a "cheap" operation, that is not performing any cryptographic
-     * operations, but only looks at the components of the message payload.
-     *
-     * @method
-     * @param wireMessage {object}
-     *     Received message (wire encoded). The message contains an attribute
-     *     `message` carrying either an {@link mpenc.codec.ProtocolMessage}
-     *     or {@link mpenc.codec.DataMessage} payload.
-     * @returns {object}
-     *     Message meta-data.
-     */
-    ns.ProtocolHandler.prototype.inspectMessage = function(wireMessage) {
-        var classify = codec.categoriseMessage(wireMessage.message);
-        var result = {};
-
-        switch (classify.category) {
-            case codec.MESSAGE_CATEGORY.PLAIN:
-                result.type = 'plain';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_QUERY:
-                result.type = 'mpENC query';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
-                result = codec.inspectMessageContent(classify.content);
-
-                // Complete the origin attribute with further knowledge.
-                if (result.origin === '???') {
-                    if (this.greet.getMembers().indexOf(result.from) >= 0) {
-                        if (result.isInitiator()) {
-                            result.origin = 'initiator';
-                        } else {
-                            result.origin = 'participant';
-                        }
-                    } else {
-                        result.origin = 'outsider';
-                    }
-                }
-                if (result.from === this.id) {
-                    result.origin += ' (self)';
-                }
-
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
-                result.type = 'mpENC data message';
-                break;
-            case codec.MESSAGE_CATEGORY.MPENC_ERROR:
-                result.type = 'mpENC error';
-                break;
-            default:
-                // Ignoring all others.
-                break;
-        }
-
-        return result;
     };
 
 
@@ -664,8 +572,7 @@ define([
     // See TrialTarget#paramId.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.paramId = function(wireMessage) {
-        var categorised = codec.categoriseMessage(wireMessage.message);
-        return utils.sha256(categorised.content);
+        return utils.sha256(wireMessage.message);
     };
 
 

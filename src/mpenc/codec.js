@@ -75,7 +75,7 @@ define([
      *     Message destination's participant ID.
      * @property operation {string}
      *     A clear text expression of the type of protocol operation.
-     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      * @property messageSignature {string}
      *     Signature of message.
      * @property signedContent {string}
@@ -179,8 +179,6 @@ define([
     /**
      * "Enumeration" for TLV record types.
      *
-     * @property PADDING {integer}
-     *     Can be used for arbitrary length of padding byte sequences.
      * @property PROTOCOL_VERSION {integer}
      *     Indicates the protocol version to be used as a 16-bit unsigned integer.
      * @property DATA_MESSAGE {string}
@@ -218,7 +216,6 @@ define([
      *     from a chat.
      */
     ns.TLV_TYPE = {
-        PADDING:           0x0000,
         PROTOCOL_VERSION:  0x0001,
         DATA_MESSAGE:      0x0002,
         MESSAGE_SIGNATURE: 0x0003,
@@ -273,7 +270,7 @@ define([
     ns._RECOVER_BIT = 8;
     ns._OPERATION = { DATA: 0x00,
                       START: 0x01,
-                      JOIN: 0x02,
+                      INCLUDE: 0x02,
                       EXCLUDE: 0x03,
                       REFRESH: 0x04,
                       QUIT: 0x05 };
@@ -306,14 +303,14 @@ define([
      *     Participant initial downflow for recovery.
      * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant initial subsequent downflow for recovery.
-     * @property JOIN_AUX_INITIATOR_UP {string}
-     *     Initiator aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_UP {string}
-     *     Participant aux join upflow.
-     * @property JOIN_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux join downflow.
-     * @property JOIN_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux join subsequent downflow.
+     * @property INCLUDE_AUX_INITIATOR_UP {string}
+     *     Initiator aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_UP {string}
+     *     Participant aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux include downflow.
+     * @property INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux include subsequent downflow.
      * @property EXCLUDE_AUX_INITIATOR_DOWN {string}
      *     Initiator aux exclude downflow.
      * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
@@ -345,11 +342,11 @@ define([
         RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
         RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
         RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
-        // Join sequence.
-        JOIN_AUX_INITIATOR_UP:                 '\u0000\u00ad', // 0b10101101
-        JOIN_AUX_PARTICIPANT_UP:               '\u0000\u002d', // 0b00101101
-        JOIN_AUX_PARTICIPANT_DOWN:             '\u0000\u002f', // 0b00101111
-        JOIN_AUX_PARTICIPANT_CONFIRM_DOWN:     '\u0000\u002b', // 0b00101011
+        // Include sequence.
+        INCLUDE_AUX_INITIATOR_UP:              '\u0000\u00ad', // 0b10101101
+        INCLUDE_AUX_PARTICIPANT_UP:            '\u0000\u002d', // 0b00101101
+        INCLUDE_AUX_PARTICIPANT_DOWN:          '\u0000\u002f', // 0b00101111
+        INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u002b', // 0b00101011
         // Exclude sequence.
         EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
         EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
@@ -587,9 +584,6 @@ define([
     };
 
 
-
-
-
     /**
      * Returns a string representation of the message type.
      *
@@ -777,7 +771,7 @@ define([
      * @method
      * @returns {string}
      *     A clear text expression of the type of protocol operation.
-     *     One of "DATA", "START", "JOIN", "EXCLUDE", "REFRESH" or "QUIT".
+     *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      */
     ProtocolMessage.prototype.getOperation = function() {
         return ns.OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)
@@ -786,246 +780,89 @@ define([
 
 
     /**
-     * Partially decodes a given TLV encoded message into basic objects.
-     *
-     * No cryptographic operations (e.g. verify or decrypt) are attempted.
+     * Decodes a given TLV value of a particular type, and do something with it.
      *
      * @param message {string}
-     *     A binary message representation.
-     * @returns {mpenc.codec.ProtocolMessage}
-     *     Partially populated Message as JavaScript object.
-     */
-    ns.decodeMessageTLVs = function(message) {
-        if (!message) {
-            return null;
-        }
-
-        var out = new ns.ProtocolMessage();
-        var debugOutput = [];
-
-        while (message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            switch (tlv.type) {
-                case ns.TLV_TYPE.PADDING:
-                    // Completely ignore this.
-                    debugOutput.push('padding: ' + tlv.value.length);
-                    break;
-                case ns.TLV_TYPE.PROTOCOL_VERSION:
-                    out.protocol = tlv.value;
-                    debugOutput.push('protocol: ' + tlv.value.charCodeAt(0));
-                    break;
-                case ns.TLV_TYPE.SOURCE:
-                    out.source = tlv.value;
-                    debugOutput.push('from: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.DEST:
-                    out.dest = tlv.value;
-                    debugOutput.push('to: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.MESSAGE_TYPE:
-                    out.messageType = tlv.value;
-                    debugOutput.push('messageType: 0x'
-                                     + out.getMessageTypeNumber().toString(16)
-                                     + ' (' + out.getMessageTypeString() + ')');
-                    break;
-                case ns.TLV_TYPE.MEMBER:
-                    out.members.push(tlv.value);
-                    debugOutput.push('member: ' + tlv.value);
-                    break;
-                case ns.TLV_TYPE.INT_KEY:
-                    out.intKeys.push(tlv.value);
-                    debugOutput.push('intKey: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.NONCE:
-                    out.nonces.push(tlv.value);
-                    debugOutput.push('nonce: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.PUB_KEY:
-                    out.pubKeys.push(tlv.value);
-                    debugOutput.push('pubKey: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SESSION_SIGNATURE:
-                    out.sessionSignature = tlv.value;
-                    debugOutput.push('sessionSignature: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SIGNING_KEY:
-                    out.signingKey = tlv.value;
-                    debugOutput.push('signingKey: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
-                    out.signature = tlv.value;
-                    out.rawMessage = tlv.rest;
-                    debugOutput.push('messageSignature: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.MESSAGE_IV:
-                    out.iv = tlv.value;
-                    debugOutput.push('messageIV: ' + btoa(tlv.value));
-                    break;
-                case ns.TLV_TYPE.SIDKEY_HINT:
-                    out.sidkeyHint = tlv.value;
-                    debugOutput.push('sidkeyHint: 0x'
-                                     + tlv.value.charCodeAt(0).toString(16));
-                    break;
-                case ns.TLV_TYPE.DATA_MESSAGE:
-                    out.data = tlv.value;
-                    debugOutput.push('rawDataMessage: ' + btoa(out.data));
-                    break;
-                default:
-                    _assert(false, 'Received unknown TLV type: ' + tlv.type);
-                    break;
-            }
-
-            message = tlv.rest;
-        }
-
-        _assert(out.protocol === version.PROTOCOL_VERSION,
-                'Received wrong protocol version: ' + out.protocol.charCodeAt(0) + '.');
-        // Debugging output.
-        logger.debug('mpENC decoded message debug: ', debugOutput);
-
-        return out;
-    };
-
-
-    /**
-     * Inspects a given TLV encoded protocol message to extract information
-     * on the message type.
-     *
-     * @param message {string}
-     *     A binary message representation.
-     * @param shallow {boolean}
-     *     If true, only a "shallow" inspection will be performed, extracting
-     *     (if present) `SIDKEY_HINT`, `MESSAGE_SIGNATURE`, raw signed data
-     *     content, `PROTOCOL_VERSION` and `MESSAGE_TYPE`, ignoring all other
-     *     TLV records.
-     * @returns {ProtocolMessageInfo}
-     *     Message meta-data.
-     */
-    ns.inspectMessageContent = function(message, shallow) {
-        if (!message) {
-            return null;
-        }
-        shallow = shallow || false;
-        var out = new ProtocolMessageInfo();
-
-        while (message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            switch (tlv.type) {
-                case ns.TLV_TYPE.PROTOCOL_VERSION:
-                    out.protocolVersion = tlv.value.charCodeAt(0);
-                    break;
-                case ns.TLV_TYPE.SIDKEY_HINT:
-                    out.sidkeyHint = tlv.value;
-                    out.sidkeyHintNumber = tlv.value.charCodeAt(tlv.value);
-                    break;
-                case ns.TLV_TYPE.SOURCE:
-                    if (!shallow) {
-                        out.from = tlv.value;
-                    }
-                    break;
-                case ns.TLV_TYPE.DEST:
-                    if (!shallow) {
-                        out.to = tlv.value || '';
-                    }
-                    break;
-                case ns.TLV_TYPE.MESSAGE_TYPE:
-                    out.messageType = tlv.value;
-                    out.messageTypeNumber = (tlv.value.charCodeAt(0) << 8)
-                                             | tlv.value.charCodeAt(1);
-                    out.messageTypeString = ns.MESSAGE_TYPE_MAPPING[tlv.value];
-                    break;
-                case ns.TLV_TYPE.MESSAGE_SIGNATURE:
-                    out.messageSignature = tlv.value;
-                    out.signedContent = tlv.rest;
-                    break;
-                case ns.TLV_TYPE.MEMBER:
-                    if (!shallow) {
-                        out.members.push(tlv.value);
-                    }
-                    break;
-                case ns.TLV_TYPE.NONCE:
-                    if (!shallow) {
-                        out.numNonces++;
-                    }
-                    break;
-                case ns.TLV_TYPE.INT_KEY:
-                    if (!shallow) {
-                        out.numIntKeys++;
-                    }
-                    break;
-                case ns.TLV_TYPE.PUB_KEY:
-                    if (!shallow) {
-                        out.numPubKeys++;
-                    }
-                    break;
-                default:
-                    // Ignoring all others.
-                    break;
-            }
-
-            message = tlv.rest;
-        }
-
-        if (!shallow) {
-            // Complete some details of the message.
-            if (out.messageType !== null
-                    && out.messageTypeString !== 'PARTICIPANT_DATA') {
-                // Auxiliary vs. initial agreement.
-                if (ns.isAuxBitOnMessageType(out.messageTypeNumber)) {
-                    out.agreement = 'auxiliary';
-                } else {
-                    out.agreement = 'initial';
-                }
-
-                // Upflow or downflow.
-                if (ns.isDownBitOnMessageType(out.messageTypeNumber)) {
-                    out.flow = 'down';
-                } else {
-                    out.flow = 'up';
-                }
-
-                // Group Key Agreement.
-                if (ns.isGkaBitOnMessageType(out.messageTypeNumber)) {
-                    out.agreement += ', GKA';
-                }
-
-                // Signature Key Exchange.
-                if (ns.isSkeBitOnMessageType(out.messageTypeNumber)) {
-                    out.agreement += ', SKE';
-                }
-
-                // Operation.
-                out.operation = ns.OPERATION_MAPPING[
-                        ns.getOperationOnMessageType(out.messageTypeNumber)];
-
-                // Initiator or participant.
-                if (ns.isInitBitOnMessageType(out.messageTypeNumber)) {
-                    out.origin = 'initiator';
-                } else {
-                    out.origin = 'participant';
-                }
-                if (out.members.length === 0) {
-                    out.origin = '???';
-                } else if (out.members.indexOf(out.source) >= 0) {
-                    out.origin = 'outsider';
-                }
-
-                // Recovery.
-                out.recover = ns.isRecoverBitOnMessageType(out.messageTypeNumber);
-            }
-        }
-        return out;
-    };
-
-
-    /**
-     * Determines of a messages message type.
-     *
-     * @param message {string}
-     *     A wire protocol message representation.
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV; throws an error if this doesn't match.
+     * @param action {function}
+     *     1-arg function to execute on the decoded value.
      * @returns {string}
-     *     The two byte message type string.
+     *     The rest of the string to decode later.
      */
+    ns.popTLV = function(message, type, action) {
+        var tlv = ns.decodeTLV(message);
+        if (tlv.type !== type) {
+            throw new Error("decode failed; expected TLV " + type + " but got " + tlv.type);
+        }
+        action(tlv.value);
+        return tlv.rest;
+    };
+
+
+    /**
+     * Decodes a given TLV value of a particular type, and do something with it.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param typeFilter {string}
+     *     1-arg function to execute on decoded MESSAGE_TYPE; should return
+     *     true if it's good or false if it's bad (and an error will be thrown).
+     * @returns {string}
+     *     The rest of the string to decode later.
+     */
+    ns.popStandardFields = function(message, typeFilter, typeFilterDesc, debugOutput) {
+        var rest = message;
+        rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
+            if (value !== version.PROTOCOL_VERSION) {
+                throw new Error("decode failed; expected PROTOCOL_VERSION "
+                                + version.PROTOCOL_VERSION + " but got " + value);
+            }
+            debugOutput.push('protocol: ' + value.charCodeAt(0));
+        });
+        rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
+            if (!typeFilter(value)) {
+                throw new Error("decode failed; expected type filter failed: "
+                                + typeFilterDesc + " but got " + value);
+            }
+            debugOutput.push('messageType: 0x'
+                             + ns.messageTypeToNumber(value).toString(16)
+                             + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
+        });
+        return rest;
+    };
+
+
+    /**
+     * Decodes a given TLV value. If it matchs the expected type, run the action.
+     * Otherwise do nothing and return the original string.
+     */
+    ns.popTLVMaybe = function(message, type, action) {
+        var tlv = ns.decodeTLV(message);
+        if (tlv.type !== type) {
+            return message;
+        }
+        action(tlv.value);
+        return tlv.rest;
+    };
+
+
+    /**
+     * Keep decoding TLV values of a particular type, executing the action on
+     * each decoded value. Stop when the next value is not of the expected type.
+     */
+    ns.popTLVAll = function(message, type, action) {
+        var oldrest;
+        var rest = message;
+        do {
+            oldrest = rest;
+            rest = ns.popTLVMaybe(rest, type, action);
+        } while (rest !== oldrest);
+        return rest;
+    };
+
+
     ns.getMessageType = function(message) {
         if (!message) {
             return undefined;
@@ -1138,6 +975,22 @@ define([
             out += ns.encodeTLV(tlvType, valueArray[i]);
         }
         return out;
+    };
+
+
+    /**
+     * Encodes an mpENC TLV string suitable for sending onto the wire.
+     */
+    ns.encodeWireMessage = function(contents) {
+        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
+    };
+
+
+    /**
+     * Decodes an mpENC wire message into a TLV string.
+     */
+    ns.decodeWireMessage = function(wireMessage) {
+        return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
 
 
@@ -1278,13 +1131,9 @@ define([
     };
 
 
-    ns.encodeWireMessage = function(contents) {
-        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
-    };
-
-
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
     ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+    ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
 
     return ns;

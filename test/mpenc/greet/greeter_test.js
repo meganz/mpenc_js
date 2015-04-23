@@ -112,10 +112,10 @@ define([
         });
 
         it('upflow message, debug on', function() {
-            sandbox.stub(MegaLogger._logRegistry.codec, '_log');
+            sandbox.stub(MegaLogger._logRegistry.greeter, '_log');
             ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                     _td.ED25519_PUB_KEY);
-            var log = MegaLogger._logRegistry.codec._log.getCall(0).args;
+            var log = MegaLogger._logRegistry.greeter._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['messageSignature: 3BaWQ/ZIomYPke7HYr0i2afjPh24Ym+3QGbYuowS6weB396AuzPas2YSMnVgX6fR4Yfu1TAfInoRmJaEVgThAg==',
                                         'protocol: 1',
@@ -141,7 +141,7 @@ define([
                         + String.fromCharCode(77)
                         + _td.UPFLOW_MESSAGE_STRING.substring(73);
             assert.throws(function() { ns.decodeGreetMessage(message, _td.ED25519_PUB_KEY); },
-                          'Received wrong protocol version: 77');
+                          'decode failed; expected PROTOCOL_VERSION');
         });
     });
 
@@ -341,24 +341,27 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 sandbox.spy(participant.cliquesMember, 'ika');
                 sandbox.spy(participant.askeMember, 'commit');
+                sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
                 var otherMembers = ['2', '3', '4', '5', '6'];
-                var message = participant.start(otherMembers);
+                participant.subscribeSend(function(){}); // bypass no-subscriber warning
+                participant.start(otherMembers);
                 sinon_assert.calledOnce(participant.cliquesMember.ika);
                 sinon_assert.calledOnce(participant.askeMember.commit);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.INIT_INITIATOR_UP);
+                sinon_assert.calledOnce(ns.encodeGreetMessage);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.INIT_INITIATOR_UP);
             });
         });
 
-        describe('#join() method', function() {
-            it('join empty member list', function() {
+        describe('#inclnude() method', function() {
+            it('include empty member list', function() {
                 var participant = new ns.GreetWrapper('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.READY;
-                assert.throws(function() { participant.join([]); },
+                assert.throws(function() { participant.include([]); },
                               'No members to add.');
             });
 
@@ -370,13 +373,16 @@ define([
                 participant.cliquesMember.akaJoin = sinon_spy();
                 participant.askeMember.join = sinon_spy();
                 participant.state = ns.STATE.READY;
+                sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
                 var otherMembers = ['6', '7'];
-                var message = participant.join(otherMembers);
+                participant.subscribeSend(function(){}); // bypass no-subscriber warning
+                participant.include(otherMembers);
                 sinon_assert.calledOnce(participant.cliquesMember.akaJoin);
                 sinon_assert.calledOnce(participant.askeMember.join);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP);
+                sinon_assert.calledOnce(ns.encodeGreetMessage);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP);
             });
         });
 
@@ -409,12 +415,15 @@ define([
                 participant.cliquesMember.akaExclude = sinon_spy();
                 participant.askeMember.exclude = sinon_spy();
                 participant.state = ns.STATE.READY;
+                sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
-                var message = participant.exclude(['1', '4']);
+                participant.subscribeSend(function(){}); // bypass no-subscriber warning
+                participant.exclude(['1', '4']);
                 sinon_assert.calledOnce(participant.cliquesMember.akaExclude);
                 sinon_assert.calledOnce(participant.askeMember.exclude);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
+                sinon_assert.calledOnce(ns.encodeGreetMessage);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
             });
         });
 
@@ -426,13 +435,16 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 sandbox.spy(participant.askeMember, 'quit');
+                sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant.cliquesMember, 'akaQuit');
                 sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
-                var message = participant.quit();
+                participant.subscribeSend(function(){}); // bypass no-subscriber warning
+                participant.quit();
                 sinon_assert.calledOnce(participant.askeMember.quit);
                 sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.QUIT_DOWN);
+                sinon_assert.calledOnce(ns.encodeGreetMessage);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.QUIT_DOWN);
             });
         });
 
@@ -444,11 +456,14 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant._mergeMessages = stub().returns(new codec.ProtocolMessage());
                 participant.cliquesMember.akaRefresh = sinon_spy();
+                sandbox.stub(ns, 'encodeGreetMessage', stub());
                 participant.state = ns.STATE.READY;
-                var message = participant.refresh();
+                participant.subscribeSend(function(){}); // bypass no-subscriber warning
+                participant.refresh();
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                assert.strictEqual(message.messageType, codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN);
+                sinon_assert.calledOnce(ns.encodeGreetMessage);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].messageType, codec.MESSAGE_TYPE.REFRESH_AUX_INITIATOR_DOWN);
             });
         });
 

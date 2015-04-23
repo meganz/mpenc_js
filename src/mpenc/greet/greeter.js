@@ -18,12 +18,13 @@
 
 define([
     "mpenc/helper/assert",
+    "mpenc/helper/async",
     "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
     "megalogger",
-], function(assert, utils, cliques, ske, codec, MegaLogger) {
+], function(assert, async, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -43,6 +44,7 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+    var _T = codec.TLV_TYPE;
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
 
@@ -99,7 +101,7 @@ define([
      *     Message as JavaScript object.
      */
     ns.decodeGreetMessage = function(message, pubKey, sessionID, groupKey) {
-        var out = codec.decodeMessageTLVs(message);
+        var out = _decode(message);
 
         // Some specifics depending on the type of mpENC message.
         var sidkeyHash = '';
@@ -133,6 +135,81 @@ define([
                         'Signature of message does not verify: ' + e + '!');
             }
         }
+        return out;
+    };
+
+
+    var _decode = function(message) {
+        if (!message) {
+            return null;
+        }
+
+        var out = new codec.ProtocolMessage();
+        var debugOutput = [];
+        var rest = message;
+
+        rest = codec.popTLVMaybe(rest, _T.MESSAGE_SIGNATURE, function(value) {
+            out.signature = value;
+            debugOutput.push('messageSignature: ' + btoa(value));
+        });
+        if (rest !== message) {
+            // there was a signature
+            out.rawMessage = rest;
+        }
+
+        rest = codec.popStandardFields(rest, function(type) {
+            if (type === codec.MESSAGE_TYPE.PARTICIPANT_DATA) {
+                return false;
+            } else {
+                out.messageType = type;
+                return true;
+            }
+        }, "not PARTICIPANT_DATA", debugOutput);
+        out.protocol = codec.PROTOCOL_VERSION;
+
+        rest = codec.popTLV(rest, _T.SOURCE, function(value) {
+            out.source = value;
+            debugOutput.push('from: ' + value);
+        });
+
+        rest = codec.popTLV(rest, _T.DEST, function(value) {
+            out.dest = value;
+            debugOutput.push('to: ' + value);
+        });
+
+        rest = codec.popTLVAll(rest, _T.MEMBER, function(value) {
+            out.members.push(value);
+            debugOutput.push('member: ' + value);
+        });
+
+        rest = codec.popTLVAll(rest, _T.INT_KEY, function(value) {
+            out.intKeys.push(value);
+            debugOutput.push('intKey: ' + btoa(value));
+        });
+
+        rest = codec.popTLVAll(rest, _T.NONCE, function(value) {
+            out.nonces.push(value);
+            debugOutput.push('nonce: ' + btoa(value));
+        });
+
+        rest = codec.popTLVAll(rest, _T.PUB_KEY, function(value) {
+            out.pubKeys.push(value);
+            debugOutput.push('pubKey: ' + btoa(value));
+        });
+
+        rest = codec.popTLVMaybe(rest, _T.SESSION_SIGNATURE, function(value) {
+            out.sessionSignature = value;
+            debugOutput.push('sessionSignature: ' + btoa(value));
+        });
+
+        rest = codec.popTLVMaybe(rest, _T.SIGNING_KEY, function(value) {
+            out.signingKey = value;
+            debugOutput.push('signingKey: ' + btoa(value));
+        });
+
+        // TODO(xl): maybe complain if too much junk afterwards
+        // Debugging output.
+        logger.debug('mpENC decoded message debug: ', debugOutput);
         return out;
     };
 
@@ -243,6 +320,8 @@ define([
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.recovering = false;
 
+        this._send = new async.Observable(true);
+
         // Sanity check.
         _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
                 'Constructor call missing required parameters.');
@@ -262,17 +341,35 @@ define([
         this.stateUpdatedCallback(this);
     };
 
+    GreetWrapper.prototype._assertState = function(valid, message) {
+        _assert(valid.some(function(v) {
+            return this.state === v;
+        }, this), message);
+    };
+
+    GreetWrapper.prototype._encodeAndPublish = function(protocolMessage) {
+        if (!protocolMessage) return;
+        var payload = ns.encodeGreetMessage(
+            protocolMessage,
+            this.getEphemeralPrivKey(),
+            this.getEphemeralPubKey());
+        // TODO(xl): use a RawSendT instead of Array[2]
+        this._send.publish([protocolMessage.dest, payload]);
+    };
+
+    GreetWrapper.prototype.subscribeSend = function(subscriber) {
+        return this._send.subscribe(subscriber);
+    };
+
     /**
      * Mechanism to start the protocol negotiation with the group participants.
      *
      * @method
      * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      */
     GreetWrapper.prototype.start = function(otherMembers) {
-        _assert(this.state === ns.STATE.NULL,
+        this._assertState([ns.STATE.NULL],
                 'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
@@ -285,32 +382,37 @@ define([
         } else {
             protocolMessage.messageType = codec.MESSAGE_TYPE.INIT_INITIATOR_UP;
         }
-        this._updateState(ns.STATE.INIT_UPFLOW);
-        return protocolMessage;
+
+        if (protocolMessage.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
+        } else {
+            this._encodeAndPublish(protocolMessage);
+            this._updateState(ns.STATE.INIT_UPFLOW);
+        }
     };
 
 
     /**
-     * Mechanism to start a new upflow for joining new members.
+     * Mechanism to start a new upflow for including new members.
      *
      * @method
      * @param newMembers {Array}
-     *     Iterable of new members to join the group.
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
+     *     Iterable of new members to include into the group.
      */
-    GreetWrapper.prototype.join = function(newMembers) {
-        _assert(this.state === ns.STATE.READY,
-                'join() can only be called from a ready state.');
+    GreetWrapper.prototype.include = function(newMembers) {
+        this._assertState([ns.STATE.READY],
+                'include() can only be called from a ready state.');
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
 
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
 
         var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.messageType = codec.MESSAGE_TYPE.JOIN_AUX_INITIATOR_UP;
+        protocolMessage.messageType = codec.MESSAGE_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateState(ns.STATE.AUX_UPFLOW);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
@@ -320,17 +422,13 @@ define([
      * @method
      * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      */
     GreetWrapper.prototype.exclude = function(excludeMembers) {
         if (this.recovering) {
-            _assert((this.state === ns.STATE.READY)
-                    || (this.state === ns.STATE.INIT_DOWNFLOW)
-                    || (this.state === ns.STATE.AUX_DOWNFLOW),
+            this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                     'exclude() for recovery can only be called from a ready or downflow state.');
         } else {
-            _assert(this.state === ns.STATE.READY,
+            this._assertState([ns.STATE.READY],
                     'exclude() can only be called from a ready state.');
         }
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
@@ -353,20 +451,24 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
-        if (this.isSessionAcknowledged()) {
-            this._updateState(ns.STATE.READY);
+        if (protocolMessage.members.length === 1) {
+            // Last-man-standing case,
+            // as we won't be able to complete the protocol flow.
+            this.quit();
         } else {
-            this._updateState(ns.STATE.AUX_DOWNFLOW);
+            if (this.isSessionAcknowledged()) {
+                this._updateState(ns.STATE.READY);
+            } else {
+                this._updateState(ns.STATE.AUX_DOWNFLOW);
+            }
+            this._encodeAndPublish(protocolMessage);
         }
-        return protocolMessage;
     };
 
 
     /**
      * Mechanism to start the downflow for quitting participation.
      *
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      * @method
      */
     GreetWrapper.prototype.quit = function() {
@@ -383,21 +485,17 @@ define([
         var protocolMessage = this._mergeMessages(null, askeMessage);
         protocolMessage.messageType = codec.MESSAGE_TYPE.QUIT_DOWN;
         this._updateState(ns.STATE.QUIT);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
     /**
      * Mechanism to refresh group key.
      *
-     * @returns {ProtocolMessage}
-     *     Un-encoded message content.
      * @method
      */
     GreetWrapper.prototype.refresh = function() {
-        _assert((this.state === ns.STATE.READY)
-                || (this.state === ns.STATE.INIT_DOWNFLOW)
-                || (this.state === ns.STATE.AUX_DOWNFLOW),
+        this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
@@ -410,20 +508,18 @@ define([
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
         this._updateState(ns.STATE.READY);
-        return protocolMessage;
+        this._encodeAndPublish(protocolMessage);
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(from, content, pushCallback) {
+    GreetWrapper.prototype.processIncoming = function(from, content) {
         var decodedMessage = null;
-        // TODO(xl): #2115: move below into greeter, but first we must make greeter -> codec instead of codec -> greeter
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
             // the signing pubKeys won't be part of the message.
             // TODO(gk): xl: but we're not checking if this is a key refresh here?
             var signingPubKey = this.getEphemeralPubKey(from);
-            decodedMessage = ns.decodeGreetMessage(content,
-                                                        signingPubKey);
+            decodedMessage = ns.decodeGreetMessage(content, signingPubKey);
         } else {
             decodedMessage = ns.decodeGreetMessage(content);
         }
@@ -432,15 +528,7 @@ define([
         if (keyingMessageResult === null) {
             return;
         }
-        var outContent = keyingMessageResult.decodedMessage;
-
-        if (outContent) {
-            pushCallback(outContent);
-        } else {
-            // Nothing to do, we're done here.
-            // TODO(gk): xl: does this mean we should actually break here?
-        }
-
+        this._encodeAndPublish(keyingMessageResult.decodedMessage);
         if (keyingMessageResult.newState &&
                 (keyingMessageResult.newState !== oldState)) {
             // Update the state if required.
@@ -475,9 +563,8 @@ define([
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
             if (this.state !== ns.STATE.QUIT) {
-                this.state = ns.STATE.QUIT;
                 return { decodedMessage: null,
-                         newState: this.state };
+                         newState: ns.STATE.QUIT };
             } else {
                 return null;
             }

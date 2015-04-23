@@ -82,17 +82,12 @@ define([
     describe("DecryptTrialTarget class", function() {
         describe('#paramId method', function() {
             it('simple ID of message', function() {
-                sandbox.stub(codec, 'categoriseMessage').returns(
-                    { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                      content: 'foo' }
-                );
                 sandbox.stub(utils, 'sha256', _echo);
                 var message = { from: 'somebody',
                                 to: 'someone else',
-                                message: _td.DATA_MESSAGE_STRING };
+                                message: 'foo' };
                 var target = new ns.DecryptTrialTarget(stub(), [], 42);
                 assert.strictEqual(target.paramId(message), 'foo');
-                assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
         });
@@ -125,7 +120,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
@@ -137,7 +131,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -147,7 +140,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 var sessionKeyStore = messageSecurity._sessionKeyStore;
@@ -162,7 +154,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -173,7 +164,6 @@ define([
                     { category: codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                sandbox.spy(codec, 'inspectMessageContent');
                 sandbox.spy(codec, 'verifyMessageSignature');
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
@@ -185,7 +175,6 @@ define([
                 var result = target.tryMe(false, message);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
-                assert.strictEqual(codec.inspectMessageContent.callCount, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
             });
@@ -249,7 +238,7 @@ define([
             });
         });
 
-        describe('#join() method', function() {
+        describe('#include() method', function() {
             it('add members to group', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
                                                          'Blues Brothers',
@@ -258,7 +247,7 @@ define([
                                                          _td.STATIC_PUB_KEY_DIR);
                 participant.greet.state = greeter.STATE.READY;
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                participant.join(['ray@charles.org/ios1234']);
+                participant.include(['ray@charles.org/ios1234']);
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'jake@blues.org/android123');
@@ -281,8 +270,8 @@ define([
                                      greeter.STATE.AUX_DOWNFLOW];
                 for (var i = 0; i < illegalStates.length; i++) {
                     participant.greet.state = illegalStates[i];
-                    assert.throws(function() { participant.join(); },
-                                  'join() can only be called from a ready state.');
+                    assert.throws(function() { participant.include(); },
+                                  'include() can only be called from a ready state.');
                 }
             });
         });
@@ -323,11 +312,11 @@ define([
                 var message = {message: "He's dead, Jim!",
                                members: ['mccoy@ncc-1701.mil/android123', 'kirk@ncc-1701.mil/android456'],
                                dest: ''};
+                sandbox.stub(participant.greet.cliquesMember, "akaExclude", stub());
+                sandbox.stub(participant.greet.askeMember, "exclude", stub());
+                sandbox.stub(participant.greet, "_mergeMessages").returns(message);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(participant.greet, 'exclude').returns(message);
-                participant.exclude(['red.shirt@ncc-1701.mil/ios1234']);
-                sinon_assert.calledOnce(greeter.encodeGreetMessage);
-                sinon_assert.calledOnce(participant.greet.exclude);
+                participant.exclude(['kirk@ncc-1701.mil/android456']);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'mccoy@ncc-1701.mil/android123');
@@ -385,11 +374,13 @@ define([
                 var message = {message: "My poor son!",
                                members: ['chingachgook@mohicans.org/android123'],
                                dest: ''};
-                sandbox.stub(participant.greet, 'exclude').returns(message);
-                sandbox.stub(participant, 'quit');
+                sandbox.stub(participant.greet.cliquesMember, "akaExclude", stub());
+                sandbox.stub(participant.greet.askeMember, "exclude", stub());
+                sandbox.stub(participant.greet, "_mergeMessages").returns(message);
+                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(participant.greet, 'quit');
                 participant.exclude(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(participant.greet.exclude);
-                sinon_assert.calledOnce(participant.quit);
+                sinon_assert.calledOnce(participant.greet.quit);
             });
         });
 
@@ -488,11 +479,9 @@ define([
                 participant.greet.askeMember.ephemeralPubKeys = [];
                 var message = { message: "Fresh Prince",
                                 dest: '' };
-                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                participant.greet.refresh = stub().returns(message);
+                sandbox.stub(greeter, 'encodeGreetMessage').returns(message);
                 participant.refresh();
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
-                sinon_assert.calledOnce(participant.greet.refresh);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
                 assert.strictEqual(participant.protocolOutQueue[0].from, 'dj.jazzy.jeff@rapper.com/android123');
@@ -561,11 +550,11 @@ define([
                 var message = {message: "The last of us!",
                                members: ['chingachgook@mohicans.org/android123'],
                                dest: ''};
-                sandbox.stub(participant.greet, 'start').returns(message);
-                sandbox.stub(participant, 'quit');
+                sandbox.stub(participant.greet, '_mergeMessages').returns(message);
+                sandbox.stub(participant.greet, 'quit');
                 participant._fullRefresh(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(participant.greet.start);
-                sinon_assert.calledOnce(participant.quit);
+                sinon_assert.calledOnce(participant.greet._mergeMessages);
+                sinon_assert.calledOnce(participant.greet.quit);
             });
         });
 
@@ -807,317 +796,6 @@ define([
             });
         });
 
-        describe('#inspectMessage() method', function() {
-            it('on plain text message', function() {
-                var participant = new ns.ProtocolHandler('1', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
-                               from: 'kiri@singer.org.nz/waiata42'};
-                var result = participant.inspectMessage(message);
-                assert.deepEqual(result, {type: 'plain'});
-            });
-
-            it('on error message', function() {
-                var participant = new ns.ProtocolHandler('1', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENC Error:Hatschi!',
-                               from: 'common@cold.govt.nz/flu2'};
-                var result = participant.inspectMessage(message);
-                assert.deepEqual(result, {type: 'mpENC error'});
-            });
-
-            it('on binary data message', function() {
-                var participant = new ns.ProtocolHandler('1', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state = greeter.STATE.READY;
-                var message = {message: _td.DATA_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var result = participant.inspectMessage(message);
-                assert.deepEqual(result, {type: 'mpENC data message'});
-            });
-
-            it('on query message', function() {
-                var participant = new ns.ProtocolHandler('1', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
-                               from: 'raw@hide.com/rollingrollingrolling'};
-                var result = participant.inspectMessage(message);
-                assert.deepEqual(result, {type: 'mpENC query'});
-            });
-
-            it("initial start message for other", function() {
-                var participant = new ns.ProtocolHandler('3', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '2', origin: null,
-                              agreement: 'initial', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5'],
-                              numNonces: 1, numIntKeys: 2, numPubKeys: 1});
-                var message = {message: _td.UPFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '2', origin: '???',
-                                agreement: 'initial', flow: 'up',
-                                fromInitiator: true, negotiation: 'start other',
-                                members: ['1', '2', '3', '4', '5'],
-                                numNonces: 1, numIntKeys: 2, numPubKeys: 1};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("initial start message for me", function() {
-                var participant = new ns.ProtocolHandler('2', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '2', origin: null,
-                              agreement: 'initial', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5'],
-                              numNonces: 1, numIntKeys: 2, numPubKeys: 1});
-                var message = {message: _td.UPFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '2', origin: '???',
-                                agreement: 'initial', flow: 'up',
-                                fromInitiator: true, negotiation: 'start me',
-                                members: ['1', '2', '3', '4', '5'],
-                                numNonces: 1, numIntKeys: 2, numPubKeys: 1};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it('on own quit binary message', function() {
-                var participant = new ns.ProtocolHandler('1', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: '1'};
-                var expected = {protocolVersion: 1,
-                                messageType: 0xd3,
-                                messageTypeString: 'QUIT_DOWN',
-                                from: '1', to: '',
-                                origin: 'initiator (self)',
-                                operation: 'QUIT',
-                                agreement: 'auxiliary',
-                                flow: 'down',
-                                recover: false,
-                                members: [],
-                                numNonces: 0, numIntKeys: 0, numPubKeys: 0};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("on someone's quit binary message", function() {
-                var participant = new ns.ProtocolHandler('2', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: '1'};
-                var expected = {protocol: 1,
-                                from: '1', to: '',
-                                origin: 'initiator',
-                                agreement: 'auxiliary',
-                                flow: 'down',
-                                members: [],
-                                numNonces: 0, numIntKeys: 0, numPubKeys: 0};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it('exclude me message', function() {
-                var participant = new ns.ProtocolHandler('2', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '', origin: null,
-                              agreement: 'auxiliary', flow: 'down',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '3', '4', '5'],
-                              numNonces: 0, numIntKeys: 4, numPubKeys: 0});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '', origin: 'participant',
-                                agreement: 'auxiliary', flow: 'down',
-                                fromInitiator: true, negotiation: 'exclude me',
-                                members: ['1', '3', '4', '5'],
-                                numNonces: 0, numIntKeys: 4, numPubKeys: 0};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("exclude other message", function() {
-                var participant = new ns.ProtocolHandler('3', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '', origin: null,
-                              agreement: 'auxiliary', flow: 'down',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '3', '4', '5'],
-                              numNonces: 0, numIntKeys: 4, numPubKeys: 0});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '', origin: 'participant',
-                                agreement: 'auxiliary', flow: 'down',
-                                fromInitiator: true, negotiation: 'exclude other',
-                                members: ['1', '3', '4', '5'],
-                                numNonces: 0, numIntKeys: 4, numPubKeys: 0};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it('join me message', function() {
-                var participant = new ns.ProtocolHandler('5', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = [];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '5', origin: null,
-                              agreement: 'auxiliary', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5'],
-                              numNonces: 4, numIntKeys: 5, numPubKeys: 4});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '5', origin: '???',
-                                agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: null, negotiation: 'join me',
-                                members: ['1', '2', '3', '4', '5'],
-                                numNonces: 4, numIntKeys: 5, numPubKeys: 4};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("join other message", function() {
-                var participant = new ns.ProtocolHandler('4', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4'];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '5', origin: null,
-                              agreement: 'auxiliary', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5'],
-                              numNonces: 4, numIntKeys: 5, numPubKeys: 4});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '5', origin: 'participant',
-                                agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: true, negotiation: 'join other',
-                                members: ['1', '2', '3', '4', '5'],
-                                numNonces: 4, numIntKeys: 5, numPubKeys: 4};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("join other message chained", function() {
-                var participant = new ns.ProtocolHandler('4', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4'];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '5', to: '6', origin: null,
-                              agreement: 'auxiliary', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5', '6'],
-                              numNonces: 5, numIntKeys: 6, numPubKeys: 5});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '5', to: '6', origin: 'outsider',
-                                agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: false, negotiation: 'join other',
-                                members: ['1', '2', '3', '4', '5', '6'],
-                                numNonces: 5, numIntKeys: 6, numPubKeys: 5};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("join message (not involved)", function() {
-                var participant = new ns.ProtocolHandler('4', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '5', origin: null,
-                              agreement: 'auxiliary', flow: 'up',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '5'],
-                              numNonces: 3, numIntKeys: 4, numPubKeys: 3});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '5', origin: '???',
-                                agreement: 'auxiliary', flow: 'up',
-                                fromInitiator: null, negotiation: 'join (not involved)',
-                                members: ['1', '2', '3', '5'],
-                                numNonces: 3, numIntKeys: 4, numPubKeys: 3};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-
-            it("refresh message", function() {
-                var participant = new ns.ProtocolHandler('4', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['1', '2', '3', '4', '5'];
-                sandbox.stub(codec, 'inspectMessageContent').returns(
-                             {type: null, protocol: 1,
-                              from: '1', to: '', origin: null,
-                              agreement: 'auxiliary', flow: 'down',
-                              fromInitiator: null, negotiation: null,
-                              members: ['1', '2', '3', '4', '5'],
-                              numNonces: 0, numIntKeys: 5, numPubKeys: 0});
-                var message = {message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
-                               from: 'bar@baz.nl/blah123'};
-                var expected = {protocol: 1,
-                                from: '1', to: '', origin: 'participant',
-                                agreement: 'auxiliary', flow: 'down',
-                                fromInitiator: true, negotiation: 'refresh',
-                                members: ['1', '2', '3', '4', '5'],
-                                numNonces: 0, numIntKeys: 5, numPubKeys: 0};
-                var result = participant.inspectMessage(message);
-                assert.ok(_tu.deepCompare(result, expected));
-            });
-        });
-
         describe('#processMessage() method', function() {
             it('on plain text message', function() {
                 var participant = new ns.ProtocolHandler('2', 'foo',
@@ -1253,12 +931,14 @@ define([
                         { category: codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
-                sandbox.spy(participant, 'quit');
                 sandbox.stub(participant.greet, '_processMessage')
                         .throws(new Error('Session authentication by member 5 failed.'));
                 sandbox.stub(participant.greet, 'getEphemeralPrivKey').returns(_td.ED25519_PRIV_KEY);
                 sandbox.stub(participant.greet, 'getEphemeralPubKey').returns(_td.ED25519_PUB_KEY);
-                sandbox.stub(participant.greet, 'quit').returns(
+                sandbox.spy(participant.greet, 'quit');
+                sandbox.stub(participant.greet.cliquesMember, "akaQuit", stub());
+                sandbox.stub(participant.greet.askeMember, "quit", stub());
+                sandbox.stub(participant.greet, '_mergeMessages').returns(
                         { dest: '',
                           source: participant.id,
                           messageType: codec.MESSAGE_TYPE.QUIT_DOWN });
@@ -1267,8 +947,9 @@ define([
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
                 assert.strictEqual(participant.greet._processMessage.callCount, 1);
-                assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 2);
+                assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
                 assert.strictEqual(participant.greet.getEphemeralPubKey.callCount, 4);
+                assert.strictEqual(participant.greet._mergeMessages.callCount, 1);
                 assert.strictEqual(greeter.encodeGreetMessage.callCount, 1);
                 // To send two messages.
                 assert.lengthOf(participant.protocolOutQueue, 2);
@@ -1280,7 +961,6 @@ define([
                 assert.strictEqual(outMessage.from, participant.id);
                 assert.strictEqual(outMessage.to, '');
                 // And a QUIT message.
-                assert.strictEqual(participant.quit.callCount, 1);
                 assert.strictEqual(participant.greet.quit.callCount, 1);
                 outMessage = participant.protocolOutQueue[1];
                 assert.strictEqual(outMessage.message.source, participant.id);
