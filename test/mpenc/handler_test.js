@@ -316,6 +316,7 @@ define([
                 sandbox.stub(participant.greet.askeMember, "exclude", stub());
                 sandbox.stub(participant.greet, "_mergeMessages").returns(message);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.exclude(['kirk@ncc-1701.mil/android456']);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -480,6 +481,7 @@ define([
                 var message = { message: "Fresh Prince",
                                 dest: '' };
                 sandbox.stub(greeter, 'encodeGreetMessage').returns(message);
+                sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.refresh();
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
@@ -901,6 +903,7 @@ define([
                 sandbox.stub(participant.greet, 'getMembers').returns([]);
                 sandbox.stub(participant.greet, 'getEphemeralPubKeys').returns([]);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);
@@ -943,6 +946,7 @@ define([
                           source: participant.id,
                           greetType: codec.GREET_TYPE.QUIT_DOWN });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
                 assert.strictEqual(codec.categoriseMessage.callCount, 1);
                 assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
@@ -988,6 +992,7 @@ define([
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.categoriseMessage);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);

@@ -62,14 +62,14 @@ define([
             var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.lengthOf(atob(result.slice(7, -1)), 61);
+            assert.lengthOf(result, 61);
         });
 
         it('upflow message binary', function() {
             var result = ns.encodeGreetMessage(_td.UPFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.strictEqual(atob(result.slice(7, -1)), _td.UPFLOW_MESSAGE_STRING);
+            assert.strictEqual(result, _td.UPFLOW_MESSAGE_STRING);
         });
 
         it('downflow message for quit', function() {
@@ -77,14 +77,14 @@ define([
             var result = ns.encodeGreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.lengthOf(atob(result.slice(7, -1)), 25);
+            assert.lengthOf(result, 25);
         });
 
         it('downflow message for quit binary', function() {
             var result = ns.encodeGreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT,
                                                  _td.ED25519_PRIV_KEY,
                                                  _td.ED25519_PUB_KEY);
-            assert.strictEqual(atob(result.slice(7, -1)), _td.DOWNFLOW_MESSAGE_STRING);
+            assert.strictEqual(result, _td.DOWNFLOW_MESSAGE_STRING);
         });
 
         it('null message', function() {

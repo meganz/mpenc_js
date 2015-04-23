@@ -114,7 +114,7 @@ define([
      *     cipher text than paddingSize, power of two exponential padding sizes
      *     will be used.
      * @returns {string}
-     *     A wire ready message representation.
+     *     A TLV string.
      */
     MessageSecurity.prototype.encrypt = function(message, paddingSize) {
         if (message === null || message === undefined) {
@@ -150,14 +150,14 @@ define([
         out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
         out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
         out += content;
-        return codec.encodeWireMessage(out);
+        return out;
     };
 
     /**
      * Decodes a given TLV encoded data message into an object.
      *
      * @param message {string}
-     *     A binary message representation.
+     *     A TLV string for the message.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
      * @param sessionID {string}
@@ -167,21 +167,19 @@ define([
      * @returns {mpenc.message.Message}
      *     Message as JavaScript object.
      */
-    MessageSecurity.prototype.decrypt = function(wireMessage) {
+    MessageSecurity.prototype.decrypt = function(message, authorHint) {
         var sessionKeyStore = this._sessionKeyStore;
 
-        var author = wireMessage.from;
         var sessionID = sessionKeyStore.sessionIDs[0];
         var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
 
-        if (!author) {
+        if (!authorHint) {
             logger.warn('No message author for message available, '
-                        + 'will not be able to decrypt: ' + wireMessage.message);
+                        + 'will not be able to decrypt: ' + message);
             return null;
         }
 
-        var message = codec.decodeWireMessage(wireMessage.message);
-        var signingPubKey = sessionKeyStore.pubKeyMap[author];
+        var signingPubKey = sessionKeyStore.pubKeyMap[authorHint];
         var inspected = _inspect(message);
         var decoded = null;
 
@@ -214,10 +212,12 @@ define([
             return null;
         }
 
-        wireMessage.type = 'message';
-        wireMessage.message = decoded.data;
-        logger.debug('Message from "' + author + '" successfully decrypted.');
-        return wireMessage;
+        logger.debug('Message from "' + authorHint + '" successfully decrypted.');
+        return {
+            from: authorHint,
+            type: 'message',
+            message: decoded.data
+        }
     };
 
     /**

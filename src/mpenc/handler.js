@@ -173,8 +173,8 @@ define([
 
         // Set up a trial buffer for trial decryption.
         var decryptTarget = new ns.DecryptTrialTarget(
-            function(wireMessage) {
-                return self._messageSecurity.decrypt(wireMessage);
+            function(message, authorHint) {
+                return self._messageSecurity.decrypt(message, authorHint);
             }, this.uiQueue, 100);
         this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
@@ -185,7 +185,7 @@ define([
                                               function(greet) { self.stateUpdatedCallback(self); });
         var cancelGreet = this.greet.subscribeSend(function(send_out) {
             var to = send_out[0], payload = send_out[1];
-            self._pushMessage(to, payload);
+            self._pushMessage(to, codec.tlvToWire(payload));
         });
 
         // Sanity check.
@@ -209,11 +209,11 @@ define([
             this._sessionKeyStore)
     };
 
-    ns.ProtocolHandler.prototype._pushMessage = function(to, message) {
+    ns.ProtocolHandler.prototype._pushMessage = function(to, encodedMessage) {
         this.protocolOutQueue.push({
             from: this.id,
             to: to,
-            message: message
+            message: encodedMessage
         });
         this.queueUpdatedCallback(this);
     };
@@ -452,7 +452,7 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: this._messageSecurity.encrypt(messageContent, this.exponentialPadding),
+            message: codec.tlvToWire(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -552,12 +552,12 @@ define([
     // See TrialTarget#tryMe.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
-        var decrypted = this._decryptor(wireMessage);
+        var decrypted = this._decryptor(codec.wireToTLV(wireMessage.message), wireMessage.from);
         if (decrypted) {
             this._outQueue.push(decrypted);
             return true;
         }
-        logger.debug('Message from "' + author
+        logger.debug('Message from "' + wireMessage.from
                      + ' not decrypted, will be stashed in trial buffer.');
         return false;
     };

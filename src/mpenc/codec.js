@@ -981,7 +981,7 @@ define([
     /**
      * Encodes an mpENC TLV string suitable for sending onto the wire.
      */
-    ns.encodeWireMessage = function(contents) {
+    ns.tlvToWire = function(contents) {
         return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
     };
 
@@ -989,7 +989,7 @@ define([
     /**
      * Decodes an mpENC wire message into a TLV string.
      */
-    ns.decodeWireMessage = function(wireMessage) {
+    ns.wireToTLV = function(wireMessage) {
         return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
 

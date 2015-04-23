@@ -71,7 +71,7 @@ define([
             // 4 TLVs with 109 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(atob(result.slice(7, -1)), 109);
+            assert.lengthOf(result, 109);
         });
 
         it('data message with second group key', function() {
@@ -85,7 +85,7 @@ define([
             // 4 TLVs with 109 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(atob(result.slice(7, -1)), 109);
+            assert.lengthOf(result, 109);
         });
 
         it('data message with exponential padding', function() {
@@ -96,7 +96,7 @@ define([
             // 4 TLVs with 136 bytes:
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 2), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(atob(result.slice(7, -1)), 136);
+            assert.lengthOf(result, 136);
         });
     });
 
@@ -104,8 +104,8 @@ define([
         it('data message', function() {
             var sessionKeyStore = _dummySessionKeyStore();
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-            var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING) });
+            var result = new ns.MessageSecurity(null, null, sessionKeyStore
+                ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
@@ -117,8 +117,8 @@ define([
             sessionKeyStore.sessions['foo'] = {};
             sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-            var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING2) });
+            var result = new ns.MessageSecurity(null, null, sessionKeyStore
+                ).decrypt(_td.DATA_MESSAGE_STRING2, 'Moe');
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
@@ -134,8 +134,8 @@ define([
             sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
 
-            var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING) });
+            var result = new ns.MessageSecurity(null, null, sessionKeyStore
+                ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             var log = MegaLogger._logRegistry.message._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
@@ -154,8 +154,8 @@ define([
             var sessionKeyStore = _dummySessionKeyStore();
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
 
-            var result = new ns.MessageSecurity(null, null, sessionKeyStore).decrypt(
-                    { from: 'Moe', message: codec.encodeWireMessage(_td.DATA_MESSAGE_STRING32) });
+            var result = new ns.MessageSecurity(null, null, sessionKeyStore
+                ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
             assert.strictEqual(result.from, 'Moe');
             assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);

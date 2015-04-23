@@ -90,7 +90,7 @@ define([
      * Decodes a given TLV encoded Greet message into an object.
      *
      * @param message {string}
-     *     A binary message representation.
+     *     A TLV string.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
      * @param sessionID {string}
@@ -230,7 +230,7 @@ define([
      *     cipher text than paddingSize, power of two exponential padding sizes
      *     will be used.
      * @returns {string}
-     *     A wire ready message representation.
+     *     A TLV string.
      */
     ns.encodeGreetMessage = function(message, privKey, pubKey, paddingSize) {
         if (message === null || message === undefined) {
@@ -268,7 +268,7 @@ define([
                                        out, privKey, pubKey);
         out = codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
 
-        return codec.encodeWireMessage(out);
+        return out;
     };
 
 
