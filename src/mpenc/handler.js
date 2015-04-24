@@ -173,8 +173,8 @@ define([
 
         // Set up a trial buffer for trial decryption.
         var decryptTarget = new ns.DecryptTrialTarget(
-            function(wireMessage) {
-                return self._messageSecurity.decrypt(wireMessage);
+            function(message, authorHint) {
+                return self._messageSecurity.decrypt(message, authorHint);
             }, this.uiQueue, 100);
         this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
@@ -185,7 +185,7 @@ define([
                                               function(greet) { self.stateUpdatedCallback(self); });
         var cancelGreet = this.greet.subscribeSend(function(send_out) {
             var to = send_out[0], payload = send_out[1];
-            self._pushMessage(to, payload);
+            self._pushMessage(to, codec.tlvToWire(payload));
         });
 
         // Sanity check.
@@ -209,11 +209,11 @@ define([
             this._sessionKeyStore)
     };
 
-    ns.ProtocolHandler.prototype._pushMessage = function(to, message) {
+    ns.ProtocolHandler.prototype._pushMessage = function(to, encodedMessage) {
         this.protocolOutQueue.push({
             from: this.id,
             to: to,
-            message: message
+            message: encodedMessage
         });
         this.queueUpdatedCallback(this);
     };
@@ -360,14 +360,14 @@ define([
      *     or {@link mpenc.codec.DataMessage} payload.
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {
-        var classify = codec.categoriseMessage(wireMessage.message);
+        var classify = codec.getMessageAndType(wireMessage.message);
 
         if (!classify) {
             return;
         }
 
-        switch (classify.category) {
-            case codec.MESSAGE_CATEGORY.MPENC_ERROR:
+        switch (classify.type) {
+            case codec.MESSAGE_TYPE.MPENC_ERROR:
                 var errorMessageResult = this._processErrorMessage(classify.content);
                 var uiMessageString = _ERROR_MAPPING[errorMessageResult.severity];
                 if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
@@ -383,7 +383,7 @@ define([
                     this.quit();
                 }
                 break;
-            case codec.MESSAGE_CATEGORY.PLAIN:
+            case codec.MESSAGE_TYPE.PLAIN:
                 var outMessage = {
                     from: this.id,
                     to: wireMessage.from,
@@ -396,11 +396,11 @@ define([
                 this.uiQueue.push(wireMessage);
                 this.queueUpdatedCallback(this);
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_QUERY:
+            case codec.MESSAGE_TYPE.MPENC_QUERY:
                 // Initiate keying protocol flow.
                 this.start(wireMessage.from);
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE:
+            case codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE:
                 try {
                     var oldState = this.greet.state;
                     this.greet.processIncoming(wireMessage.from, classify.content);
@@ -421,7 +421,7 @@ define([
                     }
                 }
                 break;
-            case codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE:
+            case codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE:
                 var decodedMessage = null;
                 _assert(this.greet.state === greeter.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
@@ -429,7 +429,7 @@ define([
                 this._tryDecrypt.trial(wireMessage);
                 break;
             default:
-                _assert(false, 'Received unknown message category: ' + classify.category);
+                _assert(false, 'Received unknown message type: ' + classify.type);
                 break;
         }
     };
@@ -452,7 +452,7 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: this._messageSecurity.encrypt(messageContent, this.exponentialPadding),
+            message: codec.tlvToWire(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -509,7 +509,7 @@ define([
         if ((signatureString.length >= 0) && (pubKey !== undefined)) {
             var cutOffPos = content.indexOf(':');
             var data = content.substring(cutOffPos + 1);
-            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_ERROR,
+            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_ERROR,
                                                               data, signatureString, pubKey);
         }
 
@@ -552,12 +552,12 @@ define([
     // See TrialTarget#tryMe.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
-        var decrypted = this._decryptor(wireMessage);
+        var decrypted = this._decryptor(codec.wireToTLV(wireMessage.message), wireMessage.from);
         if (decrypted) {
             this._outQueue.push(decrypted);
             return true;
         }
-        logger.debug('Message from "' + author
+        logger.debug('Message from "' + wireMessage.from
                      + ' not decrypted, will be stashed in trial buffer.');
         return false;
     };

@@ -62,12 +62,12 @@ define([
      * @property sidkeyHintNumber {integer}
      *     Hints at the right combination of session ID and group key used for
      *     a data message.
-     * @property messageType {string}
-     *     Raw mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
-     * @property messageTypeNumber {integer}
+     * @property greetType {string}
+     *     Raw mpENC protocol message type, one of {mpenc.codec.GREET_TYPE}.
+     * @property greetTypeNumber {integer}
      *     mpENC protocol message type as number, one of
-     *     {mpenc.greet.codec.MESSAGE_TYPE}.
-     * @property messageTypeString {string}
+     *     {mpenc.greet.codec.GREET_TYPE}.
+     * @property greetTypeString {string}
      *     Corresponding mpENC protocol message type indicator as a string.
      * @property from {string}
      *     Message originator's participant ID.
@@ -106,9 +106,9 @@ define([
         this.protocolVersion = null;
         this.sidkeyHint = null;
         this.sidkeyHintNumber = null;
-        this.messageType = null;
-        this.messageTypeNumber = null;
-        this.messageTypeString = null;
+        this.greetType = null;
+        this.greetTypeNumber = null;
+        this.greetTypeString = null;
         this.from = null;
         this.to = null;
         this.messageSignature = null;
@@ -136,11 +136,11 @@ define([
      *     `true` for a message from the protocol flow initiator.
      */
     ProtocolMessageInfo.prototype.isInitiator = function() {
-        return (this.messageType & (1 << ns._INIT_BIT) > 0);
+        return (this.greetType & (1 << ns._INIT_BIT) > 0);
     }
 
     /**
-     * "Enumeration" protocol message category types.
+     * "Enumeration" of protocol message types.
      *
      * @property PLAIN {integer}
      *     Plain text message (not using mpENC).
@@ -153,7 +153,7 @@ define([
      * @property MPENC_ERROR {integer}
      *     Message for error in mpENC protocol.
      */
-    ns.MESSAGE_CATEGORY = {
+    ns.MESSAGE_TYPE = {
         PLAIN:               0x00,
         MPENC_QUERY:         0x01,
         MPENC_GREET_MESSAGE: 0x02,
@@ -163,17 +163,17 @@ define([
 
 
     // Add reverse mapping to string representation.
-    var _MESSAGE_CATEGORY_MAPPING = {};
-    for (var propName in ns.MESSAGE_CATEGORY) {
-        _MESSAGE_CATEGORY_MAPPING[ns.MESSAGE_CATEGORY[propName]] = propName;
+    ns.MESSAGE_TYPE_MAPPING = {};
+    for (var propName in ns.MESSAGE_TYPE) {
+        ns.MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
     }
 
 
     // "Magic numbers" used for prepending the data for the purpose of signing.
     var _MAGIC_NUMBERS = {};
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE] = 'greetmsgsig';
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE] = 'datamsgsig';
-    _MAGIC_NUMBERS[ns.MESSAGE_CATEGORY.MPENC_ERROR] = 'errormsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE] = 'greetmsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE] = 'datamsgsig';
+    _MAGIC_NUMBERS[ns.MESSAGE_TYPE.MPENC_ERROR] = 'errormsgsig';
 
 
     /**
@@ -188,8 +188,8 @@ define([
      *     and sign *all* remaining binary content).
      * @property MESSAGE_IV {string}
      *     Random initialisation vector for encrypted message payload.
-     * @property MESSAGE_TYPE {integer}
-     *     mpENC protocol message type. See `MESSAGE_TYPE`.
+     * @property GREET_TYPE {integer}
+     *     mpENC protocol message type. See `GREET_TYPE`.
      * @property SIDKEY_HINT {integer}
      *     Hints at the right combination of session ID and group key used for
      *     a data message.
@@ -216,12 +216,15 @@ define([
      *     from a chat.
      */
     ns.TLV_TYPE = {
-        PROTOCOL_VERSION:  0x0001,
-        DATA_MESSAGE:      0x0002,
-        MESSAGE_SIGNATURE: 0x0003,
-        MESSAGE_IV:        0x0004,
-        MESSAGE_TYPE:      0x0005,
-        SIDKEY_HINT:       0x0006,
+        MESSAGE_SIGNATURE: 0x0003, // 3
+        PROTOCOL_VERSION:  0x0001, // 1
+        MESSAGE_TYPE:      0x0002, // 2
+        // Data messages
+        DATA_MESSAGE:      0x0010, // 16
+        MESSAGE_IV:        0x0011, // 17
+        SIDKEY_HINT:       0x0012, // 18
+        // Greet messages
+        GREET_TYPE:        0x01ff, // 511
         SOURCE:            0x0100, // 256
         DEST:              0x0101, // 257
         MEMBER:            0x0102, // 258
@@ -230,33 +233,6 @@ define([
         PUB_KEY:           0x0105, // 261
         SESSION_SIGNATURE: 0x0106, // 262
         SIGNING_KEY:       0x0107, // 263
-    };
-
-
-    /**
-     * Decodes a given binary TVL string to a type and value.
-     *
-     * @param tlv {string}
-     *     A binary TLV string.
-     * @returns {Object}
-     *     An object containing the type of string (in `type`, 16-bit unsigned
-     *     integer) and the value (in `value`, binary string of the pay load).
-     *     left over bytes from the input are returned in `rest`.
-     */
-    ns.decodeTLV = function(tlv) {
-        var type = ns._bin2short(tlv.substring(0, 2));
-        var length = ns._bin2short(tlv.substring(2, 4));
-        var value = tlv.substring(4, 4 + length);
-        _assert(length === value.length,
-                'TLV payload length does not match indicated length.');
-        if (length === 0) {
-            value = '';
-        }
-        return {
-            type: type,
-            value: value,
-            rest: tlv.substring(length + 4)
-        };
     };
 
 
@@ -285,8 +261,6 @@ define([
     /**
      * "Enumeration" message types.
      *
-     * @property PARTICIPANT_DATA {string}
-     *     Data message.
      * @property INIT_INITIATOR_UP {string}
      *     Initiator initial upflow.
      * @property INIT_PARTICIPANT_UP {string}
@@ -330,9 +304,7 @@ define([
      * @property QUIT_DOWN {string}
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
-    ns.MESSAGE_TYPE = {
-        // Data message.
-        PARTICIPANT_DATA:                      '\u0000\u0000', // 0b00000000
+    ns.GREET_TYPE = {
         // Initial start sequence.
         INIT_INITIATOR_UP:                     '\u0000\u009c', // 0b10011100
         INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
@@ -363,9 +335,9 @@ define([
 
 
     /** Mapping of message type to string representation. */
-    ns.MESSAGE_TYPE_MAPPING = {};
-    for (var propName in ns.MESSAGE_TYPE) {
-        ns.MESSAGE_TYPE_MAPPING[ns.MESSAGE_TYPE[propName]] = propName;
+    ns.GREET_TYPE_MAPPING = {};
+    for (var propName in ns.GREET_TYPE) {
+        ns.GREET_TYPE_MAPPING[ns.GREET_TYPE[propName]] = propName;
     }
 
 
@@ -376,7 +348,7 @@ define([
      * @return {integer}
      *     Number representing the message type.
      */
-    ns.messageTypeToNumber = function(typeString) {
+    ns.greetTypeToNumber = function(typeString) {
         return (typeString.charCodeAt(0) << 8)
                 | typeString.charCodeAt(1);
     };
@@ -389,18 +361,18 @@ define([
      * @return {string}
      *     Two character string of message type.
      */
-    ns.messageTypeFromNumber = function(typeNumber) {
+    ns.greetTypeFromNumber = function(typeNumber) {
         return String.fromCharCode(typeNumber >>> 8)
                + String.fromCharCode(typeNumber & 0xff);
     };
 
 
     // Checks whether a specific bit is set on a message type.
-    function _isBitSetOnMessageType(messageType, bit) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
+    function _isBitSetOnGreetType(greetType, bit) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
         }
-        return ((messageType & (1 << bit)) > 0);
+        return ((greetType & (1 << bit)) > 0);
     }
 
 
@@ -412,8 +384,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isAuxBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._AUX_BIT);
+    ns.isAuxBitOnGreenType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._AUX_BIT);
     };
 
 
@@ -425,8 +397,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isDownBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._DOWN_BIT);
+    ns.isDownBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._DOWN_BIT);
     };
 
 
@@ -438,8 +410,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isGkaBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._GKA_BIT);
+    ns.isGkaBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._GKA_BIT);
     };
 
 
@@ -451,8 +423,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isSkeBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._SKE_BIT);
+    ns.isSkeBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._SKE_BIT);
     };
 
 
@@ -464,8 +436,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isInitBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._INIT_BIT);
+    ns.isInitBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._INIT_BIT);
     };
 
 
@@ -477,8 +449,8 @@ define([
      * @return {boolean}
      *     True if the bit is set, otherwise false.
      */
-    ns.isRecoverBitOnMessageType = function(messageType) {
-        return _isBitSetOnMessageType(messageType, ns._RECOVER_BIT);
+    ns.isRecoverBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._RECOVER_BIT);
     };
 
 
@@ -490,11 +462,11 @@ define([
      * @return {integer}
      *     Number of the operation.
      */
-    ns.getOperationOnMessageType = function(messageType) {
-        if (typeof(messageType) === 'string') {
-            messageType = ns.messageTypeToNumber(messageType);
+    ns.getOperationOnGreetType = function(greetType) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
         }
-        return (messageType & ns._OPERATION_MASK) >>> ns._OP_BITS;
+        return (greetType & ns._OPERATION_MASK) >>> ns._OP_BITS;
     };
 
 
@@ -510,8 +482,8 @@ define([
      *     Message originator (from) or a {ProtocolMessage} object to copy.
      * @property dest {string}
      *     Message destination (to).
-     * @property messageType {string}
-     *     mpENC protocol message type, one of {mpenc.codec.MESSAGE_TYPE}.
+     * @property greetType {string}
+     *     mpENC protocol message type, one of {mpenc.codec.GREET_TYPE}.
      * @property sidkeyHint {string}
      *     One character string (a single byte), hinting at the right
      *     combination of session ID and group key used for a data message.
@@ -552,7 +524,7 @@ define([
             this.source = source || '';
         }
         this.dest = source.dest || '';
-        this.messageType = source.messageType || null;
+        this.greetType = source.greetType || null;
         this.sidkeyHint = source.sidkeyHint || null;
         this.members = source.members || [];
         this.intKeys = source.intKeys || [];
@@ -579,8 +551,8 @@ define([
      * @returns {integer}
      *     Message type as numeric value.
      */
-    ProtocolMessage.prototype.getMessageTypeNumber = function() {
-        return ns.messageTypeToNumber(this.messageType);
+    ProtocolMessage.prototype.getGreetTypeNumber = function() {
+        return ns.greetTypeToNumber(this.greetType);
     };
 
 
@@ -591,8 +563,8 @@ define([
      * @returns {string}
      *     Message type as human readable string.
      */
-    ProtocolMessage.prototype.getMessageTypeString = function() {
-        return ns.MESSAGE_TYPE_MAPPING[this.messageType];
+    ProtocolMessage.prototype.getGreetTypeString = function() {
+        return ns.GREET_TYPE_MAPPING[this.greetType];
     };
 
 
@@ -611,25 +583,25 @@ define([
      *     In case of a resulting illegal/non-existent message type.
      */
     ProtocolMessage.prototype._setBit= function(bit, value, noMessageCheck) {
-        var newMessageTypeNum = this.getMessageTypeNumber();
+        var newGreetTypeNum = this.getGreetTypeNumber();
         if (value === true || value === 1) {
-            newMessageTypeNum |= 1 << bit;
+            newGreetTypeNum |= 1 << bit;
         } else if (value === 0 || value === false) {
-            newMessageTypeNum &= 0xffff - (1 << bit);
+            newGreetTypeNum &= 0xffff - (1 << bit);
         } else {
             throw new Error("Illegal value for set/clear bit operation.");
         }
-        var newMessageType = ns.messageTypeFromNumber(newMessageTypeNum);
-        if (ns.MESSAGE_TYPE_MAPPING[newMessageType] === undefined) {
+        var newGreetType = ns.greetTypeFromNumber(newGreetTypeNum);
+        if (ns.GREET_TYPE_MAPPING[newGreetType] === undefined) {
             if (noMessageCheck !== true && noMessageCheck !== 1) {
                 throw new Error("Illegal message type!");
             } else {
-                this.messageType = newMessageType;
+                this.greetType = newGreetType;
                 logger.debug('Arrived at an illegal message type, but was told to ignore it: '
-                             + newMessageType);
+                             + newGreetType);
             }
         } else {
-            this.messageType = newMessageType;
+            this.greetType = newGreetType;
         }
     };
 
@@ -644,7 +616,7 @@ define([
      *     Value of bit.
      */
     ProtocolMessage.prototype._readBit= function(bit) {
-        return (_isBitSetOnMessageType(this.messageType, bit));
+        return (_isBitSetOnGreetType(this.greetType, bit));
     };
 
 
@@ -774,9 +746,36 @@ define([
      *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
      */
     ProtocolMessage.prototype.getOperation = function() {
-        return ns.OPERATION_MAPPING[(this.getMessageTypeNumber() & ns._OPERATION_MASK)
+        return ns.OPERATION_MAPPING[(this.getGreetTypeNumber() & ns._OPERATION_MASK)
                                     >>> ns._OP_BITS];
     }
+
+
+    /**
+     * Decodes a given binary TLV string to a type and value.
+     *
+     * @param tlv {string}
+     *     A binary TLV string.
+     * @returns {Object}
+     *     An object containing the type of string (in `type`, 16-bit unsigned
+     *     integer) and the value (in `value`, binary string of the pay load).
+     *     left over bytes from the input are returned in `rest`.
+     */
+    ns.decodeTLV = function(tlv) {
+        var type = ns._bin2short(tlv.substring(0, 2));
+        var length = ns._bin2short(tlv.substring(2, 4));
+        var value = tlv.substring(4, 4 + length);
+        _assert(length === value.length,
+                'TLV payload length does not match indicated length.');
+        if (length === 0) {
+            value = '';
+        }
+        return {
+            type: type,
+            value: value,
+            rest: tlv.substring(length + 4)
+        };
+    };
 
 
     /**
@@ -802,17 +801,16 @@ define([
 
 
     /**
-     * Decodes a given TLV value of a particular type, and do something with it.
+     * Decodes PROTOCOL_VERSION and MESSAGE_TYPE, present on all messages.
      *
      * @param message {string}
      *     A binary TLV string.
-     * @param typeFilter {string}
-     *     1-arg function to execute on decoded MESSAGE_TYPE; should return
-     *     true if it's good or false if it's bad (and an error will be thrown).
+     * @param expectedType {string}
+     *     Expected MESSAGE_TYPE, otherwise an error will be thrown.
      * @returns {string}
      *     The rest of the string to decode later.
      */
-    ns.popStandardFields = function(message, typeFilter, typeFilterDesc, debugOutput) {
+    ns.popStandardFields = function(message, expectedType, debugOutput) {
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
             if (value !== version.PROTOCOL_VERSION) {
@@ -822,12 +820,13 @@ define([
             debugOutput.push('protocol: ' + value.charCodeAt(0));
         });
         rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
-            if (!typeFilter(value)) {
-                throw new Error("decode failed; expected type filter failed: "
-                                + typeFilterDesc + " but got " + value);
+            value = value.charCodeAt(0);
+            if (value !== expectedType) {
+                throw new Error("decode failed; expected message type: "
+                                + expectedType + " but got: " + value);
             }
             debugOutput.push('messageType: 0x'
-                             + ns.messageTypeToNumber(value).toString(16)
+                             + value.toString(16)
                              + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
         });
         return rest;
@@ -863,7 +862,7 @@ define([
     };
 
 
-    ns.getMessageType = function(message) {
+    var _getMessageType = function(message) {
         if (!message) {
             return undefined;
         }
@@ -871,7 +870,7 @@ define([
         while (message.length > 0) {
             var tlv = ns.decodeTLV(message);
             if (tlv.type === ns.TLV_TYPE.MESSAGE_TYPE) {
-                return tlv.value;
+                return tlv.value.charCodeAt(0);
             }
             message = tlv.rest;
         }
@@ -880,21 +879,21 @@ define([
 
 
     /**
-     * Detects the category of a given message.
+     * Detects the type of a given message.
      *
      * @param message {string}
      *     A wire protocol message representation.
-     * @returns {mpenc.codec.MESSAGE_CATEGORY}
-     *     Object indicating message `category` and extracted message `content`.
+     * @returns {mpenc.codec.MESSAGE_TYPE}
+     *     Object indicating message `type` and extracted message `content`.
      */
-    ns.categoriseMessage = function(message) {
+    ns.getMessageAndType = function(message) {
         if (!message) {
             return null;
         }
 
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
-            return { category: ns.MESSAGE_CATEGORY.PLAIN,
+            return { type: ns.MESSAGE_TYPE.PLAIN,
                      content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
@@ -902,26 +901,21 @@ define([
         // Check for error.
         var _ERROR_PREFIX = ' Error:';
         if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
-            return { category: ns.MESSAGE_CATEGORY.MPENC_ERROR,
+            return { type: ns.MESSAGE_TYPE.MPENC_ERROR,
                      content: message.substring(_PROTOCOL_PREFIX.length + 1) };
         }
 
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
-            if (ns.getMessageType(message) === ns.MESSAGE_TYPE.PARTICIPANT_DATA) {
-                return { category: ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
-                         content: message };
-            } else {
-                return { category: ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
-                         content: message };
-            }
+            return { type: _getMessageType(message),
+                     content: message };
         }
 
         // Check for query.
         var ver = /v(\d+)\?/.exec(message);
         if (ver && (ver[1] === '' + version.PROTOCOL_VERSION.charCodeAt(0))) {
-            return { category: ns.MESSAGE_CATEGORY.MPENC_QUERY,
+            return { type: ns.MESSAGE_TYPE.MPENC_QUERY,
                      content: String.fromCharCode(ver[1]) };
         }
 
@@ -981,7 +975,7 @@ define([
     /**
      * Encodes an mpENC TLV string suitable for sending onto the wire.
      */
-    ns.encodeWireMessage = function(contents) {
+    ns.tlvToWire = function(contents) {
         return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
     };
 
@@ -989,7 +983,7 @@ define([
     /**
      * Decodes an mpENC wire message into a TLV string.
      */
-    ns.decodeWireMessage = function(wireMessage) {
+    ns.wireToTLV = function(wireMessage) {
         return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
 
@@ -1018,7 +1012,7 @@ define([
         var out = 'from "' + from +'":' + severity + ':' + message;
         var signature = '';
         if (privKey) {
-            signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_ERROR,
+            signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_ERROR,
                                        out, privKey, pubKey);
         }
         return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
@@ -1057,9 +1051,8 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
-     * @param category {integer}
-     *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
+     * @param type {integer}
+     *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param privKey {string}
@@ -1072,12 +1065,12 @@ define([
      * @returns {string}
      *     Binary string representation of the signature.
      */
-    ns.signMessage = function(category, data, privKey, pubKey, sidkeyHash) {
+    ns.signMessage = function(type, data, privKey, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+        var prefix = _MAGIC_NUMBERS[type];
+        if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.sign(prefix + data, privKey, pubKey);
@@ -1090,9 +1083,8 @@ define([
      * This implementation is using the Edwards25519 for an ECDSA signature
      * mechanism to complement the Curve25519-based group key agreement.
      *
-     * @param category {integer}
-     *     Message category indication, one of
-     *     {@see mpenc/codec.MESSAGE_CATEGORY}.
+     * @param type {integer}
+     *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
      *     Binary string data message.
      * @param signature {string}
@@ -1105,12 +1097,12 @@ define([
      * @returns {bool}
      *     True if the signature verifies, false otherwise.
      */
-    ns.verifyMessageSignature = function(category, data, signature, pubKey, sidkeyHash) {
+    ns.verifyMessageSignature = function(type, data, signature, pubKey, sidkeyHash) {
         if (data === null || data === undefined) {
             return null;
         }
-        var prefix = _MAGIC_NUMBERS[category];
-        if (category === ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE) {
+        var prefix = _MAGIC_NUMBERS[type];
+        if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
         return jodid25519.eddsa.verify(signature, prefix + data, pubKey);
@@ -1132,7 +1124,10 @@ define([
 
 
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
-    ns.ENCODED_TYPE_MESSAGE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, ns.MESSAGE_TYPE.PARTICIPANT_DATA);
+    ns.ENCODED_TYPE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE));
+    ns.ENCODED_TYPE_GREET = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE));
+    ns.ENCODED_TYPE_QUERY = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_QUERY));
+    ns.ENCODED_TYPE_ERROR = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_ERROR));
     ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
 

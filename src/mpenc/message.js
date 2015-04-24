@@ -114,7 +114,7 @@ define([
      *     cipher text than paddingSize, power of two exponential padding sizes
      *     will be used.
      * @returns {string}
-     *     A wire ready message representation.
+     *     A TLV string.
      */
     MessageSecurity.prototype.encrypt = function(message, paddingSize) {
         if (message === null || message === undefined) {
@@ -137,51 +137,49 @@ define([
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
         // Rest (protocol version, message type, iv, message data).
-        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_MESSAGE_DATA;
+        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_DATA;
         var encrypted = ns._encryptDataMessage(message, groupKey, paddingSize);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
         content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
 
         // Compute the content signature.
-        var signature = codec.signMessage(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+        var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                        content, privKey, pubKey, sidkeyHash);
 
         // Assemble everything.
         out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
         out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
         out += content;
-        return codec.encodeWireMessage(out);
+        return out;
     };
 
     /**
      * Decodes a given TLV encoded data message into an object.
      *
      * @param message {string}
-     *     A binary message representation.
+     *     A TLV string for the message.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
      * @param sessionID {string}
      *     Session ID.
      * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @returns {mpenc.greeter.greet.ProtocolMessage}
+     * @returns {mpenc.message.Message}
      *     Message as JavaScript object.
      */
-    MessageSecurity.prototype.decrypt = function(wireMessage) {
+    MessageSecurity.prototype.decrypt = function(message, authorHint) {
         var sessionKeyStore = this._sessionKeyStore;
 
-        var author = wireMessage.from;
         var sessionID = sessionKeyStore.sessionIDs[0];
         var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
 
-        if (!author) {
+        if (!authorHint) {
             logger.warn('No message author for message available, '
-                        + 'will not be able to decrypt: ' + wireMessage.message);
+                        + 'will not be able to decrypt: ' + message);
             return null;
         }
 
-        var message = codec.decodeWireMessage(wireMessage.message);
-        var signingPubKey = sessionKeyStore.pubKeyMap[author];
+        var signingPubKey = sessionKeyStore.pubKeyMap[authorHint];
         var inspected = _inspect(message);
         var decoded = null;
 
@@ -194,7 +192,7 @@ define([
                 var groupKey = session.groupKeys[gkNo];
                 var sidkeyHash = utils.sha256(sessionID + groupKey);
                 if (inspected.sidkeyHint === sidkeyHash[0]) {
-                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                                  inspected.rawMessage,
                                                                  inspected.signature,
                                                                  signingPubKey,
@@ -214,10 +212,12 @@ define([
             return null;
         }
 
-        wireMessage.type = 'message';
-        wireMessage.message = decoded.data;
-        logger.debug('Message from "' + author + '" successfully decrypted.');
-        return wireMessage;
+        logger.debug('Message from "' + authorHint + '" successfully decrypted.');
+        return {
+            from: authorHint,
+            type: 'message',
+            message: decoded.data
+        }
     };
 
     /**
@@ -296,10 +296,8 @@ define([
         var rest = out.rawMessage;
 
         rest = codec.popStandardFields(rest,
-            function(t) { return t === codec.MESSAGE_TYPE.PARTICIPANT_DATA; },
-            "PARTICIPANT DATA", debugOutput);
+            codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);
         out.protocol = codec.PROTOCOL_VERSION;
-        out.messageType = codec.MESSAGE_TYPE.PARTICIPANT_DATA;
 
         rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {
             out.iv = value;
@@ -324,7 +322,7 @@ define([
         }
 
         var debugOutput = debugOutput || [];
-        var out = new codec.ProtocolMessage(); // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
+        var out = {} // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
         var rest = message;
 
         rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {

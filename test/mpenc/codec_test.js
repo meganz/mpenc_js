@@ -169,61 +169,41 @@ define([
             });
         });
 
-        describe("getMessageType()", function() {
-            it('empty content', function() {
-                var tests = [null, undefined, ''];
-                for (var i = 0; i < tests.length; i++) {
-                    assert.notOk(ns.getMessageType(tests[i]));
-                }
-            });
-
-            it('greet message', function() {
-                assert.strictEqual(ns.getMessageType(_td.DOWNFLOW_MESSAGE_STRING),
-                                   ns.MESSAGE_TYPE.QUIT_DOWN);
-            });
-
-            it('data message', function() {
-                assert.ok(ns.getMessageType(_td.DATA_MESSAGE_STRING),
-                          ns.MESSAGE_TYPE.PARTICIPANT_DATA);
-            });
-        });
-
-        describe("categoriseMessage()", function() {
-            it('normal categories', function() {
+        describe("getMessageAndType()", function() {
+            it('normal types', function() {
                 var tests = ['Klaatu barada nikto.',
                              '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
                              _td.DATA_MESSAGE_PAYLOAD,
                              '?mpENC Error:foo.'];
-                var expected = [[ns.MESSAGE_CATEGORY.PLAIN, 'Klaatu barada nikto.'],
-                                [ns.MESSAGE_CATEGORY.MPENC_QUERY, version.PROTOCOL_VERSION],
-                                [ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
-                                [ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
-                                [ns.MESSAGE_CATEGORY.MPENC_ERROR, 'foo.']];
+                var expected = [[ns.MESSAGE_TYPE.PLAIN, 'Klaatu barada nikto.'],
+                                [ns.MESSAGE_TYPE.MPENC_QUERY, version.PROTOCOL_VERSION],
+                                [ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
+                                [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
+                                [ns.MESSAGE_TYPE.MPENC_ERROR, 'foo.']];
                 for (var i = 0; i < tests.length; i++) {
-                    var result = ns.categoriseMessage(tests[i]);
-                    assert.strictEqual(result.category, expected[i][0]);
+                    var result = ns.getMessageAndType(tests[i]);
+                    assert.strictEqual(result.type, expected[i][0]);
                     assert.strictEqual(result.content, expected[i][1]);
                 }
             });
 
             it('unknown message', function() {
-                assert.throws(function() { ns.categoriseMessage('?mpENC...blah.'); },
+                assert.throws(function() { ns.getMessageAndType('?mpENC...blah.'); },
                               'Unknown mpENC message.');
             });
 
             it('null message', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
-                    assert.strictEqual(ns.categoriseMessage(tests[i]), null);
+                    assert.strictEqual(ns.getMessageAndType(tests[i]), null);
                 }
             });
         });
     });
 
-    describe("messageTypeFromNumber() and messageTypeToNumber()", function() {
-        var messageTypes = {// Data message.
-                            '\u0000\u0000': 0x000, // PARTICIPANT_DATA
+    describe("greetTypeFromNumber() and greetTypeToNumber()", function() {
+        var greetTypes = {
                             // Initial start sequence.
                             '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
                             '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
@@ -251,29 +231,29 @@ define([
                             // Quit indication.
                             '\u0000\u00d3': 0x0d3  // QUIT_DOWN
         };
-        var messageTypeNumbers = {};
-        for (var msgType in messageTypes) {
-            messageTypeNumbers[messageTypes[msgType]] = msgType;
+        var greetTypeNumbers = {};
+        for (var msgType in greetTypes) {
+            greetTypeNumbers[greetTypes[msgType]] = msgType;
         }
 
-        it('messageTypeFromNumber()', function() {
-            for (var number in messageTypeNumbers) {
-                assert.strictEqual(ns.messageTypeFromNumber(number),
-                                   messageTypeNumbers[number]);
+        it('greetTypeFromNumber()', function() {
+            for (var number in greetTypeNumbers) {
+                assert.strictEqual(ns.greetTypeFromNumber(number),
+                                   greetTypeNumbers[number]);
             }
         });
 
-        it('messageTypeToNumber()', function() {
-            for (var type in messageTypes) {
-                assert.strictEqual(ns.messageTypeToNumber(type),
-                                   messageTypes[type]);
+        it('greetTypeToNumber()', function() {
+            for (var type in greetTypes) {
+                assert.strictEqual(ns.greetTypeToNumber(type),
+                                   greetTypes[type]);
             }
         });
 
         it('round trip', function() {
-            for (var type in messageTypes) {
-                var number = ns.messageTypeToNumber(type);
-                assert.strictEqual(ns.messageTypeFromNumber(number), type);
+            for (var type in greetTypes) {
+                var number = ns.greetTypeToNumber(type);
+                assert.strictEqual(ns.greetTypeFromNumber(number), type);
             }
         });
     });
@@ -282,13 +262,13 @@ define([
         describe("_readBit()", function() {
             it('downflow on INIT_PARTICIPANT_UP', function() {
                 var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u001c', // INIT_PARTICIPANT_UP
+                message.greetType = '\u0000\u001c', // INIT_PARTICIPANT_UP
                 assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
             });
 
             it('downflow on QUIT_DOWN', function() {
                 var message = new ns.ProtocolMessage();
-                message.messageType = '\u0000\u00d3'; // QUIT_DOWN
+                message.greetType = '\u0000\u00d3'; // QUIT_DOWN
                 assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
             });
         });
@@ -296,29 +276,29 @@ define([
         describe("_setBit()", function() {
             it('on valid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
-                             [ns.MESSAGE_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
-                var expected = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP,
-                                ns.MESSAGE_TYPE.INIT_PARTICIPANT_UP];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
+                var expected = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue);
-                    assert.strictEqual(message.messageType, expected[i]);
+                    assert.strictEqual(message.greetType, expected[i]);
                 }
             });
 
             it('on invalid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     assert.throws(function() { message._setBit(bit, targetValue); },
@@ -329,16 +309,16 @@ define([
             it('on silenced invalid transitions', function() {
                 sandbox.stub(MegaLogger._logRegistry.codec, '_log');
                 var message = new ns.ProtocolMessage();
-                var tests = [[ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
-                             [ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
                 for (var i in tests) {
-                    message.messageType = tests[i][0];
+                    message.greetType = tests[i][0];
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue, true);
                     assert.match(MegaLogger._logRegistry.codec._log.getCall(i).args[1],
                                  /^Arrived at an illegal message type, but was told to ignore it:/);
-                    assert.notStrictEqual(message.messageType, tests[i][0]);
+                    assert.notStrictEqual(message.greetType, tests[i][0]);
                 }
             });
         });
@@ -346,10 +326,10 @@ define([
         describe("#clearGKA(), isGKA()", function() {
             it('on valid transitions', function() {
                 var message = new ns.ProtocolMessage();
-                var tests = [ns.MESSAGE_TYPE.INIT_PARTICIPANT_DOWN,
-                             ns.MESSAGE_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
+                var tests = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                             ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
                 for (var i in tests) {
-                    message.messageType = tests[i];
+                    message.greetType = tests[i];
                     message.clearGKA();
                     assert.strictEqual(message.isGKA(), false);
                 }
@@ -385,7 +365,7 @@ define([
         it('null equivalents', function() {
             var tests = [null, undefined];
             for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.strictEqual(ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                   tests[i],
                                                   _td.ED25519_PRIV_KEY,
                                                   _td.ED25519_PUB_KEY), null);
@@ -405,7 +385,7 @@ define([
                             'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                             'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                var result = ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                             tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
             }
@@ -425,7 +405,7 @@ define([
                             'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                var result = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                var result = ns.signMessage(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                             tests[i], _td.ED25519_PRIV_KEY,  _td.ED25519_PUB_KEY,
                                             sidkeyHash);
                 assert.strictEqual(btoa(result), expected[i], 'case ' + (i + 1));
@@ -447,7 +427,7 @@ define([
                               'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                               'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                     tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                           'case ' + (i + 1));
             }
@@ -466,7 +446,7 @@ define([
                               'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
                               'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
             for (var i = 0; i < tests.length; i++) {
-                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                        tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
                              'case ' + (i + 1));
             }
@@ -486,7 +466,7 @@ define([
                               'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                     tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
                                                     sidkeyHash),
                           'case ' + (i + 1));
@@ -507,7 +487,7 @@ define([
                               'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
-                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_DATA_MESSAGE,
+                assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                                                        tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY,
                                                        sidkeyHash),
                              'case ' + (i + 1));
@@ -523,9 +503,9 @@ define([
                 var pubKey = jodid25519.eddsa.publicKey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
-                var signature = ns.signMessage(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                var signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                message, privKey, pubKey);
-                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_CATEGORY.MPENC_GREET_MESSAGE,
+                assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                     message, signature, pubKey),
                           'iteration ' + (i + 1));
             }
