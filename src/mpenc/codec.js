@@ -925,23 +925,17 @@ define([
 
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
-            return { type: ns.MESSAGE_TYPE.PLAIN,
-                     content: message };
+            return { type: ns.MESSAGE_TYPE.PLAIN, content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
 
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
-            return { type: _getMessageType(message),
-                     content: message };
-        }
-
-        // Check for query.
-        var ver = /v(\d+)\?/.exec(message);
-        if (ver && (ver[1] === '' + version.PROTOCOL_VERSION.charCodeAt(0))) {
-            return { type: ns.MESSAGE_TYPE.MPENC_QUERY,
-                     content: String.fromCharCode(ver[1]) };
+            var type = _getMessageType(message);
+            if (type in ns.MESSAGE_TYPE_MAPPING) {
+                return { type: type, content: message };
+            }
         }
 
         _assert(false, 'Unknown mpENC message.');
@@ -1191,20 +1185,6 @@ define([
     };
 
 
-    /**
-     * Returns an mpENC protocol query message ready to be put onto the wire,
-     * including.the given message.
-     *
-     * @param text {string}
-     *     Text message to accompany the mpENC protocol query message.
-     * @returns {string}
-     *     A wire ready message representation.
-     */
-    ns.getQueryMessage = function(text) {
-        return _PROTOCOL_PREFIX + 'v' + version.PROTOCOL_VERSION.charCodeAt(0) + '?' + text;
-    };
-
-
     ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
     ns.ENCODED_TYPE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE));
     ns.ENCODED_TYPE_GREET = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE));
@@ -1212,6 +1192,10 @@ define([
     ns.ENCODED_TYPE_ERROR = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_ERROR));
     ns.PROTOCOL_VERSION = version.PROTOCOL_VERSION;
 
+    /**
+     * String representing an mpENC query message.
+     */
+    ns.MPENC_QUERY_MESSAGE = ns.ENCODED_VERSION + ns.ENCODED_TYPE_QUERY;
 
     return ns;
 });

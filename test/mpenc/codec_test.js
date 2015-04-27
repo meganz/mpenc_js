@@ -172,12 +172,12 @@ define([
         describe("getMessageAndType()", function() {
             it('normal types', function() {
                 var tests = ['Klaatu barada nikto.',
-                             '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
+                             ns.tlvToWire(ns.MPENC_QUERY_MESSAGE),
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
                              _td.DATA_MESSAGE_PAYLOAD,
                              ns.tlvToWire(_td.ERROR_MESSAGE_STRING)];
                 var expected = [[ns.MESSAGE_TYPE.PLAIN, 'Klaatu barada nikto.'],
-                                [ns.MESSAGE_TYPE.MPENC_QUERY, version.PROTOCOL_VERSION],
+                                [ns.MESSAGE_TYPE.MPENC_QUERY, ns.MPENC_QUERY_MESSAGE],
                                 [ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_ERROR, _td.ERROR_MESSAGE_STRING]];
@@ -540,18 +540,6 @@ define([
                 assert.ok(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                     message, signature, pubKey),
                           'iteration ' + (i + 1));
-            }
-        });
-    });
-
-    describe("getQueryMessage()", function() {
-        it('simple invocations', function() {
-            var tests = ['',
-                         'foo'];
-            var expected = ['?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?',
-                            '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo'];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.getQueryMessage(tests[i]), expected[i]);
             }
         });
     });

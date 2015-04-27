@@ -710,12 +710,12 @@ define([
                 var message = {message: 'Pōkarekare ana ngā wai o Waitemata, whiti atu koe hine marino ana e.',
                                from: 'kiri@singer.org.nz/waiata42'};
                 participant.processMessage(message);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].message.substring(0, 9),
-                                   '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?');
-                assert.strictEqual(participant.protocolOutQueue[0].from,
+                assert.lengthOf(participant.protocolOutQueue, 2);
+                assert.strictEqual(participant.protocolOutQueue[0].message, ns.PLAINTEXT_AUTO_RESPONSE);
+                assert.strictEqual(participant.protocolOutQueue[1].message, codec.tlvToWire(codec.MPENC_QUERY_MESSAGE));
+                assert.strictEqual(participant.protocolOutQueue[1].from,
                                    '2');
-                assert.strictEqual(participant.protocolOutQueue[0].to,
+                assert.strictEqual(participant.protocolOutQueue[1].to,
                                    'kiri@singer.org.nz/waiata42');
                 assert.lengthOf(participant.messageOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 1);
@@ -938,24 +938,16 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
+                var message = {message: codec.tlvToWire(codec.MPENC_QUERY_MESSAGE),
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();
                 participant.processMessage(message);
                 sinon_assert.calledOnce(participant.start);
             });
 
-            it('on quit message', function() {
-                var participant = new ns.ProtocolHandler('2', 'foo',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                var message = {message: '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
-                               from: 'raw@hide.com/rollingrollingrolling'};
-                participant.start = stub();
-                participant.processMessage(message);
-                sinon_assert.calledOnce(participant.start);
-            });
+            /*it('on quit message', function() {
+                // TODO(gk): complete this
+            });*/
         });
     });
 });

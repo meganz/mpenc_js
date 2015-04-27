@@ -51,6 +51,8 @@ define([
     /** Default size in bytes for the exponential padding to pad to. */
     ns.DEFAULT_EXPONENTIAL_PADDING = 128;
 
+    ns.PLAINTEXT_AUTO_RESPONSE = "We're not dealing with plaintext messages. Let's negotiate mpENC communication.";
+
     /**
      * An accessor object to "directory", which can be queried to retrieve a
      * public static signing key of a participant ID.
@@ -351,17 +353,16 @@ define([
                 }
                 break;
             case codec.MESSAGE_TYPE.PLAIN:
-                var outMessage = {
-                    from: this.id,
-                    to: wireMessage.from,
-                    message: codec.getQueryMessage(
-                        "We're not dealing with plaintext messages. Let's negotiate mpENC communication."),
-                };
-                this.protocolOutQueue.push(outMessage);;
+                var outMessage =
                 wireMessage.type = 'info';
                 wireMessage.message = 'Received unencrypted message, requesting encryption.';
                 this.uiQueue.push(wireMessage);
-                this.queueUpdatedCallback(this);
+                this.protocolOutQueue.push({
+                    from: this.id,
+                    to: wireMessage.from,
+                    message: ns.PLAINTEXT_AUTO_RESPONSE
+                });
+                this._pushMessage(wireMessage.from, codec.MPENC_QUERY_MESSAGE);
                 break;
             case codec.MESSAGE_TYPE.MPENC_QUERY:
                 // Initiate keying protocol flow.
