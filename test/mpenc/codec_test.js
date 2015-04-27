@@ -175,12 +175,12 @@ define([
                              '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?foo.',
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
                              _td.DATA_MESSAGE_PAYLOAD,
-                             '?mpENC Error:foo.'];
+                             ns.tlvToWire(_td.ERROR_MESSAGE_STRING)];
                 var expected = [[ns.MESSAGE_TYPE.PLAIN, 'Klaatu barada nikto.'],
                                 [ns.MESSAGE_TYPE.MPENC_QUERY, version.PROTOCOL_VERSION],
                                 [ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
-                                [ns.MESSAGE_TYPE.MPENC_ERROR, 'foo.']];
+                                [ns.MESSAGE_TYPE.MPENC_ERROR, _td.ERROR_MESSAGE_STRING]];
                 for (var i = 0; i < tests.length; i++) {
                     var result = ns.getMessageAndType(tests[i]);
                     assert.strictEqual(result.type, expected[i][0]);
@@ -340,24 +340,56 @@ define([
     describe("encodeErrorMessage()", function() {
         it('with signature', function() {
             var from = 'a.dumbledore@hogwarts.ac.uk/android123';
-            var severity = 'TERMINAL';
             var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
-            sandbox.stub(ns, 'signMessage').returns('\u0000\u0000\u0000');
-            var result = ns.encodeErrorMessage(from, severity, message, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
+            sandbox.spy(ns, 'signMessage');
+            var result = ns.encodeErrorMessage({
+                from: from,
+                severity: ns.ERROR.TERMINAL,
+                message: message
+            }, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY);
             sinon_assert.calledOnce(ns.signMessage);
-            assert.strictEqual(result, '?mpENC Error:AAAA:from "a.dumbledore@hogwarts.ac.uk/android123"'
-                               + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
+            assert.strictEqual(btoa(result), btoa(_td.ERROR_MESSAGE_STRING));
         });
 
         it('without signature', function() {
             var from = 'a.dumbledore@hogwarts.ac.uk/android123';
-            var severity = 'TERMINAL';
             var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
-            sandbox.stub(ns, 'signMessage').returns('\u0000\u0000\u0000');
-            var result = ns.encodeErrorMessage(from, severity, message);
+            sandbox.spy(ns, 'signMessage');
+            var result = ns.encodeErrorMessage({
+                from: from,
+                severity: ns.ERROR.TERMINAL,
+                message: message
+            });
             assert.strictEqual(ns.signMessage.callCount, 0);
-            assert.strictEqual(result, '?mpENC Error::from "a.dumbledore@hogwarts.ac.uk/android123"'
-                               + ':TERMINAL:Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.');
+            assert.strictEqual(result, _td.ERROR_MESSAGE_STRING.slice(68));
+        });
+    });
+
+    describe('#decodeErrorMessage() method', function() {
+        it('processing for a signed error message', function() {
+            var compare = { signatureOk: false,
+                            from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                            severity: ns.ERROR.TERMINAL,
+                            message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.',
+                            signature: atob('MYHyWtTnI58QQ1KW/4a2ierQOLA+Duslwtsh5IXo8uVGEI6jQZmFtHrPSA2w9f3HuzzM2MsWH1nSTp0tFHdfAQ==') };
+            sandbox.stub(ns, 'verifyMessageSignature').returns(false);
+            var result = ns.decodeErrorMessage(_td.ERROR_MESSAGE_STRING,
+                                               function() { return _td.ED25519_PUB_KEY; });
+            sinon_assert.calledOnce(ns.verifyMessageSignature);
+            assert.strictEqual(ns.verifyMessageSignature.getCall(0).args[1],
+                               _td.ERROR_MESSAGE_STRING.slice(68));
+            assert.deepEqual(result, compare);
+        });
+
+        it('processing for an unsigned error message', function() {
+            var compare = { signatureOk: null,
+                            from: 'a.dumbledore@hogwarts.ac.uk/android123',
+                            severity: ns.ERROR.TERMINAL,
+                            message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
+            sandbox.spy(ns, 'verifyMessageSignature');
+            var result = ns.decodeErrorMessage(_td.ERROR_MESSAGE_STRING.slice(68));
+            assert.strictEqual(ns.verifyMessageSignature.callCount, 0);
+            assert.deepEqual(result, compare);
         });
     });
 

@@ -611,103 +611,6 @@ define([
             });
         });
 
-        describe('#_processErrorMessage() method', function() {
-            it('processing for a signed error message', function() {
-                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
-                contentParts.splice(0, 1);
-                var content = contentParts.join(':');
-                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                severity: ns.ERROR.TERMINAL,
-                                signatureOk: true,
-                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
-                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
-                                                         'Hogwarts',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
-                                                        'q.quirrell@hogwarts.ac.uk/wp8possessed666',
-                                                        'm.mcgonagall@hogwarts.ac.uk/ios456'];
-                participant.greet.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
-                                                                 _td.ED25519_PUB_KEY,
-                                                                 _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyMessageSignature').returns(true);
-                var result = participant._processErrorMessage(content);
-                sinon_assert.calledOnce(codec.verifyMessageSignature);
-                assert.strictEqual(codec.verifyMessageSignature.getCall(0).args[1],
-                                   'from "a.dumbledore@hogwarts.ac.'
-                                   + 'uk/android123":TERMINAL:Signature verifi'
-                                   + 'cation for q.quirrell@hogwarts.ac.uk/wp8'
-                                   + 'possessed666 failed.');
-                assert.deepEqual(result, compare);
-            });
-
-            it('processing for a signed error message with no ephem pub keys', function() {
-                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
-                contentParts.splice(0, 1);
-                var content = contentParts.join(':');
-                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                severity: ns.ERROR.TERMINAL,
-                                signatureOk: null,
-                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
-                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
-                                                         'Hogwarts',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['a.dumbledore@hogwarts.ac.uk/android123',
-                                                        'q.quirrell@hogwarts.ac.uk/wp8possessed666',
-                                                        'm.mcgonagall@hogwarts.ac.uk/ios456'];
-                sandbox.stub(codec, 'verifyMessageSignature');
-                var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
-                assert.deepEqual(result, compare);
-            });
-
-            it('processing for a signed error message sender not in members', function() {
-                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
-                contentParts.splice(0, 1);
-                var content = contentParts.join(':');
-                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                severity: ns.ERROR.TERMINAL,
-                                signatureOk: null,
-                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
-                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
-                                                         'Hogwarts',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.askeMember.members = ['q.quirrell@hogwarts.ac.uk/wp8possessed666',
-                                                        'm.mcgonagall@hogwarts.ac.uk/ios456'];
-                participant.greet.askeMember.ephemeralPubKeys = [_td.ED25519_PUB_KEY,
-                                                                 _td.ED25519_PUB_KEY];
-                sandbox.stub(codec, 'verifyMessageSignature');
-                var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
-                assert.deepEqual(result, compare);
-            });
-
-            it('processing for an unsigned error message', function() {
-                var contentParts = _td.ERROR_MESSAGE_PAYLOAD.split(':');
-                contentParts.splice(0, 1);
-                contentParts[0] = '';
-                var content = contentParts.join(':');
-                var compare = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                severity: ns.ERROR.TERMINAL,
-                                signatureOk: null,
-                                message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
-                var participant = new ns.ProtocolHandler('m.mcgonagall@hogwarts.ac.uk/ios456',
-                                                         'Hogwarts',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'verifyMessageSignature');
-                var result = participant._processErrorMessage(content);
-                assert.strictEqual(codec.verifyMessageSignature.callCount, 0);
-                assert.deepEqual(result, compare);
-            });
-        });
-
         describe('#send() method', function() {
             it('send a message confidentially', function() {
                 var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
@@ -777,9 +680,9 @@ define([
                 participant._messageSecurity = _dummyMessageSecurity(participant.greet);
                 sandbox.stub(participant, 'quit');
                 var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
-                participant.sendError(ns.ERROR.TERMINAL, message);
+                participant.sendError(codec.ERROR.TERMINAL, message);
                 var outMessage = participant.protocolOutQueue[0].message;
-                assert.strictEqual(participant.protocolOutQueue[0].message, _td.ERROR_MESSAGE_PAYLOAD);
+                assert.strictEqual(participant.protocolOutQueue[0].message, codec.tlvToWire(_td.ERROR_MESSAGE_STRING));
                 assert.strictEqual(participant.protocolOutQueue[0].from, participant.id);
                 assert.strictEqual(participant.protocolOutQueue[0].to, '');
                 assert.lengthOf(participant.uiQueue, 0);
@@ -833,18 +736,18 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                          severity: ns.ERROR.TERMINAL,
+                                          severity: codec.ERROR.TERMINAL,
                                           signatureOk: true,
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = {message: 'dummy',
                                from: 'a.dumbledore@hogwarts.ac.uk/android123'};
                 sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
-                sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
+                sandbox.stub(codec, 'decodeErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.getMessageAndType);
-                sinon_assert.calledOnce(participant._processErrorMessage);
+                sinon_assert.calledOnce(codec.decodeErrorMessage);
                 sinon_assert.calledOnce(participant.quit);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
@@ -861,18 +764,18 @@ define([
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
                 var messageProperties = { from: 'a.dumbledore@hogwarts.ac.uk/android123',
-                                          severity: ns.ERROR.WARNING,
+                                          severity: codec.ERROR.WARNING,
                                           signatureOk: true,
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = { message: 'dummy',
                                 from: 'a.dumbledore@hogwarts.ac.uk/android123' };
                 sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
-                sandbox.stub(participant, '_processErrorMessage').returns(messageProperties);
+                sandbox.stub(codec, 'decodeErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
                 sinon_assert.calledOnce(codec.getMessageAndType);
-                sinon_assert.calledOnce(participant._processErrorMessage);
+                sinon_assert.calledOnce(codec.decodeErrorMessage);
                 assert.strictEqual(participant.quit.callCount, 0);
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
@@ -946,6 +849,7 @@ define([
                           source: participant.id,
                           greetType: codec.GREET_TYPE.QUIT_DOWN });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
+                sandbox.stub(codec, 'encodeErrorMessage', _echo);
                 sandbox.stub(codec, 'tlvToWire', _echo);
                 participant.processMessage(message);
                 assert.strictEqual(codec.getMessageAndType.callCount, 1);
@@ -960,8 +864,12 @@ define([
                 assert.lengthOf(participant.uiQueue, 0);
                 // An error message.
                 var outMessage = participant.protocolOutQueue[0];
-                assert.strictEqual(outMessage.message,
-                                   '?mpENC Error:Ppt8GIrMisvCt0epOcOszUrpweZ5yXwnovrd+3zXZ9tF/4kd8gaV42fb9Q3psB1/z8Dftr3Ai7NOVjHHSlqrCQ==:from "2":TERMINAL:Session authentication by member 5 failed.');
+                console.log(outMessage.message);
+                assert.deepEqual(outMessage.message, {
+                    from: "2",
+                    severity: codec.ERROR.TERMINAL,
+                    message: 'Session authentication by member 5 failed.'
+                });
                 assert.strictEqual(outMessage.from, participant.id);
                 assert.strictEqual(outMessage.to, '');
                 // And a QUIT message.

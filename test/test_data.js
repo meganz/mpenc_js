@@ -118,10 +118,10 @@ _td.DATA_MESSAGE_CONTENT = {
     data: 'foo',
 };
 
-_td.ERROR_MESSAGE_PAYLOAD = '?mpENC Error:'
-                          + 'ztdjNtIVrMq0I487tIYqAYtKv/yhyfrYxk5EtKeHs9C2L3vgv'
-                          + '+QlJ4tieMexM/T5AVefPyOQl4iKrYbw7hqMCA==:'
-                          + 'from "a.dumbledore@hogwarts.ac.uk/android123":'
-                          + 'TERMINAL:'
-                          + 'Signature verification for'
-                          + ' q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
+_td.ERROR_MESSAGE_STRING = atob('AAMAQDGB8lrU5yOfEENSlv+Gtonq0DiwPg7rJcLbIeSF6'
+                                 + 'PLlRhCOo0GZhbR6z0gNsPX9x7s8zNjLFh9Z0k6dLRR'
+                                 + '3XwEAAQABAQACAAEEAQAAJmEuZHVtYmxlZG9yZUBob'
+                                 + '2d3YXJ0cy5hYy51ay9hbmRyb2lkMTIzAgEAAQIAEAB'
+                                 + 'MU2lnbmF0dXJlIHZlcmlmaWNhdGlvbiBmb3IgcS5xd'
+                                 + 'WlycmVsbEBob2d3YXJ0cy5hYy51ay93cDhwb3NzZXN'
+                                 + 'zZWQ2NjYgZmFpbGVkLg==');

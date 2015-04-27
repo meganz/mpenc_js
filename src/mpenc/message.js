@@ -204,6 +204,7 @@ define([
                                            groupKey);
                         break outer;
                     }
+                    // TODO: maybe log bad signatures
                 }
             }
         }

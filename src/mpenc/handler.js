@@ -48,33 +48,6 @@ define([
 
     var logger = MegaLogger.getLogger('handler', undefined, 'mpenc');
 
-    /**
-     * "Enumeration" defining the different mpENC error message severities.
-     *
-     * @property INFO {integer}
-     *     An informational message with no or very low severity.
-     * @property WARNING {integer}
-     *     An warning message.
-     * @property ERROR {integer}
-     *     An error message with high severity.
-     * @property TERMINAL {integer}
-     *     A terminal error message that demands the immediate termination of
-     *     all protocol execution. It should be followed by each participant's
-     *     immediate invocation of a quit protocol flow.
-     */
-    ns.ERROR = {
-        INFO:          0x00,
-        WARNING:       0x01,
-        TERMINAL:      0x02
-    };
-
-    // Add reverse mapping to string representation.
-    var _ERROR_MAPPING = {};
-    for (var propName in ns.ERROR) {
-        _ERROR_MAPPING[ns.ERROR[propName]] = propName;
-    }
-
-
     /** Default size in bytes for the exponential padding to pad to. */
     ns.DEFAULT_EXPONENTIAL_PADDING = 128;
 
@@ -185,7 +158,7 @@ define([
                                               function(greet) { self.stateUpdatedCallback(self); });
         var cancelGreet = this.greet.subscribeSend(function(send_out) {
             var to = send_out[0], payload = send_out[1];
-            self._pushMessage(to, codec.tlvToWire(payload));
+            self._pushMessage(to, payload);
         });
 
         // Sanity check.
@@ -213,7 +186,7 @@ define([
         this.protocolOutQueue.push({
             from: this.id,
             to: to,
-            message: encodedMessage
+            message: codec.tlvToWire(encodedMessage)
         });
         this.queueUpdatedCallback(this);
     };
@@ -361,25 +334,19 @@ define([
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {
         var classify = codec.getMessageAndType(wireMessage.message);
-
         if (!classify) {
             return;
         }
 
         switch (classify.type) {
             case codec.MESSAGE_TYPE.MPENC_ERROR:
-                var errorMessageResult = this._processErrorMessage(classify.content);
-                var uiMessageString = _ERROR_MAPPING[errorMessageResult.severity];
-                if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
-                    uiMessageString += ' ERROR';
-                }
-                uiMessageString += ': ' + errorMessageResult.message;
+                var errorMessageResult = codec.decodeErrorMessage(classify.content, this.greet.getEphemeralPubKey.bind(this.greet));
                 this.uiQueue.push({
                     type: 'error',
-                    message: uiMessageString
+                    message: codec.errorToUiString(errorMessageResult)
                 });
                 this.queueUpdatedCallback(this);
-                if (errorMessageResult.severity === ns.ERROR.TERMINAL) {
+                if (errorMessageResult.severity === codec.ERROR.TERMINAL) {
                     this.quit();
                 }
                 break;
@@ -414,7 +381,7 @@ define([
                     }
                 } catch (e) {
                     if (e.message.lastIndexOf('Session authentication by member') === 0) {
-                        this.sendError(ns.ERROR.TERMINAL, e.message);
+                        this.sendError(codec.ERROR.TERMINAL, e.message);
                         return;
                     } else {
                         throw e;
@@ -469,53 +436,16 @@ define([
      *     Error message content to be sent.
      */
     ns.ProtocolHandler.prototype.sendError = function(severity, messageContent) {
-        var severityString = _ERROR_MAPPING[severity];
-        if (severityString === undefined) {
-            throw new Error('Illegal error severity: ' + severity + '.');
-        }
+        this._pushMessage('', codec.encodeErrorMessage({
+            from: this.id,
+            severity: severity,
+            message: messageContent
+        }, this.greet.getEphemeralPrivKey(), this.greet.getEphemeralPubKey()));
 
-        var textMessage = severityString + ': ' + messageContent;
-        this._pushMessage('', codec.encodeErrorMessage(this.id,
-                                              _ERROR_MAPPING[severity],
-                                              messageContent,
-                                              this.greet.getEphemeralPrivKey(),
-                                              this.greet.getEphemeralPubKey()));
-
-        if (severity === ns.ERROR.TERMINAL) {
+        if (severity === codec.ERROR.TERMINAL) {
             this.quit();
         }
     };
-
-
-    /**
-     * Handles error protocol message handling.
-     *
-     * @method
-     * @param content {string}
-     *     Received message string without the armouring/leading `?mpENC Error:`.
-     * @returns {object}
-     *     Object containing the error message content in the attributes `from`
-     *     {string}, `severity` {integer}, `signatureOk` {bool} (`true` if
-     *     signature verifies) and `message` {string} (message content).
-     */
-    ns.ProtocolHandler.prototype._processErrorMessage = function(content) {
-        var contentParts = content.split(':');
-        var signatureString = contentParts[0];
-        var result = { from: contentParts[1].split('"')[1],
-                       severity: ns.ERROR[contentParts[2]],
-                       signatureOk: null,
-                       message: contentParts[3] };
-        var pubKey = this.greet.getEphemeralPubKey(result.from);
-        if ((signatureString.length >= 0) && (pubKey !== undefined)) {
-            var cutOffPos = content.indexOf(':');
-            var data = content.substring(cutOffPos + 1);
-            result.signatureOk = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_ERROR,
-                                                              data, signatureString, pubKey);
-        }
-
-        return result;
-    };
-
 
 
     /**

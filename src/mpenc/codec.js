@@ -47,6 +47,8 @@ define([
 
     var logger = MegaLogger.getLogger('codec', undefined, 'mpenc');
 
+    // TODO: high-priority - put range checks etc on decode functions
+
     /**
      * Carries information extracted from a received mpENC protocol message for
      * the greet protocol (key exchange and agreement).
@@ -233,7 +235,36 @@ define([
         PUB_KEY:           0x0105, // 261
         SESSION_SIGNATURE: 0x0106, // 262
         SIGNING_KEY:       0x0107, // 263
+        // Error messages
+        SEVERITY:          0x0201, // 513
     };
+
+
+    /**
+     * "Enumeration" defining the different mpENC error message severities.
+     *
+     * @property INFO {integer}
+     *     An informational message with no or very low severity.
+     * @property WARNING {integer}
+     *     An warning message.
+     * @property ERROR {integer}
+     *     An error message with high severity.
+     * @property TERMINAL {integer}
+     *     A terminal error message that demands the immediate termination of
+     *     all protocol execution. It should be followed by each participant's
+     *     immediate invocation of a quit protocol flow.
+     */
+    ns.ERROR = {
+        INFO:          0x00,
+        WARNING:       0x01,
+        TERMINAL:      0x02
+    };
+
+    // Add reverse mapping to string representation.
+    ns._ERROR_MAPPING = {};
+    for (var propName in ns.ERROR) {
+        ns._ERROR_MAPPING[ns.ERROR[propName]] = propName;
+    }
 
 
     // Message type bit mapping
@@ -811,6 +842,7 @@ define([
      *     The rest of the string to decode later.
      */
     ns.popStandardFields = function(message, expectedType, debugOutput) {
+        debugOutput = debugOutput || [];
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
             if (value !== version.PROTOCOL_VERSION) {
@@ -898,13 +930,6 @@ define([
         }
         message = message.substring(_PROTOCOL_PREFIX.length);
 
-        // Check for error.
-        var _ERROR_PREFIX = ' Error:';
-        if (message.substring(0, _ERROR_PREFIX.length) === _ERROR_PREFIX) {
-            return { type: ns.MESSAGE_TYPE.MPENC_ERROR,
-                     content: message.substring(_PROTOCOL_PREFIX.length + 1) };
-        }
-
         // Check for mpENC message.
         if ((message[0] === ':') && (message[message.length - 1] === '.')) {
             message = atob(message.substring(1, message.length - 1));
@@ -989,33 +1014,90 @@ define([
 
 
     /**
-     * Encodes a given error message ready to be put onto the wire, using
-     * clear text for most things, and base64 encoding for the signature.
+     * Encodes a given error message.
      *
-     * @param from {string}
-     *     Participant ID of the sender.
-     * @param severity {string}
-     *     Severity of the error message.
-     * @param message {string}
-     *     Error text to include in the message.
+     * @param error {object}
+     *     Descriptor object for the error; must contain these properties:
+     *     from: Participant ID of the sender;
+     *     severity: Severity of the error message;
+     *     message: Error text to include in the message.
      * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
      * @param pubKey {string}
      *     Sender's (ephemeral) public signing key.
      * @returns {string}
-     *     A wire ready message representation.
+     *     A TLV string.
      */
-    ns.encodeErrorMessage = function(from, severity, message, privKey, pubKey) {
-        if (message === null || message === undefined) {
+    ns.encodeErrorMessage = function(error, privKey, pubKey) {
+        if (error === null || error === undefined) {
             return null;
         }
-        var out = 'from "' + from +'":' + severity + ':' + message;
-        var signature = '';
-        if (privKey) {
-            signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_ERROR,
-                                       out, privKey, pubKey);
+
+        var content = ns.ENCODED_VERSION + ns.ENCODED_TYPE_ERROR;
+        content += ns.encodeTLV(ns.TLV_TYPE.SOURCE, error.from);
+        if (!ns._ERROR_MAPPING[error.severity]) {
+            throw new Error('Illegal error severity: ' + error.severity + '.');
         }
-        return _PROTOCOL_PREFIX + ' Error:' + btoa(signature) + ':' + out;
+        content += ns.encodeTLV(ns.TLV_TYPE.SEVERITY, String.fromCharCode(error.severity));
+        content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, error.message);
+
+        if (privKey) {
+            var signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_ERROR,
+                                           content, privKey, pubKey);
+            return ns.encodeTLV(ns.TLV_TYPE.MESSAGE_SIGNATURE, signature) + content;
+        } else {
+            return content;
+        }
+    };
+
+
+    /**
+     * Decodes a given error message.
+     *
+     * @param content {string}
+     *     A TLV string.
+     * @returns {object}
+     *     The error descriptor object, documented in {@link #encodeMessage()}.
+     *     Has the additional field `signatureOk` {?bool} (`true` if signature
+     *     verifies, `false` if failed, `null` if signature does not exist or
+     *     could not be verified).
+     */
+    ns.decodeErrorMessage = function(content, getPubKey) {
+        var debugOutput = [];
+        var out = {};
+        out.signatureOk = null;
+        var rest = content;
+
+        rest = ns.popTLVMaybe(rest, ns.TLV_TYPE.MESSAGE_SIGNATURE, function(value) {
+            out.signature = value;
+        });
+        if (out.signature) {
+            out.signatureOk = ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_ERROR,
+                                                        rest, out.signature, getPubKey(out.from));
+        }
+
+        rest = ns.popStandardFields(rest, ns.MESSAGE_TYPE.MPENC_ERROR);
+        rest = ns.popTLV(rest, ns.TLV_TYPE.SOURCE, function(value) {
+            out.from = value;
+        });
+        rest = ns.popTLV(rest, ns.TLV_TYPE.SEVERITY, function(value) {
+            out.severity = value.charCodeAt(0);
+        });
+        rest = ns.popTLV(rest, ns.TLV_TYPE.DATA_MESSAGE, function(value) {
+            out.message = value;
+        });
+
+        return out;
+    };
+
+
+    ns.errorToUiString = function(error) {
+        var uiMessageString = ns._ERROR_MAPPING[error.severity];
+        if (error.severity === ns.ERROR.TERMINAL) {
+            uiMessageString += ' ERROR';
+        }
+        uiMessageString += ': ' + error.message;
+        return uiMessageString;
     };
 
 
