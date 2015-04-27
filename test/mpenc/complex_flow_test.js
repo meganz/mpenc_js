@@ -478,8 +478,9 @@ define([
             // Processing plain text message.
             participants[1].processMessage(message);
             message = participants[1].protocolOutQueue.shift();
-            assert.strictEqual(message.message.substring(0, 9),
-                               '?mpENCv' + version.PROTOCOL_VERSION.charCodeAt(0) + '?');
+            assert.strictEqual(message.message, ns.PLAINTEXT_AUTO_RESPONSE);
+            message = participants[1].protocolOutQueue.shift();
+            assert.strictEqual(message.message, codec.tlvToWire(codec.MPENC_QUERY_MESSAGE));
             assert.strictEqual(message.from, '2');
             assert.strictEqual(message.to, '1');
             var uiMessage = participants[1].uiQueue.shift();
