@@ -64,9 +64,6 @@ define([
 
     MegaLogger._logRegistry.assert.options.isEnabled = false;
 
-    // set test data
-    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
-
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
@@ -84,10 +81,9 @@ define([
             it('simple ID of message', function() {
                 sandbox.stub(utils, 'sha256', _echo);
                 var message = { from: 'somebody',
-                                to: 'someone else',
-                                message: 'foo' };
+                                data: 'foo' };
                 var target = new ns.DecryptTrialTarget(stub(), [], 42);
-                assert.strictEqual(target.paramId(message), 'foo');
+                assert.strictEqual(target.paramId(message), 'somebody\x00foo');
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
         });
@@ -101,22 +97,21 @@ define([
 
         describe('#tryMe', function() {
             it('succeeding try func, not pending', function() {
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                     { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 var messageSecurity = _dummyMessageSecurity();
-                var message = { from: 'Moe',
-                                to: '',
-                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var payload = { from: 'Moe',
+                                data: _td.DATA_MESSAGE_STRING };
                 var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
-                var result = target.tryMe(false, message);
+                var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
             });
 
             it('succeeding try func, not pending, previous group key', function() {
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                     { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
@@ -124,11 +119,10 @@ define([
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
                 sandbox.spy(messageSecurity, 'decrypt');
-                var message = { from: 'Moe',
-                                to: '',
-                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var payload = { from: 'Moe',
+                                data: _td.DATA_MESSAGE_STRING };
                 var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
-                var result = target.tryMe(false, message);
+                var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
@@ -136,7 +130,7 @@ define([
             });
 
             it('succeeding try func, not pending, previous session', function() {
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                     { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
@@ -147,11 +141,10 @@ define([
                 sessionKeyStore.sessions['foo'] = utils.clone(sessionKeyStore.sessions[_td.SESSION_ID]);
                 sessionKeyStore.sessions['foo'].groupKeys[0] = atob('Dw4NDAsKCQgHBgUEAwIBAA==');
                 sandbox.spy(messageSecurity, 'decrypt');
-                var message = { from: 'Moe',
-                                to: '',
-                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var payload = { from: 'Moe',
+                                data: _td.DATA_MESSAGE_STRING };
                 var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
-                var result = target.tryMe(false, message);
+                var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
@@ -160,7 +153,7 @@ define([
 
             it('succeeding try func, not pending, hint collision', function() {
                 var collidingKey = 'XqtAZ4L9eY4qFdf6XsfgsQ==';
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                     { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
@@ -168,11 +161,10 @@ define([
                 var messageSecurity = _dummyMessageSecurity();
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
                 sandbox.spy(messageSecurity, 'decrypt');
-                var message = { from: 'Moe',
-                                to: '',
-                                message: _td.DATA_MESSAGE_PAYLOAD };
+                var payload = { from: 'Moe',
+                                data: _td.DATA_MESSAGE_STRING };
                 var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
-                var result = target.tryMe(false, message);
+                var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
                 assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
@@ -316,7 +308,7 @@ define([
                 sandbox.stub(participant.greet.askeMember, "exclude", stub());
                 sandbox.stub(participant.greet, "_mergeMessages").returns(message);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(codec, 'tlvToWire', _echo);
+                sandbox.stub(codec, 'encodeWirePacket', _echo);
                 participant.exclude(['kirk@ncc-1701.mil/android456']);
                 assert.lengthOf(participant.protocolOutQueue, 1);
                 assert.deepEqual(participant.protocolOutQueue[0].message, message);
@@ -481,7 +473,7 @@ define([
                 var message = { message: "Fresh Prince",
                                 dest: '' };
                 sandbox.stub(greeter, 'encodeGreetMessage').returns(message);
-                sandbox.stub(codec, 'tlvToWire', _echo);
+                sandbox.stub(codec, 'encodeWirePacket', _echo);
                 participant.refresh();
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
                 assert.lengthOf(participant.protocolOutQueue, 1);
@@ -682,7 +674,7 @@ define([
                 var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
                 participant.sendError(codec.ERROR.TERMINAL, message);
                 var outMessage = participant.protocolOutQueue[0].message;
-                assert.strictEqual(participant.protocolOutQueue[0].message, codec.tlvToWire(_td.ERROR_MESSAGE_STRING));
+                assert.strictEqual(participant.protocolOutQueue[0].message, codec.encodeWirePacket(_td.ERROR_MESSAGE_STRING));
                 assert.strictEqual(participant.protocolOutQueue[0].from, participant.id);
                 assert.strictEqual(participant.protocolOutQueue[0].to, '');
                 assert.lengthOf(participant.uiQueue, 0);
@@ -712,7 +704,7 @@ define([
                 participant.processMessage(message);
                 assert.lengthOf(participant.protocolOutQueue, 2);
                 assert.strictEqual(participant.protocolOutQueue[0].message, ns.PLAINTEXT_AUTO_RESPONSE);
-                assert.strictEqual(participant.protocolOutQueue[1].message, codec.tlvToWire(codec.MPENC_QUERY_MESSAGE));
+                assert.strictEqual(participant.protocolOutQueue[1].message, codec.encodeWirePacket(codec.MPENC_QUERY_MESSAGE));
                 assert.strictEqual(participant.protocolOutQueue[1].from,
                                    '2');
                 assert.strictEqual(participant.protocolOutQueue[1].to,
@@ -741,12 +733,12 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = {message: 'dummy',
                                from: 'a.dumbledore@hogwarts.ac.uk/android123'};
-                sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
+                sandbox.stub(codec, 'decodeWirePacket').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(codec, 'decodeErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.getMessageAndType);
+                sinon_assert.calledOnce(codec.decodeWirePacket);
                 sinon_assert.calledOnce(codec.decodeErrorMessage);
                 sinon_assert.calledOnce(participant.quit);
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -769,12 +761,12 @@ define([
                                           message: 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.'};
                 var message = { message: 'dummy',
                                 from: 'a.dumbledore@hogwarts.ac.uk/android123' };
-                sandbox.stub(codec, 'getMessageAndType').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
+                sandbox.stub(codec, 'decodeWirePacket').returns({ type: codec.MESSAGE_TYPE.MPENC_ERROR,
                                                                    content: 'foo' });
                 sandbox.stub(codec, 'decodeErrorMessage').returns(messageProperties);
                 sandbox.stub(participant, 'quit');
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.getMessageAndType);
+                sinon_assert.calledOnce(codec.decodeWirePacket);
                 sinon_assert.calledOnce(codec.decodeErrorMessage);
                 assert.strictEqual(participant.quit.callCount, 0);
                 assert.lengthOf(participant.protocolOutQueue, 0);
@@ -794,7 +786,7 @@ define([
                 participant.greet.cliquesMember.groupKey = groupKey;
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: 'bar@baz.nl/blah123' };
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                         { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
@@ -806,9 +798,9 @@ define([
                 sandbox.stub(participant.greet, 'getMembers').returns([]);
                 sandbox.stub(participant.greet, 'getEphemeralPubKeys').returns([]);
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(codec, 'tlvToWire', _echo);
+                sandbox.stub(codec, 'encodeWirePacket', _echo);
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.getMessageAndType);
+                sinon_assert.calledOnce(codec.decodeWirePacket);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);
                 sinon_assert.calledOnce(participant.greet._processMessage);
                 sinon_assert.calledOnce(greeter.encodeGreetMessage);
@@ -821,7 +813,7 @@ define([
 
             it('downflow message with invalid session auth', function() {
                 var message = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: greeter.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -833,7 +825,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                         { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
@@ -847,12 +839,12 @@ define([
                 sandbox.stub(participant.greet, '_mergeMessages').returns(
                         { dest: '',
                           source: participant.id,
-                          greetType: codec.GREET_TYPE.QUIT_DOWN });
+                          greetType: greeter.GREET_TYPE.QUIT_DOWN });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(codec, 'encodeErrorMessage', _echo);
-                sandbox.stub(codec, 'tlvToWire', _echo);
+                sandbox.stub(codec, 'encodeWirePacket', _echo);
                 participant.processMessage(message);
-                assert.strictEqual(codec.getMessageAndType.callCount, 1);
+                assert.strictEqual(codec.decodeWirePacket.callCount, 1);
                 assert.strictEqual(greeter.decodeGreetMessage.callCount, 1);
                 assert.strictEqual(participant.greet._processMessage.callCount, 1);
                 assert.strictEqual(participant.greet.getEphemeralPrivKey.callCount, 3);
@@ -879,7 +871,7 @@ define([
                 assert.strictEqual(outMessage.from, participant.id);
                 assert.strictEqual(outMessage.message.dest, '');
                 assert.strictEqual(outMessage.to, '');
-                assert.strictEqual(outMessage.message.greetType, codec.GREET_TYPE.QUIT_DOWN);
+                assert.strictEqual(outMessage.message.greetType, greeter.GREET_TYPE.QUIT_DOWN);
             });
 
             it('on own greet message with flushed ephemeralPubKeys', function() {
@@ -892,7 +884,7 @@ define([
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var message = { message: _td.DOWNFLOW_MESSAGE_PAYLOAD,
                                 from: '1' };
-                sandbox.stub(codec, 'getMessageAndType').returns(
+                sandbox.stub(codec, 'decodeWirePacket').returns(
                         { type: codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                           content: 'foo' });
                 sandbox.stub(greeter, 'decodeGreetMessage').returns(_td.DOWNFLOW_MESSAGE_STRING);
@@ -900,9 +892,9 @@ define([
                         { decodedMessage: _td.DOWNFLOW_MESSAGE_STRING,
                           newState: greeter.STATE.READY });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(codec, 'tlvToWire', _echo);
+                sandbox.stub(codec, 'encodeWirePacket', _echo);
                 participant.processMessage(message);
-                sinon_assert.calledOnce(codec.getMessageAndType);
+                sinon_assert.calledOnce(codec.decodeWirePacket);
                 sinon_assert.calledOnce(greeter.decodeGreetMessage);
                 assert.strictEqual(greeter.decodeGreetMessage.getCall(0).args[1], _td.ED25519_PUB_KEY);
                 sinon_assert.calledOnce(participant.greet._processMessage);
@@ -930,7 +922,8 @@ define([
                 participant.processMessage(message);
                 assert.strictEqual(participant._tryDecrypt.trial.callCount, 1);
                 assert.lengthOf(participant._tryDecrypt.trial.getCall(0).args, 1);
-                assert.deepEqual(participant._tryDecrypt.trial.getCall(0).args[0], message);
+                assert.deepEqual(participant._tryDecrypt.trial.getCall(0).args[0],
+                    { from: message.from, data: _td.DATA_MESSAGE_STRING });
             });
 
             it('on query message', function() {
@@ -938,7 +931,7 @@ define([
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
                                                          _td.STATIC_PUB_KEY_DIR);
-                var message = {message: codec.tlvToWire(codec.MPENC_QUERY_MESSAGE),
+                var message = {message: codec.encodeWirePacket(codec.MPENC_QUERY_MESSAGE),
                                from: 'raw@hide.com/rollingrollingrolling'};
                 participant.start = stub();
                 participant.processMessage(message);

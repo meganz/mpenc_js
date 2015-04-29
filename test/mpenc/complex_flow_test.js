@@ -25,6 +25,7 @@ define([
     "mpenc/handler",
     "mpenc/helper/utils",
     "mpenc/codec",
+    "mpenc/message",
     "mpenc/version",
     "mpenc/greet/keystore",
     "mpenc/greet/greeter",
@@ -33,7 +34,8 @@ define([
     "megalogger",
     "chai",
     "sinon/sandbox",
-], function(ns, utils, codec, version, keystore, greeter, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, codec, messages, version, keystore, greeter,
+            asmCrypto, jodid25519, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
 
@@ -41,9 +43,6 @@ define([
 
     MegaLogger._logRegistry.handler.options.isEnabled = false;
     MegaLogger._logRegistry.assert.options.isEnabled = false;
-
-    // set test data
-    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -66,7 +65,7 @@ define([
 
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
-            var content = codec.getMessageAndType(_stripProtoFromMessage(message.message)).content;
+            var content = codec.decodeWirePacket(_stripProtoFromMessage(message.message)).content;
             var sessionID = senderParticipant._sessionKeyStore.sessionIDs[0];
             var groupKey = sessionID
                          ? senderParticipant._sessionKeyStore.sessions[sessionID].groupKeys[0]
@@ -315,9 +314,9 @@ define([
                 var messageClone = utils.clone(message);
                 participant.processMessage(messageClone);
                 var uiMessage = participant.uiQueue.shift();
-                assert.strictEqual(uiMessage.message, 'Rock me Amadeus');
-                assert.strictEqual(uiMessage.type, 'message');
-                assert.strictEqual(uiMessage.from, '5');
+                assert(uiMessage instanceof messages.Message);
+                assert.strictEqual(uiMessage.secretData, 'Rock me Amadeus');
+                assert.strictEqual(uiMessage.author, '5');
             }
 
             console.log('Refreshing at ' + Math.round(Date.now() / 1000 - startTime));
@@ -480,7 +479,7 @@ define([
             message = participants[1].protocolOutQueue.shift();
             assert.strictEqual(message.message, ns.PLAINTEXT_AUTO_RESPONSE);
             message = participants[1].protocolOutQueue.shift();
-            assert.strictEqual(message.message, codec.tlvToWire(codec.MPENC_QUERY_MESSAGE));
+            assert.strictEqual(message.message, codec.encodeWirePacket(codec.MPENC_QUERY_MESSAGE));
             assert.strictEqual(message.from, '2');
             assert.strictEqual(message.to, '1');
             var uiMessage = participants[1].uiQueue.shift();
@@ -494,7 +493,7 @@ define([
             payload = _getPayload(message, participants[0]);
             assert.strictEqual(payload.source, '1');
             assert.strictEqual(payload.dest, '2');
-            assert.strictEqual(payload.greetType, codec.GREET_TYPE.INIT_INITIATOR_UP);
+            assert.strictEqual(payload.greetType, greeter.GREET_TYPE.INIT_INITIATOR_UP);
             assert.strictEqual(participants[0].greet.state, greeter.STATE.INIT_UPFLOW);
 
             // Process key agreement upflow.
@@ -503,7 +502,7 @@ define([
             payload = _getPayload(message, participants[1]);
             assert.strictEqual(payload.source, '2');
             assert.strictEqual(payload.dest, '');
-            assert.strictEqual(payload.greetType, codec.GREET_TYPE.INIT_PARTICIPANT_DOWN);
+            assert.strictEqual(payload.greetType, greeter.GREET_TYPE.INIT_PARTICIPANT_DOWN);
             assert.strictEqual(participants[1].greet.state, greeter.STATE.INIT_DOWNFLOW);
 
             // Downflow for both.
@@ -583,7 +582,7 @@ define([
             message = participants[0].protocolOutQueue.shift();
             payload = _getPayload(message, _getSender(message, participants, members));
             assert.strictEqual(participants[0].greet.state, greeter.STATE.QUIT);
-            assert.strictEqual(message.greetType, codec.GREET_TYPE.QUIT);
+            assert.strictEqual(message.greetType, greeter.GREET_TYPE.QUIT);
         });
     });
 
@@ -685,8 +684,8 @@ define([
             participants['1'].messageOutQueue.shift()
         );
 
-        assert.strictEqual(participants['2'].uiQueue[0].message, "How you doin'?");
-        assert.strictEqual(participants['2'].uiQueue[0].from, "1");
-        assert.strictEqual(participants['2'].uiQueue[0].type, "message");
+        assert(participants['2'].uiQueue[0] instanceof messages.Message);
+        assert.strictEqual(participants['2'].uiQueue[0].secretData, "How you doin'?");
+        assert.strictEqual(participants['2'].uiQueue[0].author, "1");
     });
 });

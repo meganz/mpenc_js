@@ -148,7 +148,7 @@ define([
     };
 
     BaseTranscript.prototype.pre = function(mId) {
-        return safeGet(this._messages, mId).pmId;
+        return safeGet(this._messages, mId).parents;
     };
 
     BaseTranscript.prototype.suc = function(mId) {
@@ -168,7 +168,7 @@ define([
 
         if (u0 === u1) {
             return this._authorIndex.get(m0) <= this._authorIndex.get(m1);
-        } else if (this._messages.get(m1).ruId.has(u0)) {
+        } else if (this._messages.get(m1).recipients.has(u0)) {
             var p0 = this._context.get(m1).get(u0);
             return p0 !== null && this._authorIndex.get(m0) <= this._authorIndex.get(p0);
         } else {
@@ -201,7 +201,7 @@ define([
     };
 
     BaseTranscript.prototype.pre_pred = function(mId, pred) {
-        var init = safeGet(this._messages, mId).pmId;
+        var init = safeGet(this._messages, mId).parents;
         var initArr = init.toArray();
         var self = this;
         return new Set(struct.iteratorToArray(graph.bfTopoIterator(init,
@@ -224,7 +224,7 @@ define([
     };
 
     BaseTranscript.prototype.author = function(mId) {
-        return safeGet(this._messages, mId).uId;
+        return safeGet(this._messages, mId).author;
     };
 
     BaseTranscript.prototype.by = function(uId) {
@@ -265,7 +265,7 @@ define([
         }
 
         var self = this;
-        var mId = msg.mId, uId = msg.uId, pmId = msg.pmId, ruId = msg.ruId;
+        var mId = msg.mId, uId = msg.author, pmId = msg.parents, ruId = msg.recipients;
         // last message by the same author
         var pumId = this._authorMessages.has(uId)? this._authorMessages.get(uId).slice(-1)[0]: null;
         var pmIdArr = pmId.toArray();

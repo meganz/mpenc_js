@@ -49,6 +49,520 @@ define([
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
 
 
+    // Message type bit mapping
+    ns._AUX_BIT = 0;
+    ns._DOWN_BIT = 1;
+    ns._GKA_BIT = 2;
+    ns._SKE_BIT = 3;
+    ns._OP_BITS = 4;
+    ns._INIT_BIT = 7;
+    ns._RECOVER_BIT = 8;
+    ns._OPERATION = { DATA: 0x00,
+                      START: 0x01,
+                      INCLUDE: 0x02,
+                      EXCLUDE: 0x03,
+                      REFRESH: 0x04,
+                      QUIT: 0x05 };
+    ns._OPERATION_MASK = 0x07 << ns._OP_BITS;
+    // Add reverse mapping to string representation.
+    ns.OPERATION_MAPPING = {};
+    for (var propName in ns._OPERATION) {
+        ns.OPERATION_MAPPING[ns._OPERATION[propName]] = propName;
+    }
+
+
+    /**
+     * "Enumeration" message types.
+     *
+     * @property INIT_INITIATOR_UP {string}
+     *     Initiator initial upflow.
+     * @property INIT_PARTICIPANT_UP {string}
+     *     Participant initial upflow message.
+     * @property INIT_PARTICIPANT_DOWN {string}
+     *     Participant initial downflow.
+     * @property INIT_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant initial subsequent downflow.
+     * @property RECOVER_INIT_INITIATOR_UP {string}
+     *     Initiator initial upflow for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_UP {string}
+     *     Participant initial upflow message for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_DOWN {string}
+     *     Participant initial downflow for recovery.
+     * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant initial subsequent downflow for recovery.
+     * @property INCLUDE_AUX_INITIATOR_UP {string}
+     *     Initiator aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_UP {string}
+     *     Participant aux include upflow.
+     * @property INCLUDE_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux include downflow.
+     * @property INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux include subsequent downflow.
+     * @property EXCLUDE_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux exclude downflow.
+     * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux exclude subsequent.
+     * @property RECOVER_EXCLUDE_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux exclude downflow for recovery.
+     * @property RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
+     *     Participant aux exclude subsequent for recovery.
+     * @property REFRESH_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux refresh downflow.
+     * @property REFRESH_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux refresh downflow.
+     * @property RECOVER_REFRESH_AUX_INITIATOR_DOWN {string}
+     *     Initiator aux refresh downflow. for recovery
+     * @property RECOVER_REFRESH_AUX_PARTICIPANT_DOWN {string}
+     *     Participant aux refresh downflow for recovery.
+     * @property QUIT_DOWN {string}
+     *     Indicating departure. (Must be followed by an exclude sequence.)
+     */
+    ns.GREET_TYPE = {
+        // Initial start sequence.
+        INIT_INITIATOR_UP:                     '\u0000\u009c', // 0b10011100
+        INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
+        INIT_PARTICIPANT_DOWN:                 '\u0000\u001e', // 0b00011110
+        INIT_PARTICIPANT_CONFIRM_DOWN:         '\u0000\u001a', // 0b00011010
+        RECOVER_INIT_INITIATOR_UP:             '\u0001\u009c', // 0b10011100
+        RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
+        RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
+        RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
+        // Include sequence.
+        INCLUDE_AUX_INITIATOR_UP:              '\u0000\u00ad', // 0b10101101
+        INCLUDE_AUX_PARTICIPANT_UP:            '\u0000\u002d', // 0b00101101
+        INCLUDE_AUX_PARTICIPANT_DOWN:          '\u0000\u002f', // 0b00101111
+        INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u002b', // 0b00101011
+        // Exclude sequence.
+        EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
+        EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
+        RECOVER_EXCLUDE_AUX_INITIATOR_DOWN:    '\u0001\u00bf', // 0b10111111
+        RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN: '\u0001\u003b', // 0b00111011
+        // Refresh sequence.
+        REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
+        REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
+        RECOVER_REFRESH_AUX_INITIATOR_DOWN:    '\u0001\u00c7', // 0b11000111
+        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:  '\u0001\u0047', // 0b01000111
+        // Quit indication.
+        QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
+    };
+
+
+    /** Mapping of message type to string representation. */
+    ns.GREET_TYPE_MAPPING = {};
+    for (var propName in ns.GREET_TYPE) {
+        ns.GREET_TYPE_MAPPING[ns.GREET_TYPE[propName]] = propName;
+    }
+
+
+    /**
+     * Converts a message type string to a number.
+     *
+     * @param typeString {string}
+     * @return {integer}
+     *     Number representing the message type.
+     */
+    ns.greetTypeToNumber = function(typeString) {
+        return (typeString.charCodeAt(0) << 8)
+                | typeString.charCodeAt(1);
+    };
+
+
+    /**
+     * Converts a message type number to a message type string.
+     *
+     * @param typeNumber {integer}
+     * @return {string}
+     *     Two character string of message type.
+     */
+    ns.greetTypeFromNumber = function(typeNumber) {
+        return String.fromCharCode(typeNumber >>> 8)
+               + String.fromCharCode(typeNumber & 0xff);
+    };
+
+
+    // Checks whether a specific bit is set on a message type.
+    function _isBitSetOnGreetType(greetType, bit) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
+        }
+        return ((greetType & (1 << bit)) > 0);
+    }
+
+
+    /**
+     * Inspects the AUX bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isAuxBitOnGreenType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._AUX_BIT);
+    };
+
+
+    /**
+     * Inspects the DOWN bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isDownBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._DOWN_BIT);
+    };
+
+
+    /**
+     * Inspects the GKA bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isGkaBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._GKA_BIT);
+    };
+
+
+    /**
+     * Inspects the SKE bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isSkeBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._SKE_BIT);
+    };
+
+
+    /**
+     * Inspects the INIT bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isInitBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._INIT_BIT);
+    };
+
+
+    /**
+     * Inspects the RECOVER bit of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {boolean}
+     *     True if the bit is set, otherwise false.
+     */
+    ns.isRecoverBitOnGreetType = function(greetType) {
+        return _isBitSetOnGreetType(greetType, ns._RECOVER_BIT);
+    };
+
+
+    /**
+     * Inspects the OPERATION bits of the message type.
+     *
+     * @param {integer|string}
+     *     Message type, either as a number or two character string.
+     * @return {integer}
+     *     Number of the operation.
+     */
+    ns.getOperationOnGreetType = function(greetType) {
+        if (typeof(greetType) === 'string') {
+            greetType = ns.greetTypeToNumber(greetType);
+        }
+        return (greetType & ns._OPERATION_MASK) >>> ns._OP_BITS;
+    };
+
+
+    /**
+     * mpENC key agreement packet.
+     *
+     * @constructor
+     * @param source {string}
+     *     Message originator (from).
+     * @returns {mpenc.greet.greeter.GreetMessage}
+     *
+     * @property source {string|object}
+     *     Message originator (from) or a {GreetMessage} object to copy.
+     * @property dest {string}
+     *     Message destination (to).
+     * @property greetType {string}
+     *     mpENC protocol message type, one of {mpenc.ns.GREET_TYPE}.
+     * @property sidkeyHint {string}
+     *     One character string (a single byte), hinting at the right
+     *     combination of session ID and group key used for a data message.
+     * @property members {Array<string>}
+     *     List (array) of all participating members.
+     * @property intKeys {Array<string>}
+     *     List (array) of intermediate keys for group key agreement.
+     * @property debugKeys {Array<string>}
+     *     List (array) of keying debugging strings.
+     * @property nonces {Array<string>}
+     *     Nonces of members for ASKE.
+     * @property pubKeys {Array<string>}
+     *     Ephemeral public signing key of members.
+     * @property sessionSignature {string}
+     *     Session acknowledgement signature using sender's static key.
+     * @property signingKey {string}
+     *     Ephemeral private signing key for session (upon quitting participation).
+     * @property signature {string}
+     *     Binary signature string for the message
+     * @property signatureOk {bool}
+     *     Indicator whether the message validates. after message decoding.
+     * @property rawMessage {string}
+     *     The raw message, after splitting off the signature. Can be used to
+     *     re-verify the signature, if needed.
+     * @property protocol {string}
+     *     Single byte string indicating the protocol version using the binary
+     *     version of the character.
+     * @property data {string}
+     *     Binary string containing the decrypted pay load of the message.
+     */
+    var GreetMessage = function(source) {
+        if (source === undefined) {
+            source = {};
+        }
+        if (source instanceof Object) {
+            this.source = source.source || '';
+        } else {
+            this.source = source || '';
+        }
+        this.dest = source.dest || '';
+        this.greetType = source.greetType || null;
+        this.sidkeyHint = source.sidkeyHint || null;
+        this.members = source.members || [];
+        this.intKeys = source.intKeys || [];
+        this.debugKeys = source.debugKeys || [];
+        this.nonces = source.nonces || [];
+        this.pubKeys = source.pubKeys || [];
+        this.sessionSignature = source.sessionSignature || null;
+        this.signingKey = source.signingKey || null;
+        this.signature = source.signature || null;
+        this.signatureOk = source.signatureOk || false;
+        this.rawMessage = source.rawMessage || null;
+        this.data = source.data || null;
+
+        return this;
+    };
+    ns.GreetMessage = GreetMessage;
+
+
+    /**
+     * Returns a numeric representation of the message type.
+     *
+     * @method
+     * @returns {integer}
+     *     Message type as numeric value.
+     */
+    GreetMessage.prototype.getGreetTypeNumber = function() {
+        return ns.greetTypeToNumber(this.greetType);
+    };
+
+
+    /**
+     * Returns a string representation of the message type.
+     *
+     * @method
+     * @returns {string}
+     *     Message type as human readable string.
+     */
+    GreetMessage.prototype.getGreetTypeString = function() {
+        return ns.GREET_TYPE_MAPPING[this.greetType];
+    };
+
+
+    /**
+     * Sets a bit on the message type to a particular value.
+     *
+     * @method
+     * @param {integer}
+     *     Bit number to modify.
+     * @param {bool}
+     *     Value to set bit to.
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
+     * @throws {Error}
+     *     In case of a resulting illegal/non-existent message type.
+     */
+    GreetMessage.prototype._setBit= function(bit, value, noMessageCheck) {
+        var newGreetTypeNum = this.getGreetTypeNumber();
+        if (value === true || value === 1) {
+            newGreetTypeNum |= 1 << bit;
+        } else if (value === 0 || value === false) {
+            newGreetTypeNum &= 0xffff - (1 << bit);
+        } else {
+            throw new Error("Illegal value for set/clear bit operation.");
+        }
+        var newGreetType = ns.greetTypeFromNumber(newGreetTypeNum);
+        if (ns.GREET_TYPE_MAPPING[newGreetType] === undefined) {
+            if (noMessageCheck !== true && noMessageCheck !== 1) {
+                throw new Error("Illegal message type!");
+            } else {
+                this.greetType = newGreetType;
+                logger.debug('Arrived at an illegal message type, but was told to ignore it: '
+                             + newGreetType);
+            }
+        } else {
+            this.greetType = newGreetType;
+        }
+    };
+
+
+    /**
+     * Reads a bit on the message type to a particular value.
+     *
+     * @method
+     * @param {integer}
+     *     Bit number to read.
+     * @return {bool}
+     *     Value of bit.
+     */
+    GreetMessage.prototype._readBit= function(bit) {
+        return (_isBitSetOnGreetType(this.greetType, bit));
+    };
+
+
+    /**
+     * Returns whether the message is for an auxiliary protocol flow.
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for an auxiliary protocol flow.
+     */
+    GreetMessage.prototype.isAuxiliary = function() {
+        return this._readBit(ns._AUX_BIT);
+    };
+
+
+    /**
+     * Returns whether the message is for the downflow (broadcast).
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for a downflow message.
+     */
+    GreetMessage.prototype.isDownflow = function() {
+        return this._readBit(ns._DOWN_BIT);
+    };
+
+
+    /**
+     * Sets the downflow bit on the message type.
+     *
+     * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
+     * @throws {Error}
+     *     In case of a resulting illegal/non-existent message type.
+     */
+    GreetMessage.prototype.setDownflow = function(noMessageCheck) {
+        return this._setBit(ns._DOWN_BIT, true, noMessageCheck);
+    };
+
+
+    /**
+     * Returns whether the message is for the Group Key Agreement.
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for a message containing GKA content.
+     */
+    GreetMessage.prototype.isGKA = function() {
+        return this._readBit(ns._GKA_BIT);
+    };
+
+
+    /**
+     * Clears the Group Key Agreement bit on the message type.
+     *
+     * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
+     * @throws {Error}
+     *     In case of a resulting illegal/non-existent message type.
+     */
+    GreetMessage.prototype.clearGKA = function(noMessageCheck) {
+        return this._setBit(ns._GKA_BIT, false, noMessageCheck);
+    };
+
+
+    /**
+     * Returns whether the message is for the Signature Key Exchange.
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for a message containing SKE content.
+     */
+    GreetMessage.prototype.isSKE = function() {
+        return this._readBit(ns._SKE_BIT);
+    };
+
+
+    /**
+     * Returns whether the message is from the protocol flow initiator.
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for a message from the protocol flow initiator.
+     */
+    GreetMessage.prototype.isInitiator = function() {
+        return this._readBit(ns._INIT_BIT);
+    };
+
+
+    /**
+     * Clears the initiator bit on the message type.
+     *
+     * @method
+     * @param {bool}
+     *     If `true`, no checks for legal message transitions are performed
+     *     (default: false).
+     * @throws {Error}
+     *     In case of a resulting illegal/non-existent message type.
+     */
+    GreetMessage.prototype.clearInitiator = function(noMessageCheck) {
+        return this._setBit(ns._INIT_BIT, false, noMessageCheck);
+    };
+
+
+    /**
+     * Returns whether the message is for a recovery protocol flow.
+     *
+     * @method
+     * @returns {bool}
+     *     `true` for a message for a recovery flow.
+     */
+    GreetMessage.prototype.isRecover = function() {
+        return this._readBit(ns._RECOVER_BIT);
+    }
+
+
+    /**
+     * Returns the protocol operation of the message.
+     *
+     * @method
+     * @returns {string}
+     *     A clear text expression of the type of protocol operation.
+     *     One of "DATA", "START", "INCLUDE", "EXCLUDE", "REFRESH" or "QUIT".
+     */
+    GreetMessage.prototype.getOperation = function() {
+        return ns.OPERATION_MAPPING[(this.getGreetTypeNumber() & ns._OPERATION_MASK)
+                                    >>> ns._OP_BITS];
+    }
+
+
     /**
      * "Enumeration" defining the different stable and intermediate states of
      * the mpENC module.
@@ -97,7 +611,7 @@ define([
      *     Session ID.
      * @param groupKey {string}
      *     Symmetric group encryption key to encrypt message.
-     * @returns {mpenc.codec.ProtocolMessage}
+     * @returns {mpenc.greet.greeter.GreetMessage}
      *     Message as JavaScript object.
      */
     ns.decodeGreetMessage = function(message, pubKey) {
@@ -144,7 +658,8 @@ define([
             return null;
         }
 
-        var out = new codec.ProtocolMessage();
+        // TODO(gk): high-priority - put range checks etc on the below
+        var out = new ns.GreetMessage();
         var debugOutput = [];
         var rest = message;
 
@@ -159,13 +674,12 @@ define([
 
         rest = codec.popStandardFields(rest,
             codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE, debugOutput);
-        out.protocol = codec.PROTOCOL_VERSION;
 
         rest = codec.popTLV(rest, _T.GREET_TYPE, function(value) {
             out.greetType = value;
             debugOutput.push('greetType: 0x'
-                             + codec.greetTypeToNumber(value).toString(16)
-                             + ' (' + codec.GREET_TYPE_MAPPING[value] + ')');
+                             + ns.greetTypeToNumber(value).toString(16)
+                             + ' (' + ns.GREET_TYPE_MAPPING[value] + ')');
         });
 
         rest = codec.popTLV(rest, _T.SOURCE, function(value) {
@@ -219,7 +733,7 @@ define([
      * Encodes a given greet message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
-     * @param message {mpenc.codec.ProtocolMessage}
+     * @param message {mpenc.greet.greeter.GreetMessage}
      *     Message as JavaScript object.
      * @param privKey {string}
      *     Sender's (ephemeral) private signing key.
@@ -348,14 +862,14 @@ define([
         }, this), message);
     };
 
-    GreetWrapper.prototype._encodeAndPublish = function(protocolMessage) {
-        if (!protocolMessage) return;
+    GreetWrapper.prototype._encodeAndPublish = function(packet) {
+        if (!packet) return;
         var payload = ns.encodeGreetMessage(
-            protocolMessage,
+            packet,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
         // TODO(xl): use a RawSendT instead of Array[2]
-        this._send.publish([protocolMessage.dest, payload]);
+        this._send.publish([packet.dest, payload]);
     };
 
     GreetWrapper.prototype.subscribeSend = function(subscriber) {
@@ -377,19 +891,19 @@ define([
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
 
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
+        var packet = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_INIT_INITIATOR_UP;
+            packet.greetType = ns.GREET_TYPE.RECOVER_INIT_INITIATOR_UP;
         } else {
-            protocolMessage.greetType = codec.GREET_TYPE.INIT_INITIATOR_UP;
+            packet.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
         }
 
-        if (protocolMessage.members.length === 1) {
+        if (packet.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
-            this._encodeAndPublish(protocolMessage);
+            this._encodeAndPublish(packet);
             this._updateState(ns.STATE.INIT_UPFLOW);
         }
     };
@@ -410,10 +924,10 @@ define([
         var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
         var askeMessage = this.askeMember.join(newMembers);
 
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
-        protocolMessage.greetType = codec.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
+        var packet = this._mergeMessages(cliquesMessage, askeMessage);
+        packet.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateState(ns.STATE.AUX_UPFLOW);
-        this._encodeAndPublish(protocolMessage);
+        this._encodeAndPublish(packet);
     };
 
 
@@ -439,11 +953,11 @@ define([
         var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
         var askeMessage = this.askeMember.exclude(excludeMembers);
 
-        var protocolMessage = this._mergeMessages(cliquesMessage, askeMessage);
+        var packet = this._mergeMessages(cliquesMessage, askeMessage);
         if (this.recovering) {
-            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
+            packet.greetType = ns.GREET_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.greetType = codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
+            packet.greetType = ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
         }
 
         // We need to update the session state.
@@ -452,7 +966,7 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
-        if (protocolMessage.members.length === 1) {
+        if (packet.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
             this.quit();
@@ -462,7 +976,7 @@ define([
             } else {
                 this._updateState(ns.STATE.AUX_DOWNFLOW);
             }
-            this._encodeAndPublish(protocolMessage);
+            this._encodeAndPublish(packet);
         }
     };
 
@@ -483,10 +997,10 @@ define([
         this.cliquesMember.akaQuit();
         var askeMessage = this.askeMember.quit();
 
-        var protocolMessage = this._mergeMessages(null, askeMessage);
-        protocolMessage.greetType = codec.GREET_TYPE.QUIT_DOWN;
+        var packet = this._mergeMessages(null, askeMessage);
+        packet.greetType = ns.GREET_TYPE.QUIT_DOWN;
         this._updateState(ns.STATE.QUIT);
-        this._encodeAndPublish(protocolMessage);
+        this._encodeAndPublish(packet);
     };
 
 
@@ -500,16 +1014,16 @@ define([
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
-        var protocolMessage = this._mergeMessages(cliquesMessage, null);
+        var packet = this._mergeMessages(cliquesMessage, null);
         if (this.recovering) {
-            protocolMessage.greetType = codec.GREET_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
+            packet.greetType = ns.GREET_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
         } else {
-            protocolMessage.greetType = codec.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
+            packet.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         }
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
         this._updateState(ns.STATE.READY);
-        this._encodeAndPublish(protocolMessage);
+        this._encodeAndPublish(packet);
     };
 
 
@@ -543,11 +1057,11 @@ define([
      * Handles greet (key agreement) protocol execution with all participants.
      *
      * @method
-     * @param message {ProtocolMessage}
-     *     Received message (decoded). See {@link ProtocolMessage}.
+     * @param message {GreetMessage}
+     *     Received message (decoded).
      * @returns {object}
      *     Object containing the decoded message content as
-     *     {ProtocolMessage} in attribute `decodedMessage` and
+     *     {GreetMessage} in attribute `decodedMessage` and
      *     optional (null if not used) the new the GreetWrapper state in
      *     attribute `newState`.
      */
@@ -599,7 +1113,7 @@ define([
         var newState = null;
 
         // Three cases: QUIT, upflow or downflow message.
-        if (message.greetType === codec.GREET_TYPE.QUIT_DOWN) {
+        if (message.greetType === ns.GREET_TYPE.QUIT_DOWN) {
             // QUIT message.
             _assert(message.signingKey,
                     'Inconsistent message content with message type (signingKey).');
@@ -686,7 +1200,7 @@ define([
      *     Message from CLIQUES protocol workflow.
      * @param askeMessage {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Message from ASKE protocol workflow.
-     * @returns {ProtocolMessage}
+     * @returns {GreetMessage}
      *     Joined message (not wire encoded).
      */
     GreetWrapper.prototype._mergeMessages = function(cliquesMessage,
@@ -696,7 +1210,7 @@ define([
             return null;
         }
 
-        var newMessage = new codec.ProtocolMessage(this.id);
+        var newMessage = new ns.GreetMessage(this.id);
 
         if (cliquesMessage && askeMessage) {
             _assert(cliquesMessage.source === askeMessage.source,
@@ -726,7 +1240,7 @@ define([
      * Extracts a CLIQUES message out of the received protocol handler message.
      *
      * @method
-     * @param message {ProtocolMessage}
+     * @param message {GreetMessage}
      *     Message from protocol handler.
      * @returns {mpenc.greet.cliques.CliquesMessage}
      *     Extracted message.
@@ -761,7 +1275,7 @@ define([
      * Extracts a ASKE message out of the received protocol handler message.
      *
      * @method
-     * @param message {ProtocolMessage}
+     * @param message {GreetMessage}
      *     Message from protocol handler.
      * @returns {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Extracted message.
