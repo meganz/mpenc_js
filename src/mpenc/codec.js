@@ -176,6 +176,79 @@ define([
 
 
     /**
+     * Encodes a given value to a binary TLV string of a given type.
+     *
+     * @param tlvType {integer}
+     *     Type of string to use (16-bit unsigned integer).
+     * @param value {string}
+     *     A binary string of the pay load to carry. If omitted, no value
+     *     (null) is used.
+     * @returns {string}
+     *     A binary TLV string.
+     */
+    ns.encodeTLV = function(tlvType, value) {
+        if ((value === null) || (value === undefined)) {
+            value = '';
+        }
+        value += '';
+        var out = ns._short2bin(tlvType);
+        out += ns._short2bin(value.length);
+        return out + value;
+    };
+
+
+    /**
+     * Encodes an array of values to a binary TLV string of a given type.
+     *
+     * @param tlvType {integer}
+     *     Type of string to use (16-bit unsigned integer).
+     * @param valueArray {Array}
+     *     The array of values.
+     * @returns {string}
+     *     A binary TLV string.
+     */
+    ns._encodeTlvArray = function(tlvType, valueArray) {
+        _assert((valueArray instanceof Array) || (valueArray === null),
+                'Value passed neither an array or null.');
+
+        // Trivial case, quick exit.
+        if ((valueArray === null) || (valueArray.length === 0)) {
+            return '';
+        }
+
+        var out = '';
+        for (var i = 0; i < valueArray.length; i++) {
+            out += ns.encodeTLV(tlvType, valueArray[i]);
+        }
+        return out;
+    };
+
+
+    var _getMessageType = function(message) {
+        if (!message) {
+            return undefined;
+        }
+
+        while (message.length > 0) {
+            var tlv = ns.decodeTLV(message);
+            if (tlv.type === ns.TLV_TYPE.MESSAGE_TYPE) {
+                return tlv.value.charCodeAt(0);
+            }
+            message = tlv.rest;
+        }
+        return undefined;
+    };
+
+
+    /**
+     * Encodes an mpENC TLV string suitable for sending onto the wire.
+     */
+    ns.encodeWirePacket = function(contents) {
+        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
+    };
+
+
+    /**
      * Decodes a given binary TLV string to a type and value.
      *
      * @param tlv {string}
@@ -287,31 +360,15 @@ define([
     };
 
 
-    var _getMessageType = function(message) {
-        if (!message) {
-            return undefined;
-        }
-
-        while (message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            if (tlv.type === ns.TLV_TYPE.MESSAGE_TYPE) {
-                return tlv.value.charCodeAt(0);
-            }
-            message = tlv.rest;
-        }
-        return undefined;
-    };
-
-
     /**
      * Detects the type of a given message.
      *
      * @param message {string}
      *     A wire protocol message representation.
      * @returns {mpenc.codec.MESSAGE_TYPE}
-     *     Object indicating message `type` and extracted message `content`.
+     *     Object indicating message `type` and decoded TLV string `content`.
      */
-    ns.getMessageAndType = function(message) {
+    ns.decodeWirePacket = function(message) {
         if (!message) {
             return null;
         }
@@ -332,71 +389,6 @@ define([
         }
 
         _assert(false, 'Unknown mpENC message.');
-    };
-
-
-    /**
-     * Encodes a given value to a binary TLV string of a given type.
-     *
-     * @param tlvType {integer}
-     *     Type of string to use (16-bit unsigned integer).
-     * @param value {string}
-     *     A binary string of the pay load to carry. If omitted, no value
-     *     (null) is used.
-     * @returns {string}
-     *     A binary TLV string.
-     */
-    ns.encodeTLV = function(tlvType, value) {
-        if ((value === null) || (value === undefined)) {
-            value = '';
-        }
-        value += '';
-        var out = ns._short2bin(tlvType);
-        out += ns._short2bin(value.length);
-        return out + value;
-    };
-
-
-    /**
-     * Encodes an array of values to a binary TLV string of a given type.
-     *
-     * @param tlvType {integer}
-     *     Type of string to use (16-bit unsigned integer).
-     * @param valueArray {Array}
-     *     The array of values.
-     * @returns {string}
-     *     A binary TLV string.
-     */
-    ns._encodeTlvArray = function(tlvType, valueArray) {
-        _assert((valueArray instanceof Array) || (valueArray === null),
-                'Value passed neither an array or null.');
-
-        // Trivial case, quick exit.
-        if ((valueArray === null) || (valueArray.length === 0)) {
-            return '';
-        }
-
-        var out = '';
-        for (var i = 0; i < valueArray.length; i++) {
-            out += ns.encodeTLV(tlvType, valueArray[i]);
-        }
-        return out;
-    };
-
-
-    /**
-     * Encodes an mpENC TLV string suitable for sending onto the wire.
-     */
-    ns.tlvToWire = function(contents) {
-        return _PROTOCOL_PREFIX + ':' + btoa(contents) + '.';
-    };
-
-
-    /**
-     * Decodes an mpENC wire message into a TLV string.
-     */
-    ns.wireToTLV = function(wireMessage) {
-        return atob(wireMessage.slice(_PROTOCOL_PREFIX.length + 1, -1));
     };
 
 

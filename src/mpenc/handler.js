@@ -188,7 +188,7 @@ define([
         this.protocolOutQueue.push({
             from: this.id,
             to: to,
-            message: codec.tlvToWire(encodedMessage)
+            message: codec.encodeWirePacket(encodedMessage)
         });
         this.queueUpdatedCallback(this);
     };
@@ -335,7 +335,7 @@ define([
      *     or {@link mpenc.codec.DataMessage} payload.
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {
-        var classify = codec.getMessageAndType(wireMessage.message);
+        var classify = codec.decodeWirePacket(wireMessage.message);
         if (!classify) {
             return;
         }
@@ -390,11 +390,9 @@ define([
                 }
                 break;
             case codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE:
-                var decodedMessage = null;
                 _assert(this.greet.state === greeter.STATE.READY,
                         'Data messages can only be decrypted from a ready state.');
-
-                this._tryDecrypt.trial(wireMessage);
+                this._tryDecrypt.trial({ from: wireMessage.from, data: classify.content });
                 break;
             default:
                 _assert(false, 'Received unknown message type: ' + classify.type);
@@ -420,7 +418,7 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: codec.tlvToWire(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
+            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -482,13 +480,13 @@ define([
 
     // See TrialTarget#tryMe.
     // Our parameter is the `wireMessage`.
-    DecryptTrialTarget.prototype.tryMe = function(pending, wireMessage) {
-        var decrypted = this._decryptor(codec.wireToTLV(wireMessage.message), wireMessage.from);
+    DecryptTrialTarget.prototype.tryMe = function(pending, input) {
+        var decrypted = this._decryptor(input.data, input.from);
         if (decrypted) {
             this._outQueue.push(decrypted);
             return true;
         }
-        logger.debug('Message from "' + wireMessage.from
+        logger.debug('Message from "' + input.from
                      + ' not decrypted, will be stashed in trial buffer.');
         return false;
     };
@@ -502,8 +500,8 @@ define([
 
     // See TrialTarget#paramId.
     // Our parameter is the `wireMessage`.
-    DecryptTrialTarget.prototype.paramId = function(wireMessage) {
-        return utils.sha256(wireMessage.message);
+    DecryptTrialTarget.prototype.paramId = function(input) {
+        return utils.sha256(input.from + "\x00" + input.data);
     };
 
 

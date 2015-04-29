@@ -68,7 +68,7 @@ define([
 
     function _getPayload(message, senderParticipant) {
         if (message && senderParticipant) {
-            var content = codec.getMessageAndType(_stripProtoFromMessage(message.message)).content;
+            var content = codec.decodeWirePacket(_stripProtoFromMessage(message.message)).content;
             var sessionID = senderParticipant._sessionKeyStore.sessionIDs[0];
             var groupKey = sessionID
                          ? senderParticipant._sessionKeyStore.sessions[sessionID].groupKeys[0]
@@ -482,7 +482,7 @@ define([
             message = participants[1].protocolOutQueue.shift();
             assert.strictEqual(message.message, ns.PLAINTEXT_AUTO_RESPONSE);
             message = participants[1].protocolOutQueue.shift();
-            assert.strictEqual(message.message, codec.tlvToWire(codec.MPENC_QUERY_MESSAGE));
+            assert.strictEqual(message.message, codec.encodeWirePacket(codec.MPENC_QUERY_MESSAGE));
             assert.strictEqual(message.from, '2');
             assert.strictEqual(message.to, '1');
             var uiMessage = participants[1].uiQueue.shift();

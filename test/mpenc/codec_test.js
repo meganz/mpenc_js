@@ -169,34 +169,34 @@ define([
             });
         });
 
-        describe("getMessageAndType()", function() {
+        describe("decodeWirePacket()", function() {
             it('normal types', function() {
                 var tests = ['Klaatu barada nikto.',
-                             ns.tlvToWire(ns.MPENC_QUERY_MESSAGE),
+                             ns.encodeWirePacket(ns.MPENC_QUERY_MESSAGE),
                              _td.DOWNFLOW_MESSAGE_PAYLOAD,
                              _td.DATA_MESSAGE_PAYLOAD,
-                             ns.tlvToWire(_td.ERROR_MESSAGE_STRING)];
+                             ns.encodeWirePacket(_td.ERROR_MESSAGE_STRING)];
                 var expected = [[ns.MESSAGE_TYPE.PLAIN, 'Klaatu barada nikto.'],
                                 [ns.MESSAGE_TYPE.MPENC_QUERY, ns.MPENC_QUERY_MESSAGE],
                                 [ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE, _td.DOWNFLOW_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE, _td.DATA_MESSAGE_STRING],
                                 [ns.MESSAGE_TYPE.MPENC_ERROR, _td.ERROR_MESSAGE_STRING]];
                 for (var i = 0; i < tests.length; i++) {
-                    var result = ns.getMessageAndType(tests[i]);
+                    var result = ns.decodeWirePacket(tests[i]);
                     assert.strictEqual(result.type, expected[i][0]);
                     assert.strictEqual(result.content, expected[i][1]);
                 }
             });
 
             it('unknown message', function() {
-                assert.throws(function() { ns.getMessageAndType('?mpENC...blah.'); },
+                assert.throws(function() { ns.decodeWirePacket('?mpENC...blah.'); },
                               'Unknown mpENC message.');
             });
 
             it('null message', function() {
                 var tests = [null, undefined, ''];
                 for (var i = 0; i < tests.length; i++) {
-                    assert.strictEqual(ns.getMessageAndType(tests[i]), null);
+                    assert.strictEqual(ns.decodeWirePacket(tests[i]), null);
                 }
             });
         });
