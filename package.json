@@ -33,7 +33,7 @@
   "readmeFilename": "README.md",
   "dependencies": {
     "jsbn": "*",
-    "asmcrypto.js": "git+https://github.com/vibornoff/asmcrypto.js#v0.0.7",
+    "asmcrypto.js": "git+https://github.com/vibornoff/asmcrypto.js#v0.0.8",
     "es6-collections": "git+https://github.com/WebReflection/es6-collections",
     "jodid25519": "git+https://github.com/meganz/jodid25519",
     "lru-cache": "~2.5.0",
