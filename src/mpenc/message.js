@@ -323,7 +323,7 @@ define([
         }
 
         var debugOutput = debugOutput || [];
-        var out = {} // TODO(xl): (#2164) use message.Message instead of ProtocolMessage
+        var out = {} // TODO(xl): use Message()
         var rest = message;
 
         rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {

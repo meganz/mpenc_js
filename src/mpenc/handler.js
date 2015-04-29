@@ -331,7 +331,7 @@ define([
      * @method
      * @param wireMessage {object}
      *     Received message (wire encoded). The message contains an attribute
-     *     `message` carrying either an {@link mpenc.codec.ProtocolMessage}
+     *     `message` carrying either an {@link mpenc.greet.greeter.GreetMessage}
      *     or {@link mpenc.codec.DataMessage} payload.
      */
     ns.ProtocolHandler.prototype.processMessage = function(wireMessage) {

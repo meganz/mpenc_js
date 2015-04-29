@@ -494,7 +494,7 @@ define([
             payload = _getPayload(message, participants[0]);
             assert.strictEqual(payload.source, '1');
             assert.strictEqual(payload.dest, '2');
-            assert.strictEqual(payload.greetType, codec.GREET_TYPE.INIT_INITIATOR_UP);
+            assert.strictEqual(payload.greetType, greeter.GREET_TYPE.INIT_INITIATOR_UP);
             assert.strictEqual(participants[0].greet.state, greeter.STATE.INIT_UPFLOW);
 
             // Process key agreement upflow.
@@ -503,7 +503,7 @@ define([
             payload = _getPayload(message, participants[1]);
             assert.strictEqual(payload.source, '2');
             assert.strictEqual(payload.dest, '');
-            assert.strictEqual(payload.greetType, codec.GREET_TYPE.INIT_PARTICIPANT_DOWN);
+            assert.strictEqual(payload.greetType, greeter.GREET_TYPE.INIT_PARTICIPANT_DOWN);
             assert.strictEqual(participants[1].greet.state, greeter.STATE.INIT_DOWNFLOW);
 
             // Downflow for both.
@@ -583,7 +583,7 @@ define([
             message = participants[0].protocolOutQueue.shift();
             payload = _getPayload(message, _getSender(message, participants, members));
             assert.strictEqual(participants[0].greet.state, greeter.STATE.QUIT);
-            assert.strictEqual(message.greetType, codec.GREET_TYPE.QUIT);
+            assert.strictEqual(message.greetType, greeter.GREET_TYPE.QUIT);
         });
     });
 

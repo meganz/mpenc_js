@@ -821,7 +821,7 @@ define([
 
             it('downflow message with invalid session auth', function() {
                 var message = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: greeter.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -847,7 +847,7 @@ define([
                 sandbox.stub(participant.greet, '_mergeMessages').returns(
                         { dest: '',
                           source: participant.id,
-                          greetType: codec.GREET_TYPE.QUIT_DOWN });
+                          greetType: greeter.GREET_TYPE.QUIT_DOWN });
                 sandbox.stub(greeter, 'encodeGreetMessage', _echo);
                 sandbox.stub(codec, 'encodeErrorMessage', _echo);
                 sandbox.stub(codec, 'tlvToWire', _echo);
@@ -879,7 +879,7 @@ define([
                 assert.strictEqual(outMessage.from, participant.id);
                 assert.strictEqual(outMessage.message.dest, '');
                 assert.strictEqual(outMessage.to, '');
-                assert.strictEqual(outMessage.message.greetType, codec.GREET_TYPE.QUIT_DOWN);
+                assert.strictEqual(outMessage.message.greetType, greeter.GREET_TYPE.QUIT_DOWN);
             });
 
             it('on own greet message with flushed ephemeralPubKeys', function() {

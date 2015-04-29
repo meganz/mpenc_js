@@ -64,7 +64,7 @@ _td.UPFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '2',
     messageType: '\x02', // codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE
-    greetType: '\u0000\u009c', // codec.GREET_TYPE.INIT_INITIATOR_UP
+    greetType: '\u0000\u009c', // greeter.GREET_TYPE.INIT_INITIATOR_UP
     members: ['1', '2', '3', '4', '5', '6'],
     intKeys: ['', _td.C25519_PUB_KEY],
     nonces: [_td.C25519_PUB_KEY],
@@ -77,7 +77,7 @@ _td.DOWNFLOW_MESSAGE_CONTENT = {
     source: '1',
     dest: '',
     messageType: '\x02', // codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE
-    greetType: '\u0000\u00d3', // codec.GREET_TYPE.QUIT_DOWN
+    greetType: '\u0000\u00d3', // greeter.GREET_TYPE.QUIT_DOWN
     signingKey: _td.ED25519_PRIV_KEY,
 };
 _td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQEI7aL7VPi+ay79q4wImezN4Sc1qVmo1vUT3KZ'

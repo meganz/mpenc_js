@@ -56,6 +56,141 @@ define([
     });
 
 
+    describe("GreetMessage class", function() {
+        describe("_readBit()", function() {
+            it('downflow on INIT_PARTICIPANT_UP', function() {
+                var message = new ns.GreetMessage();
+                message.greetType = '\u0000\u001c', // INIT_PARTICIPANT_UP
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), false);
+            });
+
+            it('downflow on QUIT_DOWN', function() {
+                var message = new ns.GreetMessage();
+                message.greetType = '\u0000\u00d3'; // QUIT_DOWN
+                assert.strictEqual(message._readBit(ns._DOWN_BIT), true);
+            });
+        });
+
+        describe("_setBit()", function() {
+            it('on valid transitions', function() {
+                var message = new ns.GreetMessage();
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_BIT, true],
+                             [ns.GREET_TYPE.INIT_INITIATOR_UP, ns._INIT_BIT, false],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_UP, ns._INIT_BIT, false]];
+                var expected = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                ns.GREET_TYPE.INIT_PARTICIPANT_UP];
+                for (var i in tests) {
+                    message.greetType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    message._setBit(bit, targetValue);
+                    assert.strictEqual(message.greetType, expected[i]);
+                }
+            });
+
+            it('on invalid transitions', function() {
+                var message = new ns.GreetMessage();
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                for (var i in tests) {
+                    message.greetType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    assert.throws(function() { message._setBit(bit, targetValue); },
+                                  'Illegal message type!');
+                }
+            });
+
+            it('on silenced invalid transitions', function() {
+                sandbox.stub(MegaLogger._logRegistry.greeter, '_log');
+                var message = new ns.GreetMessage();
+                var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
+                             [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
+                for (var i in tests) {
+                    message.greetType = tests[i][0];
+                    var bit = tests[i][1];
+                    var targetValue = tests[i][2];
+                    message._setBit(bit, targetValue, true);
+                    assert.match(MegaLogger._logRegistry.greeter._log.getCall(i).args[1],
+                                 /^Arrived at an illegal message type, but was told to ignore it:/);
+                    assert.notStrictEqual(message.greetType, tests[i][0]);
+                }
+            });
+        });
+
+        describe("#clearGKA(), isGKA()", function() {
+            it('on valid transitions', function() {
+                var message = new ns.GreetMessage();
+                var tests = [ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                             ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN];
+                for (var i in tests) {
+                    message.greetType = tests[i];
+                    message.clearGKA();
+                    assert.strictEqual(message.isGKA(), false);
+                }
+            });
+        });
+    });
+
+    describe("greetTypeFromNumber() and greetTypeToNumber()", function() {
+        var greetTypes = {
+                            // Initial start sequence.
+                            '\u0000\u009c': 0x09c, // INIT_INITIATOR_UP
+                            '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
+                            '\u0000\u001e': 0x01e, // INIT_PARTICIPANT_DOWN
+                            '\u0000\u001a': 0x01a, // INIT_PARTICIPANT_CONFIRM_DOWN
+                            '\u0001\u009c': 0x19c, // RECOVER_INIT_INITIATOR_UP
+                            '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
+                            '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
+                            '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
+                            // Include sequence.
+                            '\u0000\u00ad': 0x0ad, // INCLUDE_AUX_INITIATOR_UP
+                            '\u0000\u002d': 0x02d, // INCLUDE_AUX_PARTICIPANT_UP
+                            '\u0000\u002f': 0x02f, // INCLUDE_AUX_PARTICIPANT_DOWN
+                            '\u0000\u002b': 0x02b, // INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Exclude sequence.
+                            '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
+                            '\u0001\u00bf': 0x1bf, // RECOVER_EXCLUDE_AUX_INITIATOR_DOWN
+                            '\u0001\u003b': 0x13b, // RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
+                            // Refresh sequence.
+                            '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
+                            '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
+                            '\u0001\u00c7': 0x1c7, // RECOVER_REFRESH_AUX_INITIATOR_DOWN
+                            '\u0001\u0047': 0x147, // RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:
+                            // Quit indication.
+                            '\u0000\u00d3': 0x0d3  // QUIT_DOWN
+        };
+        var greetTypeNumbers = {};
+        for (var msgType in greetTypes) {
+            greetTypeNumbers[greetTypes[msgType]] = msgType;
+        }
+
+        it('greetTypeFromNumber()', function() {
+            for (var number in greetTypeNumbers) {
+                assert.strictEqual(ns.greetTypeFromNumber(number),
+                                   greetTypeNumbers[number]);
+            }
+        });
+
+        it('greetTypeToNumber()', function() {
+            for (var type in greetTypes) {
+                assert.strictEqual(ns.greetTypeToNumber(type),
+                                   greetTypes[type]);
+            }
+        });
+
+        it('round trip', function() {
+            for (var type in greetTypes) {
+                var number = ns.greetTypeToNumber(type);
+                assert.strictEqual(ns.greetTypeFromNumber(number), type);
+            }
+        });
+    });
+
     describe("encodeGreetMessage()", function() {
         it('upflow message', function() {
             sandbox.stub(codec, 'encodeTLV').returns('\u0000\u0000\u0000\u0000');
@@ -145,7 +280,6 @@ define([
                           'decode failed; expected PROTOCOL_VERSION');
         });
     });
-
 
     describe("GreetWrapper class", function() {
         describe('constructor', function() {
@@ -262,7 +396,7 @@ define([
                 var message = {
                     source: '1',
                     dest: '2',
-                    greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
+                    greetType: ns.GREET_TYPE.INIT_INITIATOR_UP,
                     members: ['1', '2', '3', '4', '5', '6'],
                     intKeys: null,
                     nonces: null,
@@ -276,7 +410,7 @@ define([
                 var compare = { source: '1', dest: '2', agreement: 'ika', flow: 'up',
                                 members: ['1', '2', '3', '4', '5', '6'], intKeys: [] };
                 var cliquesMessage = participant._getCliquesMessage(
-                        new codec.ProtocolMessage(message));
+                        new ns.GreetMessage(message));
                 assert.strictEqual(cliquesMessage.source, compare.source);
                 assert.strictEqual(cliquesMessage.dest, compare.dest);
                 assert.strictEqual(cliquesMessage.flow, compare.flow);
@@ -291,7 +425,7 @@ define([
                 var message = {
                     source: '1',
                     dest: '2',
-                    greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
+                    greetType: ns.GREET_TYPE.INIT_INITIATOR_UP,
                     members: ['1', '2', '3', '4', '5', '6'],
                     intKeys: null,
                     nonces: null,
@@ -308,7 +442,7 @@ define([
                                 nonces: [], pubKeys: [], sessionSignature: null,
                                 signingKey: null };
                 var askeMessage = participant._getAskeMessage(
-                        new codec.ProtocolMessage(message));
+                        new ns.GreetMessage(message));
                 assert.strictEqual(askeMessage.source, compare.source);
                 assert.strictEqual(askeMessage.dest, compare.dest);
                 assert.strictEqual(askeMessage.flow, compare.flow);
@@ -326,7 +460,7 @@ define([
                 var compare = { source: '1', dest: '', flow: 'down',
                                 signingKey: _td.ED25519_PRIV_KEY };
                 var askeMessage = participant._getAskeMessage(
-                        new codec.ProtocolMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
+                        new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(askeMessage.source, compare.source);
                 assert.strictEqual(askeMessage.dest, compare.dest);
                 assert.strictEqual(askeMessage.flow, compare.flow);
@@ -343,7 +477,7 @@ define([
                 sandbox.spy(participant.cliquesMember, 'ika');
                 sandbox.spy(participant.askeMember, 'commit');
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['2', '3', '4', '5', '6'];
                 participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 participant.start(otherMembers);
@@ -351,7 +485,7 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.commit);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.INIT_INITIATOR_UP);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.INIT_INITIATOR_UP);
             });
         });
 
@@ -375,7 +509,7 @@ define([
                 participant.askeMember.join = sinon_spy();
                 participant.state = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['6', '7'];
                 participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 participant.include(otherMembers);
@@ -383,7 +517,7 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.join);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP);
             });
         });
 
@@ -417,14 +551,14 @@ define([
                 participant.askeMember.exclude = sinon_spy();
                 participant.state = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 participant.exclude(['1', '4']);
                 sinon_assert.calledOnce(participant.cliquesMember.akaExclude);
                 sinon_assert.calledOnce(participant.askeMember.exclude);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
             });
         });
 
@@ -438,14 +572,14 @@ define([
                 sandbox.spy(participant.askeMember, 'quit');
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant.cliquesMember, 'akaQuit');
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage());
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 participant.quit();
                 sinon_assert.calledOnce(participant.askeMember.quit);
                 sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.QUIT_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.QUIT_DOWN);
             });
         });
 
@@ -455,7 +589,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant._mergeMessages = stub().returns(new codec.ProtocolMessage());
+                participant._mergeMessages = stub().returns(new ns.GreetMessage());
                 participant.cliquesMember.akaRefresh = sinon_spy();
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 participant.state = ns.STATE.READY;
@@ -464,20 +598,20 @@ define([
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, codec.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN);
+                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN);
             });
         });
 
         describe('#_processMessage() method', function() {
             it('processing for an upflow message', function() {
                 var message = { source: '1', dest: '2',
-                                greetType: codec.GREET_TYPE.INIT_INITIATOR_UP,
+                                greetType: ns.GREET_TYPE.INIT_INITIATOR_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [null, []], debugKeys: [null, '1*G'],
                                 nonces: ['foo'], pubKeys: ['foo'],
                                 sessionSignature: null };
                 var compare = { source: '2', dest: '3',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], []], debugKeys: ['2*G', '1*G', '2*1*G'],
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
@@ -486,7 +620,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_UPFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
@@ -502,7 +636,7 @@ define([
 
             it('processing for last upflow message', function() {
                 var message = { source: '4', dest: '5',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['', '', '', '', ''],
@@ -510,7 +644,7 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
                 var compare = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -521,7 +655,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.NULL;
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);
@@ -536,7 +670,7 @@ define([
 
             it('processing for recovery upflow message', function() {
                 var message = { source: '4', dest: '5',
-                                greetType: codec.GREET_TYPE.RECOVER_INIT_PARTICIPANT_UP,
+                                greetType: ns.GREET_TYPE.RECOVER_INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['', '', '', '', ''],
@@ -544,7 +678,7 @@ define([
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
                 var compare = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
+                                greetType: ns.GREET_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -556,7 +690,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.AUX_DOWNFLOW;
                 participant.askeMember.authenticatedMembers= [true, true, true, true, true]
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(participant.recovering, true);
                 assert.deepEqual(participant.askeMember.authenticatedMembers, [false, false, false, false, true]);
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
@@ -573,7 +707,7 @@ define([
 
             it('processing for a downflow message', function() {
                 var message = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -590,8 +724,8 @@ define([
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
                 sandbox.stub(participant.askeMember, 'downflow');
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage({dest: ''}));
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage({dest: ''}));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -602,7 +736,7 @@ define([
 
             it('processing for a downflow message with invalid session auth', function() {
                 var message = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
                                 debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
@@ -619,17 +753,17 @@ define([
                 participant.state = ns.STATE.INIT_UPFLOW;
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.stub(participant.askeMember, 'downflow').throws(new Error('Session authentication by member 5 failed.'));
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage({ source: participant.id,
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage({ source: participant.id,
                                                                                              dest: '',
                                                                                              flow: 'down',
                                                                                              signingKey: _td.ED25519_PRIV_KEY }));
-                assert.throws(function() { participant._processMessage(new codec.ProtocolMessage(message)); },
+                assert.throws(function() { participant._processMessage(new ns.GreetMessage(message)); },
                               'Session authentication by member 5 failed.');
             });
 
             it('processing for a downflow message after CLIQUES finish', function() {
                 var message = { source: '5', dest: '',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [], debugKeys: [],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
@@ -647,9 +781,9 @@ define([
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
                 sandbox.stub(participant.askeMember, 'downflow');
-                sandbox.stub(participant, '_mergeMessages').returns(new codec.ProtocolMessage({dest: ''}));
+                sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage({dest: ''}));
                 sandbox.stub(participant.askeMember, 'isSessionAcknowledged').returns(true);
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.READY);
                 assert.strictEqual(participant.cliquesMember.upflow.callCount, 0);
                 assert.strictEqual(participant.askeMember.upflow.callCount, 0);
@@ -667,7 +801,7 @@ define([
                 participant.state = ns.STATE.READY;
                 participant.askeMember.ephemeralPubKeys = {'1': _td.ED25519_PUB_KEY};
                 var result = participant._processMessage(
-                        new codec.ProtocolMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
+                        new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].priv, _td.ED25519_PRIV_KEY);
                 assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
             });
@@ -679,7 +813,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.QUIT;
                 var result = participant._processMessage(
-                        new codec.ProtocolMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
+                        new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(result, null);
                 assert.strictEqual(participant.state, ns.STATE.QUIT);
             });
@@ -690,11 +824,11 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '1', dest: '',
-                                greetType: codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.READY;
                 var result = participant._processMessage(
-                        new codec.ProtocolMessage(message));
+                        new ns.GreetMessage(message));
                 assert.deepEqual(result,
                                  { decodedMessage: null, newState: ns.STATE.QUIT });
             });
@@ -705,11 +839,11 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '3', dest: '4',
-                                greetType: codec.GREET_TYPE.INIT_PARTICIPANT_UP,
+                                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '3', '2', '4', '5'] };
                 participant.state = ns.STATE.INIT_UPFLOW;
                 var result = participant._processMessage(
-                        new codec.ProtocolMessage(message));
+                        new ns.GreetMessage(message));
                 assert.strictEqual(result, null);
             });
 
@@ -719,10 +853,10 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = { source: '1', dest: '',
-                                greetType: codec.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                                greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant.state = ns.STATE.AUX_DOWNFLOW;
-                var result = participant._processMessage(new codec.ProtocolMessage(message));
+                var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result, null);
             });
         });
