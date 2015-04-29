@@ -27,7 +27,7 @@ define([], function() {
     var ns = {};
 
     /** Protocol version indicator. */
-    ns.PROTOCOL_VERSION = String.fromCharCode(0x01);
+    ns.PROTOCOL_VERSION = 1;
 
     return ns;
 });

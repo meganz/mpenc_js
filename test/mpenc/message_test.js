@@ -37,9 +37,6 @@ define([
 
     var assert = chai.assert;
 
-    // set test data
-    _td.DATA_MESSAGE_CONTENT.protocol = codec.PROTOCOL_VERSION;
-
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 

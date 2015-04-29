@@ -277,7 +277,7 @@ define([
                         + String.fromCharCode(77)
                         + _td.UPFLOW_MESSAGE_STRING.substring(73);
             assert.throws(function() { ns.decodeGreetMessage(message, _td.ED25519_PUB_KEY); },
-                          'decode failed; expected PROTOCOL_VERSION');
+                          'decode failed: expected PROTOCOL_VERSION');
         });
     });
 

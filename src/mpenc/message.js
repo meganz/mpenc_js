@@ -292,7 +292,6 @@ define([
 
         rest = codec.popStandardFields(rest,
             codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);
-        out.protocol = codec.PROTOCOL_VERSION;
 
         rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {
             out.iv = value;
@@ -321,6 +320,7 @@ define([
         var rest = message;
 
         rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {
+            value.length === 1 || codec.decodeError("unexpected length for SIDKEY_HINT");
             out.sidkeyHint = value;
             debugOutput.push('sidkeyHint: 0x'
                              + value.charCodeAt(0).toString(16));

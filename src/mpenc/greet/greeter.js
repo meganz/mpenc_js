@@ -349,7 +349,6 @@ define([
         this.signature = source.signature || null;
         this.signatureOk = source.signatureOk || false;
         this.rawMessage = source.rawMessage || null;
-        this.protocol = source.protocol || null;
         this.data = source.data || null;
 
         return this;
@@ -659,6 +658,7 @@ define([
             return null;
         }
 
+        // TODO(gk): high-priority - put range checks etc on the below
         var out = new ns.GreetMessage();
         var debugOutput = [];
         var rest = message;
@@ -674,7 +674,6 @@ define([
 
         rest = codec.popStandardFields(rest,
             codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE, debugOutput);
-        out.protocol = codec.PROTOCOL_VERSION;
 
         rest = codec.popTLV(rest, _T.GREET_TYPE, function(value) {
             out.greetType = value;

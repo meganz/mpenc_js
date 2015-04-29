@@ -47,8 +47,6 @@ define([
 
     var logger = MegaLogger.getLogger('codec', undefined, 'mpenc');
 
-    // TODO: high-priority - put range checks etc on decode functions
-
     /**
      * "Enumeration" of protocol message types.
      *
@@ -89,20 +87,25 @@ define([
     /**
      * "Enumeration" for TLV record types.
      *
-     * @property PROTOCOL_VERSION {integer}
-     *     Indicates the protocol version to be used as a 16-bit unsigned integer.
-     * @property DATA_MESSAGE {string}
-     *     Data payload (chat message) content of the message.
      * @property MESSAGE_SIGNATURE {string}
      *     Signature of the entire message sent (must be the first TLV sent,
      *     and sign *all* remaining binary content).
+     * @property PROTOCOL_VERSION {integer}
+     *     Indicates the protocol version to be used as a 8-bit unsigned integer.
+     * @property MESSAGE_TYPE {integer}
+     *     Indicates the message type as a 8-bit unsigned integer.
+     *
+     * @property DATA_MESSAGE {string}
+     *     Data payload (chat message) content of the message. Also used for
+     *     error messages.
      * @property MESSAGE_IV {string}
      *     Random initialisation vector for encrypted message payload.
+     * @property SIDKEY_HINT {integer}
+     *     1-byte hint at the right combination of session ID and group key used
+     *     for a data message. May appear as the first record, before a signature.
+     *
      * @property GREET_TYPE {integer}
      *     mpENC key agreement message type. See {@link mpenc.greet.greeter.GREET_TYPE}.
-     * @property SIDKEY_HINT {integer}
-     *     Hints at the right combination of session ID and group key used for
-     *     a data message.
      * @property SOURCE {integer}
      *     Message originator ("from", must be only one).
      * @property DEST {integer}
@@ -173,6 +176,11 @@ define([
     for (var propName in ns.ERROR) {
         ns._ERROR_MAPPING[ns.ERROR[propName]] = propName;
     }
+
+
+    ns.decodeError = function(message) {
+        throw new Error("decode failed: " + message);
+    };
 
 
     /**
@@ -289,9 +297,7 @@ define([
      */
     ns.popTLV = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
-        if (tlv.type !== type) {
-            throw new Error("decode failed; expected TLV " + type + " but got " + tlv.type);
-        }
+        tlv.type === type || ns.decodeError("expected TLV " + type + " but got " + tlv.type);
         action(tlv.value);
         return tlv.rest;
     };
@@ -311,18 +317,19 @@ define([
         debugOutput = debugOutput || [];
         var rest = message;
         rest = ns.popTLV(rest, ns.TLV_TYPE.PROTOCOL_VERSION, function(value) {
-            if (value !== version.PROTOCOL_VERSION) {
-                throw new Error("decode failed; expected PROTOCOL_VERSION "
-                                + version.PROTOCOL_VERSION + " but got " + value);
-            }
-            debugOutput.push('protocol: ' + value.charCodeAt(0));
+            value.length === 1 || ns.decodeError("unexpected length for PROTOCOL_VERSION");
+            value = value.charCodeAt(0);
+
+            value === version.PROTOCOL_VERSION || ns.decodeError(
+                "expected PROTOCOL_VERSION " + version.PROTOCOL_VERSION + " but got " + value);
+            debugOutput.push('protocol: ' + value);
         });
         rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_TYPE, function(value) {
+            value.length === 1 || ns.decodeError("unexpected length for MESSAGE_TYPE");
             value = value.charCodeAt(0);
-            if (value !== expectedType) {
-                throw new Error("decode failed; expected message type: "
-                                + expectedType + " but got: " + value);
-            }
+
+            value === expectedType || ns.decodeError(
+                "expected message type: " + expectedType + " but got: " + value);
             debugOutput.push('messageType: 0x'
                              + value.toString(16)
                              + ' (' + ns.MESSAGE_TYPE_MAPPING[value] + ')');
@@ -570,7 +577,7 @@ define([
     };
 
 
-    ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, version.PROTOCOL_VERSION);
+    ns.ENCODED_VERSION = ns.encodeTLV(ns.TLV_TYPE.PROTOCOL_VERSION, String.fromCharCode(version.PROTOCOL_VERSION));
     ns.ENCODED_TYPE_DATA = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE));
     ns.ENCODED_TYPE_GREET = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE));
     ns.ENCODED_TYPE_QUERY = ns.encodeTLV(ns.TLV_TYPE.MESSAGE_TYPE, String.fromCharCode(ns.MESSAGE_TYPE.MPENC_QUERY));

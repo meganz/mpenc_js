@@ -44,9 +44,6 @@ define([
     MegaLogger._logRegistry.handler.options.isEnabled = false;
     MegaLogger._logRegistry.assert.options.isEnabled = false;
 
-    // set test data
-    _td.DATA_MESSAGE_CONTENT.protocol = version.PROTOCOL_VERSION;
-
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
 
