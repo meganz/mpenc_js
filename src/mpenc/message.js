@@ -42,41 +42,41 @@ define([
     var Set = struct.ImmutableSet;
 
     /**
-     * A set of Messages forming all or part of a session.
+     * A Message object, sent by a user.
      *
      * @interface
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, uId, pmId, ruId, secobj) {
-        if (!(this instanceof Message)) return new Message(mId, uId, pmId, ruId, secobj);
+    var Message = function(mId, author, parents, recipients, secretData) {
+        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretData);
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
         }
-        if (uId === null || uId === undefined) {
+        if (author === null || author === undefined) {
             throw new Error("invalid empty uId");
         }
-        if (pmId === null || pmId === undefined) {
-            throw new Error("invalid empty pmId");
+        if (parents === null || parents === undefined) {
+            throw new Error("invalid empty parents");
         }
-        if (ruId === null || ruId === undefined) {
-            throw new Error("invalid empty ruId");
+        if (recipients === null || recipients === undefined) {
+            throw new Error("invalid empty recipients");
         }
 
-        pmId = new Set(pmId);
-        if (pmId.has(null) || pmId.has(undefined)) {
-            throw new Error("invalid pmId: has empty value");
+        parents = new Set(parents);
+        if (parents.has(null) || parents.has(undefined)) {
+            throw new Error("invalid parents: has empty value");
         }
-        ruId = new Set(ruId);
-        if (ruId.has(null) || ruId.has(undefined)) {
-            throw new Error("invalid ruId: has empty value");
+        recipients = new Set(recipients);
+        if (recipients.has(null) || recipients.has(undefined)) {
+            throw new Error("invalid recipients: has empty value");
         }
 
         this.mId = mId;
-        this.uId = uId;
-        this.pmId = pmId;
-        this.ruId = ruId;
-        this.secobj = secobj;
+        this.author = author;
+        this.parents = new Set(parents);
+        this.recipients = new Set(recipients);
+        this.secretData = secretData;
     };
 
     /**
@@ -84,7 +84,7 @@ define([
      * @param mId {string} Message (node) id.
      * @returns {module:mpenc/message.Message} Message object for the id. */
     Message.prototype.members = function() {
-        return this.ruId.union(new Set([this.uId]));
+        return this.recipients.union(new Set([this.author]));
     };
 
     Object.freeze(Message.prototype);
@@ -92,7 +92,8 @@ define([
 
 
     /**
-     * TODO(xl): document
+     * Component that holds cryptographic state needed to encrypt/decrypt
+     * messages that are part of a session.
      *
      * @memberOf module:mpenc/message
      */
@@ -199,9 +200,9 @@ define([
                                                                  sidkeyHash);
                     if (verifySig === true) {
                         decoded = _decrypt(message,
-                                           signingPubKey,
-                                           sessionID,
-                                           groupKey);
+                                           groupKey,
+                                           authorHint,
+                                           session.members);
                         break outer;
                     }
                     // TODO: maybe log bad signatures
@@ -214,11 +215,7 @@ define([
         }
 
         logger.debug('Message from "' + authorHint + '" successfully decrypted.');
-        return {
-            from: authorHint,
-            type: 'message',
-            message: decoded.data
-        }
+        return decoded;
     };
 
     /**
@@ -267,23 +264,20 @@ define([
                  iv: jodid25519.utils.bytes2string(nonceBytes) };
     };
 
-    var _decrypt = function(message, pubKey, sessionID, groupKey) {
+    var _decrypt = function(message, groupKey, author, members) {
         var out = _decode(message);
-
-        // Some specifics depending on the type of mpENC message.
-        var sidkeyHash = '';
         _assert(out.data);
-        // Checking of session/group key.
-        sidkeyHash = utils.sha256(sessionID + groupKey);
-        _assert(out.sidkeyHint === sidkeyHash[0],
-                'Session ID/group key hint mismatch.');
 
-        // Some further crypto processing on data messages.
-        out.data = ns._decryptDataMessage(out.data, groupKey, out.iv);
-        logger.debug('mpENC decrypted data message debug: ', out.data);
+        // Data message signatures were already verified through trial decryption.
+        var data = ns._decryptDataMessage(out.data, groupKey, out.iv);
+        logger.debug('mpENC decrypted data message debug: ', data);
 
-        // Data message signatures are verified through trial decryption.
-        return out;
+        var idx = members.indexOf(author);
+        _assert(idx >= 0);
+        var recipients = members.slice(idx, 1);
+        var mId = utils.sha256(message);
+        // TODO(xl): add parent pointers here
+        return new Message(mId, author, [], recipients, data);
     };
 
     var _decode = function(message) {
@@ -323,7 +317,7 @@ define([
         }
 
         var debugOutput = debugOutput || [];
-        var out = {} // TODO(xl): use Message()
+        var out = {};
         var rest = message;
 
         rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {

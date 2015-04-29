@@ -104,8 +104,8 @@ define([
             var result = new ns.MessageSecurity(null, null, sessionKeyStore
                 ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
-            assert.strictEqual(result.from, 'Moe');
-            assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.author, 'Moe');
+            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with second group key', function() {
@@ -117,8 +117,8 @@ define([
             var result = new ns.MessageSecurity(null, null, sessionKeyStore
                 ).decrypt(_td.DATA_MESSAGE_STRING2, 'Moe');
 
-            assert.strictEqual(result.from, 'Moe');
-            assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.author, 'Moe');
+            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message, debug on', function() {
@@ -154,8 +154,8 @@ define([
             var result = new ns.MessageSecurity(null, null, sessionKeyStore
                 ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
-            assert.strictEqual(result.from, 'Moe');
-            assert.strictEqual(result.message, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.author, 'Moe');
+            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
         });
     });
 

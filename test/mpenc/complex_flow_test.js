@@ -25,6 +25,7 @@ define([
     "mpenc/handler",
     "mpenc/helper/utils",
     "mpenc/codec",
+    "mpenc/message",
     "mpenc/version",
     "mpenc/greet/keystore",
     "mpenc/greet/greeter",
@@ -33,7 +34,8 @@ define([
     "megalogger",
     "chai",
     "sinon/sandbox",
-], function(ns, utils, codec, version, keystore, greeter, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, codec, messages, version, keystore, greeter,
+            asmCrypto, jodid25519, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
 
@@ -315,9 +317,9 @@ define([
                 var messageClone = utils.clone(message);
                 participant.processMessage(messageClone);
                 var uiMessage = participant.uiQueue.shift();
-                assert.strictEqual(uiMessage.message, 'Rock me Amadeus');
-                assert.strictEqual(uiMessage.type, 'message');
-                assert.strictEqual(uiMessage.from, '5');
+                assert(uiMessage instanceof messages.Message);
+                assert.strictEqual(uiMessage.secretData, 'Rock me Amadeus');
+                assert.strictEqual(uiMessage.author, '5');
             }
 
             console.log('Refreshing at ' + Math.round(Date.now() / 1000 - startTime));
@@ -685,8 +687,8 @@ define([
             participants['1'].messageOutQueue.shift()
         );
 
-        assert.strictEqual(participants['2'].uiQueue[0].message, "How you doin'?");
-        assert.strictEqual(participants['2'].uiQueue[0].from, "1");
-        assert.strictEqual(participants['2'].uiQueue[0].type, "message");
+        assert(participants['2'].uiQueue[0] instanceof messages.Message);
+        assert.strictEqual(participants['2'].uiQueue[0].secretData, "How you doin'?");
+        assert.strictEqual(participants['2'].uiQueue[0].author, "1");
     });
 });
