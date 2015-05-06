@@ -22,6 +22,9 @@ function loadInlineModule(filepath) {
     var old_exports = module.exports;
     module.exports = {};
     eval(loadContents(filepath));
+    for (var k in window) {
+        this[k] = window[k]; // some modules patch "window", forward this to the real nodejs global object
+    }
     var exports = module.exports;
     module.exports = old_exports;
     return exports;
