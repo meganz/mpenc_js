@@ -177,6 +177,40 @@ define([
         });
     });
 
+    describe("createTupleClass", function() {
+        it("standard usage", function() {
+            var MyTuple = ns.createTupleClass("x", "y");
+            var tup = new MyTuple(2, 3);
+
+            assert.strictEqual(tup.x, 2);
+            assert.strictEqual(tup.y, 3);
+            assert.strictEqual(tup.length, 2);
+
+            assert(tup instanceof Array);
+            assert(tup instanceof MyTuple);
+        });
+        it("with base class", function() {
+            var BaseType = function() {};
+            BaseType.prototype = Object.create(Array.prototype);
+
+            var MyTuple = ns.createTupleClass(BaseType, "x", "y");
+            var tup = new MyTuple(2, 3);
+
+            assert.strictEqual(tup.x, 2);
+            assert.strictEqual(tup.y, 3);
+            assert.strictEqual(tup.length, 2);
+
+            assert(tup instanceof Array);
+            assert(tup instanceof BaseType);
+            assert(tup instanceof MyTuple);
+        });
+        it("with invalid base class", function() {
+            assert.throws(function() {
+                var MyTuple = ns.createTupleClass(Date, "x");
+            });
+        });
+    });
+
     describe("TrialBuffer class", function() {
         describe("#trial() method", function() {
             it("empty buffer, tryMe succeeds", function() {

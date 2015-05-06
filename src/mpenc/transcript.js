@@ -16,7 +16,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-define([], function() {
+define([
+    "mpenc/message",
+    "mpenc/helper/assert",
+    "mpenc/helper/async",
+    "mpenc/helper/struct"
+], function(message, assert, async, struct) {
     "use strict";
 
     /**
@@ -25,6 +30,9 @@ define([], function() {
      * Transcript interfaces.
      */
     var ns = {};
+
+    var _assert = assert.assert;
+
 
     /**
      * A set of Messages forming all or part of a session.
@@ -130,6 +138,152 @@ define([], function() {
 
     Object.freeze(Transcript.prototype);
     ns.Transcript = Transcript;
+
+
+    /**
+     * When a message is accepted into the transcript, in causal order.
+     *
+     * @class
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/transcript
+     */
+    var MsgAccepted = struct.createTupleClass("mId");
+
+    Object.freeze(MsgAccepted.prototype);
+    ns.MsgAccepted = MsgAccepted;
+
+    /**
+     * When a message is acked by all of its intended recipients.
+     *
+     * @class
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/transcript
+     */
+    var MsgFullyAcked = struct.createTupleClass("mId");
+
+    Object.freeze(MsgFullyAcked.prototype);
+    ns.MsgFullyAcked = MsgFullyAcked;
+
+    /**
+     * When a message is ready to be consumed by higher layers, such as the UI.
+     *
+     * These events may be published in a different order from MsgAccepted, but
+     * should still be a topological (preserves causality) total order. Events
+     * are published in sequence from a single EventContext.
+     *
+     * Typically, only UserData messages are included here. Implementations may
+     * expose the UserData-parents of a message mId from transcript ts as:
+     *
+     * ud_pmId = ts.pre_pred(mId, lambda m: type(ts[m].secobj) == UserData)
+     *
+     * Note the right index definitions. For example, if three events were
+     * published as (x, 0, []), (a, 0, [1]), (b, 1, [1]), the overall resulting
+     * order would be [x, b, a], with the real parents of b and a both being x.
+     *
+     * @class
+     * @property mId {string} The message id.
+     * @property ridx {number} The right (negative) index in the existing total
+     *      order before which to insert this message. An ordering where these
+     *      indexes are all 0, we call "append-only".
+     * @property parents {module:mpenc/helper/struct.ImmutableSet} Set of
+     *      integers, the right-indexes of the parent messages, relative to the
+     *      current message. (For example, if a transcript is already in a
+     *      linear order, this would be {1} for every message.) If this is the
+     *      first message in the sequence, then this must be {}. For subsequent
+     *      messages, the UI should distinguish messages where this is not {1}.
+     * @memberOf module:mpenc/transcript
+     */
+    var MsgReady = struct.createTupleClass("mId", "rIdx", "parents");
+
+    Object.freeze(MsgReady.prototype);
+    ns.MsgReady = MsgReady;
+
+
+    /**
+     * A log (or total order, or linear sequence) of messages for the user.
+     *
+     * Only contains UserData messages. We generate "apparent" parents for each
+     * message, by collapsing non-UserData parents into the nearest UserData
+     * ancestor, preserving transitive reduction. For example:
+     *
+     * <pre>
+     *       B - D - E
+     *      /   /
+     * O - A - C
+     * </pre>
+     *
+     * O is the root; everything is UserData except C, D. Then, the parents of
+     * E are {B}, because even though A < C, it is also the case that A < B.
+     *
+     * @class
+     * @extends module:mpenc/helper/async.ObservableSequence
+     * @augments module:mpenc/transcript.Messages
+     * @memberOf module:mpenc/transcript
+     */
+    var MessageLog = function() {
+        throw new Error("cannot instantiate an abstract class");
+    };
+
+    MessageLog.prototype = Object.create(async.ObservableSequence.prototype);
+
+    /**
+     * Add a message to the log, at an index defined by the implementation.
+     *
+     * Subscribers to the ObservableSequence trait of this class are notified.
+     *
+     * @abstract
+     * @method
+     * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
+     * @param mId {string} Identifier of the message to add.
+     * @param parents {string} Effective UserData parents of this message.
+     */
+    MessageLog.prototype.add;
+
+    /**
+     * Subscribe to MsgAccepted events and add() them to this log.
+     *
+     * @method
+     * @param source {module:mpenc/helper/async.EventSource} Source of MsgAccepted events.
+     * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
+     * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
+     */
+    MessageLog.prototype.bindSource = function(source, transcript) {
+        var self = this;
+        var totalOrderCb = function(evt) {
+            _assert(transcript.contains(evt.mId));
+            if (!(transcript.get(evt.mId).secretContent instanceof message.UserData)) {
+                return;
+            }
+            var userDataParents = transcript.prePredicate(evt.mId, function(m) {
+                return transcript.get(m).secretContent instanceof message.UserData;
+            });
+            self.add(transcript, evt.mId, userDataParents);
+        };
+        return source.onEvent(MsgAccepted)(totalOrderCb);
+    };
+
+    /**
+     * Whenever this log is updated, publish a MsgReady event.
+     *
+     * @method
+     * @param source {module:mpenc/helper/async.EventContext} Target for MsgReady events.
+     * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
+     */
+    MessageLog.prototype.bindTarget = function(target) {
+        var self = this;
+        var msgReadyCb = function(update) {
+            var rIdx = update.rIdx, mId = update.mId;
+            var parents = self.parents.toArray().map(function(pm) {
+                return (self.length - rIdx - 1) - self.indexOf(pm);
+            });
+            _assert(parents.every(function(p) { return p > 0; }));
+            target.publish(MsgReady(mId, rIdx, parents));
+        };
+        return this.onUpdate(msgReadyCb);
+    };
+
+    Object.freeze(MessageLog.prototype);
+    ns.MessageLog = MessageLog;
 
     return ns;
 });

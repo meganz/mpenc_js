@@ -102,7 +102,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with second group key', function() {
@@ -115,7 +115,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING2, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message, debug on', function() {
@@ -152,7 +152,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretData, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
         });
     });
 

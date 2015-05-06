@@ -236,7 +236,7 @@ define([
         return this._cacheBy.get(uId);
     };
 
-    // MessageLog
+    // Messages
 
     BaseTranscript.prototype.get = function(mId) {
         return safeGet(this._messages, mId);

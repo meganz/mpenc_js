@@ -334,6 +334,58 @@ define([
     ns.combinedCancel = combinedCancel;
 
 
+    /**
+     * An insertion happened on the sequence.
+     *
+     * @class
+     * @property rIdx {number} Negative index at which the element was
+     *      inserted. For example, 0 means it was appended to the sequence,
+     *      after all other elements.
+     * @property elem {} The element that was inserted.
+     * @memberOf module:mpenc/helper/async
+     */
+    var SequenceInsert = struct.createTupleClass("rIdx", "elem");
+    ns.SequenceInsert = SequenceInsert;
+
+    /**
+     * A sequence that allows subscription to its updates.
+     *
+     * @class
+     * @extends Array
+     * @memberOf module:mpenc/helper/async
+     */
+    var ObservableSequence = function() {
+        this._updates = Observable();
+    };
+
+    ObservableSequence.prototype = Object.create(Array.prototype);
+
+    /**
+     * Used by subclasses to publish an insert.
+     *
+     * @protected
+     * @param rIdx {number}
+     * @param elem {}
+     * @see module:mpenc/helper/async.SequenceInsert
+     */
+    ObservableSequence.prototype.__rInsert__ = function(rIdx, item) {
+        this._updates.publish(SequenceInsert(rIdx, item));
+    };
+
+    /**
+     * Subscribe to updates to the sequence.
+     *
+     * @param subscriber {module:mpenc/helper/async~subscriber}
+     * @returns canceller {module:mpenc/helper/async~canceller}
+     */
+    ObservableSequence.prototype.onUpdate = function(subscriber) {
+        return this._updates.subscribe(subscriber);
+    };
+
+    Object.freeze(ObservableSequence.prototype);
+    ns.ObservableSequence = ObservableSequence;
+
+
     var _AutoNode = function(mkchild, cleanup) {
         if (!(this instanceof _AutoNode)) {
             return new _AutoNode(mkchild, cleanup);
@@ -531,6 +583,29 @@ define([
 
     Object.freeze(EventContext.prototype);
     ns.EventContext = EventContext;
+
+
+    /**
+     * A source of events.
+     *
+     * @interface
+     * @property EventTypes {module:mpenc/helper/struct.ImmutableSet} Event types emitted by this source.
+     * @memberOf module:mpenc/helper/async
+     */
+    var EventSource = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    /**
+     * Subscribe to events; delegates to some underlying internal EventContext.
+     *
+     * @method
+     * @see module:mpenc/helper/async.EventContext#subscribe
+     */
+    EventSource.prototype.onEvent;
+
+    Object.freeze(EventSource.prototype);
+    ns.EventSource = EventSource;
 
 
     /**

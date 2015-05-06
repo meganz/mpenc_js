@@ -47,8 +47,8 @@ define([
      * @interface
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, author, parents, recipients, secretData) {
-        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretData);
+    var Message = function(mId, author, parents, recipients, secretContent) {
+        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretContent);
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -76,7 +76,7 @@ define([
         this.author = author;
         this.parents = new Set(parents);
         this.recipients = new Set(recipients);
-        this.secretData = secretData;
+        this.secretContent = secretContent;
     };
 
     /**
@@ -89,6 +89,28 @@ define([
 
     Object.freeze(Message.prototype);
     ns.Message = Message;
+
+    /**
+     * Message body object.
+     */
+    var Content = function() {};
+
+    Content.prototype = Object.create(Array.prototype);
+
+    Object.freeze(Content.prototype);
+    ns.Content = Content;
+
+    /**
+     * Message actively sent by a user, to be consumed by the application.
+     *
+     * @property body {string} Content of the message.
+     */
+    var UserData = struct.createTupleClass(Content, "body");
+
+    Object.freeze(UserData.prototype);
+    ns.UserData = UserData;
+
+    // TODO: messaging-level metadata like ExplicitAck, HeartBeat, Consistency
 
 
     /**
@@ -277,7 +299,7 @@ define([
         var recipients = members.slice(idx, 1);
         var mId = utils.sha256(message);
         // TODO(xl): add parent pointers here
-        return new Message(mId, author, [], recipients, data);
+        return new Message(mId, author, [], recipients, UserData(data));
     };
 
     var _decode = function(message) {
