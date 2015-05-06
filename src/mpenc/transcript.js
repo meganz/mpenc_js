@@ -221,7 +221,10 @@ define([
      * @memberOf module:mpenc/transcript
      */
     var MessageLog = function() {
-        throw new Error("cannot instantiate an abstract class");
+        if (!this.add) {
+            throw new Error("add() not implemented");
+        }
+        async.ObservableSequence.call(this);
     };
 
     MessageLog.prototype = Object.create(async.ObservableSequence.prototype);
@@ -247,17 +250,18 @@ define([
      * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
      * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
      */
-    MessageLog.prototype.bindSource = function(source, transcript) {
+    MessageLog.prototype.bindSource = function(source, sourceTranscript) {
         var self = this;
         var totalOrderCb = function(evt) {
-            _assert(transcript.contains(evt.mId));
-            if (!(transcript.get(evt.mId).secretContent instanceof message.UserData)) {
+            var mId = evt.mId;
+            _assert(sourceTranscript.has(mId));
+            if (!(sourceTranscript.get(mId).secretContent instanceof message.UserData)) {
                 return;
             }
-            var userDataParents = transcript.prePredicate(evt.mId, function(m) {
-                return transcript.get(m).secretContent instanceof message.UserData;
+            var userDataParents = sourceTranscript.pre_pred(mId, function(m) {
+                return sourceTranscript.get(m).secretContent instanceof message.UserData;
             });
-            self.add(transcript, evt.mId, userDataParents);
+            self.add(sourceTranscript, mId, userDataParents);
         };
         return source.onEvent(MsgAccepted)(totalOrderCb);
     };
@@ -272,8 +276,8 @@ define([
     MessageLog.prototype.bindTarget = function(target) {
         var self = this;
         var msgReadyCb = function(update) {
-            var rIdx = update.rIdx, mId = update.mId;
-            var parents = self.parents.toArray().map(function(pm) {
+            var rIdx = update.rIdx, mId = update.elem;
+            var parents = self.parents(mId).toArray().map(function(pm) {
                 return (self.length - rIdx - 1) - self.indexOf(pm);
             });
             _assert(parents.every(function(p) { return p > 0; }));

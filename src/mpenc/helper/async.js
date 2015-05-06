@@ -355,7 +355,7 @@ define([
      * @memberOf module:mpenc/helper/async
      */
     var ObservableSequence = function() {
-        this._updates = Observable();
+        this._updates = new Observable();
     };
 
     ObservableSequence.prototype = Object.create(Array.prototype);

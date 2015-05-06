@@ -110,6 +110,24 @@ define([
     Object.freeze(UserData.prototype);
     ns.UserData = UserData;
 
+    /**
+     * Explicit ack of the message parents.
+     *
+     * All messages implicitly ack their ancestors, but sometimes we must do an
+     * explicit ack when no other message was (or is planned to be) sent.
+     *
+     * Explicit acks themselves need not be automatically acked, nor do they need
+     * to have ack-monitors set on them. As a caveat, ack-monitors of other types
+     * of messages should also handle (e.g. resend) explicit acks that were sent
+     * directly before it - since there is no other ack-monitor to handle these.
+     *
+     * @property manual {boolean} Whether this was sent with conscious user oversight.
+     */
+    var ExplicitAck = struct.createTupleClass(Content, "manual");
+
+    Object.freeze(ExplicitAck.prototype);
+    ns.ExplicitAck = ExplicitAck;
+
     // TODO: messaging-level metadata like ExplicitAck, HeartBeat, Consistency
 
 
