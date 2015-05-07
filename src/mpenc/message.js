@@ -147,8 +147,8 @@ define([
      * Encodes a given data message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
-     * @param message {string}
-     *     Message as string.
+     * @param body {string}
+     *     Message body as string.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -157,10 +157,7 @@ define([
      * @returns {string}
      *     A TLV string.
      */
-    MessageSecurity.prototype.encrypt = function(message, paddingSize) {
-        if (message === null || message === undefined) {
-            return null;
-        }
+    MessageSecurity.prototype.encrypt = function(body, parents, paddingSize) {
         var privKey = this._privKey;
         var pubKey = this._pubKey;
         var sessionKeyStore = this._sessionKeyStore;
@@ -179,9 +176,21 @@ define([
 
         // Rest (protocol version, message type, iv, message data).
         var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_DATA;
-        var encrypted = ns._encryptDataMessage(message, groupKey, paddingSize);
+
+        // Encryption payload
+        var rawBody = "";
+        if (parents && parents.forEach) {
+            parents.forEach(function(pmId) {
+                rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PARENT, pmId);
+            });
+        }
+        // Protect multi-byte characters
+        body = unescape(encodeURIComponent(body));
+        rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, body);
+
+        var encrypted = ns._encryptRaw(rawBody, groupKey, paddingSize);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-        content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
+        content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PAYLOAD, encrypted.data);
 
         // Compute the content signature.
         var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
@@ -277,15 +286,10 @@ define([
      *     An object containing the message (in `data`, binary string) and
      *     the IV used (in `iv`, binary string).
      */
-    ns._encryptDataMessage = function(data, key, paddingSize) {
-        if (data === null || data === undefined) {
-            return null;
-        }
+    ns._encryptRaw = function(dataBytes, key, paddingSize) {
         paddingSize = paddingSize | 0;
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
         var nonceBytes = utils._newKey08(96);
-        // Protect multi-byte characters.
-        var dataBytes = unescape(encodeURIComponent(data));
         // Prepend length in bytes to message.
         _assert(dataBytes.length < 0xffff,
                 'Message size too large for encryption scheme.');
@@ -305,29 +309,41 @@ define([
     };
 
     var _decrypt = function(inspected, groupKey, author, members) {
+        var debugOutput = [];
         var out = _decode(inspected.rawMessage);
         _assert(out.data);
 
         // Data message signatures were already verified through trial decryption.
-        var data = ns._decryptDataMessage(out.data, groupKey, out.iv);
-        logger.debug('mpENC decrypted data message debug: ', data);
+        var rest = ns._decryptRaw(out.data, groupKey, out.iv);
+
+        var encrypted = ns._encryptRaw(codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, rest), groupKey, 0);
+
+        var parents = [];
+        rest = codec.popTLVAll(rest, _T.MESSAGE_PARENT, function(value) {
+            parents.push(value);
+            debugOutput.push('parent: ' + btoa(value));
+        });
+
+        var data;
+        rest = codec.popTLV(rest, _T.MESSAGE_BODY, function(value) {
+            // Undo protection for multi-byte characters.
+            data = decodeURIComponent(escape(value));
+            debugOutput.push('body: ' + value);
+        });
+
+        logger.debug('mpENC decrypted message debug: ', debugOutput);
 
         var idx = members.indexOf(author);
         _assert(idx >= 0);
         var recipients = members.slice(idx, 1);
 
         // ignore sidkeyHint since that's unauthenticated
-        var mId = utils.sha256(inspected.signature + inspected.rawMessage);
-        // TODO(xl): add parent pointers here
-        return new Message(mId, author, [], recipients, UserData(data));
+        var mId = utils.sha256(inspected.signature + inspected.rawMessage).slice(0, 20);
+        return new Message(mId, author, parents, recipients, UserData(data));
     };
 
     var _decode = function(rawMessage) {
         // full decode, no crypto operations
-        if (!rawMessage) {
-            return null;
-        }
-
         var debugOutput = [];
         var out = {};
         var rest = rawMessage;
@@ -340,7 +356,7 @@ define([
             debugOutput.push('messageIV: ' + btoa(value));
         });
 
-        rest = codec.popTLV(rest, _T.DATA_MESSAGE, function(value) {
+        rest = codec.popTLV(rest, _T.MESSAGE_PAYLOAD, function(value) {
             out.data = value;
             debugOutput.push('rawDataMessage: ' + btoa(out.data));
         });
@@ -353,10 +369,6 @@ define([
 
     var _inspect = function(message, debugOutput) {
         // partial decode, no crypto operations
-        if (!message) {
-            return null;
-        }
-
         var debugOutput = debugOutput || [];
         var out = {};
         var rest = message;
@@ -391,7 +403,7 @@ define([
      * @returns {string}
      *     The clear text message as a binary string.
      */
-    ns._decryptDataMessage = function(data, key, iv) {
+    ns._decryptRaw = function(data, key, iv) {
         if (data === null || data === undefined) {
             return null;
         }
@@ -403,8 +415,7 @@ define([
         var clearString = jodid25519.utils.bytes2string(clearBytes);
         var messageSize = codec._bin2short(clearString.slice(0, 2));
         clearString = clearString.slice(2, messageSize + 2);
-        // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(clearString));
+        return clearString;
     };
 
     ns.MessageSecurity = MessageSecurity;

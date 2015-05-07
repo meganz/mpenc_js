@@ -66,8 +66,8 @@ define([
                                                 _td.ED25519_PUB_KEY,
                                                 sessionKeyStore).encrypt('foo');
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(result, 108);
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
+            assert.lengthOf(result, 112);
         });
 
         it('data message with second group key', function() {
@@ -79,15 +79,35 @@ define([
                                                 _td.ED25519_PUB_KEY,
                                                 sessionKeyStore).encrypt('foo');
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 5)
-            assert.lengthOf(result, 108);
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
+            assert.lengthOf(result, 112);
         });
 
         it('data message with exponential padding', function() {
             var sessionKeyStore = _dummySessionKeyStore();
             var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
                                                 _td.ED25519_PUB_KEY,
-                                                sessionKeyStore).encrypt('foo', 32);
+                                                sessionKeyStore).encrypt('foo', null, 32);
+            // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
+            assert.lengthOf(result, 135);
+        });
+
+        it('data message with parents', function() {
+            var sessionKeyStore = _dummySessionKeyStore();
+            var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
+                                                _td.ED25519_PUB_KEY,
+                                                sessionKeyStore).encrypt('foo', ["abcd", "1234"]);
+            // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
+            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5 + parents (4 + 4) * 2))
+            assert.lengthOf(result, 128);
+        });
+
+        it('data message with parents and padding', function() {
+            var sessionKeyStore = _dummySessionKeyStore();
+            var result = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
+                                                _td.ED25519_PUB_KEY,
+                                                sessionKeyStore).encrypt('foo', ["abcd", "1234"], 32);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
             assert.lengthOf(result, 135);
@@ -135,11 +155,11 @@ define([
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['protocol: 1',
                                         'messageType: 0x3 (MPENC_DATA_MESSAGE)',
-                                        'messageIV: qq36/fToW+Z7I7b5',
-                                        'rawDataMessage: aU6y8g8=']]]);
+                                        'messageIV: evs2iGlNE8kspMvZ',
+                                        'rawDataMessage: jBDsQxp66K9e']]]);
             log = MegaLogger._logRegistry.message._log.getCall(1).args;
-            assert.deepEqual(log, [0, ['mpENC decrypted data message debug: ',
-                                       'foo']]);
+            assert.deepEqual(log, [0, ['mpENC decrypted message debug: ',
+                                       ['body: foo']]]);
         });
 
         it('data message with exponential padding', function() {
@@ -154,149 +174,61 @@ define([
         });
     });
 
-    describe("_encryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns._encryptDataMessage(tests[i], key), null);
-            }
-        });
+    describe("encrypt-decrypt with arbitrary unicode text", function() {
+        var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+                     "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+                     'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
 
         it('data messages', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
+            this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
-                var result = ns._encryptDataMessage(tests[i], key);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
+                var sessionKeyStore = _dummySessionKeyStore();
+                sessionKeyStore.sessionIDs.push('foo');
+                sessionKeyStore.sessions['foo'] = {};
+                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
+                sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
+                var mSecurity = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
+                                                       sessionKeyStore);
+
+                var encrypted = mSecurity.encrypt(tests[i]);
+                var result = mSecurity.decrypt(encrypted, 'Moe');
+                assert.strictEqual(result.author, 'Moe');
+                assert.strictEqual(result.secretContent.body, tests[i]);
             }
         });
 
         it('data messages with exponential padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 32;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                            '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                            '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            sandbox.stub(utils, '_newKey08').returns(iv);
+            this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
-                var result = ns._encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(result.data.length % paddingSize, 0);
-                assert.strictEqual(btoa(result.data), expected[i]);
-            }
-        });
+                var sessionKeyStore = _dummySessionKeyStore();
+                sessionKeyStore.sessionIDs.push('foo');
+                sessionKeyStore.sessions['foo'] = {};
+                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
+                sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
+                var mSecurity = new ns.MessageSecurity(_td.ED25519_PRIV_KEY,
+                                                       _td.ED25519_PUB_KEY,
+                                                       sessionKeyStore);
 
-        it('data messages explicitly without padding', function() {
-            var iv = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-                      0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var paddingSize = 0;
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                         "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                         'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            var expected = ['6H0=',
-                            '6H/R1g==',
-                            '6HGhi6z7+lgyR6wtKss=',
-                            '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                            '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                            '6HexIFGySvliTa0h',
-                            '6G2tJ2ay/R0uBuRkDphJAkEV',
-                            '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            sandbox.stub(utils, '_newKey08').returns(iv);
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns._encryptDataMessage(tests[i], key, paddingSize);
-                assert.strictEqual(result.iv, jodid25519.utils.bytes2string(iv));
-                assert.strictEqual(btoa(result.data), expected[i]);
+                var encrypted = mSecurity.encrypt(tests[i], null, 32);
+                var result = mSecurity.decrypt(encrypted, 'Moe');
+                assert.strictEqual(result.author, 'Moe');
+                assert.strictEqual(result.secretContent.body, tests[i]);
+                assert(encrypted.length === 135 || encrypted.length === 135 + 32);
             }
         });
     });
 
-    describe("_decryptDataMessage()", function() {
-        it('null equivalents', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns._decryptDataMessage(tests[i], key, iv), null);
-            }
-        });
-
-        it('data messages', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H0=',
-                         '6H/R1g==',
-                         '6HGhi6z7+lgyR6wtKss=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2Lo=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJA==',
-                         '6HexIFGySvliTa0h',
-                         '6G2tJ2ay/R0uBuRkDphJAkEV',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0'];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns._decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-
-        it('data messages with exponential padding', function() {
-            var iv = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('000102030405060708090a0b'));
-            var key = jodid25519.utils.bytes2string(asmCrypto.hex_to_bytes('0f0e0d0c0b0a09080706050403020100'));
-            var tests = ['6H3l5MLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6H/R1sLcjnhCJsJESeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6HGhi6z7+lgyR6wtKsssdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6GWjiLu14B9idbIlLoJJAlAQOcEsFclM2LrZLeE2R88=',
-                         '6E+1jOWy6RQ3T+IpLoZbUUoYf+RjOM5QyKSxWMFkYKMNjjLyqULHdMCG5LjVKyDeGIOAJBw1J7RY12A4WCdDMg==',
-                         '6HexIFGySvliTa0hSeosdiR5GYxDe7o4vcjZLeE2R88=',
-                         '6G2tJ2ay/R0uBuRkDphJAkEVGYxDe7o4vcjZLeE2R88=',
-                         '6GE1RRJnXsiTphPGmVL8x/TJyAyS+Wu8bXgIrDC0R88='];
-            var expected = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
-                            "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-                            'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
-            for (var i = 0; i < tests.length; i++) {
-                var result = ns._decryptDataMessage(atob(tests[i]), key, iv);
-                assert.strictEqual(result, expected[i]);
-            }
-        });
-    });
-
-    describe("_encryptDataMessage()/_decryptDataMessage()", function() {
+    describe("_encryptRaw()/_decryptRaw()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
                 var key = jodid25519.utils.bytes2string(utils._newKey08(128));
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
-                var encryptResult = ns._encryptDataMessage(message, key);
+                var encryptResult = ns._encryptRaw(message, key);
                 var cipher = encryptResult.data;
                 var iv = encryptResult.iv;
-                var clear = ns._decryptDataMessage(cipher, key, iv);
+                var clear = ns._decryptRaw(cipher, key, iv);
                 assert.strictEqual(message, clear);
             }
         });

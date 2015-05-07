@@ -94,15 +94,18 @@ define([
      *     Indicates the protocol version to be used as a 8-bit unsigned integer.
      * @property MESSAGE_TYPE {integer}
      *     Indicates the message type as a 8-bit unsigned integer.
+     * @property MESSAGE_PAYLOAD {string}
+     *     Public data payload of the message. Also used for error messages.
      *
-     * @property DATA_MESSAGE {string}
-     *     Data payload (chat message) content of the message. Also used for
-     *     error messages.
      * @property MESSAGE_IV {string}
      *     Random initialisation vector for encrypted message payload.
      * @property SIDKEY_HINT {integer}
      *     1-byte hint at the right combination of session ID and group key used
      *     for a data message. May appear as the first record, before a signature.
+     * @property MESSAGE_PARENT {string}
+     *     Direct parent id of the message, as seen by its author.
+     * @property MESSAGE_BODY {string}
+     *     Secret content of the message.
      *
      * @property GREET_TYPE {integer}
      *     mpENC key agreement message type. See {@link mpenc.greet.greeter.GREET_TYPE}.
@@ -132,10 +135,12 @@ define([
         MESSAGE_SIGNATURE: 0x0003, // 3
         PROTOCOL_VERSION:  0x0001, // 1
         MESSAGE_TYPE:      0x0002, // 2
+        MESSAGE_PAYLOAD:   0x0010, // 16
         // Data messages
-        DATA_MESSAGE:      0x0010, // 16
         MESSAGE_IV:        0x0011, // 17
         SIDKEY_HINT:       0x0012, // 18
+        MESSAGE_PARENT:    0x0013, // 19
+        MESSAGE_BODY:      0x0014, // 20
         // Greet messages
         GREET_TYPE:        0x01ff, // 511
         SOURCE:            0x0100, // 256
@@ -425,7 +430,7 @@ define([
             throw new Error('Illegal error severity: ' + error.severity + '.');
         }
         content += ns.encodeTLV(ns.TLV_TYPE.SEVERITY, String.fromCharCode(error.severity));
-        content += ns.encodeTLV(ns.TLV_TYPE.DATA_MESSAGE, error.message);
+        content += ns.encodeTLV(ns.TLV_TYPE.MESSAGE_PAYLOAD, error.message);
 
         if (privKey) {
             var signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_ERROR,
@@ -469,7 +474,7 @@ define([
         rest = ns.popTLV(rest, ns.TLV_TYPE.SEVERITY, function(value) {
             out.severity = value.charCodeAt(0);
         });
-        rest = ns.popTLV(rest, ns.TLV_TYPE.DATA_MESSAGE, function(value) {
+        rest = ns.popTLV(rest, ns.TLV_TYPE.MESSAGE_PAYLOAD, function(value) {
             out.message = value;
         });
 

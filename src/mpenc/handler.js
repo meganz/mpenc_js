@@ -416,7 +416,8 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
+            // TODO(xl): add some parent pointers
+            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, null, this.exponentialPadding)),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
