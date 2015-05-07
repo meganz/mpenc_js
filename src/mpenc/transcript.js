@@ -35,7 +35,9 @@ define([
 
 
     /**
-     * A set of Messages forming all or part of a session.
+     * A collection of related messages, their ids, and some security state
+     *
+     * Methods taking a message id must throw an Error if it is absent.
      *
      * @interface
      * @memberOf module:mpenc/transcript
@@ -43,6 +45,13 @@ define([
     var Messages = function() {
         throw new Error("cannot instantiate an interface");
     };
+
+    /**
+     * Whether the message is in this collection. Does not throw an Error.
+     * @method
+     * @param mId {string} Message (node) id.
+     * @returns {boolean} */
+    Messages.prototype.has;
 
     /**
      * @method
@@ -58,13 +67,21 @@ define([
     Messages.prototype.parents;
 
     /**
-     * The recipients that have not acked the given message, as seen by
-     * the local process. If this is empty, the message has been fully-acked.
+     * The recipients that have not acked the given message.
+     *
+     * If this is empty, the message has been fully-acked, and this is a
+     * certainly-good state. If non-empty, this is a maybe-bad state: the
+     * (other) recipients *may* have seen the message and even acked it, but
+     * we (the local process) have not seen those acks, so we cannot be sure
+     * of this. High layers must precisely understand these semantics.
      *
      * We (the local process) consider a message m authored by u to be "acked"
      * by a recipient ru, iff we have accepted a message m_a authored by ru
      * where m <= m_a, and there is a chain of messages [m .. m_a] all of
      * which are visible to ru (i.e. authored by them, or by another to them).
+     *
+     * Note: reaching full-ack locally does not mean that others have reached
+     * full-ack themselves. Solving that is the harder "consensus" problem.
      *
      * @method
      * @param {string} mId
@@ -82,9 +99,20 @@ define([
 
 
     /**
-     * A Transcript.
+     * A causally-ordered transcript of messages.
      *
-     * TODO(xl): document
+     * Each node represents the acceptance ("delivery" in distributed systems
+     * terminology) of a message by the local process, i.e. made available for
+     * consumption by higher layers. This occurs in some topological order of the
+     * underlying causal order, so that messages received out-of-order are held
+     * back from being accepted until all of their predecessors are accepted.
+     *
+     * (We do not need a separate event to represent when a message is sent.
+     * The send-event is before each accept-event at every recipient, and there
+     * are no events between these in the causal order, so we effectively treat
+     * both as the same event.)
+     *
+     * Methods taking an mId or uId must raise KeyError if it is absent.
      *
      * @interface
      * @augments module:mpenc/helper/graph.CausalOrder
@@ -96,12 +124,12 @@ define([
     };
 
     /**
-     * Add a message; all its parents must already have been added.
+     * Add/accept a message; all its parents must already have been added.
      *
      * @method
      * @param msg {module:mpenc/message.Message} Message to add.
-     * @returns {Array.<string>} List of messages that became fully-acked by
-     * the addition of this message, in some topological order. */
+     * @returns {Array.<string>} List of older messages that became fully-acked
+     * by this message being accepted, in some topological order. */
     Transcript.prototype.add;
 
     /**
