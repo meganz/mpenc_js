@@ -239,7 +239,7 @@ define([
                                                                  signingPubKey,
                                                                  sidkeyHash);
                     if (verifySig === true) {
-                        decoded = _decrypt(message,
+                        decoded = _decrypt(inspected,
                                            groupKey,
                                            authorHint,
                                            session.members);
@@ -304,8 +304,8 @@ define([
                  iv: jodid25519.utils.bytes2string(nonceBytes) };
     };
 
-    var _decrypt = function(message, groupKey, author, members) {
-        var out = _decode(message);
+    var _decrypt = function(inspected, groupKey, author, members) {
+        var out = _decode(inspected.rawMessage);
         _assert(out.data);
 
         // Data message signatures were already verified through trial decryption.
@@ -315,20 +315,22 @@ define([
         var idx = members.indexOf(author);
         _assert(idx >= 0);
         var recipients = members.slice(idx, 1);
-        var mId = utils.sha256(message);
+
+        // ignore sidkeyHint since that's unauthenticated
+        var mId = utils.sha256(inspected.signature + inspected.rawMessage);
         // TODO(xl): add parent pointers here
         return new Message(mId, author, [], recipients, UserData(data));
     };
 
-    var _decode = function(message) {
+    var _decode = function(rawMessage) {
         // full decode, no crypto operations
-        if (!message) {
+        if (!rawMessage) {
             return null;
         }
 
         var debugOutput = [];
-        var out = _inspect(message, debugOutput);
-        var rest = out.rawMessage;
+        var out = {};
+        var rest = rawMessage;
 
         rest = codec.popStandardFields(rest,
             codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);

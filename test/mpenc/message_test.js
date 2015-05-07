@@ -133,9 +133,7 @@ define([
 
             var log = MegaLogger._logRegistry.message._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                       ['sidkeyHint: 0x54',
-                                        'messageSignature: davFA6LQRVC5hN86XRxIrpjGYYVb2CZuQ3HrAldsArbkL99HCSvIRLyHk3k+Z1irSyBddivXsMLyADYPd5cIDw==',
-                                        'protocol: 1',
+                                       ['protocol: 1',
                                         'messageType: 0x3 (MPENC_DATA_MESSAGE)',
                                         'messageIV: qq36/fToW+Z7I7b5',
                                         'rawDataMessage: aU6y8g8=']]]);
