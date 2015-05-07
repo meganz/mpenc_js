@@ -115,9 +115,7 @@ define([
      * @property messageOutQueue {Array}
      *     Queue for outgoing user content messages.
      * @property uiQueue {Array}
-     *     Queue for messages to display in the UI. Contains objects with
-     *     attributes `type` (can be strings 'message', 'info', 'warn' and
-     *     'error') and `message`.
+     *     Queue for messages to display in the UI. Contains Message objects.
      * @property sessionKeyStore {mpenc.greet.keystore.KeyStore}
      *     Store for (sub-) session related keys and information.
      * @property greet {mpenc.greet.greeter.GreetWrapper}
@@ -418,7 +416,8 @@ define([
             from: this.id,
             to: '',
             metadata: metadata,
-            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, this.exponentialPadding)),
+            // TODO(xl): add some parent pointers
+            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, null, this.exponentialPadding)),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);

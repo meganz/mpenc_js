@@ -17,15 +17,15 @@
  */
 
 define([
+    "mpenc/transcript",
+    "mpenc/message",
     "mpenc/helper/graph",
     "mpenc/helper/struct",
     "megalogger",
     "es6-collections",
 ], function(
-    graph,
-    struct,
-    MegaLogger,
-    es6_shim
+    transcript, message, graph, struct,
+    MegaLogger, es6_shim
 ) {
     "use strict";
 
@@ -204,8 +204,8 @@ define([
         var init = safeGet(this._messages, mId).parents;
         var initArr = init.toArray();
         var self = this;
-        return new Set(struct.iteratorToArray(graph.bfTopoIterator(init,
-            function(mId) { return self.pre(mId); },
+        return new Set(struct.iteratorToArray(graph.bfTopoIterator(initArr,
+            function(mId) { return self.pre(mId).toArray(); },
             function(mId) {
                 // limit traversal to ancestors of init
                 return self.suc(mId).toArray().filter(function(nmId) {
@@ -236,7 +236,7 @@ define([
         return this._cacheBy.get(uId);
     };
 
-    // MessageLog
+    // Messages
 
     BaseTranscript.prototype.get = function(mId) {
         return safeGet(this._messages, mId);
@@ -439,6 +439,91 @@ define([
 
     Object.freeze(BaseTranscript.prototype);
     ns.BaseTranscript = BaseTranscript;
+
+
+    /**
+     * MessageLog that orders messages in the same way as the accept-order.
+     *
+     * That is, add() always appends to the log.
+     *
+     * @class
+     * @memberOf module:mpenc/impl/transcript
+     * @extends {module:mpenc/transcript.MessageLog}
+     */
+    var DefaultMessageLog = function() {
+        if (!(this instanceof DefaultMessageLog)) return new DefaultMessageLog();
+        transcript.MessageLog.call(this);
+        this._messageIndex = new Map(); // mId: int, index into _log
+        this._parents = [];
+        this._transcripts = new Set().asMutable();
+    };
+
+    DefaultMessageLog.prototype = Object.create(transcript.MessageLog.prototype);
+
+    DefaultMessageLog.prototype.add = function(tr, mId, parents) {
+        if (this._messageIndex.has(mId)) {
+            throw new Error("already added: " + mId);
+        }
+        var msg = tr.get(mId);
+        if (!(msg.secretContent instanceof message.UserData)) {
+            return;
+        }
+        this._transcripts.add(tr);
+        this._messageIndex.set(mId, this.length);
+        this.push(mId);
+        this._parents.push(new struct.ImmutableSet(parents));
+        this.__rInsert__(0, mId);
+    };
+
+    DefaultMessageLog.prototype._getTranscript = function(mId) {
+        var targetTranscript;
+        this._transcripts.forEach(function(ts) {
+            if (ts.has(mId) && ts.get(mId).secretContent instanceof message.UserData) {
+                targetTranscript = ts;
+            }
+        });
+        if (targetTranscript) {
+            return targetTranscript;
+        } else {
+            throw new Error("transcript not found for mId:" + mId);
+        }
+    };
+
+    DefaultMessageLog.prototype.has = function(mId) {
+        return this._messageIndex.has(mId);
+    };
+
+    // Messages
+
+    DefaultMessageLog.prototype.get = function(mId) {
+        return safeGet(this._getTranscript(mId), mId);
+    };
+
+    DefaultMessageLog.prototype.parents = function(mId) {
+        return this._parents[safeGet(this._messageIndex, mId)];
+    };
+
+    DefaultMessageLog.prototype.unackby = function(mId) {
+        return this._getTranscript(mId).unackby(mId);
+    };
+
+    DefaultMessageLog.prototype.unacked = function() {
+        var unacked = [];
+        var self = this;
+        this._transcripts.forEach(function(ts) {
+            unacked.push.apply(unacked, ts.unacked().filter(function(m) {
+                return self.has(m);
+            }));
+        });
+        unacked.sort(function(a, b) {
+            var ia = self._messageIndex.get(a), ib = self._messageIndex.get(b);
+            return (ia < ib)? -1: (ia == ib)? 0: 1;
+        });
+        return unacked;
+    };
+
+    Object.freeze(DefaultMessageLog.prototype);
+    ns.DefaultMessageLog = DefaultMessageLog;
 
 
     return ns;

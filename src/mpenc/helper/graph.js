@@ -59,7 +59,7 @@ define([
      * @returns {Array} */
     CausalOrder.prototype.all;
 
-    /** Whether a given item is in this graph.
+    /** Whether a given item is in this graph. Does not throw an Error.
      * @method
      * @returns {boolean} */
     CausalOrder.prototype.has;

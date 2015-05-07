@@ -24,12 +24,13 @@
 define([
     "mpenc/transcript",
     "mpenc/impl/transcript",
+    "mpenc/helper/async",
     "mpenc/helper/graph",
     "mpenc/message",
     "megalogger",
     "chai",
     "sinon/sandbox",
-], function(ns, impl, graph, message, MegaLogger,
+], function(ns, impl, async, graph, message, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
 
@@ -147,7 +148,6 @@ define([
             assert(tr.unackby(0).equals(new Set([50, 51])));
         });
 
-
         var createHellGraph = function(halfsz) {
             // basically same as graph_test.createHellGraph
             var tr = new impl.BaseTranscript();
@@ -176,13 +176,122 @@ define([
             assert(tr.mergeMembers([9999, 10000]).equals(new Set([50, 51])));
         });
 
+        it('pre_ruId calculation', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 51, [0], [50, 52]));
+            tr.add(M(2, 52, [0], [50, 51]));
+            assert.strictEqual(tr.pre_ruId(1, 52), null);
+            assert.strictEqual(tr.pre_ruId(2, 51), null);
+            assert.strictEqual(tr.pre_ruId(1, 50), 0);
+            assert.strictEqual(tr.pre_ruId(2, 50), 0);
+        });
+
+        it('pre_pred calculation', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 51, [0], [50, 52]));
+            tr.add(M(2, 52, [0], [50, 51]));
+            var uId = function(u) {
+                return function(m) { return tr.get(m).author === u; };
+            };
+            assert.deepEqual(tr.pre_pred(1, uId(52)).toArray(), []);
+            assert.deepEqual(tr.pre_pred(2, uId(51)).toArray(), []);
+            assert.deepEqual(tr.pre_pred(1, uId(50)).toArray(), [0]);
+            assert.deepEqual(tr.pre_pred(2, uId(50)).toArray(), [0]);
+        });
+
         it('suc_ruId calculation', function() {
             var tr = new impl.BaseTranscript();
             tr.add(M(0, 50, [], [51, 52]));
             tr.add(M(1, 51, [0], [50, 52]));
             tr.add(M(2, 52, [0], [50, 51]));
-            assert(tr.suc_ruId(1, 52) === null);
-            assert(tr.suc_ruId(2, 51) === null);
+            assert.strictEqual(tr.suc_ruId(1, 52), null);
+            assert.strictEqual(tr.suc_ruId(2, 51), null);
+            assert.strictEqual(tr.suc_ruId(0, 52), 2);
+            assert.strictEqual(tr.suc_ruId(0, 51), 1);
         });
     });
+
+    describe("DefaultMessageLog class", function() {
+        var tr = new impl.BaseTranscript();
+        tr.add(M("O", "Alice", [], ["Bob"], message.UserData("")));
+        tr.add(M("A", "Alice", ["O"], ["Bob"], message.UserData("")));
+        tr.add(M("C", "Alice", ["A"], ["Bob"], message.ExplicitAck(false)));
+        tr.add(M("B", "Bob", ["A"], ["Alice"], message.UserData("")));
+        tr.add(M("D", "Bob", ["B", "C"], ["Alice"], message.ExplicitAck(false)));
+        tr.add(M("E", "Bob", ["D"], ["Alice"], message.UserData("")));
+        var mId_ud = "OABE".split("");
+        var mId_ex = ["C", "D"];
+
+        var makeLog = function(src, dst, sourceTranscript) {
+            var log = new impl.DefaultMessageLog();
+            log.bindSource({ onEvent: src.subscribe.bind(src) }, sourceTranscript);
+            log.bindTarget(dst);
+            // normally Session does this job, here we do it manually
+            var all = sourceTranscript.all();
+            for (var i=0; i<all.length; i++) {
+                src.publish(new ns.MsgAccepted(all[i]));
+            };
+            return log;
+        };
+
+        it("UserData filtering", function() {
+            var ctx = new async.EventContext([ns.MsgAccepted, ns.MsgReady]);
+            var log = makeLog(ctx, ctx, tr);
+            assert.strictEqual(log.length, 4);
+            for (var i=0; i<mId_ud.length; i++) {
+                assert(log.indexOf(mId_ud[i]) >= 0);
+                assert(log.get(mId_ud[i]) != null);
+                assert(log.parents(mId_ud[i]) != null);
+                assert(log.unackby(mId_ud[i]) != null);
+            }
+            for (var i=0; i<mId_ex.length; i++) {
+                assert(log.indexOf(mId_ex[i]) < 0);
+                assert.throws(function() { log.get(mId_ex[i]); });
+                assert.throws(function() { log.parents(mId_ex[i]); });
+                assert.throws(function() { log.unackby(mId_ex[i]); });
+            }
+            assert.deepEqual(log.parents("E").toArray(), ["B"]);
+            assert.deepEqual(log.parents("B").toArray(), ["A"]);
+        });
+
+        it("MsgReady publishing", function() {
+            var ctx = new async.EventContext([ns.MsgAccepted, ns.MsgReady]);
+            var seen = [];
+            ctx.subscribe(ns.MsgReady)(function(evt) {
+                seen.push(evt.mId);
+            });
+            var log = makeLog(ctx, ctx, tr);
+            assert.strictEqual(seen.length, 4);
+        });
+
+        it("accumulating multiple transcripts", function() {
+            var ctx0 = new async.EventContext([ns.MsgReady]);
+            var ctx1 = new async.EventContext([ns.MsgAccepted]);
+            var ctx2 = new async.EventContext([ns.MsgAccepted]);
+            var log = new impl.DefaultMessageLog();
+            var tr2 = new impl.BaseTranscript();
+            tr2.add(M("X", "Alice", [], ["Bob"], message.UserData("")));
+            tr2.add(M("Y", "Alice", ["X"], ["Bob"], message.UserData("")));
+            tr2.add(M("Z", "Alice", ["Y"], ["Bob"], message.ExplicitAck(false)));
+
+            log.bindTarget(ctx0);
+            log.bindSource({ onEvent: ctx1.subscribe.bind(ctx1) }, tr);
+            log.bindSource({ onEvent: ctx2.subscribe.bind(ctx2) }, tr2);
+            var acceptOrder = "OACBXDYEZ".split("");
+            for (var i=0; i<acceptOrder.length; i++) {
+                var mId = acceptOrder[i];
+                var ctx = tr2.has(mId)? ctx2: ctx1;
+                ctx.publish(new ns.MsgAccepted(mId));
+            }
+
+            assert.strictEqual(log.length, 4+2);
+            assert.deepEqual(log.parents("X").toArray(), []);
+            assert.deepEqual(log.parents("O").toArray(), []);
+            assert.deepEqual(log.slice(), "OABXYE".split(""));
+            assert.deepEqual(log.unacked(), "BXYE".split(""));
+        });
+    });
+
 });

@@ -154,12 +154,22 @@ define([
      * 3.605551275463989
      * </pre>
      *
+     * @param baseClass {?object} Optional parent class to extend from; this
+     *      itself must be a subclass of Array. If omitted, defaults to Array.
      * @param fieldNames {...string} Names of fields to alias to each numerical
      *      index within the tuple.
      * @memberOf! module:mpenc/helper/struct
      */
     var createTupleClass = function() {
         var fields = Array.prototype.slice.call(arguments);
+        var baseClass = Array;
+        if (fields[0] && typeof fields[0] !== "string") {
+            if (fields[0].prototype instanceof Array) {
+                baseClass = fields.shift();
+            } else {
+                throw new Error("first arg must be string or subclass of Array");
+            }
+        }
         var cls = function() {
             if (!(this instanceof cls)) {
                 var args = Array.prototype.concat.apply([undefined], arguments);
@@ -171,7 +181,7 @@ define([
             this.length = arguments.length;
             Object.freeze(this);
         };
-        cls.prototype = Object.create(Array.prototype);
+        cls.prototype = Object.create(baseClass.prototype);
         cls.prototype.constructor = cls;
         for (var i=0; i<fields.length; i++) {
             _setPropertyAlias(cls, fields[i], i);

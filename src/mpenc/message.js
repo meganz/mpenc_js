@@ -47,8 +47,8 @@ define([
      * @interface
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, author, parents, recipients, secretData) {
-        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretData);
+    var Message = function(mId, author, parents, recipients, secretContent) {
+        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretContent);
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -76,7 +76,7 @@ define([
         this.author = author;
         this.parents = new Set(parents);
         this.recipients = new Set(recipients);
-        this.secretData = secretData;
+        this.secretContent = secretContent;
     };
 
     /**
@@ -89,6 +89,46 @@ define([
 
     Object.freeze(Message.prototype);
     ns.Message = Message;
+
+    /**
+     * Message body object.
+     */
+    var Content = function() {};
+
+    Content.prototype = Object.create(Array.prototype);
+
+    Object.freeze(Content.prototype);
+    ns.Content = Content;
+
+    /**
+     * Message actively sent by a user, to be consumed by the application.
+     *
+     * @property body {string} Content of the message.
+     */
+    var UserData = struct.createTupleClass(Content, "body");
+
+    Object.freeze(UserData.prototype);
+    ns.UserData = UserData;
+
+    /**
+     * Explicit ack of the message parents.
+     *
+     * All messages implicitly ack their ancestors, but sometimes we must do an
+     * explicit ack when no other message was (or is planned to be) sent.
+     *
+     * Explicit acks themselves need not be automatically acked, nor do they need
+     * to have ack-monitors set on them. As a caveat, ack-monitors of other types
+     * of messages should also handle (e.g. resend) explicit acks that were sent
+     * directly before it - since there is no other ack-monitor to handle these.
+     *
+     * @property manual {boolean} Whether this was sent with conscious user oversight.
+     */
+    var ExplicitAck = struct.createTupleClass(Content, "manual");
+
+    Object.freeze(ExplicitAck.prototype);
+    ns.ExplicitAck = ExplicitAck;
+
+    // TODO: messaging-level metadata like ExplicitAck, HeartBeat, Consistency
 
 
     /**
@@ -107,8 +147,8 @@ define([
      * Encodes a given data message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
-     * @param message {string}
-     *     Message as string.
+     * @param body {string}
+     *     Message body as string.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
@@ -117,10 +157,7 @@ define([
      * @returns {string}
      *     A TLV string.
      */
-    MessageSecurity.prototype.encrypt = function(message, paddingSize) {
-        if (message === null || message === undefined) {
-            return null;
-        }
+    MessageSecurity.prototype.encrypt = function(body, parents, paddingSize) {
         var privKey = this._privKey;
         var pubKey = this._pubKey;
         var sessionKeyStore = this._sessionKeyStore;
@@ -139,9 +176,21 @@ define([
 
         // Rest (protocol version, message type, iv, message data).
         var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_DATA;
-        var encrypted = ns._encryptDataMessage(message, groupKey, paddingSize);
+
+        // Encryption payload
+        var rawBody = "";
+        if (parents && parents.forEach) {
+            parents.forEach(function(pmId) {
+                rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PARENT, pmId);
+            });
+        }
+        // Protect multi-byte characters
+        body = unescape(encodeURIComponent(body));
+        rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, body);
+
+        var encrypted = ns._encryptRaw(rawBody, groupKey, paddingSize);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-        content += codec.encodeTLV(codec.TLV_TYPE.DATA_MESSAGE, encrypted.data);
+        content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PAYLOAD, encrypted.data);
 
         // Compute the content signature.
         var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
@@ -199,7 +248,7 @@ define([
                                                                  signingPubKey,
                                                                  sidkeyHash);
                     if (verifySig === true) {
-                        decoded = _decrypt(message,
+                        decoded = _decrypt(inspected,
                                            groupKey,
                                            authorHint,
                                            session.members);
@@ -237,15 +286,10 @@ define([
      *     An object containing the message (in `data`, binary string) and
      *     the IV used (in `iv`, binary string).
      */
-    ns._encryptDataMessage = function(data, key, paddingSize) {
-        if (data === null || data === undefined) {
-            return null;
-        }
+    ns._encryptRaw = function(dataBytes, key, paddingSize) {
         paddingSize = paddingSize | 0;
         var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
         var nonceBytes = utils._newKey08(96);
-        // Protect multi-byte characters.
-        var dataBytes = unescape(encodeURIComponent(data));
         // Prepend length in bytes to message.
         _assert(dataBytes.length < 0xffff,
                 'Message size too large for encryption scheme.');
@@ -264,31 +308,45 @@ define([
                  iv: jodid25519.utils.bytes2string(nonceBytes) };
     };
 
-    var _decrypt = function(message, groupKey, author, members) {
-        var out = _decode(message);
+    var _decrypt = function(inspected, groupKey, author, members) {
+        var debugOutput = [];
+        var out = _decode(inspected.rawMessage);
         _assert(out.data);
 
         // Data message signatures were already verified through trial decryption.
-        var data = ns._decryptDataMessage(out.data, groupKey, out.iv);
-        logger.debug('mpENC decrypted data message debug: ', data);
+        var rest = ns._decryptRaw(out.data, groupKey, out.iv);
+
+        var encrypted = ns._encryptRaw(codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, rest), groupKey, 0);
+
+        var parents = [];
+        rest = codec.popTLVAll(rest, _T.MESSAGE_PARENT, function(value) {
+            parents.push(value);
+            debugOutput.push('parent: ' + btoa(value));
+        });
+
+        var data;
+        rest = codec.popTLV(rest, _T.MESSAGE_BODY, function(value) {
+            // Undo protection for multi-byte characters.
+            data = decodeURIComponent(escape(value));
+            debugOutput.push('body: ' + value);
+        });
+
+        logger.debug('mpENC decrypted message debug: ', debugOutput);
 
         var idx = members.indexOf(author);
         _assert(idx >= 0);
         var recipients = members.slice(idx, 1);
-        var mId = utils.sha256(message);
-        // TODO(xl): add parent pointers here
-        return new Message(mId, author, [], recipients, data);
+
+        // ignore sidkeyHint since that's unauthenticated
+        var mId = utils.sha256(inspected.signature + inspected.rawMessage).slice(0, 20);
+        return new Message(mId, author, parents, recipients, UserData(data));
     };
 
-    var _decode = function(message) {
+    var _decode = function(rawMessage) {
         // full decode, no crypto operations
-        if (!message) {
-            return null;
-        }
-
         var debugOutput = [];
-        var out = _inspect(message, debugOutput);
-        var rest = out.rawMessage;
+        var out = {};
+        var rest = rawMessage;
 
         rest = codec.popStandardFields(rest,
             codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);
@@ -298,7 +356,7 @@ define([
             debugOutput.push('messageIV: ' + btoa(value));
         });
 
-        rest = codec.popTLV(rest, _T.DATA_MESSAGE, function(value) {
+        rest = codec.popTLV(rest, _T.MESSAGE_PAYLOAD, function(value) {
             out.data = value;
             debugOutput.push('rawDataMessage: ' + btoa(out.data));
         });
@@ -311,10 +369,6 @@ define([
 
     var _inspect = function(message, debugOutput) {
         // partial decode, no crypto operations
-        if (!message) {
-            return null;
-        }
-
         var debugOutput = debugOutput || [];
         var out = {};
         var rest = message;
@@ -349,7 +403,7 @@ define([
      * @returns {string}
      *     The clear text message as a binary string.
      */
-    ns._decryptDataMessage = function(data, key, iv) {
+    ns._decryptRaw = function(data, key, iv) {
         if (data === null || data === undefined) {
             return null;
         }
@@ -361,8 +415,7 @@ define([
         var clearString = jodid25519.utils.bytes2string(clearBytes);
         var messageSize = codec._bin2short(clearString.slice(0, 2));
         clearString = clearString.slice(2, messageSize + 2);
-        // Undo protection for multi-byte characters.
-        return decodeURIComponent(escape(clearString));
+        return clearString;
     };
 
     ns.MessageSecurity = MessageSecurity;

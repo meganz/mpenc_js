@@ -95,19 +95,18 @@ _td.SESSION_KEY_STORE.sessions[_td.SESSION_ID] = {
     groupKeys: [_td.GROUP_KEY]
 };
 _td.SESSION_KEY_STORE.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY };
-_td.DATA_MESSAGE_STRING = atob('ABIAAVQAAwBAdavFA6LQRVC5hN86XRxIrpjGYYVb2CZuQ3'
-                               + 'HrAldsArbkL99HCSvIRLyHk3k+Z1irSyBddivXsMLyAD'
-                               + 'YPd5cIDwABAAEBAAIAAQMAEQAMqq36/fToW+Z7I7b5AB'
-                               + 'AABWlOsvIP');
-_td.DATA_MESSAGE_STRING2 = atob('ABIAAVQAAwBAIVSz1c05bp/rbLlRtUJO/DtTkqH2n1aiO'
-                                 + 'oGG22u4TJwFPoMtozEWhhKKozsMfxKbOt2S5Z1sYH0'
-                                 + '+vwwg3PHcBAABAAEBAAIAAQMAEQAMcbs3A9C5iM3JO'
-                                 + 'W4LABAABXfJaELQ');
-_td.DATA_MESSAGE_STRING32 = atob('ABIAAVQAAwBAtoTCGW4E/HHIt2FVKugZZDtlA3OEy9Ut'
-                                 + 'yeRIuoN5CfKS8U2JcEd53z1clZG9K10qzEt2F11bZv'
-                                 + 'dK/1vLwFmmCAABAAEBAAIAAQMAEQAMmhrnlHBq/Rkc'
-                                 + '37BaABAAIGopbTaFhnnlmC2M6r1DQaQthcQyYBiCPL'
-                                 + 'TohEpompHT');
+_td.DATA_MESSAGE_STRING = atob('ABIAAVQAAwBAsqcfdFBp1P+ei9LTWIGpXn144fzi3UorsC'
+                             + 'G7moGQzsoJFCJeLJYcj358uISQqRPej+nuscs7PPcMH58G'
+                             + 'bn1iAwABAAEBAAIAAQMAEQAMevs2iGlNE8kspMvZABAACY'
+                             + 'wQ7EMaeuivXg==');
+_td.DATA_MESSAGE_STRING2 = atob('ABIAAVQAAwBAh/aR5NsEbF0bqwjdIjGCM11653LX07Lvc'
+                              + 't86jiSuawHF63N21R8s/cP2WTl4/j2rVcDxnMAeqghnN0'
+                              + 'NfI/GwAgABAAEBAAIAAQMAEQAMYEJcgRKug0h+aSSBABA'
+                              + 'ACWT5Ftq26HvaBQ==');
+_td.DATA_MESSAGE_STRING32 = atob('ABIAAVQAAwBAkJN7pyCATSef9Li1omFV4AKMf4y5koDM'
+                               + 'Em5uEtwnT1D3WiMdJs2cA7dMh2JYo9lXtDBt1YadRmT4'
+                               + 'cQwa7v3rCAABAAEBAAIAAQMAEQAMy3mFpbiHeD4F3n0u'
+                               + 'ABAACfWUXRE7ijLczA==');
 
 _td.DATA_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DATA_MESSAGE_STRING) + '.';
 _td.DATA_MESSAGE_CONTENT = {
