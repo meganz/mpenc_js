@@ -8,13 +8,17 @@ NODE_PATH = ./node_modules
 NPM = npm
 NODE = node
 
-# Dependencies - make sure you keep DEP_ALL and DEP_ALL_NAMES up-to-date
+# Dependencies - make sure you keep DEP_{ALL,NONCUSTOM}_{,NAMES} up-to-date
 DEP_ASMCRYPTO = $(NODE_PATH)/asmcrypto.js/asmcrypto.js
 DEP_JSBN = $(NODE_PATH)/jsbn/index.js
 DEP_JODID = $(NODE_PATH)/jodid25519/jodid25519.js
 DEP_ES6COLL = $(NODE_PATH)/es6-collections/es6-collections.js
-DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_JSBN) $(DEP_JODID) $(DEP_ES6COLL)
-DEP_ALL_NAMES = asmcrypto.js jsbn jodid25519 es6-collections
+DEP_LRUCACHE = $(NODE_PATH)/lru-cache/lib/lru-cache.js
+DEP_NONCUSTOM = $(DEP_JSBN) $(DEP_ES6COLL) $(DEP_LRUCACHE)
+DEP_NONCUSTOM_NAMES = jsbn es6-collections lru-cache
+# jodid needs to be loaded after jsbn
+DEP_ALL = $(DEP_ASMCRYPTO) $(DEP_NONCUSTOM) $(DEP_JODID)
+DEP_ALL_NAMES = asmcrypto.js $(DEP_NONCUSTOM_NAMES) jodid25519
 
 # Build-depends - make sure you keep BUILD_DEP_ALL and BUILD_DEP_ALL_NAMES up-to-date
 KARMA  = $(NODE_PATH)/karma/bin/karma
@@ -92,8 +96,8 @@ $(DEP_JODID):
 	$(NPM) install jodid25519
 	cd $(NODE_PATH)/jodid25519 && make jodid25519.js
 
-$(BUILD_DEP_ALL) $(DEP_JSBN) $(DEP_ES6COLL):
-	$(NPM) install $(BUILD_DEP_ALL_NAMES) jsbn es6-collections
+$(BUILD_DEP_ALL) $(DEP_NONCUSTOM):
+	$(NPM) install $(BUILD_DEP_ALL_NAMES) $(DEP_NONCUSTOM_NAMES)
 
 # other things from package.json, such as karma plugins. we touch a guard file
 # to prevent "npm install" running on every invocation of `make test`

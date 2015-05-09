@@ -20,7 +20,7 @@ function loadContents(filepath) {
 
 function loadInlineModule(filepath) {
     var old_exports = module.exports;
-    module.exports = {};
+    delete module.exports; // hopefully force naive libs to go into "browser global" mode
     eval(loadContents(filepath));
     for (var k in window) {
         this[k] = window[k]; // some modules patch "window", forward this to the real nodejs global object
@@ -36,7 +36,7 @@ for (var i=3; i<process.argv.length; i++) {
 }
 
 // Load our library.
-var mpenc = loadInlineModule(process.argv[2]);
+var mpenc = require(process.argv[2]);
 
 // Debug print our public API.
 console.log(mpenc);
