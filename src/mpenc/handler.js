@@ -415,13 +415,15 @@ define([
         if (this._transcript.has(decrypted.mId)) {
             return true; // already accepted before - silently accept but do nothing else
         }
+        if (decrypted.parents.subtract(this._transcript).length) {
+            return false; // parents not yet received, put back on trial buffer
+        }
         try {
             this._transcript.add(decrypted);
             this.uiQueue.push(decrypted);
             return true;
         } catch (e) {
-            // TODO(xl): distinguish between cases where recovery is possible later
-            // e.g. out-of-order delivery vs bad messages that break a protocol invariant
+            // TODO(xl): distinguish between different error cases
             logger.warn("Transcript did not accept decrypted message: " + e);
         }
         return false;

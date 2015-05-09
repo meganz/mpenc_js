@@ -94,7 +94,9 @@ _td.SESSION_KEY_STORE.sessions[_td.SESSION_ID] = {
     members: ['Moe', 'Larry', 'Curly'],
     groupKeys: [_td.GROUP_KEY]
 };
-_td.SESSION_KEY_STORE.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY };
+_td.SESSION_KEY_STORE.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY,
+                                    'Larry': _td.ED25519_PUB_KEY,
+                                    'Curly': _td.ED25519_PUB_KEY };
 _td.DATA_MESSAGE_STRING = atob('ABIAAVQAAwBAsqcfdFBp1P+ei9LTWIGpXn144fzi3UorsC'
                              + 'G7moGQzsoJFCJeLJYcj358uISQqRPej+nuscs7PPcMH58G'
                              + 'bn1iAwABAAEBAAIAAQMAEQAMevs2iGlNE8kspMvZABAACY'

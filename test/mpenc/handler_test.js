@@ -926,6 +926,49 @@ define([
                     { from: message.from, data: _td.DATA_MESSAGE_STRING });
             });
 
+            it('on data message received out-of-order', function() {
+                var members = new struct.ImmutableSet(_td.SESSION_KEY_STORE.sessions[_td.SESSION_ID].members);
+
+                var sender = new ns.ProtocolHandler('Larry', 'Tears for Fears',
+                                                    _td.ED25519_PRIV_KEY,
+                                                    _td.ED25519_PUB_KEY,
+                                                    _td.STATIC_PUB_KEY_DIR);
+                sender.exponentialPadding = 0;
+                sender.greet.state = greeter.STATE.READY;
+                sender.greet.cliquesMember.groupKey = _td.GROUP_KEY;
+                sender.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                sender.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                sender._messageSecurity = _dummyMessageSecurity('Larry', sender.greet);
+                sender._sessionKeyStore = sender._messageSecurity._sessionKeyStore;
+                sender._currentMembers = members;
+                sender.send('Message 1');
+                sender.send('Message 2');
+                assert.lengthOf(sender.messageOutQueue, 2);
+                assert.lengthOf(sender.uiQueue, 2);
+
+                var recipient = new ns.ProtocolHandler('Moe', 'Tears for Fears',
+                                                        _td.ED25519_PRIV_KEY,
+                                                        _td.ED25519_PUB_KEY,
+                                                        _td.STATIC_PUB_KEY_DIR);
+                recipient.greet.state = greeter.STATE.READY;
+                recipient.greet.cliquesMember.groupKey = _td.GROUP_KEY;
+                recipient.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                recipient.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                recipient._messageSecurity = _dummyMessageSecurity('Moe', recipient.greet);
+                recipient._sessionKeyStore = recipient._messageSecurity._sessionKeyStore;
+                recipient._currentMembers = members;
+                var message2 = sender.messageOutQueue.pop();
+                var message1 = sender.messageOutQueue.pop();
+                recipient.processMessage(message2);
+                // second message is not accepted...
+                assert.lengthOf(recipient.uiQueue, 0);
+                recipient.processMessage(message1);
+                // until first one is received
+                assert.lengthOf(recipient.uiQueue, 2);
+                assert.deepEqual(recipient.uiQueue[0].secretContent.body, sender.uiQueue[0].secretContent.body);
+                assert.deepEqual(recipient.uiQueue[1].secretContent.body, sender.uiQueue[1].secretContent.body);
+            });
+
             it('on query message', function() {
                 var participant = new ns.ProtocolHandler('2', 'foo',
                                                          _td.ED25519_PRIV_KEY,
