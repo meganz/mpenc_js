@@ -131,13 +131,20 @@ define([
     // TODO: messaging-level metadata like ExplicitAck, HeartBeat, Consistency
 
 
+    var _createMessageId = function(signature, content) {
+        // ignore sidkeyHint since that's unauthenticated
+        return utils.sha256(signature + content).slice(0, 20);
+    };
+
     /**
      * Component that holds cryptographic state needed to encrypt/decrypt
      * messages that are part of a session.
      *
+     * @class
      * @memberOf module:mpenc/message
      */
-    var MessageSecurity = function(ephemeralPrivKey, ephemeralPubKey, sessionKeyStore) {
+    var MessageSecurity = function(owner, ephemeralPrivKey, ephemeralPubKey, sessionKeyStore) {
+        this.owner = owner;
         this._privKey = ephemeralPrivKey;
         this._pubKey = ephemeralPubKey;
         this._sessionKeyStore = sessionKeyStore;
@@ -147,28 +154,35 @@ define([
      * Encodes a given data message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
+     * @param author {string}
+     *     Author of the message.
+     * @param recipients {module:mpenc/helper/struct.ImmutableSet}
+     *     Recipients of the message.
+     * @param parents {?module:mpenc/helper/struct.ImmutableSet}
+     *     Parent message ids.
      * @param body {string}
-     *     Message body as string.
+     *     Message body as byte string.
      * @param paddingSize {integer}
      *     Number of bytes to pad the cipher text to come out as (default: 0
      *     to turn off padding). If the clear text will result in a larger
      *     cipher text than paddingSize, power of two exponential padding sizes
      *     will be used.
-     * @returns {string}
-     *     A TLV string.
+     * @returns {{ mId: string, ciphertext: string}}
+     *     Message id and ciphertext.
      */
-    MessageSecurity.prototype.encrypt = function(body, parents, paddingSize) {
+    MessageSecurity.prototype.encrypt = function(body, recipients, parents, paddingSize) {
         var privKey = this._privKey;
         var pubKey = this._pubKey;
         var sessionKeyStore = this._sessionKeyStore;
         paddingSize = paddingSize | 0;
 
-        var out = '';
         // We want message attributes in this order:
         // sid/key hint, message signature, protocol version, message type,
         // iv, message data
         var sessionID = sessionKeyStore.sessionIDs[0];
         var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
+        var members = recipients.union(new Set([this.owner]));
+        _assert(members.equals(new Set(sessionKeyStore.sessions[sessionID].members)));
 
         // Three portions: unsigned content (hint), signature, rest.
         // Compute info for the SIDKEY_HINT and signature.
@@ -194,13 +208,55 @@ define([
 
         // Compute the content signature.
         var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
-                                       content, privKey, pubKey, sidkeyHash);
+                                          content, privKey, pubKey, sidkeyHash);
 
         // Assemble everything.
-        out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
+        var out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
         out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
         out += content;
-        return out;
+
+        return { mId: _createMessageId(signature, content), ciphertext: out };
+    };
+
+    /**
+     * Encrypts a given data message.
+     *
+     * The data message is encrypted using AES-128-CTR, and a new random
+     * IV/nonce (12 byte) is generated and returned.
+     *
+     * @param data {string}
+     *     Binary string data message.
+     * @param key {string}
+     *     Binary string representation of 128-bit encryption key.
+     * @param paddingSize {integer}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
+     * @returns {Object}
+     *     An object containing the message (in `data`, binary string) and
+     *     the IV used (in `iv`, binary string).
+     */
+    ns._encryptRaw = function(dataBytes, key, paddingSize) {
+        paddingSize = paddingSize | 0;
+        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
+        var nonceBytes = utils._newKey08(96);
+        // Prepend length in bytes to message.
+        _assert(dataBytes.length < 0xffff,
+                'Message size too large for encryption scheme.');
+        dataBytes = codec._short2bin(dataBytes.length) + dataBytes;
+        if (paddingSize) {
+            // Compute exponential padding size.
+            var exponentialPaddingSize = paddingSize
+                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
+                                                         / Math.log(2))) + 1;
+            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
+            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
+        }
+        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
+        return { data: jodid25519.utils.bytes2string(cipherBytes),
+                 iv: jodid25519.utils.bytes2string(nonceBytes) };
     };
 
     /**
@@ -208,12 +264,8 @@ define([
      *
      * @param message {string}
      *     A TLV string for the message.
-     * @param pubKey {string}
-     *     Sender's (ephemeral) public signing key.
-     * @param sessionID {string}
-     *     Session ID.
-     * @param groupKey {string}
-     *     Symmetric group encryption key to encrypt message.
+     * @param authorHint {string}
+     *     Claimed (unverified) author for the message.
      * @returns {mpenc.message.Message}
      *     Message as JavaScript object.
      */
@@ -267,47 +319,6 @@ define([
         return decoded;
     };
 
-    /**
-     * Encrypts a given data message.
-     *
-     * The data message is encrypted using AES-128-CTR, and a new random
-     * IV/nonce (12 byte) is generated and returned.
-     *
-     * @param data {string}
-     *     Binary string data message.
-     * @param key {string}
-     *     Binary string representation of 128-bit encryption key.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {Object}
-     *     An object containing the message (in `data`, binary string) and
-     *     the IV used (in `iv`, binary string).
-     */
-    ns._encryptRaw = function(dataBytes, key, paddingSize) {
-        paddingSize = paddingSize | 0;
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = utils._newKey08(96);
-        // Prepend length in bytes to message.
-        _assert(dataBytes.length < 0xffff,
-                'Message size too large for encryption scheme.');
-        dataBytes = codec._short2bin(dataBytes.length) + dataBytes;
-        if (paddingSize) {
-            // Compute exponential padding size.
-            var exponentialPaddingSize = paddingSize
-                                       * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
-                                                         / Math.log(2))) + 1;
-            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
-            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
-        }
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
-        return { data: jodid25519.utils.bytes2string(cipherBytes),
-                 iv: jodid25519.utils.bytes2string(nonceBytes) };
-    };
-
     var _decrypt = function(inspected, groupKey, author, members) {
         var debugOutput = [];
         var out = _decode(inspected.rawMessage);
@@ -335,10 +346,10 @@ define([
 
         var idx = members.indexOf(author);
         _assert(idx >= 0);
-        var recipients = members.slice(idx, 1);
+        var recipients = members.slice();
+        recipients.splice(idx, 1);
 
-        // ignore sidkeyHint since that's unauthenticated
-        var mId = utils.sha256(inspected.signature + inspected.rawMessage).slice(0, 20);
+        var mId = _createMessageId(inspected.signature, inspected.rawMessage);
         return new Message(mId, author, parents, recipients, UserData(data));
     };
 

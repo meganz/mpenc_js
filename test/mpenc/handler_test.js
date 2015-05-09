@@ -24,6 +24,7 @@
 define([
     "mpenc/handler",
     "mpenc/helper/utils",
+    "mpenc/helper/struct",
     "mpenc/codec",
     "mpenc/message",
     "mpenc/version",
@@ -37,7 +38,8 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, message, version, keystore, greeter, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, struct, codec, message, version, keystore, greeter,
+            asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -55,8 +57,9 @@ define([
         return store;
     }
 
-    function _dummyMessageSecurity(greet) {
+    function _dummyMessageSecurity(author, greet) {
         return new message.MessageSecurity(
+            author,
             greet ? greet.getEphemeralPrivKey() : stub(),
             greet ? greet.getEphemeralPubKey() : stub(),
             _dummySessionStore());
@@ -82,7 +85,7 @@ define([
                 sandbox.stub(utils, 'sha256', _echo);
                 var message = { from: 'somebody',
                                 data: 'foo' };
-                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                var target = new ns.DecryptTrialTarget(stub(), 42);
                 assert.strictEqual(target.paramId(message), 'somebody\x00foo');
                 assert.strictEqual(utils.sha256.callCount, 1);
             });
@@ -90,7 +93,7 @@ define([
 
         describe('#maxSize method', function() {
             it('simple ID of message', function() {
-                var target = new ns.DecryptTrialTarget(stub(), [], 42);
+                var target = new ns.DecryptTrialTarget(stub(), 42);
                 assert.strictEqual(target.maxSize(), 42);
             });
         });
@@ -101,13 +104,12 @@ define([
                     { type: codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
                       content: _td.DATA_MESSAGE_STRING }
                 );
-                var messageSecurity = _dummyMessageSecurity();
+                var messageSecurity = _dummyMessageSecurity('Moe');
                 var payload = { from: 'Moe',
                                 data: _td.DATA_MESSAGE_STRING };
-                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), 42);
                 var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
-                assert.lengthOf(target._outQueue, 1);
             });
 
             it('succeeding try func, not pending, previous group key', function() {
@@ -116,15 +118,14 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var messageSecurity = _dummyMessageSecurity();
+                var messageSecurity = _dummyMessageSecurity('Moe');
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob('Dw4NDAsKCQgHBgUEAwIBAA=='));
                 sandbox.spy(messageSecurity, 'decrypt');
                 var payload = { from: 'Moe',
                                 data: _td.DATA_MESSAGE_STRING };
-                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), 42);
                 var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
-                assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -135,7 +136,7 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var messageSecurity = _dummyMessageSecurity();
+                var messageSecurity = _dummyMessageSecurity('Moe');
                 var sessionKeyStore = messageSecurity._sessionKeyStore;
                 sessionKeyStore.sessionIDs.unshift('foo');
                 sessionKeyStore.sessions['foo'] = utils.clone(sessionKeyStore.sessions[_td.SESSION_ID]);
@@ -143,10 +144,9 @@ define([
                 sandbox.spy(messageSecurity, 'decrypt');
                 var payload = { from: 'Moe',
                                 data: _td.DATA_MESSAGE_STRING };
-                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), 42);
                 var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
-                assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 1);
             });
@@ -158,15 +158,14 @@ define([
                       content: _td.DATA_MESSAGE_STRING }
                 );
                 sandbox.spy(codec, 'verifyMessageSignature');
-                var messageSecurity = _dummyMessageSecurity();
+                var messageSecurity = _dummyMessageSecurity('Moe');
                 messageSecurity._sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.unshift(atob(collidingKey));
                 sandbox.spy(messageSecurity, 'decrypt');
                 var payload = { from: 'Moe',
                                 data: _td.DATA_MESSAGE_STRING };
-                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), [], 42);
+                var target = new ns.DecryptTrialTarget(messageSecurity.decrypt.bind(messageSecurity), 42);
                 var result = target.tryMe(false, payload);
                 assert.strictEqual(result, true);
-                assert.lengthOf(target._outQueue, 1);
                 assert.strictEqual(messageSecurity.decrypt.callCount, 1);
                 assert.strictEqual(codec.verifyMessageSignature.callCount, 2);
             });
@@ -605,7 +604,7 @@ define([
 
         describe('#send() method', function() {
             it('send a message confidentially', function() {
-                var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
+                var participant = new ns.ProtocolHandler('Larry',
                                                          'Tears for Fears',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -615,19 +614,20 @@ define([
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
+                participant._messageSecurity = _dummyMessageSecurity('Larry', participant.greet);
+                participant._currentMembers = new struct.ImmutableSet(_td.SESSION_KEY_STORE.sessions[_td.SESSION_ID].members);
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
                 assert.lengthOf(participant.messageOutQueue[0].message, 192);
-                assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
+                assert.strictEqual(participant.messageOutQueue[0].from, 'Larry');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
+                assert.lengthOf(participant.uiQueue, 1);
             });
 
             it('send a message confidentially with exponential padding', function() {
-                var participant = new ns.ProtocolHandler('orzabal@tearsforfears.co.uk/android123',
+                var participant = new ns.ProtocolHandler('Larry',
                                                          'Tears for Fears',
                                                          _td.ED25519_PRIV_KEY,
                                                          _td.ED25519_PUB_KEY,
@@ -636,15 +636,16 @@ define([
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.READY;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
+                participant._messageSecurity = _dummyMessageSecurity('Larry', participant.greet);
+                participant._currentMembers = new struct.ImmutableSet(_td.SESSION_KEY_STORE.sessions[_td.SESSION_ID].members);
                 var message = 'Shout, shout, let it all out!';
                 participant.send(message);
                 assert.lengthOf(participant.messageOutQueue, 1);
                 assert.lengthOf(participant.messageOutQueue[0].message, 316);
-                assert.strictEqual(participant.messageOutQueue[0].from, 'orzabal@tearsforfears.co.uk/android123');
+                assert.strictEqual(participant.messageOutQueue[0].from, 'Larry');
                 assert.strictEqual(participant.messageOutQueue[0].to, '');
                 assert.lengthOf(participant.protocolOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
+                assert.lengthOf(participant.uiQueue, 1);
             });
 
             it('on uninitialised state', function() {
@@ -669,7 +670,7 @@ define([
                 participant.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 participant.greet.state = greeter.STATE.AUX_DOWNFLOW;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
+                participant._messageSecurity = _dummyMessageSecurity('Moe', participant.greet);
                 sandbox.stub(participant, 'quit');
                 var message = 'Signature verification for q.quirrell@hogwarts.ac.uk/wp8possessed666 failed.';
                 participant.sendError(codec.ERROR.TERMINAL, message);
@@ -856,7 +857,6 @@ define([
                 assert.lengthOf(participant.uiQueue, 0);
                 // An error message.
                 var outMessage = participant.protocolOutQueue[0];
-                console.log(outMessage.message);
                 assert.deepEqual(outMessage.message, {
                     from: "2",
                     severity: codec.ERROR.TERMINAL,
@@ -915,7 +915,7 @@ define([
                 var groupKey = _td.GROUP_KEY.substring(0, 16);
                 participant.greet.cliquesMember.groupKey = groupKey;
                 participant.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant._messageSecurity = _dummyMessageSecurity(participant.greet);
+                participant._messageSecurity = _dummyMessageSecurity('Moe', participant.greet);
                 var message = {message: _td.DATA_MESSAGE_PAYLOAD,
                                from: 'bar@baz.nl/blah123'};
                 sandbox.stub(participant._tryDecrypt, 'trial');
@@ -924,6 +924,49 @@ define([
                 assert.lengthOf(participant._tryDecrypt.trial.getCall(0).args, 1);
                 assert.deepEqual(participant._tryDecrypt.trial.getCall(0).args[0],
                     { from: message.from, data: _td.DATA_MESSAGE_STRING });
+            });
+
+            it('on data message received out-of-order', function() {
+                var members = new struct.ImmutableSet(_td.SESSION_KEY_STORE.sessions[_td.SESSION_ID].members);
+
+                var sender = new ns.ProtocolHandler('Larry', 'Tears for Fears',
+                                                    _td.ED25519_PRIV_KEY,
+                                                    _td.ED25519_PUB_KEY,
+                                                    _td.STATIC_PUB_KEY_DIR);
+                sender.exponentialPadding = 0;
+                sender.greet.state = greeter.STATE.READY;
+                sender.greet.cliquesMember.groupKey = _td.GROUP_KEY;
+                sender.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                sender.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                sender._messageSecurity = _dummyMessageSecurity('Larry', sender.greet);
+                sender._sessionKeyStore = sender._messageSecurity._sessionKeyStore;
+                sender._currentMembers = members;
+                sender.send('Message 1');
+                sender.send('Message 2');
+                assert.lengthOf(sender.messageOutQueue, 2);
+                assert.lengthOf(sender.uiQueue, 2);
+
+                var recipient = new ns.ProtocolHandler('Moe', 'Tears for Fears',
+                                                        _td.ED25519_PRIV_KEY,
+                                                        _td.ED25519_PUB_KEY,
+                                                        _td.STATIC_PUB_KEY_DIR);
+                recipient.greet.state = greeter.STATE.READY;
+                recipient.greet.cliquesMember.groupKey = _td.GROUP_KEY;
+                recipient.greet.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
+                recipient.greet.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
+                recipient._messageSecurity = _dummyMessageSecurity('Moe', recipient.greet);
+                recipient._sessionKeyStore = recipient._messageSecurity._sessionKeyStore;
+                recipient._currentMembers = members;
+                var message2 = sender.messageOutQueue.pop();
+                var message1 = sender.messageOutQueue.pop();
+                recipient.processMessage(message2);
+                // second message is not accepted...
+                assert.lengthOf(recipient.uiQueue, 0);
+                recipient.processMessage(message1);
+                // until first one is received
+                assert.lengthOf(recipient.uiQueue, 2);
+                assert.deepEqual(recipient.uiQueue[0].secretContent.body, sender.uiQueue[0].secretContent.body);
+                assert.deepEqual(recipient.uiQueue[1].secretContent.body, sender.uiQueue[1].secretContent.body);
             });
 
             it('on query message', function() {

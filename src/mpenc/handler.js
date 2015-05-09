@@ -23,9 +23,13 @@ define([
     "mpenc/greet/greeter",
     "mpenc/codec",
     "mpenc/message",
+    "mpenc/impl/transcript",
     "mpenc/greet/keystore",
     "megalogger",
-], function(assert, utils, struct, greeter, codec, message, keystore, MegaLogger) {
+], function(assert, utils, struct,
+    greeter, codec, message, transcriptImpl, keystore,
+    MegaLogger
+) {
     "use strict";
 
     /**
@@ -139,16 +143,17 @@ define([
         this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this.exponentialPadding = exponentialPadding || ns.DEFAULT_EXPONENTIAL_PADDING;
 
+        // TODO(xl): after 2220 is done this should be multiple transcripts
+        // for now, just stick with one
+        this._transcript = new transcriptImpl.BaseTranscript();
+        this._currentMembers = new struct.ImmutableSet([this.id]);
         this._messageSecurity = null;
         this._sessionKeyStore = new keystore.KeyStore(name, function() { return 20; });
 
         var self = this;
 
         // Set up a trial buffer for trial decryption.
-        var decryptTarget = new ns.DecryptTrialTarget(
-            function(message, authorHint) {
-                return self._messageSecurity.decrypt(message, authorHint);
-            }, this.uiQueue, 100);
+        var decryptTarget = new ns.DecryptTrialTarget(this._tryDecryptAccept.bind(this), 100);
         this._tryDecrypt = new struct.TrialBuffer(this.name, decryptTarget, false);
 
         // Set up component to manage membership operations
@@ -176,7 +181,9 @@ define([
                                      greet.getMembers(),
                                      greet.getEphemeralPubKeys(),
                                      greet.getGroupKey().substring(0, 16));
+        this._currentMembers = new struct.ImmutableSet(greet.getMembers());
         return new message.MessageSecurity(
+            this.id,
             greet.getEphemeralPrivKey(),
             greet.getEphemeralPubKey(),
             this._sessionKeyStore)
@@ -189,6 +196,10 @@ define([
             message: codec.encodeWirePacket(encodedMessage)
         });
         this.queueUpdatedCallback(this);
+    };
+
+    ns.ProtocolHandler.prototype.currentMembers = function() {
+        return this._currentMembers;
     };
 
     /**
@@ -399,6 +410,26 @@ define([
     };
 
 
+    ns.ProtocolHandler.prototype._tryDecryptAccept = function(message, authorHint) {
+        var decrypted = this._messageSecurity.decrypt(message, authorHint);
+        if (this._transcript.has(decrypted.mId)) {
+            return true; // already accepted before - silently accept but do nothing else
+        }
+        if (decrypted.parents.subtract(this._transcript).length) {
+            return false; // parents not yet received, put back on trial buffer
+        }
+        try {
+            this._transcript.add(decrypted);
+            this.uiQueue.push(decrypted);
+            return true;
+        } catch (e) {
+            // TODO(xl): distinguish between different error cases
+            logger.warn("Transcript did not accept decrypted message: " + e);
+        }
+        return false;
+    };
+
+
     /**
      * Sends a message confidentially to the current group.
      *
@@ -412,12 +443,17 @@ define([
     ns.ProtocolHandler.prototype.send = function(messageContent, metadata) {
         _assert(this.greet.state === greeter.STATE.READY,
                 'Messages can only be sent in ready state.');
+        var parents = this._transcript.max();
+        var recipients = this.currentMembers().subtract(new struct.ImmutableSet([this.id]));
+        var out = this._messageSecurity.encrypt(messageContent, recipients, parents, this.exponentialPadding);
+        var msg = message.Message(out.mId, this.id, parents, recipients, message.UserData(messageContent));
+        this._transcript.add(msg);
+        this.uiQueue.push(msg);
         var outMessage = {
             from: this.id,
             to: '',
             metadata: metadata,
-            // TODO(xl): add some parent pointers
-            message: codec.encodeWirePacket(this._messageSecurity.encrypt(messageContent, null, this.exponentialPadding)),
+            message: codec.encodeWirePacket(out.ciphertext),
         };
         this.messageOutQueue.push(outMessage);
         this.queueUpdatedCallback(this);
@@ -464,14 +500,11 @@ define([
      *
      * @property _sessionKeyStore {mpenc.greet.keystore.KeyStore}
      *     Store for (sub-) session related keys and information.
-     * @property _outQueue {array}
-     *     Output queue to receive successfully trialled parameters (messages).
      * @property _maxSize {integer}
      *     Maximum number of elements to be held in trial buffer.
      */
-    function DecryptTrialTarget(decryptor, outQueue, maxSize) {
+    function DecryptTrialTarget(decryptor, maxSize) {
         this._decryptor = decryptor;
-        this._outQueue = outQueue;
         this._maxSize = maxSize;
     }
     ns.DecryptTrialTarget = DecryptTrialTarget;
@@ -480,14 +513,12 @@ define([
     // See TrialTarget#tryMe.
     // Our parameter is the `wireMessage`.
     DecryptTrialTarget.prototype.tryMe = function(pending, input) {
-        var decrypted = this._decryptor(input.data, input.from);
-        if (decrypted) {
-            this._outQueue.push(decrypted);
-            return true;
+        var accepted = this._decryptor(input.data, input.from);
+        if (!accepted) {
+            logger.debug('Message from "' + input.from
+                         + ' not decrypted or accepted, will be stashed in trial buffer.');
         }
-        logger.debug('Message from "' + input.from
-                     + ' not decrypted, will be stashed in trial buffer.');
-        return false;
+        return !!accepted;
     };
 
 
