@@ -32,7 +32,7 @@ var requirejs_config_mpenc =
         "lru-cache": {
             exports: "lru-cache",
             init: function() {
-                return LRUCache;
+                return (typeof LRUCache !== "undefined") ? LRUCache : module.exports;
             },
         },
     },
