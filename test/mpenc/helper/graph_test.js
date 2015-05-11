@@ -60,6 +60,11 @@ define([
     };
 
     describe("Breadth-first iterative search", function() {
+        it("Uniqueness", function() {
+            var g = {"0": [], "1": ["0"], "2": ["0"], "3": ["1", "2"], "4": ["3"]};
+            var gen = ns.bfIterator(["4"], function(v) { return g[v]; });
+            assert.deepEqual(struct.iteratorToArray(gen), ["4", "3", "1", "2", "0"]);
+        });
         it("Filter predicate", function() {
             var g = G_with_blocked_path, p = P_with_blocked_path;
             var gen = ns.bfIterator(["1"], function(v) { return g[v].filter(function(nv, i, a) { return p[nv]; }); });

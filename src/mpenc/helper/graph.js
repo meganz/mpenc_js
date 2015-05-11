@@ -256,6 +256,7 @@ define([
             seen.add(v);
             var nv = suc(v).filter(function(v, i, a){ return !seen.has(v); });
             queue = queue.concat(nv);
+            nv.forEach(function(w) { seen.add(w); });
             return { value: v, done: false };
         }};
     };
