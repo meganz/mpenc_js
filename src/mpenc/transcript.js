@@ -154,6 +154,17 @@ define([
     Transcript.prototype.pre_ruId;
 
     /**
+     * The latest messages before the given subject, that satisfy a predicate.
+     * This acts as a "filtered" view of the parents, and is the same as
+     * max(filter(pred, ancestors(v))).
+     *
+     * @method
+     * @param v {string} The subject node
+     * @param pred {module:mpenc/helper/utils~predicate} Predicate to filter for.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} */
+    Transcript.prototype.pre_pred;
+
+    /**
      * The earliest message after mId authored by the given recipient of mId, or
      * <code>null</code> we did not yet see them author such a message.
      *

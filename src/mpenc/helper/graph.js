@@ -30,6 +30,8 @@ define([
      */
     var ns = {};
 
+    var alwaysTrue = function() { return true; };
+
     /**
      * A causal order is a partial order, where each element is an event
      * associated with an author/agent, an actor-observer who initiates the
@@ -104,17 +106,6 @@ define([
      * @returns {boolean}  */
     CausalOrder.prototype.ge;
 
-    /**
-     * The latest messages before the given subject, that satisfy a predicate.
-     * This acts as a "filtered" view of the parents, and is the same as
-     * max(filter(pred, ancestors(v))).
-     *
-     * @method
-     * @param v {string} The subject node
-     * @param pred {module:mpenc/helper/utils~predicate} Predicate to filter for.
-     * @returns {module:mpenc/helper/struct.ImmutableSet} */
-    CausalOrder.prototype.pre_pred;
-
     /** All authors ever to have participated in this session.
      * @method
      * @returns {module:mpenc/helper/struct.ImmutableSet} Set of uIds. */
@@ -131,6 +122,62 @@ define([
      * @param {string} Author id.
      * @returns {string[]} List of node/event ids. */
     CausalOrder.prototype.by;
+
+    /**
+     * Iterate through ancestors in reverse topological order.
+     *
+     * @method
+     * @param init {Array} Initial nodes to traverse from; must not mutate.
+     * @param preFilter {module:mpenc/helper/utils~predicate} Whether to regard
+     *      a given node at all. If false, it is not considered to exist for
+     *      this traversal. Its ancestors may still be traversed via a
+     *      different path, but their ordering is not constrained to come after
+     *      this node, since it "does not exist". Default: no filter
+     * @param traverseFilter {module:mpenc/helper/utils~predicate} Whether to
+     *      continue traversing at a given node. If false, ancestors will
+     *      also not be traversed, due to the ordering constraint of being
+     *      traversed after this node, which will never be traversed. Default:
+     *      no filter.
+     * @param returnBoundary {boolean} Whether to return maximal nodes that
+     *      did *not* satisfy traverseFilter. Default: false, i.e. return nodes
+     *      that did satisfy traverseFilter (i.e. all traversed nodes).
+     * @returns {Iterator} Yields unique nodes in topological order.
+     */
+    CausalOrder.prototype.iterAncestors = function(init, preFilter, traverseFilter, returnBoundary) {
+        preFilter = preFilter || alwaysTrue;
+        traverseFilter = traverseFilter || alwaysTrue;
+        returnBoundary = !!returnBoundary;
+        var self = this;
+        return ns.bfTopoIterator(init.filter(preFilter),
+            function(v) { return self.pre(v).toArray().filter(preFilter); },
+            function(v) { return self.suc(v).toArray().filter(preFilter); },
+            this.ge.bind(this), traverseFilter, returnBoundary);
+    };
+
+    /**
+     * Iterate through descendants in forward topological order.
+     *
+     * See {@link module:mpenc/helper/graph.CausalOrder#iterAncestors} for more
+     * documentation, except note that traversal happens in the opposite
+     * direction here.
+     *
+     * @method
+     * @param init {Array}
+     * @param preFilter {module:mpenc/helper/utils~predicate} Default: no filter.
+     * @param traverseFilter {module:mpenc/helper/utils~predicate} Default: no filter.
+     * @param returnBoundary {boolean} Default: false.
+     * @returns {Iterator} Yields unique nodes in topological order.
+     */
+    CausalOrder.prototype.iterDescendants = function(init, preFilter, traverseFilter, returnBoundary) {
+        preFilter = preFilter || alwaysTrue;
+        traverseFilter = traverseFilter || alwaysTrue;
+        returnBoundary = !!returnBoundary;
+        var self = this;
+        return ns.bfTopoIterator(init.filter(preFilter),
+            function(v) { return self.suc(v).toArray().filter(preFilter); },
+            function(v) { return self.pre(v).toArray().filter(preFilter); },
+            this.le.bind(this), traverseFilter, returnBoundary);
+    };
 
     CausalOrder.checkInvariants = function(target) {
         CausalOrder._checkRelations(target);
@@ -263,26 +310,31 @@ define([
     ns.bfIterator = bfIterator;
 
     /**
-     * Iterative breadth-first topological search.
+     * Iterative breadth-first topological traversal.
      *
-     * @param init {Array} Initial nodes to search from.
+     * @param init {Array} Initial nodes to traverse from; must not mutate.
      * @param suc {module:mpenc/helper/utils~associates} Get successors of a node.
      * @param pre {module:mpenc/helper/utils~associates} Get predecessors of a node.
-     * @param predicate {module:mpenc/helper/utils~predicate} Whether to
-     *      continue searching at a given node. If this returns false, none of
-     *      its descendents will be reached (even if they would have matched).
-     *      Default: always-True
-     * @param boundary {boolean} Whether to return nodes that did satisfy the
-     *      predicate (i.e. all nodes traversed), or maximum nodes that did
-     *      *not* satisfy the predicate. Default: False.
+     * @param le {module:mpenc/helper/graph.CausalOrder#le} 2-arg function to
+     *      test &le; relationship. If pre() always returns elements that are
+     *      strongly-reachable via suc() from init, one may instead use a dummy
+     *      function here (function() { return true; }).
+     * @param traverseFilter {module:mpenc/helper/utils~predicate} Whether to
+     *      continue traversing at a given node. If false, descendents will
+     *      also not be reached, due to the topological ordering constraint.
+     *      Default: no filter.
+     * @param returnBoundary {boolean} Whether to return minimal nodes that
+     *      did *not* satisfy traverseFilter. Default: false, i.e. return nodes
+     *      that did satisfy traverseFilter (i.e. all traversed nodes).
      * @returns {Iterator} Yields unique nodes in topological order.
      * @memberOf! module:mpenc/helper/graph
      */
-    var bfTopoIterator = function(init, suc, pre, predicate, boundary) {
+    var bfTopoIterator = function(init, suc, pre, le, predicate, returnBoundary) {
         var queue = [].concat(init);
         var need = new Map();
-        predicate = predicate || function() { return true; };
-        boundary = !!boundary;
+        predicate = predicate || alwaysTrue;
+        returnBoundary = !!returnBoundary;
+        var reachable = function(v) { return init.some(function(vi) { return le(vi, v); }); };
 
         return { next: function() {
             var v;
@@ -292,7 +344,7 @@ define([
                 }
                 v = queue.shift();
                 if (!predicate(v)) {
-                    if (boundary) {
+                    if (returnBoundary) {
                         return { value: v, done: false };
                     }
                 } else {
@@ -300,7 +352,11 @@ define([
                     for (var i=0; i<vv.length; i++) {
                         var nv = vv[i];
                         if (!need.has(nv)) {
-                            need.set(nv, new Set(pre(nv)));
+                            var nvpre = new Set(pre(nv).filter(reachable));
+                            if (!nvpre.has(v)) {
+                                throw new Error("pre() gave a bad result; buggy caller logic");
+                            }
+                            need.set(nv, nvpre);
                         }
                         var neednv = need.get(nv);
                         if (!neednv.has(v)) {
@@ -311,7 +367,7 @@ define([
                             queue.push(nv);
                         }
                     };
-                    if (!boundary) {
+                    if (!returnBoundary) {
                         return { value: v, done: false };
                     }
                 }
@@ -362,7 +418,7 @@ define([
     /**
      * Create a {module:mpenc/helper/graph~merge} function.
      *
-     * @param suc {module:mpenc/helper/utils~associates} Get predecessors of a node.
+     * @param pre {module:mpenc/helper/utils~associates} Get predecessors of a node.
      * @param suc {module:mpenc/helper/utils~associates} Get successors of a node.
      * @param le {module:mpenc/helper/graph.CausalOrder#le} 2-arg function to test &le; relationship in the history.
      * @param state {function} 1-arg function to get the state at a node.
@@ -376,9 +432,8 @@ define([
         // anc2(M, m) := { p | p <= m && (p <= m' for some m' in M) }
         var lca2 = function(init, m) {
             var lca = new struct.ImmutableSet(struct.iteratorToArray(bfTopoIterator(
-                init, pre, function(v) {
-                    return suc(v).filter(function(nv) { return init.some(function(a) { return le(nv, a); }); });
-                }, function(v) { return !le(v, m); }, true
+                init, pre, suc, function(a, b) { return le(b, a); },
+                function(v) { return !le(v, m); }, true
             )));
             if (lca.has(m)) {
                 throw new Error("merge target " + m + " is a parent of some of " + init);

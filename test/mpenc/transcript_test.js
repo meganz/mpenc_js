@@ -211,6 +211,32 @@ define([
             assert.strictEqual(tr.suc_ruId(0, 52), 2);
             assert.strictEqual(tr.suc_ruId(0, 51), 1);
         });
+
+        it('suc_ruId indirect', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 50, [0], [51, 52]));
+            tr.add(M(2, 51, [1], [50, 52]));
+            tr.add(M(3, 52, [1], [50, 51]));
+            assert.strictEqual(tr.suc_ruId(2, 52), null);
+            assert.strictEqual(tr.suc_ruId(3, 51), null);
+            assert.strictEqual(tr.suc_ruId(0, 52), 3);
+            assert.strictEqual(tr.suc_ruId(0, 51), 2);
+        });
+
+        it('suc_ruId through blocked', function() {
+            var tr = new impl.BaseTranscript();
+            tr.add(M(0, 50, [], [51, 52]));
+            tr.add(M(1, 52, [0], [50]));
+            tr.add(M(2, 50, [1], [51, 52]));
+            tr.add(M(3, 51, [2], [50, 52]));
+            tr.add(M(4, 52, [2], [50, 51]));
+            assert.strictEqual(tr.suc_ruId(3, 52), null);
+            assert.strictEqual(tr.suc_ruId(4, 51), null);
+            assert.strictEqual(tr.suc_ruId(0, 52), 1);
+            assert.strictEqual(tr.suc_ruId(0, 51), null);
+            assert.strictEqual(tr.suc_ruId(2, 51), 3);
+        });
     });
 
     describe("DefaultMessageLog class", function() {

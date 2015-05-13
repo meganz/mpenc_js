@@ -70,9 +70,6 @@ define([
         this._authorIndex = new Map(); // mId: int, index into _authorMessages[mId's author]
 
         this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
-        this._subsequent = new Map(); // mId: uId: (int, int), range of author-indexes of messages sent by
-                                      // uId after mId, but before later messages sent by the same author
-                                      // (0, 0) means we haven't seen uId speak at all yet
 
         this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
         this._unacked = new Set(); // Set[mId] of not fully-acked messages
@@ -200,25 +197,6 @@ define([
         return this.le(m1, m0);
     };
 
-    BaseTranscript.prototype.pre_pred = function(mId, pred) {
-        var init = safeGet(this._messages, mId).parents;
-        var initArr = init.toArray();
-        var self = this;
-        return new Set(struct.iteratorToArray(graph.bfTopoIterator(initArr,
-            function(mId) { return self.pre(mId).toArray(); },
-            function(mId) {
-                // limit traversal to ancestors of init
-                return self.suc(mId).toArray().filter(function(nmId) {
-                    return initArr.some(function(pm) {
-                        return self.le(nmId, pm);
-                    });
-                });
-            },
-            function(mId) { return !pred(mId); },
-            true
-        )));
-    };
-
     BaseTranscript.prototype.allAuthors = function() {
         return this._uIds;
     };
@@ -235,6 +213,10 @@ define([
         }
         return this._cacheBy.get(uId);
     };
+
+    BaseTranscript.prototype.iterAncestors = graph.CausalOrder.prototype.iterAncestors;
+
+    BaseTranscript.prototype.iterDescendants = graph.CausalOrder.prototype.iterDescendants;
 
     // Messages
 
@@ -366,27 +348,11 @@ define([
 
             // update context
             this._context.set(mId, context);
-            context.forEach(function(um, _) {
-               if (um === null) return;
-               var subseq = self._subsequent.get(um).get(uId);
-               var a = subseq[0], b = subseq[1];
-               if (a === b) { // assert a == 0
-                   a = mSeq
-               }
-               b = mSeq + 1;
-               self._subsequent.get(um).set(uId, [a, b]);
-            });
-            this._subsequent.set(mId, new Map(ruId.toArray().map(function(ru) {
-                return [ru, [0, 0]];
-            })));
 
             // update unacked
             this._unackby.set(mId, ruId);
             this._unacked = this._unacked.union(mIdS);
-            var ackthru = function(m) { return self._unackby.get(m).has(uId); };
-            var anc = graph.bfIterator(pmIdArr.filter(ackthru), function(m) {
-                return self.pre(m).toArray().filter(ackthru);
-            });
+            var anc = this.iterAncestors(pmIdArr, function(m) { return self._unackby.get(m).has(uId); });
             var acked = new Set().asMutable(); // TODO(xl): see note at top
             if (!ruId.size) {
                 acked.add(mId);
@@ -423,14 +389,24 @@ define([
         }
     };
 
+    BaseTranscript.prototype.pre_pred = function(mId, pred) {
+        var it = this.iterAncestors(this.pre(mId).toArray(),
+            null, function(mId) { return !pred(mId); }, true);
+        return new Set(struct.iteratorToArray(it));
+    };
+
     BaseTranscript.prototype.suc_ruId = function(mId, ruId) {
         if (ruId === undefined) {
             throw new Error("not implemented");
-        } else {
-            var subseq = safeGet(safeGet(this._subsequent, mId), ruId);
-            var a = subseq[0], b = subseq[1];
-            return (a === b)? null: this.by(ruId)[a];
         }
+        if (!this._messages.get(mId).recipients.has(ruId)) {
+            throw new ReferenceError("invalid recipient: " + ruId);
+        }
+        var self = this;
+        var visible = function(m) { return self._messages.get(m).members().has(ruId); };
+        var it = this.iterDescendants([mId], visible, function(m) { return ruId != self.author(m); }, true);
+        var next = it.next();
+        return (next.done) ? null : next.value;
     };
 
     BaseTranscript.prototype.mergeMembers = function(parents) {

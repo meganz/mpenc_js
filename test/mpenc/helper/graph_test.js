@@ -73,14 +73,15 @@ define([
     });
 
     describe("Breadth-first topological iterative search", function() {
+        var dummyLe = function() { return true; };
         it("Filter predicate", function() {
             var g = G_with_blocked_path, p = P_with_blocked_path;
             var gen;
             // 4 not in here even though it's reachable from 1, because 3 < 4 and 3 doesn't match
-            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), _objGetter(p));
+            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), dummyLe, _objGetter(p));
             assert.deepEqual(struct.iteratorToArray(gen), ["1", "2"]);
             // 6 not in here even though it doesn't match, because 3 < 6 and 3 already doesn't match
-            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), _objGetter(p), true);
+            gen = ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), dummyLe, _objGetter(p), true);
             assert.deepEqual(struct.iteratorToArray(gen), ["3"]);
         });
         it("Raise on cycle", function() {
@@ -88,17 +89,17 @@ define([
 
             g = {"1": ["1"]};
             assert.throws(function(){
-                struct.iteratorToArray(ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1"], _objGetter(g), _preGetter(g), dummyLe));
             });
 
             g = {"1": ["2"], "2": ["1"]};
             assert.throws(function(){
-                struct.iteratorToArray(ns.bfTopoIterator(["1", "2"], _objGetter(g), _preGetter(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1", "2"], _objGetter(g), _preGetter(g), dummyLe));
             });
 
             g = {"1": ["2"], "2": ["3"], "3": ["1"]};
             assert.throws(function(){
-                struct.iteratorToArray(ns.bfTopoIterator(["1", "2", "3"], _objGetter(g), _preGetter(g)));
+                struct.iteratorToArray(ns.bfTopoIterator(["1", "2", "3"], _objGetter(g), _preGetter(g), dummyLe));
             });
         });
     });
