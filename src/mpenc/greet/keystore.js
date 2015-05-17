@@ -138,7 +138,7 @@ define([
             var message = 'Attempt to add a session with an already existing ID on '
                         + this.name + '.';
             logger.error(message);
-            throw new Error(message)
+            throw new Error(message);
         }
 
         this.sessions[sid] = new _SessionItem(members, groupKey);
@@ -232,7 +232,7 @@ define([
             _assert(struct.ImmutableSet(members)
                     .equals(struct.ImmutableSet(this.sessions[sid].members)),
                     'Attempt to update ' + this.name
-                    + ' with mis-matching members for a sesssion.')
+                    + ' with mis-matching members for a sesssion.');
             this.addGroupKey(sid, groupKey);
         } else {
             this.addSession(sid, members, pubKeys, groupKey);

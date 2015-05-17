@@ -377,7 +377,7 @@ define([
         var myPos = this.members.indexOf(this.id);
         this.authenticatedMembers = utils.arrayMaker(this.members.length, false);
         this.authenticatedMembers[myPos] = true;
-    }
+    };
 
 
     /**

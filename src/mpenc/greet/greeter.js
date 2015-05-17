@@ -546,7 +546,7 @@ define([
      */
     GreetMessage.prototype.isRecover = function() {
         return this._readBit(ns._RECOVER_BIT);
-    }
+    };
 
 
     /**
@@ -560,7 +560,7 @@ define([
     GreetMessage.prototype.getOperation = function() {
         return ns.OPERATION_MAPPING[(this.getGreetTypeNumber() & ns._OPERATION_MASK)
                                     >>> ns._OP_BITS];
-    }
+    };
 
 
     /**
@@ -863,7 +863,9 @@ define([
     };
 
     GreetWrapper.prototype._encodeAndPublish = function(packet) {
-        if (!packet) return;
+        if (!packet) {
+            return;
+        }
         var payload = ns.encodeGreetMessage(
             packet,
             this.getEphemeralPrivKey(),

@@ -486,7 +486,7 @@ define([
     ns._computeKeyList = function(privKeyList, intKey) {
         var result = intKey;
         for (var i in privKeyList) {
-            result = jodid25519.dh.computeKey(privKeyList[i], result)
+            result = jodid25519.dh.computeKey(privKeyList[i], result);
         }
         return result;
     };
@@ -506,7 +506,7 @@ define([
     ns._computeKeyListDebug = function(privKeyList, intKey) {
         var result = intKey;
         for (var i in privKeyList) {
-            result = ns._computeKeyDebug(privKeyList[i], result)
+            result = ns._computeKeyDebug(privKeyList[i], result);
         }
         return result;
     };
