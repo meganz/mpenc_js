@@ -174,7 +174,7 @@ define([
             obs.publish(3);
             obs.publish(4);
             assert.deepEqual(logs, []);
-        })
+        });
     });
 
     describe("events", function() {
@@ -392,7 +392,7 @@ define([
         var timer = ns.defaultMsTimer;
 
         it("basic usage", function(done) {
-            var called = 0
+            var called = 0;
             var times = 3;
             var act = function() {
                 logs.push("called act-basic");
@@ -423,7 +423,7 @@ define([
         });
 
         it("fail SubscriberFailure", function(done) {
-            var called = 0
+            var called = 0;
             var times = 1;
             var act = function() {
                 logs.push("called act-sf");

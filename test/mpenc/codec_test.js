@@ -392,6 +392,8 @@ define([
 
     describe("signMessage()/verifyMessageSignature()", function() {
         it('several round trips', function() {
+            // Extend timeout, this test may take a bit longer.
+            this.timeout(this.timeout() * 1.5);
             for (var i = 0; i < 5; i++) {
                 var privKey = jodid25519.utils.bytes2string(utils._newKey08(512));
                 var pubKey = jodid25519.eddsa.publicKey(privKey);

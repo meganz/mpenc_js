@@ -639,7 +639,7 @@ define([
             var r = not_yet_cancelled;
             not_yet_cancelled = false;
             return r;
-        }
+        };
     };
     ns.defaultMsTimer = defaultMsTimer;
 
@@ -664,8 +664,8 @@ define([
             return new Monitor(timer, intervals, action, name);
         }
 
-        this._timer = timer
-        this._action = action
+        this._timer = timer;
+        this._action = action;
         this._name = name;
 
         this._intervals = null;
