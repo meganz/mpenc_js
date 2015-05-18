@@ -146,10 +146,6 @@ define([
                             '\u0000\u001c': 0x01c, // INIT_PARTICIPANT_UP
                             '\u0000\u001e': 0x01e, // INIT_PARTICIPANT_DOWN
                             '\u0000\u001a': 0x01a, // INIT_PARTICIPANT_CONFIRM_DOWN
-                            '\u0001\u009c': 0x19c, // RECOVER_INIT_INITIATOR_UP
-                            '\u0001\u001c': 0x11c, // RECOVER_INIT_PARTICIPANT_UP
-                            '\u0001\u001e': 0x11e, // RECOVER_INIT_PARTICIPANT_DOWN
-                            '\u0001\u001a': 0x11a, // RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN:
                             // Include sequence.
                             '\u0000\u00ad': 0x0ad, // INCLUDE_AUX_INITIATOR_UP
                             '\u0000\u002d': 0x02d, // INCLUDE_AUX_PARTICIPANT_UP
@@ -158,13 +154,9 @@ define([
                             // Exclude sequence.
                             '\u0000\u00bf': 0x0bf, // EXCLUDE_AUX_INITIATOR_DOWN
                             '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
-                            '\u0001\u00bf': 0x1bf, // RECOVER_EXCLUDE_AUX_INITIATOR_DOWN
-                            '\u0001\u003b': 0x13b, // RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
                             // Refresh sequence.
                             '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
                             '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
-                            '\u0001\u00c7': 0x1c7, // RECOVER_REFRESH_AUX_INITIATOR_DOWN
-                            '\u0001\u0047': 0x147, // RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:
                             // Quit indication.
                             '\u0000\u00d3': 0x0d3  // QUIT_DOWN
         };
@@ -664,43 +656,6 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.state = ns.STATE.NULL;
                 var result = participant._processMessage(new ns.GreetMessage(message));
-                assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
-                var output = result.decodedMessage;
-                assert.strictEqual(output.source, compare.source);
-                assert.strictEqual(output.dest, compare.dest);
-                assert.strictEqual(output.greetType, compare.greetType);
-                assert.deepEqual(output.members, compare.members);
-                assert.lengthOf(output.intKeys, compare.intKeys.length);
-                assert.lengthOf(output.nonces, compare.nonces.length);
-                assert.lengthOf(output.pubKeys, compare.pubKeys.length);
-                assert.ok(output.sessionSignature);
-            });
-
-            it('processing for recovery upflow message', function() {
-                var message = { source: '4', dest: '5',
-                                greetType: ns.GREET_TYPE.RECOVER_INIT_PARTICIPANT_UP,
-                                members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
-                                debugKeys: ['', '', '', '', ''],
-                                nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
-                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
-                                sessionSignature: null };
-                var compare = { source: '5', dest: '',
-                                greetType: ns.GREET_TYPE.RECOVER_INIT_PARTICIPANT_DOWN,
-                                members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
-                                nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
-                                pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
-                                sessionSignature: 'bar' };
-                var participant = makeGreeting('5',
-                                                      _td.ED25519_PRIV_KEY,
-                                                      _td.ED25519_PUB_KEY,
-                                                      _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.AUX_DOWNFLOW;
-                participant.askeMember.authenticatedMembers= [true, true, true, true, true]
-                var result = participant._processMessage(new ns.GreetMessage(message));
-                assert.strictEqual(participant.recovering, true);
-                assert.deepEqual(participant.askeMember.authenticatedMembers, [false, false, false, false, true]);
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
                 assert.strictEqual(output.source, compare.source);

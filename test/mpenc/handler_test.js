@@ -292,33 +292,6 @@ define([
                 assert.strictEqual(participant.greet.state, greeter.STATE.AUX_DOWNFLOW);
             });
 
-            it('exclude members in recovery', function() {
-                var participant = new ns.ProtocolHandler('mccoy@ncc-1701.mil/android123',
-                                                         'NCC-1701',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state = greeter.STATE.AUX_DOWNFLOW;
-                participant.greet.recovering = true;
-                var message = {message: "He's dead, Jim!",
-                               members: ['mccoy@ncc-1701.mil/android123', 'kirk@ncc-1701.mil/android456'],
-                               dest: ''};
-                sandbox.stub(participant.greet.cliquesMember, "akaExclude", stub());
-                sandbox.stub(participant.greet.askeMember, "exclude", stub());
-                sandbox.stub(participant.greet, "_mergeMessages").returns(message);
-                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                sandbox.stub(codec, 'encodeWirePacket', _echo);
-                participant.exclude(['kirk@ncc-1701.mil/android456']);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.deepEqual(participant.protocolOutQueue[0].message, message);
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'mccoy@ncc-1701.mil/android123');
-                assert.strictEqual(participant.protocolOutQueue[0].to, '');
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-                assert.strictEqual(participant.greet.state, greeter.STATE.AUX_DOWNFLOW);
-                assert.strictEqual(participant.greet.recovering, true);
-            });
-
             it('illegal state transition', function() {
                 var participant = new ns.ProtocolHandler('jake@blues.org/android123',
                                                          'Blues Brothers',
@@ -334,23 +307,6 @@ define([
                     participant.greet.state = illegalStates[i];
                     assert.throws(function() { participant.exclude(); },
                                   'exclude() can only be called from a ready state.');
-                }
-            });
-
-            it('illegal state transition on recovery', function() {
-                var participant = new ns.ProtocolHandler('jake@blues.org/android123',
-                                                         'Blues Brothers',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.recovering = true;
-                var illegalStates = [greeter.STATE.NULL,
-                                     greeter.STATE.INIT_UPFLOW,
-                                     greeter.STATE.AUX_UPFLOW];
-                for (var i = 0; i < illegalStates.length; i++) {
-                    participant.greet.state = illegalStates[i];
-                    assert.throws(function() { participant.exclude(); },
-                                  'exclude() for recovery can only be called from a ready or downflow state.');
                 }
             });
 
@@ -498,107 +454,6 @@ define([
                     assert.throws(function() { participant.refresh(); },
                                   'refresh() can only be called from a ready or downflow states.');
                 }
-            });
-        });
-
-        describe('#_fullRefresh() method', function() {
-            it('refresh all using ika', function() {
-                var participant = new ns.ProtocolHandler('Earth', 'Solar System',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                var members = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
-                               'Saturn', 'Uranus', 'Neptune', 'Pluto'];
-                participant.greet.askeMember.members = utils.clone(members);
-                participant.greet.cliquesMember.members = utils.clone(members);
-                var message = { message: "Pluto's not a planet any more!!",
-                                members: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
-                                          'Saturn', 'Uranus', 'Neptune'],
-                                dest: 'Mercury' };
-                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                var keepMembers = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter',
-                                   'Saturn', 'Uranus', 'Neptune'];
-                participant._fullRefresh(keepMembers);
-                sinon_assert.calledOnce(greeter.encodeGreetMessage);
-                assert.lengthOf(participant.protocolOutQueue, 1);
-                assert.strictEqual(participant.protocolOutQueue[0].from, 'Earth');
-                assert.strictEqual(participant.protocolOutQueue[0].to, 'Mercury');
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-                assert.strictEqual(participant.greet.state, greeter.STATE.INIT_UPFLOW);
-            });
-
-            it('refresh by excluding last peer --> quit()', function() {
-                var participant = new ns.ProtocolHandler('chingachgook@mohicans.org/android123',
-                                                         'Last of the Mohicans',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state =  greeter.STATE.AUX_UPFLOW;
-                var members = ['chingachgook@mohicans.org/android123',
-                               'uncas@mohicans.org/ios1234'];
-                participant.members = members;
-                participant.greet.askeMember.members = utils.clone(members);
-                participant.greet.cliquesMember.members = utils.clone(members);
-                var message = {message: "The last of us!",
-                               members: ['chingachgook@mohicans.org/android123'],
-                               dest: ''};
-                sandbox.stub(participant.greet, '_mergeMessages').returns(message);
-                sandbox.stub(participant.greet, 'quit');
-                participant._fullRefresh(['uncas@mohicans.org/ios1234']);
-                sinon_assert.calledOnce(participant.greet._mergeMessages);
-                sinon_assert.calledOnce(participant.greet.quit);
-            });
-        });
-
-        describe('#recover() method', function() {
-            it('simplest recover', function() {
-                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         'Kill Bill',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state =  greeter.STATE.AUX_DOWNFLOW;
-                sandbox.stub(participant, 'refresh');
-                participant.recover();
-                sinon_assert.calledOnce(participant.refresh);
-                assert.strictEqual(participant.greet.recovering, true);
-            });
-
-            it('full recover', function() {
-                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         'Kill Bill',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state =  greeter.STATE.AUX_UPFLOW;
-                sandbox.stub(participant.greet, 'discardAuthentications');
-                sandbox.stub(participant, '_fullRefresh');
-                participant.recover();
-                sinon_assert.calledOnce(participant.greet.discardAuthentications);
-                sinon_assert.calledOnce(participant._fullRefresh);
-                assert.strictEqual(participant.greet.recovering, true);
-            });
-
-            it('recover members to keep', function() {
-                var participant = new ns.ProtocolHandler('beatrix@kiddo.com/android123',
-                                                         'Kill Bill',
-                                                         _td.ED25519_PRIV_KEY,
-                                                         _td.ED25519_PUB_KEY,
-                                                         _td.STATIC_PUB_KEY_DIR);
-                participant.greet.state =  greeter.STATE.AUX_DOWNFLOW;
-                var message = { message: "You're dead!",
-                                dest: '' };
-                participant.greet.askeMember.members = ['beatrix@kiddo.com/android123',
-                                                        'vernita@green.com/outlook4711',
-                                                        'o-ren@ishi.jp/ios1234'];
-                sandbox.stub(participant.greet, 'discardAuthentications');
-                sandbox.stub(participant, 'exclude');
-                sandbox.stub(greeter, 'encodeGreetMessage', _echo);
-                participant.recover(['beatrix@kiddo.com/android123', 'o-ren@ishi.jp/ios1234']);
-                sinon_assert.calledOnce(participant.greet.discardAuthentications);
-                sinon_assert.calledOnce(participant.exclude);
-                assert.strictEqual(participant.greet.recovering, true);
             });
         });
 

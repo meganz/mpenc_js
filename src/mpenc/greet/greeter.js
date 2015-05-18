@@ -56,7 +56,6 @@ define([
     ns._SKE_BIT = 3;
     ns._OP_BITS = 4;
     ns._INIT_BIT = 7;
-    ns._RECOVER_BIT = 8;
     ns._OPERATION = { DATA: 0x00,
                       START: 0x01,
                       INCLUDE: 0x02,
@@ -82,14 +81,6 @@ define([
      *     Participant initial downflow.
      * @property INIT_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant initial subsequent downflow.
-     * @property RECOVER_INIT_INITIATOR_UP {string}
-     *     Initiator initial upflow for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_UP {string}
-     *     Participant initial upflow message for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_DOWN {string}
-     *     Participant initial downflow for recovery.
-     * @property RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant initial subsequent downflow for recovery.
      * @property INCLUDE_AUX_INITIATOR_UP {string}
      *     Initiator aux include upflow.
      * @property INCLUDE_AUX_PARTICIPANT_UP {string}
@@ -102,18 +93,10 @@ define([
      *     Initiator aux exclude downflow.
      * @property EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
      *     Participant aux exclude subsequent.
-     * @property RECOVER_EXCLUDE_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux exclude downflow for recovery.
-     * @property RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN {string}
-     *     Participant aux exclude subsequent for recovery.
      * @property REFRESH_AUX_INITIATOR_DOWN {string}
      *     Initiator aux refresh downflow.
      * @property REFRESH_AUX_PARTICIPANT_DOWN {string}
      *     Participant aux refresh downflow.
-     * @property RECOVER_REFRESH_AUX_INITIATOR_DOWN {string}
-     *     Initiator aux refresh downflow. for recovery
-     * @property RECOVER_REFRESH_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux refresh downflow for recovery.
      * @property QUIT_DOWN {string}
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
@@ -123,10 +106,6 @@ define([
         INIT_PARTICIPANT_UP:                   '\u0000\u001c', // 0b00011100
         INIT_PARTICIPANT_DOWN:                 '\u0000\u001e', // 0b00011110
         INIT_PARTICIPANT_CONFIRM_DOWN:         '\u0000\u001a', // 0b00011010
-        RECOVER_INIT_INITIATOR_UP:             '\u0001\u009c', // 0b10011100
-        RECOVER_INIT_PARTICIPANT_UP:           '\u0001\u001c', // 0b00011100
-        RECOVER_INIT_PARTICIPANT_DOWN:         '\u0001\u001e', // 0b00011110
-        RECOVER_INIT_PARTICIPANT_CONFIRM_DOWN: '\u0001\u001a', // 0b00011010
         // Include sequence.
         INCLUDE_AUX_INITIATOR_UP:              '\u0000\u00ad', // 0b10101101
         INCLUDE_AUX_PARTICIPANT_UP:            '\u0000\u002d', // 0b00101101
@@ -135,13 +114,9 @@ define([
         // Exclude sequence.
         EXCLUDE_AUX_INITIATOR_DOWN:            '\u0000\u00bf', // 0b10111111
         EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
-        RECOVER_EXCLUDE_AUX_INITIATOR_DOWN:    '\u0001\u00bf', // 0b10111111
-        RECOVER_EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN: '\u0001\u003b', // 0b00111011
         // Refresh sequence.
         REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
         REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
-        RECOVER_REFRESH_AUX_INITIATOR_DOWN:    '\u0001\u00c7', // 0b11000111
-        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:  '\u0001\u0047', // 0b01000111
         // Quit indication.
         QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
     };
@@ -251,19 +226,6 @@ define([
      */
     ns.isInitBitOnGreetType = function(greetType) {
         return _isBitSetOnGreetType(greetType, ns._INIT_BIT);
-    };
-
-
-    /**
-     * Inspects the RECOVER bit of the message type.
-     *
-     * @param {integer|string}
-     *     Message type, either as a number or two character string.
-     * @return {boolean}
-     *     True if the bit is set, otherwise false.
-     */
-    ns.isRecoverBitOnGreetType = function(greetType) {
-        return _isBitSetOnGreetType(greetType, ns._RECOVER_BIT);
     };
 
 
@@ -534,18 +496,6 @@ define([
      */
     GreetMessage.prototype.clearInitiator = function(noMessageCheck) {
         return this._setBit(ns._INIT_BIT, false, noMessageCheck);
-    };
-
-
-    /**
-     * Returns whether the message is for a recovery protocol flow.
-     *
-     * @method
-     * @returns {bool}
-     *     `true` for a message for a recovery flow.
-     */
-    GreetMessage.prototype.isRecover = function() {
-        return this._readBit(ns._RECOVER_BIT);
     };
 
 
@@ -966,11 +916,7 @@ define([
         var askeMessage = this.askeMember.commit(otherMembers);
 
         var packet = this._mergeMessages(cliquesMessage, askeMessage);
-        if (this.recovering) {
-            packet.greetType = ns.GREET_TYPE.RECOVER_INIT_INITIATOR_UP;
-        } else {
-            packet.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
-        }
+        packet.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
 
         if (packet.members.length === 1) {
             // Last-man-standing case,
@@ -1011,13 +957,8 @@ define([
      *     Iterable of members to exclude from the group.
      */
     Greeting.prototype.exclude = function(excludeMembers) {
-        if (this.recovering) {
-            this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
-                    'exclude() for recovery can only be called from a ready or downflow state.');
-        } else {
-            this._assertState([ns.STATE.READY],
-                    'exclude() can only be called from a ready state.');
-        }
+        this._assertState([ns.STATE.READY],
+                'exclude() can only be called from a ready state.');
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
                 'Cannot exclude mysefl.');
@@ -1026,11 +967,7 @@ define([
         var askeMessage = this.askeMember.exclude(excludeMembers);
 
         var packet = this._mergeMessages(cliquesMessage, askeMessage);
-        if (this.recovering) {
-            packet.greetType = ns.GREET_TYPE.RECOVER_EXCLUDE_AUX_INITIATOR_DOWN;
-        } else {
-            packet.greetType = ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
-        }
+        packet.greetType = ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
 
         // We need to update the session state.
         this.sessionId = this.askeMember.sessionId;
@@ -1082,11 +1019,7 @@ define([
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
         var packet = this._mergeMessages(cliquesMessage, null);
-        if (this.recovering) {
-            packet.greetType = ns.GREET_TYPE.RECOVER_REFRESH_AUX_INITIATOR_DOWN;
-        } else {
-            packet.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
-        }
+        packet.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
         this._encodeAndPublish(packet, ns.STATE.READY);
@@ -1161,15 +1094,6 @@ define([
         }
 
         // State transitions.
-        if (message.isRecover()) {
-            // We're getting this message as part of a recovery flow.
-            this.recovering = true;
-            // In case of an upflow, we must also discard session authentications.
-            if (!message.isDownflow()) {
-                this.askeMember.discardAuthentications();
-            }
-        }
-
         var inCliquesMessage = this._getCliquesMessage(message);
         var inAskeMessage = this._getAskeMessage(message);
         var outCliquesMessage = null;
@@ -1243,7 +1167,6 @@ define([
             this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
             this.groupKey = this.cliquesMember.groupKey;
             logger.debug('Reached READY state.');
-            this.recovering = false;
         }
 
         if (outMessage) {

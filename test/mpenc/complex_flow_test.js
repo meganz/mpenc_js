@@ -88,7 +88,7 @@ define([
 
 
     describe("complex flow cases", function() {
-        it('for 3 members, 2 joining, 2 others leaving, send message, refresh key, full recovery', function() {
+        it('for 3 members, 2 joining, 2 others leaving, send message, refresh key', function() {
             // Extend timeout, this test takes longer.
             this.timeout(this.timeout() * 30);
             var numMembers = 3;
@@ -371,89 +371,6 @@ define([
                 assert.lengthOf(participant.protocolOutQueue, 0);
                 assert.lengthOf(participant.uiQueue, 0);
                 assert.lengthOf(participant.messageOutQueue, 0);
-            }
-
-            console.log('Recovering at ' + Math.round(Date.now() / 1000 - startTime));
-            // '5' starts a full recovery.
-            participants[2].greet.state = greeter.STATE.AUX_UPFLOW; // The glitch, where things got stuck.
-            oldGroupKey = participants[2].greet.getGroupKey();
-            var oldSigningKey = participants[2].greet.getEphemeralPrivKey();
-            // Should do a fullRefresh()
-            participants[2].recover();
-            assert.strictEqual(participants[2].greet.recovering, true);
-            message = participants[2].protocolOutQueue.shift();
-            payload = _getPayload(message, _getSender(message, participants, members));
-            assert.lengthOf(participants[2].greet.cliquesMember.privKeyList, 1);
-            assert.strictEqual(participants[2].greet.getEphemeralPrivKey(), oldSigningKey);
-            // Sort participants.
-            var tempParticipants = [];
-            for (var i = 0; i < payload.members.length; i++) {
-                var index = members.indexOf(payload.members[i]);
-                tempParticipants.push(participants[index]);
-            }
-            participants = tempParticipants;
-            members = payload.members;
-
-            console.log('Upflow for recover at ' + Math.round(Date.now() / 1000 - startTime));
-            // Upflow for recovery.
-            while (payload.dest !== '') {
-                var nextId = payload.members.indexOf(payload.dest);
-                oldSigningKey = participants[nextId].greet.getEphemeralPrivKey();
-                participants[nextId].processMessage(message);
-                assert.strictEqual(participants[nextId].greet.recovering, true);
-                assert.strictEqual(participants[nextId].greet.getEphemeralPrivKey(), oldSigningKey);
-                message = participants[nextId].protocolOutQueue.shift();
-                payload = _getPayload(message, _getSender(message, participants, members));
-                if (payload.dest === '') {
-                    assert.strictEqual(participants[nextId].greet.state, greeter.STATE.INIT_DOWNFLOW);
-                } else {
-                    assert.strictEqual(participants[nextId].greet.state, greeter.STATE.INIT_UPFLOW);
-                }
-            }
-
-            console.log('Downflow for recover at ' + Math.round(Date.now() / 1000 - startTime));
-            // Downflow for recovery.
-            nextMessages = [];
-            while (payload) {
-                for (var i = 0; i < participants.length; i++) {
-                    var participant = participants[i];
-                    if (members.indexOf(participant.id) < 0) {
-                        continue;
-                    }
-                    participant.processMessage(message);
-                    var nextMessage = participant.protocolOutQueue.shift();
-                    if (nextMessage) {
-                        nextMessages.push(utils.clone(nextMessage));
-                    }
-                    if (participant.greet.isSessionAcknowledged()) {
-                        assert.strictEqual(participant.greet.state, greeter.STATE.READY);
-                        assert.strictEqual(participant.greet.recovering, false);
-                    } else {
-                        assert.strictEqual(participant.greet.state, greeter.STATE.INIT_DOWNFLOW);
-                        assert.strictEqual(participant.greet.recovering, true);
-                    }
-                    assert.deepEqual(participant.greet.getMembers(), members);
-                }
-                message = nextMessages.shift();
-                payload = _getPayload(message, _getSender(message, participants, members));
-            }
-            keyCheck = null;
-            for (var i = 0; i < participants.length; i++) {
-                var participant = participants[i];
-                if (members.indexOf(participant.id) < 0) {
-                    continue;
-                }
-                if (!keyCheck) {
-                    keyCheck = participant.greet.getGroupKey();
-                } else {
-                    assert.strictEqual(participant.greet.getGroupKey(), keyCheck);
-                }
-                assert.ok(participant.greet.isSessionAcknowledged());
-                assert.strictEqual(participant.greet.state, greeter.STATE.READY);
-                assert.lengthOf(participant.protocolOutQueue, 0);
-                assert.lengthOf(participant.uiQueue, 0);
-                assert.lengthOf(participant.messageOutQueue, 0);
-                assert.notStrictEqual(participant.greet.getGroupKey(), oldGroupKey);
             }
         });
 
