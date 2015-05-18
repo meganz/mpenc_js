@@ -122,7 +122,7 @@ define([
      *     Queue for messages to display in the UI. Contains Message objects.
      * @property sessionKeyStore {mpenc.greet.keystore.KeyStore}
      *     Store for (sub-) session related keys and information.
-     * @property greet {mpenc.greet.greeter.GreetWrapper}
+     * @property greet {mpenc.greet.greeter.Greeting}
      *     A wrapper interfacing to the different greet (key agreement)
      *     protocol objects involved.
      * @property exponentialPadding {integer}
@@ -158,7 +158,7 @@ define([
 
         // Set up component to manage membership operations
         var store = new greeter.GreetStore(this.id, privKey, pubKey, staticPubKeyDir)
-        this.greet = new greeter.GreetWrapper(store, function(greet) { self.stateUpdatedCallback(self); });
+        this.greet = new greeter.Greeting(store, function(greet) { self.stateUpdatedCallback(self); });
         var cancelGreet = this.greet.subscribeSend(function(send_out) {
             var to = send_out[0], payload = send_out[1];
             self._pushMessage(to, payload);

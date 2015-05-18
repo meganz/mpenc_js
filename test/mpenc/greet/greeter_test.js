@@ -43,8 +43,8 @@ define([
         return x;
     }
 
-    function makeGreetWrapper(id, priKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
-        return new ns.GreetWrapper(new ns.GreetStore(id, priKey, pubKey, staticPubKeyDir), stateUpdatedCallback);
+    function makeGreeting(id, priKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
+        return new ns.Greeting(new ns.GreetStore(id, priKey, pubKey, staticPubKeyDir), stateUpdatedCallback);
     };
 
 
@@ -294,10 +294,10 @@ define([
         });
     });
 
-    describe("GreetWrapper class", function() {
+    describe("Greeting class", function() {
         describe('constructor', function() {
             it('just make an instance', function() {
-                var participant = makeGreetWrapper('42',
+                var participant = makeGreeting('42',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -314,7 +314,7 @@ define([
 
         describe('#_mergeMessages() method', function() {
             it('fail for mismatching senders', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = { source: '1', dest: '2', agreement: 'ika', flow: 'up',
@@ -327,7 +327,7 @@ define([
             });
 
             it('fail for mismatching receivers', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = { source: '1', dest: '2', agreement: 'ika', flow: 'up',
@@ -340,7 +340,7 @@ define([
             });
 
             it('merge the messages', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = { source: '1', dest: '2', agreement: 'ika', flow: 'up',
@@ -359,7 +359,7 @@ define([
             });
 
             it('merge the messages for ASKE only', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var askeMessage = { source: '3', dest: '', flow: 'down',
@@ -378,7 +378,7 @@ define([
             });
 
             it('merge the messages for CLIQUES only', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var cliquesMessage = { source: '1', dest: '', agreement: 'aka', flow: 'down',
@@ -391,7 +391,7 @@ define([
             });
 
             it('merge the messages for final case (no messages)', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var message = participant._mergeMessages(null, undefined);
@@ -412,7 +412,7 @@ define([
                     sessionSignature: null
                 };
 
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var compare = { source: '1', dest: '2', agreement: 'ika', flow: 'up',
@@ -442,7 +442,7 @@ define([
                     signingKey: null,
                 };
 
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var compare = { source: '1', dest: '2', flow: 'up',
@@ -462,7 +462,7 @@ define([
             });
 
             it('auxiliary downflow case for a quit', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 var compare = { source: '1', dest: '', flow: 'down',
@@ -478,7 +478,7 @@ define([
 
         describe('#start() method', function() {
             it('start/initiate a group session', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -499,7 +499,7 @@ define([
 
         describe('#inclnude() method', function() {
             it('include empty member list', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -509,7 +509,7 @@ define([
             });
 
             it('add members to group', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -531,7 +531,7 @@ define([
 
         describe('#exclude() method', function() {
             it('exclude empty member list', function() {
-                var participant = makeGreetWrapper('3',
+                var participant = makeGreeting('3',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -541,7 +541,7 @@ define([
             });
 
             it('exclude self', function() {
-                var participant = makeGreetWrapper('3',
+                var participant = makeGreeting('3',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -551,7 +551,7 @@ define([
             });
 
             it('exclude members', function() {
-                var participant = makeGreetWrapper('3',
+                var participant = makeGreeting('3',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -572,7 +572,7 @@ define([
 
         describe('#quit() method', function() {
             it('simple test', function() {
-                var participant = makeGreetWrapper('peter@genesis.co.uk/android4711',
+                var participant = makeGreeting('peter@genesis.co.uk/android4711',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -593,7 +593,7 @@ define([
 
         describe('#refresh() method', function() {
             it('refresh own private key using aka', function() {
-                var participant = makeGreetWrapper('3',
+                var participant = makeGreeting('3',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -624,7 +624,7 @@ define([
                                 intKeys: [[], [], []], debugKeys: ['2*G', '1*G', '2*1*G'],
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
                                 sessionSignature: null };
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -658,7 +658,7 @@ define([
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
-                var participant = makeGreetWrapper('5',
+                var participant = makeGreeting('5',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -692,7 +692,7 @@ define([
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
-                var participant = makeGreetWrapper('5',
+                var participant = makeGreeting('5',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -723,7 +723,7 @@ define([
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -752,7 +752,7 @@ define([
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -777,7 +777,7 @@ define([
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -802,7 +802,7 @@ define([
             });
 
             it('processing for a downflow quit message', function() {
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -815,7 +815,7 @@ define([
             });
 
             it('processing for a downflow message after a quit', function() {
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -827,7 +827,7 @@ define([
             });
 
             it('processing for a downflow without me in it', function() {
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -842,7 +842,7 @@ define([
             });
 
             it('processing for an upflow message not for me', function() {
-                var participant = makeGreetWrapper('2',
+                var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
@@ -856,7 +856,7 @@ define([
             });
 
             it('processing for a downflow from me', function() {
-                var participant = makeGreetWrapper('1',
+                var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
