@@ -905,6 +905,9 @@ define([
     ns.Greeting = Greeting;
 
     Greeting.prototype._updateState = function(state) {
+        // Update the state if required.
+        _assert(typeof state === "number");
+        logger.debug('Reached new state: ' + ns.STATE_MAPPING[state]);
         this.state = state;
         this.stateUpdatedCallback(this);
     };
@@ -915,16 +918,17 @@ define([
         }, this), message);
     };
 
-    Greeting.prototype._encodeAndPublish = function(packet) {
-        if (!packet) {
-            return;
-        }
+    Greeting.prototype._encodeAndPublish = function(packet, state) {
+        _assert(packet);
         var payload = ns.encodeGreetMessage(
             packet,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
         // TODO(xl): use a RawSendT instead of Array[2]
         this._send.publish([packet.dest, payload]);
+        if (state !== undefined) {
+            this._updateState(state);
+        }
     };
 
     Greeting.prototype.subscribeSend = function(subscriber) {
@@ -958,8 +962,7 @@ define([
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
-            this._encodeAndPublish(packet);
-            this._updateState(ns.STATE.INIT_UPFLOW);
+            this._encodeAndPublish(packet, ns.STATE.INIT_UPFLOW);
         }
     };
 
@@ -981,8 +984,7 @@ define([
 
         var packet = this._mergeMessages(cliquesMessage, askeMessage);
         packet.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
-        this._updateState(ns.STATE.AUX_UPFLOW);
-        this._encodeAndPublish(packet);
+        this._encodeAndPublish(packet, ns.STATE.AUX_UPFLOW);
     };
 
 
@@ -1026,12 +1028,8 @@ define([
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
-            if (this.isSessionAcknowledged()) {
-                this._updateState(ns.STATE.READY);
-            } else {
-                this._updateState(ns.STATE.AUX_DOWNFLOW);
-            }
-            this._encodeAndPublish(packet);
+            var newState = this.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW;
+            this._encodeAndPublish(packet, newState);
         }
     };
 
@@ -1054,8 +1052,7 @@ define([
 
         var packet = this._mergeMessages(null, askeMessage);
         packet.greetType = ns.GREET_TYPE.QUIT_DOWN;
-        this._updateState(ns.STATE.QUIT);
-        this._encodeAndPublish(packet);
+        this._encodeAndPublish(packet, ns.STATE.QUIT);
     };
 
 
@@ -1077,8 +1074,7 @@ define([
         }
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
-        this._updateState(ns.STATE.READY);
-        this._encodeAndPublish(packet);
+        this._encodeAndPublish(packet, ns.STATE.READY);
     };
 
 
@@ -1094,18 +1090,17 @@ define([
             decodedMessage = ns.decodeGreetMessage(content);
         }
         var oldState = this.state;
-        var keyingMessageResult = this._processMessage(decodedMessage);
-        if (keyingMessageResult === null) {
+        var result = this._processMessage(decodedMessage);
+        if (result === null) {
             return;
         }
-        this._encodeAndPublish(keyingMessageResult.decodedMessage);
-        if (keyingMessageResult.newState &&
-                (keyingMessageResult.newState !== oldState)) {
-            // Update the state if required.
-            logger.debug('Reached new state: '
-                         + ns.STATE_MAPPING[keyingMessageResult.newState]);
-            this._updateState(keyingMessageResult.newState);
+        if (result.decodedMessage) {
+            this._encodeAndPublish(result.decodedMessage);
         }
+        if (result.newState) {
+            this._updateState(result.newState);
+        }
+        return result.newState;
     };
 
     /**

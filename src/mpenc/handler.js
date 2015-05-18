@@ -377,15 +377,11 @@ define([
                 break;
             case codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE:
                 try {
-                    var oldState = this.greet.state;
-                    this.greet.processIncoming(wireMessage.from, classify.content);
-                    var newState = this.greet.state;
-                    if (newState !== oldState) {
-                        if (newState === greeter.STATE.QUIT) {
-                            this.quit();
-                        } else if (newState === greeter.STATE.READY) {
-                            this._messageSecurity = this._newMessageSecurity(this.greet);
-                        }
+                    var newState = this.greet.processIncoming(wireMessage.from, classify.content);
+                    if (newState === greeter.STATE.QUIT) {
+                        this.quit();
+                    } else if (newState === greeter.STATE.READY) {
+                        this._messageSecurity = this._newMessageSecurity(this.greet);
                     }
                 } catch (e) {
                     if (e.message.lastIndexOf('Session authentication by member') === 0) {
