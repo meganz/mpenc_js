@@ -788,81 +788,134 @@ define([
 
 
     /**
-     * Implementation of a protocol handler with its state machine.
+     * @description SessionStore holds all of the public and private data required to
+     * restore a greet object to a given state.
      *
      * @constructor
      * @param id {string}
-     *     Member's identifier string.
-     * @param privKey {string}
-     *     This participant's static/long term private key.
-     * @param pubKey {string}
-     *     This participant's static/long term public key.
-     * @param staticPubKeyDir {PubKeyDir}
-     *     Public key directory object.
-     * @param queueUpdatedCallback {Function}
-     *      A callback function, that will be called every time something was
-     *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
-     * @param stateUpdatedCallback {Function}
-     *      A callback function, that will be called every time the `state` is
-     *      changed.
-     * @returns {GreetWrapper}
+     *      The id for <b>this</b> member.
+     * @param privKey
+     *      The static private key for <b>this</b> member.
+     * @param pubKey
+     *      The static public key for <b>this</b> member.
+     * @param staticPubKeyDir
+     *      Callback to obtain public keys for <b>other</b> memebrs.
+     * @property state {?number}
+     *      The state of the last Greeting.
+     * @property members {?array<string>}
+     *      The members for the greet session.
      *
-     * @property id {string}
-     *     Member's identifier string.
-     * @property privKey {string}
-     *     This participant's static/long term private key.
-     * @property pubKey {string}
-     *     This participant's static/long term public key.
-     * @property staticPubKeyDir {object}
-     *     An object with a `get(key)` method, returning the static public key of
-     *     indicated by member ID `ky`.
-     * @property askeMember {SignatureKeyExchangeMember}
-     *      Reference to signature key exchange protocol handler with the same
-     *      participant ID.
-     * @property cliquesMember {CliquesMember}
-     *     Reference to CLIQUES protocol handler with the same participant ID.
-     * @property state {integer}
-     *     Current state of the mpENC protocol handler according to {STATE}.
-     * @property recovering {bool}
-     *     `true` if in recovery mode state, usually `false`.
+     * @property sessionId {?string}
+     *      The id for the session.
+     * @property ephemeralPrivKey {?string}
+     *      The ephemeral private key for <b>this</b> member.
+     * @property ephemeralPubKey {?string}
+     *      The ephemeral public key for <b>this</b> member.
+     * @property nonce {?string}
+     *      The nonce for <b>this</b> member.
+     * @property ephemeralPubKeys {?array<string>}
+     *      The ephemeral signing keys for the other members in the chat session.
+     * @property nonces {?array<string>}
+     *      The nonces for the other members in the chat session.
+     *
+     * @property groupKey {?string}
+     *      The group secret key for this session.
+     * @property privKeyList {?array<string>}
+     *      The list of private contributions for <b>this</b> member.
+     * @property intKeys {?array<string>}
+     *      The list of previous initial keys for all members.
      */
-    var GreetWrapper = function(id, privKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
+    var GreetStore = function(id, privKey, pubKey, staticPubKeyDir, state, members,
+            sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
+            groupKey, privKeyList, intKeys) {
+        _assert(id && privKey && pubKey && staticPubKeyDir,
+                'Constructor call missing required parameters.');
+
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.state = ns.STATE.NULL;
-        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
-        this.recovering = false;
+        this.state = state || ns.STATE.NULL;
+        this.members = utils.clone(members) || [];
+        _assert(this.state === ns.STATE.READY || this.state === ns.STATE.NULL,
+            "tried to create a GreetStore on a state other than NULL or READY.");
 
-        this._send = new async.Observable(true);
+        // Aske Objects.
+        this.sessionId = utils.clone(sessionId) || null;
+        this.ephemeralPrivKey = utils.clone(ephemeralPrivKey) || null;
+        this.ephemeralPubKey = utils.clone(ephemeralPubKey) || null;
+        this.nonce = utils.clone(nonce) || null;
+        this.ephemeralPubKeys = utils.clone(ephemeralPubKeys) || null;
+        this.nonces = utils.clone(nonces) || null;
 
-        // Sanity check.
-        _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
-                'Constructor call missing required parameters.');
-
-        // Make protocol handlers for sub tasks.
-        this.cliquesMember = new cliques.CliquesMember(this.id);
-        this.askeMember = new ske.SignatureKeyExchangeMember(this.id);
-        this.askeMember.staticPrivKey = privKey;
-        this.askeMember.staticPubKeyDir = staticPubKeyDir;
+        // Cliques Objects.
+        this.groupKey = utils.clone(groupKey) || null;
+        this.privKeyList = utils.clone(privKeyList) || [];
+        this.intKeys = utils.clone(intKeys) || [];
 
         return this;
     };
-    ns.GreetWrapper = GreetWrapper;
 
-    GreetWrapper.prototype._updateState = function(state) {
+    ns.GreetStore = GreetStore;
+
+
+    /**
+     * Implementation of a protocol handler with its state machine.
+     *
+     * @constructor
+     * @param store {module:mpenc/greet/greeter.GreetStore}
+     *      GreetStore
+     * @param stateUpdatedCallback {Function}
+     *      A callback function, that will be called every time the `state` is
+     *      changed.
+     * @returns {Greeting}
+     */
+    var Greeting = function(store, stateUpdatedCallback) {
+        this.id = store.id;
+        this.privKey = store.privKey;
+        this.pubKey = store.pubKey;
+        this.staticPubKeyDir = store.staticPubKeyDir;
+
+        this.state = store.state;
+        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
+        this._send = new async.Observable(true);
+
+        var cliquesMember = new cliques.CliquesMember(store.id);
+        cliquesMember.members = utils.clone(store.members);
+        cliquesMember.groupKey = utils.clone(store.groupKey);
+        cliquesMember.privKeyList = utils.clone(store.privKeyList);
+        cliquesMember.intKeys = utils.clone(store.intKeys);
+        this.cliquesMember = cliquesMember;
+
+        var askeMember = new ske.SignatureKeyExchangeMember(store.id);
+        askeMember.staticPrivKey = store.privKey;
+        askeMember.staticPubKeyDir = store.staticPubKeyDir;
+        askeMember.sessionId = store.sessionId;
+        askeMember.members = utils.clone(store.members);
+        askeMember.ephemeralPrivKey = utils.clone(store.ephemeralPrivKey);
+        askeMember.ephemeralPubKey = utils.clone(store.ephemeralPubKey);
+        askeMember.nonce = utils.clone(store.nonce);
+        askeMember.ephemeralPubKeys = utils.clone(store.ephemeralPubKeys);
+        askeMember.nonces = utils.clone(store.nonces);
+        askeMember.authenticatedMembers = [];
+        this.askeMember = askeMember;
+
+        return this;
+    };
+    ns.Greeting = Greeting;
+
+    Greeting.prototype._updateState = function(state) {
         this.state = state;
         this.stateUpdatedCallback(this);
     };
 
-    GreetWrapper.prototype._assertState = function(valid, message) {
+    Greeting.prototype._assertState = function(valid, message) {
         _assert(valid.some(function(v) {
             return this.state === v;
         }, this), message);
     };
 
-    GreetWrapper.prototype._encodeAndPublish = function(packet) {
+    Greeting.prototype._encodeAndPublish = function(packet) {
         if (!packet) {
             return;
         }
@@ -874,7 +927,7 @@ define([
         this._send.publish([packet.dest, payload]);
     };
 
-    GreetWrapper.prototype.subscribeSend = function(subscriber) {
+    Greeting.prototype.subscribeSend = function(subscriber) {
         return this._send.subscribe(subscriber);
     };
 
@@ -885,7 +938,7 @@ define([
      * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
      */
-    GreetWrapper.prototype.start = function(otherMembers) {
+    Greeting.prototype.start = function(otherMembers) {
         this._assertState([ns.STATE.NULL],
                 'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
@@ -918,7 +971,7 @@ define([
      * @param newMembers {Array}
      *     Iterable of new members to include into the group.
      */
-    GreetWrapper.prototype.include = function(newMembers) {
+    Greeting.prototype.include = function(newMembers) {
         this._assertState([ns.STATE.READY],
                 'include() can only be called from a ready state.');
         _assert(newMembers && newMembers.length !== 0, 'No members to add.');
@@ -940,7 +993,7 @@ define([
      * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
      */
-    GreetWrapper.prototype.exclude = function(excludeMembers) {
+    Greeting.prototype.exclude = function(excludeMembers) {
         if (this.recovering) {
             this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                     'exclude() for recovery can only be called from a ready or downflow state.');
@@ -988,7 +1041,7 @@ define([
      *
      * @method
      */
-    GreetWrapper.prototype.quit = function() {
+    Greeting.prototype.quit = function() {
         if (this.state === ns.STATE.QUIT) {
             return; // Nothing do do here.
         }
@@ -1011,7 +1064,7 @@ define([
      *
      * @method
      */
-    GreetWrapper.prototype.refresh = function() {
+    Greeting.prototype.refresh = function() {
         this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
@@ -1029,7 +1082,7 @@ define([
     };
 
 
-    GreetWrapper.prototype.processIncoming = function(from, content) {
+    Greeting.prototype.processIncoming = function(from, content) {
         var decodedMessage = null;
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
@@ -1064,10 +1117,10 @@ define([
      * @returns {object}
      *     Object containing the decoded message content as
      *     {GreetMessage} in attribute `decodedMessage` and
-     *     optional (null if not used) the new the GreetWrapper state in
+     *     optional (null if not used) the new the Greeting state in
      *     attribute `newState`.
      */
-    GreetWrapper.prototype._processMessage = function(message) {
+    Greeting.prototype._processMessage = function(message) {
         logger.debug('Processing message of type '
                      + message.getGreetTypeString());
         if (this.state === ns.STATE.QUIT) {
@@ -1205,7 +1258,7 @@ define([
      * @returns {GreetMessage}
      *     Joined message (not wire encoded).
      */
-    GreetWrapper.prototype._mergeMessages = function(cliquesMessage,
+    Greeting.prototype._mergeMessages = function(cliquesMessage,
                                                            askeMessage) {
         // Are we done already?
         if (!cliquesMessage && !askeMessage) {
@@ -1247,7 +1300,7 @@ define([
      * @returns {mpenc.greet.cliques.CliquesMessage}
      *     Extracted message.
      */
-    GreetWrapper.prototype._getCliquesMessage = function(message) {
+    Greeting.prototype._getCliquesMessage = function(message) {
         var newMessage = cliques.CliquesMessage(this.id);
         newMessage.source = message.source;
         newMessage.dest = message.dest;
@@ -1282,7 +1335,7 @@ define([
      * @returns {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Extracted message.
      */
-    GreetWrapper.prototype._getAskeMessage = function(message) {
+    Greeting.prototype._getAskeMessage = function(message) {
         var newMessage = ske.SignatureKeyExchangeMessage(this.id);
         newMessage.source = message.source;
         newMessage.dest = message.dest;
@@ -1309,7 +1362,7 @@ define([
      * @method
      * @returns {string}
      */
-    GreetWrapper.prototype.getEphemeralPrivKey = function() {
+    Greeting.prototype.getEphemeralPrivKey = function() {
         return this.askeMember.ephemeralPrivKey;
     };
 
@@ -1324,7 +1377,7 @@ define([
      * @returns {string}
      *     Ephemeral public signing key.
      */
-    GreetWrapper.prototype.getEphemeralPubKey = function(participantID) {
+    Greeting.prototype.getEphemeralPubKey = function(participantID) {
         if (participantID === undefined || participantID === this.id) {
             return this.askeMember.ephemeralPubKey;
         } else {
@@ -1346,7 +1399,7 @@ define([
      * @returns {boolean}
      *     True on a valid session.
      */
-    GreetWrapper.prototype.isSessionAcknowledged = function(participantID) {
+    Greeting.prototype.isSessionAcknowledged = function(participantID) {
         return this.askeMember.isSessionAcknowledged();
     };
 
@@ -1356,7 +1409,7 @@ define([
      *
      * @method
      */
-    GreetWrapper.prototype.discardAuthentications = function() {
+    Greeting.prototype.discardAuthentications = function() {
         this.askeMember.discardAuthentications();
     };
 
@@ -1367,7 +1420,7 @@ define([
      * @method
      * @returns {string}
      */
-    GreetWrapper.prototype.getSessionId = function() {
+    Greeting.prototype.getSessionId = function() {
         return this.askeMember.sessionId;
     };
 
@@ -1378,7 +1431,7 @@ define([
      * @method
      * @returns {array<string>}
      */
-    GreetWrapper.prototype.getMembers = function() {
+    Greeting.prototype.getMembers = function() {
         return this.askeMember.members;
     };
 
@@ -1389,7 +1442,7 @@ define([
      * @method
      * @returns {array<string>}
      */
-    GreetWrapper.prototype.getEphemeralPubKeys = function() {
+    Greeting.prototype.getEphemeralPubKeys = function() {
         return this.askeMember.ephemeralPubKeys;
     };
 
@@ -1400,7 +1453,7 @@ define([
      * @method
      * @returns {string}
      */
-    GreetWrapper.prototype.getGroupKey = function() {
+    Greeting.prototype.getGroupKey = function() {
         return this.cliquesMember.groupKey;
     };
 
