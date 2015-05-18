@@ -788,64 +788,117 @@ define([
 
 
     /**
-     * Implementation of a protocol handler with its state machine.
+     * @description SessionStore holds all of the public and private data required to
+     * restore a greet object to a given state.
      *
      * @constructor
      * @param id {string}
-     *     Member's identifier string.
-     * @param privKey {string}
-     *     This participant's static/long term private key.
-     * @param pubKey {string}
-     *     This participant's static/long term public key.
-     * @param staticPubKeyDir {PubKeyDir}
-     *     Public key directory object.
-     * @param queueUpdatedCallback {Function}
-     *      A callback function, that will be called every time something was
-     *      added to `protocolOutQueue`, `messageOutQueue` or `uiQueue`.
-     * @param stateUpdatedCallback {Function}
-     *      A callback function, that will be called every time the `state` is
-     *      changed.
-     * @returns {GreetWrapper}
+     *      The id for <b>this</b> member.
+     * @param privKey
+     *      The static private key for <b>this</b> member.
+     * @param pubKey
+     *      The static public key for <b>this</b> member.
+     * @param staticPubKeyDir
+     *      Callback to obtain public keys for <b>other</b> memebrs.
+     * @property state {?number}
+     *      The state of the last GreetWrapper.
+     * @property members {?array<string>}
+     *      The members for the greet session.
      *
-     * @property id {string}
-     *     Member's identifier string.
-     * @property privKey {string}
-     *     This participant's static/long term private key.
-     * @property pubKey {string}
-     *     This participant's static/long term public key.
-     * @property staticPubKeyDir {object}
-     *     An object with a `get(key)` method, returning the static public key of
-     *     indicated by member ID `ky`.
-     * @property askeMember {SignatureKeyExchangeMember}
-     *      Reference to signature key exchange protocol handler with the same
-     *      participant ID.
-     * @property cliquesMember {CliquesMember}
-     *     Reference to CLIQUES protocol handler with the same participant ID.
-     * @property state {integer}
-     *     Current state of the mpENC protocol handler according to {STATE}.
-     * @property recovering {bool}
-     *     `true` if in recovery mode state, usually `false`.
+     * @property sessionId {?string}
+     *      The id for the session.
+     * @property ephemeralPrivKey {?string}
+     *      The ephemeral private key for <b>this</b> member.
+     * @property ephemeralPubKey {?string}
+     *      The ephemeral public key for <b>this</b> member.
+     * @property nonce {?string}
+     *      The nonce for <b>this</b> member.
+     * @property ephemeralPubKeys {?array<string>}
+     *      The ephemeral signing keys for the other members in the chat session.
+     * @property nonces {?array<string>}
+     *      The nonces for the other members in the chat session.
+     *
+     * @property groupKey {?string}
+     *      The group secret key for this session.
+     * @property privKeyList {?array<string>}
+     *      The list of private contributions for <b>this</b> member.
+     * @property intKeys {?array<string>}
+     *      The list of previous initial keys for all members.
      */
-    var GreetWrapper = function(id, privKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
+    var GreetStore = function(id, privKey, pubKey, staticPubKeyDir, state, members,
+            sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
+            groupKey, privKeyList, intKeys) {
+        _assert(id && privKey && pubKey && staticPubKeyDir,
+                'Constructor call missing required parameters.');
+
         this.id = id;
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.state = ns.STATE.NULL;
-        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
-        this.recovering = false;
+        this.state = state || ns.STATE.NULL;
+        this.members = utils.clone(members) || [];
+        _assert(this.state === ns.STATE.READY || this.state === ns.STATE.NULL,
+            "tried to create a GreetStore on a state other than NULL or READY.");
 
+        // Aske Objects.
+        this.sessionId = utils.clone(sessionId) || null;
+        this.ephemeralPrivKey = utils.clone(ephemeralPrivKey) || null;
+        this.ephemeralPubKey = utils.clone(ephemeralPubKey) || null;
+        this.nonce = utils.clone(nonce) || null;
+        this.ephemeralPubKeys = utils.clone(ephemeralPubKeys) || null;
+        this.nonces = utils.clone(nonces) || null;
+
+        // Cliques Objects.
+        this.groupKey = utils.clone(groupKey) || null;
+        this.privKeyList = utils.clone(privKeyList) || [];
+        this.intKeys = utils.clone(intKeys) || [];
+
+        return this;
+    };
+
+    ns.GreetStore = GreetStore;
+
+
+    /**
+     * Implementation of a protocol handler with its state machine.
+     *
+     * @constructor
+     * @param store {module:mpenc/greet/greeter.GreetStore}
+     *      GreetStore
+     * @param stateUpdatedCallback {Function}
+     *      A callback function, that will be called every time the `state` is
+     *      changed.
+     * @returns {GreetWrapper}
+     */
+    var GreetWrapper = function(store, stateUpdatedCallback) {
+        this.id = store.id;
+        this.privKey = store.privKey;
+        this.pubKey = store.pubKey;
+        this.staticPubKeyDir = store.staticPubKeyDir;
+
+        this.state = store.state;
+        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this._send = new async.Observable(true);
 
-        // Sanity check.
-        _assert(this.id && this.privKey && this.pubKey && this.staticPubKeyDir,
-                'Constructor call missing required parameters.');
+        var cliquesMember = new cliques.CliquesMember(store.id);
+        cliquesMember.members = utils.clone(store.members);
+        cliquesMember.groupKey = utils.clone(store.groupKey);
+        cliquesMember.privKeyList = utils.clone(store.privKeyList);
+        cliquesMember.intKeys = utils.clone(store.intKeys);
+        this.cliquesMember = cliquesMember;
 
-        // Make protocol handlers for sub tasks.
-        this.cliquesMember = new cliques.CliquesMember(this.id);
-        this.askeMember = new ske.SignatureKeyExchangeMember(this.id);
-        this.askeMember.staticPrivKey = privKey;
-        this.askeMember.staticPubKeyDir = staticPubKeyDir;
+        var askeMember = new ske.SignatureKeyExchangeMember(store.id);
+        askeMember.staticPrivKey = store.privKey;
+        askeMember.staticPubKeyDir = store.staticPubKeyDir;
+        askeMember.sessionId = store.sessionId;
+        askeMember.members = utils.clone(store.members);
+        askeMember.ephemeralPrivKey = utils.clone(store.ephemeralPrivKey);
+        askeMember.ephemeralPubKey = utils.clone(store.ephemeralPubKey);
+        askeMember.nonce = utils.clone(store.nonce);
+        askeMember.ephemeralPubKeys = utils.clone(store.ephemeralPubKeys);
+        askeMember.nonces = utils.clone(store.nonces);
+        askeMember.authenticatedMembers = [];
+        this.askeMember = askeMember;
 
         return this;
     };
