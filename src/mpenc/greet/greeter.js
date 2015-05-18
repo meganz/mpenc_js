@@ -936,6 +936,21 @@ define([
     };
 
     /**
+     * Create a new GreetStore from this greeting.
+     *
+     * The state must be READY or NULL.
+     *
+     * @method
+     */
+    Greeting.prototype.toGreetStore = function() {
+        return new ns.GreetStore(this.id, this.privKey, this.pubKey, this.staticPubKeyDir,
+            this.state, this.askeMember.members, this.askeMember.sessionId,
+            this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
+            this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
+            this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys);
+    };
+
+    /**
      * Mechanism to start the protocol negotiation with the group participants.
      *
      * @method
