@@ -610,7 +610,6 @@ define([
                 assert.strictEqual(message.source, 'Peter');
                 assert.strictEqual(message.dest, '');
                 assert.strictEqual(message.flow, 'down');
-                assert.strictEqual(message.signingKey, '111');
             });
 
             it('simple tests with authenticated members', function() {
@@ -628,7 +627,6 @@ define([
                 assert.strictEqual(message.source, 'Peter');
                 assert.strictEqual(message.dest, '');
                 assert.strictEqual(message.flow, 'down');
-                assert.strictEqual(message.signingKey, '111');
             });
         });
 

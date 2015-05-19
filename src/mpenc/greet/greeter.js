@@ -1101,8 +1101,9 @@ define([
         // Three cases: QUIT, upflow or downflow message.
         if (message.greetType === ns.GREET_TYPE.QUIT_DOWN) {
             // QUIT message.
-            _assert(message.signingKey,
-                    'Inconsistent message content with message type (signingKey).');
+            //_assert(message.signingKey,
+            //        'Inconsistent message content with message type (signingKey).');
+            // TODO: not currently publishing signatures; see ske.js for details
         } else if (message.isDownflow()) {
             // Downflow message.
             if (message.isGKA()) {
