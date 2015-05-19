@@ -577,10 +577,6 @@ define([
                 assert.strictEqual(participant.nonce, participant.nonces[1]);
                 assert.lengthOf(participant.ephemeralPubKeys, 3);
                 assert.lengthOf(participant.authenticatedMembers , 3);
-                assert.deepEqual(participant.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
-                assert.deepEqual(participant.oldEphemeralKeys['1'].authenticated, true);
-                assert.deepEqual(participant.oldEphemeralKeys['4'].pub, _td.ED25519_PUB_KEY);
-                assert.deepEqual(participant.oldEphemeralKeys['4'].authenticated, true);
                 assert.deepEqual(message.members, ['2', '3', '5']);
                 assert.strictEqual(message.source, '3');
                 assert.strictEqual(message.dest, '');
@@ -609,9 +605,6 @@ define([
                 var message = participant.quit();
                 assert.strictEqual(participant.ephemeralPrivKey, '111');
                 assert.strictEqual(participant.ephemeralPubKey, '1');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, false);
                 assert.deepEqual(participant.members, ['Tony', 'Steve', 'Mike', 'Phil']);
                 assert.lengthOf(participant.ephemeralPubKeys, 4);
                 assert.strictEqual(message.source, 'Peter');
@@ -630,9 +623,6 @@ define([
                 var message = participant.quit();
                 assert.strictEqual(participant.ephemeralPrivKey, '111');
                 assert.strictEqual(participant.ephemeralPubKey, '1');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].priv, '111');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].pub, '1');
-                assert.strictEqual(participant.oldEphemeralKeys['Peter'].authenticated, true);
                 assert.deepEqual(participant.members, ['Tony', 'Steve', 'Mike', 'Phil']);
                 assert.lengthOf(participant.ephemeralPubKeys, 4);
                 assert.strictEqual(message.source, 'Peter');
@@ -648,14 +638,12 @@ define([
                 participant.members = ['John', 'Paul', 'George', 'Ringo'];
                 participant.ephemeralPubKeys = ['1', '2', '3'];
                 participant.authenticatedMembers = [true, false];
-                participant.oldEphemeralKeys= {};
                 sandbox.stub(participant, 'commit', _echo);
                 var result = participant.fullRefresh();
                 var compare = {John: {pub: '1', priv: null, authenticated: true},
                                Paul: {pub: '2', priv: null, authenticated: false},
                                George: {pub: '3', priv: null, authenticated: false}};
                 assert.deepEqual(result, ['Paul', 'George', 'Ringo']);
-                assert.deepEqual(participant.oldEphemeralKeys, compare);
                 sinon_assert.calledOnce(participant.commit);
             });
         });
@@ -665,9 +653,7 @@ define([
                 var participant = new ns.SignatureKeyExchangeMember('John');
                 participant.members = ['John', 'Paul', 'George', 'Ringo'];
                 participant.ephemeralPubKeys = ['1', '2', '3', '5'];
-                participant.oldEphemeralKeys['Pete'] = {pub: '4'};
                 assert.strictEqual(participant.getMemberEphemeralPubKey('George'), '3');
-                assert.strictEqual(participant.getMemberEphemeralPubKey('Pete'), '4');
                 assert.strictEqual(participant.getMemberEphemeralPubKey('Freddy'), undefined);
             });
         });

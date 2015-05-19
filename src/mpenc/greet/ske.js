@@ -131,11 +131,6 @@ define([
      *     Own static (long term) signing key.
      * @property staticPubKeyDir {mpenc/handler.PubKeyDir}
      *     "Directory" of static public keys, using the participant ID as key.
-     * @property oldEphemeralKeys {object}
-     *     "Directory" of previous participants' ephemeral keys, using the
-     *     participant ID as key. The entries contain an object with one or more of
-     *     the members `priv`, `pub` and `authenticated` (if the key was
-     *     successfully authenticated).
      */
     ns.SignatureKeyExchangeMember = function(id) {
         this.id = id;
@@ -149,7 +144,6 @@ define([
         this.sessionId = null;
         this.staticPrivKey = null;
         this.staticPubKeyDir = null;
-        this.oldEphemeralKeys = {};
         return this;
     };
 
@@ -359,11 +353,6 @@ define([
         var index = this.members.indexOf(participantId);
         if (index >= 0) {
             return this.ephemeralPubKeys[index];
-        } else {
-            var record = this.oldEphemeralKeys[participantId];
-            if (record) {
-                return record.pub;
-            }
         }
     };
 
@@ -425,10 +414,6 @@ define([
         // Kick 'em.
         for (var i = 0; i < excludeMembers.length; i++) {
             var index = this.members.indexOf(excludeMembers[i]);
-            this.oldEphemeralKeys[excludeMembers[i]] = {
-                pub: this.ephemeralPubKeys[index] || null,
-                authenticated: this.authenticatedMembers[index] || false,
-            };
             this.members.splice(index, 1);
             this.nonces.splice(index, 1);
             this.ephemeralPubKeys.splice(index, 1);
@@ -466,13 +451,7 @@ define([
 
         // Kick myself out.
         var myPos = this.members.indexOf(this.id);
-        this.oldEphemeralKeys[this.id] = {
-            pub: this.ephemeralPubKey,
-            priv: this.ephemeralPrivKey,
-            authenticated: false
-        };
         if (this.authenticatedMembers) {
-            this.oldEphemeralKeys[this.id].authenticated = this.authenticatedMembers[myPos];
             this.authenticatedMembers.splice(myPos, 1);
         }
         if (this.members) {
@@ -487,7 +466,7 @@ define([
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
-        broadcastMessage.signingKey = this.oldEphemeralKeys[this.id].priv;
+        broadcastMessage.signingKey = this.ephemeralPrivKey;
 
         return broadcastMessage;
     };
@@ -500,22 +479,6 @@ define([
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.fullRefresh = function() {
-        // Store away old ephemeral keys of members.
-        for (var i = 0; i < this.members.length; i++) {
-            if (this.ephemeralPubKeys && (i < this.ephemeralPubKeys.length)) {
-                this.oldEphemeralKeys[this.members[i]] = {
-                    pub: this.ephemeralPubKeys[i],
-                    priv: null,
-                };
-                if (this.ephemeralPubKeys && (i < this.authenticatedMembers.length)) {
-                    this.oldEphemeralKeys[this.members[i]].authenticated = this.authenticatedMembers[i];
-                } else {
-                    this.oldEphemeralKeys[this.members[i]].authenticated = false;
-                }
-            }
-        }
-        this.oldEphemeralKeys[this.id].priv = this.ephemeralPrivKey;
-
         // Force complete new exchange of session info.
         this.sessionId = null;
 

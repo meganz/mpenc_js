@@ -1103,11 +1103,6 @@ define([
             // QUIT message.
             _assert(message.signingKey,
                     'Inconsistent message content with message type (signingKey).');
-            // Sender is quitting participation.
-            this.askeMember.oldEphemeralKeys[message.source] = {
-                    priv: message.signingKey,
-                    pub:  this.askeMember.ephemeralPubKeys[message.source]
-            };
         } else if (message.isDownflow()) {
             // Downflow message.
             if (message.isGKA()) {

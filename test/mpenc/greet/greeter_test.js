@@ -750,19 +750,6 @@ define([
                 sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
             });
 
-            it('processing for a downflow quit message', function() {
-                var participant = makeGreeting('2',
-                                                      _td.ED25519_PRIV_KEY,
-                                                      _td.ED25519_PUB_KEY,
-                                                      _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
-                participant.askeMember.ephemeralPubKeys = {'1': _td.ED25519_PUB_KEY};
-                var result = participant._processMessage(
-                        new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
-                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].priv, _td.ED25519_PRIV_KEY);
-                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
-            });
-
             it('processing for a downflow message after a quit', function() {
                 var participant = makeGreeting('2',
                                                       _td.ED25519_PRIV_KEY,
