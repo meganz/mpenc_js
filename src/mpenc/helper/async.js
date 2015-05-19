@@ -642,9 +642,7 @@ define([
         this._lastCompleted = this._realNow();
 
         var tId = setInterval(this._runTick.bind(this), 0.5 / this._tpms);
-        this.stop = function() {
-            clearInterval(tId);
-        };
+        this.stop = function() { clearInterval(tId); };
         var self = this;
         this.timer = function(t, a, n) { return self._timer(t, a, n); };
     };
@@ -687,8 +685,20 @@ define([
         if (!(t in this._cb)) {
             this._cb[t] = new Observable(false, SubscriptionReentry.ADD_REM);
         }
+        var self = this;
         var obs = this._cb[t];
-        return obs.subscribe(action);
+        var cancel = obs.subscribe(action);
+        return function() {
+            if (!cancel() || obs !== self._cb[t]) {
+                // already cancelled or already run
+                return false;
+            }
+            if (!obs.size() && t != self.now()) {
+                // nothing left and not currently being iterated through
+                delete self._cb[t];
+            }
+            return true;
+        };
     };
 
     Timer.prototype._runTick = function() {
@@ -701,7 +711,9 @@ define([
             var obs = this._cb[t];
             if (obs) {
                 obs.publish(t);
-                delete this._cb[t];
+                if (t in this._cb) {
+                    delete this._cb[t];
+                }
             }
             //logger.debug("lastCompleted: " + t + " @ " + this._realNow());
             this._lastCompleted = t;
