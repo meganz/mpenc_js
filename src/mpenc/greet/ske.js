@@ -441,7 +441,7 @@ define([
 
 
     /**
-     * Quit own participation and publish the ephemeral signing key.
+     * Quit own participation.
      *
      * @returns {SignatureKeyExchangeMessage}
      * @method
@@ -466,7 +466,30 @@ define([
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
-        broadcastMessage.signingKey = this.ephemeralPrivKey;
+        // TODO: it is probably not appropriate to publish the signing key at this stage.
+        //broadcastMessage.signingKey = this.ephemeralPrivKey;
+        //
+        // The server could pretend that Alice hasn't left, drop her QUIT message,
+        // then carry on signing messages on behalf of her.
+        //
+        // OTR only publishes a previous key, after agreeing to a new key
+        // https://otr.cypherpunks.ca/Protocol-v3-4.0.0.html "revealing mac keys"
+        // To force this, the user must click "end conversation" explicitly
+        //
+        // We need logic something along the lines of:
+        //
+        // - detect an event E that is authenticated via means independently of
+        //   key K (but perhaps both can be 1-way derived from a common ancestor)
+        // - write code that only ever publishes K *after* E
+        // - then everyone can assume: everything authenticated by K that E
+        //   references (e.g. via hash pointers) is authentic
+        // - if we see K being published, then we need to go through previously
+        //   received things that was signed by K, and maybe *remove* their
+        //   authenticated status.
+        //   - if we have received E, then everything not referenced by E is unauthenticated
+        //   - if we have not yet received E, then everything is unauthenticated
+        //      - we could publish K inside E (authenticated but not encrypted)
+        //        which would remove this special case
 
         return broadcastMessage;
     };
