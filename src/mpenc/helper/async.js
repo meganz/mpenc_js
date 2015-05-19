@@ -316,7 +316,7 @@ define([
      */
     SubscriberFailure.cancelGlobalLog = __SubscriberFailure_global.subscribe(function(f) {
         logger.warn("subscriber (" + f.sub + ") failed on (" + f.item + "): " + f.error);
-        logger.debug(f.error.stack);
+        logger.warn(f.error.stack);
     });
 
     ns.SubscriberFailure = SubscriberFailure;
