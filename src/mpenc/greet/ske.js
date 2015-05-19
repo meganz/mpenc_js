@@ -131,11 +131,6 @@ define([
      *     Own static (long term) signing key.
      * @property staticPubKeyDir {mpenc/handler.PubKeyDir}
      *     "Directory" of static public keys, using the participant ID as key.
-     * @property oldEphemeralKeys {object}
-     *     "Directory" of previous participants' ephemeral keys, using the
-     *     participant ID as key. The entries contain an object with one or more of
-     *     the members `priv`, `pub` and `authenticated` (if the key was
-     *     successfully authenticated).
      */
     ns.SignatureKeyExchangeMember = function(id) {
         this.id = id;
@@ -149,7 +144,6 @@ define([
         this.sessionId = null;
         this.staticPrivKey = null;
         this.staticPubKeyDir = null;
-        this.oldEphemeralKeys = {};
         return this;
     };
 
@@ -359,11 +353,6 @@ define([
         var index = this.members.indexOf(participantId);
         if (index >= 0) {
             return this.ephemeralPubKeys[index];
-        } else {
-            var record = this.oldEphemeralKeys[participantId];
-            if (record) {
-                return record.pub;
-            }
         }
     };
 
@@ -425,10 +414,6 @@ define([
         // Kick 'em.
         for (var i = 0; i < excludeMembers.length; i++) {
             var index = this.members.indexOf(excludeMembers[i]);
-            this.oldEphemeralKeys[excludeMembers[i]] = {
-                pub: this.ephemeralPubKeys[index] || null,
-                authenticated: this.authenticatedMembers[index] || false,
-            };
             this.members.splice(index, 1);
             this.nonces.splice(index, 1);
             this.ephemeralPubKeys.splice(index, 1);
@@ -456,7 +441,7 @@ define([
 
 
     /**
-     * Quit own participation and publish the ephemeral signing key.
+     * Quit own participation.
      *
      * @returns {SignatureKeyExchangeMessage}
      * @method
@@ -466,13 +451,7 @@ define([
 
         // Kick myself out.
         var myPos = this.members.indexOf(this.id);
-        this.oldEphemeralKeys[this.id] = {
-            pub: this.ephemeralPubKey,
-            priv: this.ephemeralPrivKey,
-            authenticated: false
-        };
         if (this.authenticatedMembers) {
-            this.oldEphemeralKeys[this.id].authenticated = this.authenticatedMembers[myPos];
             this.authenticatedMembers.splice(myPos, 1);
         }
         if (this.members) {
@@ -487,7 +466,30 @@ define([
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'down');
-        broadcastMessage.signingKey = this.oldEphemeralKeys[this.id].priv;
+        // TODO: it is probably not appropriate to publish the signing key at this stage.
+        //broadcastMessage.signingKey = this.ephemeralPrivKey;
+        //
+        // The server could pretend that Alice hasn't left, drop her QUIT message,
+        // then carry on signing messages on behalf of her.
+        //
+        // OTR only publishes a previous key, after agreeing to a new key
+        // https://otr.cypherpunks.ca/Protocol-v3-4.0.0.html "revealing mac keys"
+        // To force this, the user must click "end conversation" explicitly
+        //
+        // We need logic something along the lines of:
+        //
+        // - detect an event E that is authenticated via means independently of
+        //   key K (but perhaps both can be 1-way derived from a common ancestor)
+        // - write code that only ever publishes K *after* E
+        // - then everyone can assume: everything authenticated by K that E
+        //   references (e.g. via hash pointers) is authentic
+        // - if we see K being published, then we need to go through previously
+        //   received things that was signed by K, and maybe *remove* their
+        //   authenticated status.
+        //   - if we have received E, then everything not referenced by E is unauthenticated
+        //   - if we have not yet received E, then everything is unauthenticated
+        //      - we could publish K inside E (authenticated but not encrypted)
+        //        which would remove this special case
 
         return broadcastMessage;
     };
@@ -500,22 +502,6 @@ define([
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.fullRefresh = function() {
-        // Store away old ephemeral keys of members.
-        for (var i = 0; i < this.members.length; i++) {
-            if (this.ephemeralPubKeys && (i < this.ephemeralPubKeys.length)) {
-                this.oldEphemeralKeys[this.members[i]] = {
-                    pub: this.ephemeralPubKeys[i],
-                    priv: null,
-                };
-                if (this.ephemeralPubKeys && (i < this.authenticatedMembers.length)) {
-                    this.oldEphemeralKeys[this.members[i]].authenticated = this.authenticatedMembers[i];
-                } else {
-                    this.oldEphemeralKeys[this.members[i]].authenticated = false;
-                }
-            }
-        }
-        this.oldEphemeralKeys[this.id].priv = this.ephemeralPrivKey;
-
         // Force complete new exchange of session info.
         this.sessionId = null;
 

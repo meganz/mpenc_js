@@ -56,8 +56,6 @@ define([
      *     List (array) of all participating members.
      * @param intKeys
      *     List (array) of intermediate keys to transmit.
-     * @param debugKeys
-     *     List (array) of keying debugging strings.
      * @returns {CliquesMessage}
      * @constructor
      *
@@ -73,18 +71,14 @@ define([
      *     List (array) of all participating members.
      * @property intKeys
      *     List (array) of intermediate keys to transmit.
-     * @property debugKeys
-     *     List (array) of keying debugging strings.
      */
-    ns.CliquesMessage = function(source, dest, agreement, flow, members,
-                                 intKeys, debugKeys) {
+    ns.CliquesMessage = function(source, dest, agreement, flow, members, intKeys) {
         this.source = source || '';
         this.dest = dest || '';
         this.agreement = agreement || '';
         this.flow = flow || '';
         this.members = members || [];
         this.intKeys = intKeys || [];
-        this.debugKeys = debugKeys || [];
         return this;
     };
 
@@ -110,9 +104,6 @@ define([
      *     participant's one.
      * @property privKey
      *     This participant's private key.
-     * @property keyTimestamp
-     *     Time stamp indicator when `privKey` was created/refreshed.
-     *     Some monotonously increasing counter.
      * @property groupKey
      *     Shared secret, the group key.
      */
@@ -121,12 +112,7 @@ define([
         this.members = [];
         this.intKeys = [];
         this.privKeyList = [];
-        this.keyTimestamp = null;
         this.groupKey = null;
-        // For debugging: Chain of all scalar multiplication keys.
-        this._debugIntKeys = [];
-        this._debugPrivKeyList = [];
-        this._debugGroupKey = null;
 
         return this;
     };
@@ -143,9 +129,7 @@ define([
     ns.CliquesMember.prototype.ika = function(otherMembers) {
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
         this.intKeys = null;
-        this._debugIntKeys = null;
         this.privKeyList = [];
-        this._debugPrivKeyList = [];
         var startMessage = new ns.CliquesMessage(this.id);
         startMessage.members = [this.id].concat(otherMembers);
         startMessage.agreement = 'ika';
@@ -188,12 +172,11 @@ define([
         this.members = allMembers;
 
         // Renew all keys.
-        var retValue = this._renewPrivKey();
+        var cardinalKey = this._renewPrivKey();
 
         // Start of AKA upflow, so we can't be the last member in the chain.
         // Add the new cardinal key.
-        this.intKeys.push(retValue.cardinalKey);
-        this._debugIntKeys.push(retValue.cardinalDebugKey);
+        this.intKeys.push(cardinalKey);
 
         // Pass a message on to the first new member to join.
         var startMessage = new ns.CliquesMessage(this.id);
@@ -202,7 +185,6 @@ define([
         startMessage.agreement = 'aka';
         startMessage.flow = 'up';
         startMessage.intKeys = this.intKeys;
-        startMessage.debugKeys = this._debugIntKeys;
 
         return startMessage;
     };
@@ -228,15 +210,13 @@ define([
             var index = this.members.indexOf(excludeMembers[i]);
             this.members.splice(index, 1);
             this.intKeys.splice(index, 1);
-            this._debugIntKeys.splice(index, 1);
         }
 
         // Renew all keys.
-        var retValue = this._renewPrivKey();
+        var cardinalKey = this._renewPrivKey();
 
         // Discard old and make new group key.
-        this.groupKey = utils.sha256(retValue.cardinalKey);
-        this._debugGroupKey = retValue.cardinalDebugKey;
+        this.groupKey = utils.sha256(cardinalKey);
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.CliquesMessage(this.id);
@@ -244,7 +224,6 @@ define([
         broadcastMessage.agreement = 'aka';
         broadcastMessage.flow = 'down';
         broadcastMessage.intKeys = this.intKeys;
-        broadcastMessage.debugKeys = this._debugIntKeys;
 
         return broadcastMessage;
     };
@@ -265,7 +244,6 @@ define([
         if (myPos >= 0) {
             this.members.splice(myPos, 1);
             this.intKeys = [];
-            this._debugIntKeys = [];
             this.privKeyList = [];
         }
     };
@@ -279,12 +257,11 @@ define([
      */
     ns.CliquesMember.prototype.akaRefresh = function() {
         // Renew all keys.
-        var retValue = this._renewPrivKey();
+        var cardinalKey = this._renewPrivKey();
 
         // Discard old and make new group key.
         this.groupKey = null;
-        this.groupKey = utils.sha256(retValue.cardinalKey);
-        this._debugGroupKey = retValue.cardinalDebugKey;
+        this.groupKey = utils.sha256(cardinalKey);
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.CliquesMessage(this.id);
@@ -292,7 +269,6 @@ define([
         broadcastMessage.agreement = 'aka';
         broadcastMessage.flow = 'down';
         broadcastMessage.intKeys = this.intKeys;
-        broadcastMessage.debugKeys = this._debugIntKeys;
 
         return broadcastMessage;
     };
@@ -314,21 +290,18 @@ define([
 
         this.members = message.members;
         this.intKeys = message.intKeys;
-        this._debugIntKeys = message.debugKeys;
         if (this.intKeys.length === 0) {
             // We're the first, so let's initialise it.
             this.intKeys = [null];
-            this._debugIntKeys = [null];
         }
 
         // To not confuse _renewPrivKey() in full refresh situation.
         if (message.agreement === 'ika') {
             this.privKeyList = [];
-            this._debugPrivKeyList = [];
         }
 
         // Renew all keys.
-        var result = this._renewPrivKey();
+        var cardinalKey = this._renewPrivKey();
         var myPos = this.members.indexOf(this.id);
 
         // Clone message.
@@ -336,23 +309,20 @@ define([
         if (myPos === this.members.length - 1) {
             // I'm the last in the chain:
             // Cardinal is secret key.
-            this.groupKey = utils.sha256(result.cardinalKey);
-            this._debugGroupKey = result.cardinalDebugKey;
-            this._setKeys(this.intKeys, this._debugIntKeys);
+            this.groupKey = utils.sha256(cardinalKey);
+            this._setKeys(this.intKeys);
             // Broadcast all intermediate keys.
             message.source = this.id;
             message.dest = '';
             message.flow = 'down';
         } else {
             // Add the new cardinal key.
-            this.intKeys.push(result.cardinalKey);
-            this._debugIntKeys.push(result.cardinalDebugKey);
+            this.intKeys.push(cardinalKey);
             // Pass a message on to the next in line.
             message.source = this.id;
             message.dest = this.members[myPos + 1];
         }
         message.intKeys = this.intKeys;
-        message.debugKeys = this._debugIntKeys;
         return message;
     };
 
@@ -362,20 +332,13 @@ define([
      * the new cardinal key.
      *
      * @returns
-     *     Cardinal key and cardinal debug key in an object.
+     *     Cardinal key.
      * @method
      * @private
      */
     ns.CliquesMember.prototype._renewPrivKey = function() {
         // Make a new private key.
         this.privKeyList.push(jodid25519.dh.generateKey());
-        this.keyTimestamp = Math.round(Date.now() / 1000);
-        if (this._debugPrivKeyList && this._debugPrivKeyList.length > 0) {
-            var lastKey = this._debugPrivKeyList[this._debugPrivKeyList.length - 1];
-            this._debugPrivKeyList.push(lastKey + "'");
-        } else {
-            this._debugPrivKeyList.push(this.id);
-        }
 
         // Update intermediate keys.
         var myPos = this.members.indexOf(this.id);
@@ -384,20 +347,13 @@ define([
                 var lastIndex = this.privKeyList.length - 1;
                 this.intKeys[i] = jodid25519.dh.computeKey(this.privKeyList[lastIndex],
                                                            this.intKeys[i]);
-                this._debugIntKeys[i] = ns._computeKeyDebug(this._debugPrivKeyList[lastIndex],
-                                                            this._debugIntKeys[i]);
             }
         }
 
         // New cardinal is "own" intermediate scalar multiplied with our private.
         var cardinalKey = ns._computeKeyList(this.privKeyList,
                                              this.intKeys[myPos]);
-        var cardinalDebugKey = ns._computeKeyListDebug(this._debugPrivKeyList,
-                                                       this._debugIntKeys[myPos]);
-        return {
-            cardinalKey: '' + cardinalKey,
-            cardinalDebugKey: '' + cardinalDebugKey
-        };
+        return '' + cardinalKey;
     };
 
     /**
@@ -419,7 +375,7 @@ define([
         _assert(message.members.length === message.intKeys.length,
                 'Mis-match intermediate key number for CLIQUES downflow.');
         this.members = message.members;
-        this._setKeys(message.intKeys, message.debugKeys);
+        this._setKeys(message.intKeys);
     };
 
 
@@ -429,45 +385,16 @@ define([
      * @method
      * @param intKeys
      *     Intermediate keys.
-     * @param debugKeys
-     *     Debug "key" sequences.
      * @private
      */
-    ns.CliquesMember.prototype._setKeys = function(intKeys, debugKeys) {
+    ns.CliquesMember.prototype._setKeys = function(intKeys) {
         this.groupKey = null;
-        this._debugGroupKey = null;
 
         // New objects for intermediate keys.
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;
-        this._debugIntKeys = debugKeys;
         this.groupKey = utils.sha256(ns._computeKeyList(this.privKeyList,
                                                         this.intKeys[myPos]));
-        this._debugGroupKey = ns._computeKeyListDebug(this._debugPrivKeyList,
-                                                      this._debugIntKeys[myPos]);
-    };
-
-
-    /**
-     * Debug version of `jodid25519.dh.computeKey()`.
-     *
-     * In case intKey is undefined, privKey will be multiplied with the curve's
-     * base point.
-     *
-     * @param privKey
-     *     Private key.
-     * @param intKey
-     *     Intermediate key.
-     * @returns
-     *     Scalar product of keys.
-     * @private
-     */
-    ns._computeKeyDebug = function(privKey, intKey) {
-        if (intKey) {
-            return privKey + '*' + intKey;
-        } else {
-            return privKey + '*G';
-        }
     };
 
 
@@ -491,25 +418,6 @@ define([
         return result;
     };
 
-
-    /**
-     * Debug version of _computeKeyList.
-     *
-     * @param privKeyList {array}
-     *     List of private keys.
-     * @param intKey
-     *     Intermediate key.
-     * @returns
-     *     Scalar product of keys.
-     * @private
-     */
-    ns._computeKeyListDebug = function(privKeyList, intKey) {
-        var result = intKey;
-        for (var i in privKeyList) {
-            result = ns._computeKeyDebug(privKeyList[i], result);
-        }
-        return result;
-    };
 
     return ns;
 });

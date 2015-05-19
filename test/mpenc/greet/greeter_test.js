@@ -607,13 +607,13 @@ define([
                 var message = { source: '1', dest: '2',
                                 greetType: ns.GREET_TYPE.INIT_INITIATOR_UP,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [null, []], debugKeys: [null, '1*G'],
+                                intKeys: [null, []],
                                 nonces: ['foo'], pubKeys: ['foo'],
                                 sessionSignature: null };
                 var compare = { source: '2', dest: '3',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], []], debugKeys: ['2*G', '1*G', '2*1*G'],
+                                intKeys: [[], [], []],
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
                                 sessionSignature: null };
                 var participant = makeGreeting('2',
@@ -628,7 +628,6 @@ define([
                 assert.strictEqual(output.greetType, compare.greetType);
                 assert.deepEqual(output.members, compare.members);
                 assert.lengthOf(output.intKeys, compare.intKeys.length);
-                assert.deepEqual(output.debugKeys, compare.debugKeys);
                 assert.lengthOf(output.nonces, compare.nonces.length);
                 assert.lengthOf(output.pubKeys, compare.pubKeys.length);
                 assert.strictEqual(output.sessionSignature, compare.sessionSignature);
@@ -639,7 +638,6 @@ define([
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
-                                debugKeys: ['', '', '', '', ''],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
@@ -673,8 +671,6 @@ define([
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
-                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
-                                            '5*3*2*1*G', '4*3*2*1*G'],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
@@ -702,8 +698,6 @@ define([
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
-                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
-                                            '5*3*2*1*G', '4*3*2*1*G'],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
@@ -728,7 +722,7 @@ define([
                 var message = { source: '5', dest: '',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [], debugKeys: [],
+                                intKeys: [],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
@@ -754,19 +748,6 @@ define([
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(participant.askeMember.downflow);
                 sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
-            });
-
-            it('processing for a downflow quit message', function() {
-                var participant = makeGreeting('2',
-                                                      _td.ED25519_PRIV_KEY,
-                                                      _td.ED25519_PUB_KEY,
-                                                      _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
-                participant.askeMember.ephemeralPubKeys = {'1': _td.ED25519_PUB_KEY};
-                var result = participant._processMessage(
-                        new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
-                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].priv, _td.ED25519_PRIV_KEY);
-                assert.strictEqual(participant.askeMember.oldEphemeralKeys['1'].pub, _td.ED25519_PUB_KEY);
             });
 
             it('processing for a downflow message after a quit', function() {

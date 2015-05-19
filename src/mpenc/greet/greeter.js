@@ -266,8 +266,6 @@ define([
      *     List (array) of all participating members.
      * @property intKeys {Array<string>}
      *     List (array) of intermediate keys for group key agreement.
-     * @property debugKeys {Array<string>}
-     *     List (array) of keying debugging strings.
      * @property nonces {Array<string>}
      *     Nonces of members for ASKE.
      * @property pubKeys {Array<string>}
@@ -303,7 +301,6 @@ define([
         this.sidkeyHint = source.sidkeyHint || null;
         this.members = source.members || [];
         this.intKeys = source.intKeys || [];
-        this.debugKeys = source.debugKeys || [];
         this.nonces = source.nonces || [];
         this.pubKeys = source.pubKeys || [];
         this.sessionSignature = source.sessionSignature || null;
@@ -1106,11 +1103,6 @@ define([
             // QUIT message.
             _assert(message.signingKey,
                     'Inconsistent message content with message type (signingKey).');
-            // Sender is quitting participation.
-            this.askeMember.oldEphemeralKeys[message.source] = {
-                    priv: message.signingKey,
-                    pub:  this.askeMember.ephemeralPubKeys[message.source]
-            };
         } else if (message.isDownflow()) {
             // Downflow message.
             if (message.isGKA()) {
@@ -1214,7 +1206,6 @@ define([
         newMessage.dest = cliquesMessage.dest || askeMessage.dest || '';
         newMessage.members = cliquesMessage.members || askeMessage.members;
         newMessage.intKeys = cliquesMessage.intKeys || null;
-        newMessage.debugKeys = cliquesMessage.debugKeys || null;
         newMessage.nonces = askeMessage.nonces || null;
         newMessage.pubKeys = askeMessage.pubKeys || null;
         newMessage.sessionSignature = askeMessage.sessionSignature || null;
@@ -1239,7 +1230,6 @@ define([
         newMessage.dest = message.dest;
         newMessage.members = message.members;
         newMessage.intKeys = message.intKeys;
-        newMessage.debugKeys = message.debugKeys;
 
         // Upflow or downflow.
         if (message.isDownflow()) {

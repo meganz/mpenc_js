@@ -672,8 +672,6 @@ define([
                                 greetType: greeter.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
                                 intKeys: [[], [], [], [], []],
-                                debugKeys: ['5*4*3*2*G', '5*4*3*1*G', '5*4*2*1*G',
-                                            '5*3*2*1*G', '4*3*2*1*G'],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
