@@ -32,15 +32,7 @@ define([
 
     var logs = null;
     var cancel_sub = null;
-    var assertLog = function(x) { assert.strictEqual(logs.shift(), x); }
-
-    var oldTimer = ns.defaultMsTimer;
-    // For some reason, web standards don't guarantee that in
-    //   setTimeout(f, x); setTimeout(g, y);
-    // where y >= x, that g runs strictly after f.
-    // So we do this stupid hack that "approximates" this behaviour, to make
-    // our tests a bit easier to write.
-    ns.defaultMsTimer = function(ticks, action) { return oldTimer(ticks*10, action); };
+    var assertLog = function(x) { assert.strictEqual(logs.shift(), x); };
 
     beforeEach(function() {
         logs = [];
@@ -49,7 +41,6 @@ define([
 
     afterEach(function() {
         cancel_sub();
-        assert.deepEqual(logs, []);
         logs = null;
     });
 
@@ -241,6 +232,7 @@ define([
             assertLog("inner called");
             assertLog("outer called b 1");
             assertLog("outer called b 2");
+            assert.deepEqual(logs, []);
         });
 
         it("subscriber failed", function() {
@@ -270,6 +262,7 @@ define([
             assertLog("called x");
             assertLog("called y, 2");
             assert(cancel_y());
+            assert.deepEqual(logs, []);
         });
 
         it("subscriber cancel", function() {
@@ -290,6 +283,7 @@ define([
 
             events.publish(Evt1(1, 2));
             assertLog("called y, cancelled x");
+            assert.deepEqual(logs, []);
         });
 
         it("subscriber cancel self", function() {
@@ -310,13 +304,33 @@ define([
 
             events.publish(Evt1(1, 2));
             assertLog("called x");
+            assert.deepEqual(logs, []);
         });
     });
 
     describe("timer", function() {
         describe("defaultMsTimer", function() {
+            it("zeroTimeoutOrderAdd", function(done) {
+                this.timeout(this.timeout() * 4);
+                var timer = new ns.Timer().timer;
+                timer(1, function() { logs.push("cb2"); });
+                timer(0, function() {
+                    logs.push("cb0");
+                    timer(0, function() { logs.push("cb1"); });
+                });
+                // wait a bit longer because browsers do delay clamping
+                timer(15, function() {
+                    assertLog("cb0");
+                    assertLog("cb1");
+                    assertLog("cb2");
+                    assert.deepEqual(logs, []);
+                    done();
+                }, "check");
+            });
+
             it("oneTimeoutOrder", function(done) {
-                var timer = ns.defaultMsTimer;
+                this.timeout(this.timeout() * 4);
+                var timer = new ns.Timer().timer;
                 timer(2, function() { logs.push("cb1"); });
                 timer(1, function() { logs.push("cb0"); });
                 timer(2, function() { logs.push("cb2"); });
@@ -331,7 +345,8 @@ define([
             });
 
             it("oneTimeoutOrderAdd", function(done) {
-                var timer = ns.defaultMsTimer;
+                this.timeout(this.timeout() * 4);
+                var timer = new ns.Timer().timer;
                 timer(2, function() { logs.push("cb1"); });
                 timer(1, function() {
                     logs.push("cb0");
@@ -349,7 +364,7 @@ define([
         });
 
         describe("subscribe timeout", function() {
-            var timer = ns.defaultMsTimer;
+            var timer = new ns.Timer().timer;
 
             var cb_x = function() {
                 logs.push("called x");
@@ -359,6 +374,7 @@ define([
             };
 
             it("default, no allowFireLater", function(done) {
+                this.timeout(this.timeout() * 4);
                 var obs = new ns.Observable();
                 var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x)(cb_x);
                 timer(20, function() {
@@ -372,6 +388,7 @@ define([
             });
 
             it("allowFireLater", function(done) {
+                this.timeout(this.timeout() * 4);
                 var obs = new ns.Observable();
                 var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x, true)(cb_x);
                 timer(5, function() {
@@ -382,6 +399,7 @@ define([
                     assertLog("called x");
                     assert.deepEqual(logs, []);
                     assert(cancel_x());
+                    assert.deepEqual(logs, []);
                     done();
                 });
             });
@@ -389,9 +407,10 @@ define([
     });
 
     describe("Monitor", function() {
-        var timer = ns.defaultMsTimer;
+        var timer = new ns.Timer().timer;
 
         it("basic usage", function(done) {
+            this.timeout(this.timeout() * 4);
             var called = 0;
             var times = 3;
             var act = function() {
@@ -418,11 +437,13 @@ define([
                 assert(mon.state() == "STOPPED");
                 assert.throws(mon.pause.bind(mon));
                 assert.throws(mon.resume.bind(mon));
+                assert.deepEqual(logs, []);
                 done();
             });
         });
 
         it("fail SubscriberFailure", function(done) {
+            this.timeout(this.timeout() * 4);
             var called = 0;
             var times = 1;
             var act = function() {
@@ -437,11 +458,13 @@ define([
                 assert.equal(called, 1);
                 assertLog("called act-sf");
                 assert(logs.shift() instanceof ns.SubscriberFailure);
+                assert.deepEqual(logs, []);
                 done();
             });
         });
 
         it("finite seq", function(done) {
+            this.timeout(this.timeout() * 4);
             var act = function() {
                 logs.push("called act-fs");
             };
@@ -456,11 +479,13 @@ define([
                 assertLog("called act-fs");
                 assertLog("called act-fs");
                 assert(mon.state() == "STOPPED");
+                assert.deepEqual(logs, []);
                 done();
             });
         });
 
         it("reset", function(done) {
+            this.timeout(this.timeout() * 4);
             var act = function() {
                 logs.push("called act-reset");
             };
@@ -477,6 +502,7 @@ define([
                     assertLog("called act-reset");
                     assertLog("called act-reset");
                     assert(mon.state() == "STOPPED");
+                    assert.deepEqual(logs, []);
                     done();
                 });
             });

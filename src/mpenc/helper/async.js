@@ -170,6 +170,13 @@ define([
     ns.Subscribe = Subscribe;
 
 
+    var SubscriptionReentry = {
+        NOADD_REM: 1,
+        ADD_REM: 3,
+        DEFAULT: 1,
+    };
+
+
     /**
      * An Observable.
      *
@@ -194,7 +201,7 @@ define([
      * @param {boolean} require_subs Elements of the set
      * @memberOf! module:mpenc/helper/async
      */
-    var Observable = function(require_subs) {
+    var Observable = function(require_subs, subscriptionReentry) {
         if (!(this instanceof Observable)) {
             return new Observable(require_subs);
         }
@@ -223,6 +230,19 @@ define([
             };
         });
 
+        subscriptionReentry = (subscriptionReentry === undefined)? SubscriptionReentry.DEFAULT: subscriptionReentry;
+        var iterSubs;
+        switch (subscriptionReentry) {
+        case SubscriptionReentry.NOADD_REM:
+            iterSubs = function() { return new Map(struct.iteratorToArray(_subs.entries())); }; // should just be new Map(_subs) in ES6
+            break;
+        case SubscriptionReentry.ADD_REM:
+            iterSubs = function() { return _subs; };
+            break;
+        default:
+            throw new Error("unsupported SubscriptionReentry: " + subscriptionReentry);
+        }
+
         /**
          * Publish an item to all subscriptions.
          *
@@ -241,9 +261,8 @@ define([
             if (_require_subs && !_subs.size) {
                 throw new Error("published item with no subscriber: " + item);
             }
-            var copy = new Map(struct.iteratorToArray(_subs.entries())); // should just be new Map(_subs) in ES6
             var status = [];
-            copy.forEach(function(sub, k) {
+            iterSubs().forEach(function(sub, k) {
                 if (!_subs.has(k)) return; // don't call if removed by previous sub
                 try {
                     status.push(sub(item));
@@ -609,39 +628,88 @@ define([
 
 
     /**
-     * A wrapper around window.setTimeout that follows the timer interface.
+     * Timer that executes callbacks in the order they were subscribed.
      *
-     * A tick is 1 millisecond.
+     * (Browsers don't typically make this ordering guarantee.)
      *
+     * @class
+     * @param tps {number} Ticks per second. Default: 1000
+     * @memberOf! module:mpenc/helper/async
+     */
+    var Timer = function(tps) {
+        this._tpms = (tps) ? tps/1000 : 1;
+        this._cb = {};
+        this._lastCompleted = this._realNow();
+
+        var tId = setInterval(this._runTick.bind(this), 0.5 / this._tpms);
+        this.stop = function() {
+            clearInterval(tId);
+        };
+        var self = this;
+        this.timer = function(t, a, n) { return self._timer(t, a, n); };
+    };
+
+    if (typeof performance === "undefined") {
+        Timer.prototype._realNow = function() {
+            return Math.floor(new Date().getTime() * this._tpms);
+        };
+    } else {
+        Timer.prototype._realNow = function() {
+            return Math.floor(performance.now() * this._tpms);
+        };
+    }
+
+    /**
+     * Get the current tick. This has no semantics outside of this object.
+     *
+     * @returns tick {number}
+     */
+    Timer.prototype.now = function() {
+        return this._lastCompleted + 1;
+    };
+
+    /**
+     * Schedule future timed calls. This follows the timer interface.
+     *
+     * @method
      * @param ticks {number} Number of ticks later to schedule the action for.
-     *      How long this is in real terms is defined by the timer.
+     *      How long this is in real terms is defined in the constructor.
      * @param action {function} 0-arg function to run.
      * @returns canceller {module:mpenc/helper/async~canceller}
      * @see module:mpenc/helper/async~timer
-     * @memberOf! module:mpenc/helper/async
      */
-    var defaultMsTimer = function(ticks, action) {
-        if (ticks <= 0) {
-            throw new Error("ticks must be > 0");
+    Timer.prototype.timer;
+    Timer.prototype._timer = function(ticks, action) {
+        if (ticks < 0) {
+            throw new Error("can't schedule in the past");
         }
-        var cancel = setTimeout(function() {
-            try {
-                action();
-            } catch (e) {
-                __SubscriberFailure_publishGlobal(action, undefined, e);
-            }
-        }, ticks);
-        var not_yet_cancelled = true;
-        return function() {
-            // of course someone else could call this and mess up our return value
-            // we can't do anything about that; they are bad people
-            clearTimeout(cancel);
-            var r = not_yet_cancelled;
-            not_yet_cancelled = false;
-            return r;
-        };
+        var t = this.now() + Math.floor(ticks);
+        if (!(t in this._cb)) {
+            this._cb[t] = new Observable(false, SubscriptionReentry.ADD_REM);
+        }
+        var obs = this._cb[t];
+        return obs.subscribe(action);
     };
-    ns.defaultMsTimer = defaultMsTimer;
+
+    Timer.prototype._runTick = function() {
+        var realNow = this._realNow();
+        var lastCompleted = this._lastCompleted;
+        if (realNow <= lastCompleted) {
+            return;
+        }
+        for (var t=lastCompleted+1; t<realNow; t++) {
+            var obs = this._cb[t];
+            if (obs) {
+                obs.publish(t);
+                delete this._cb[t];
+            }
+            //logger.debug("lastCompleted: " + t + " @ " + this._realNow());
+            this._lastCompleted = t;
+        }
+    };
+
+    Object.freeze(Timer.prototype);
+    ns.Timer = Timer;
 
 
     /**
@@ -778,6 +846,7 @@ define([
         assert(this.state() == "STOPPED");
     };
 
+    Object.freeze(Monitor.prototype);
     ns.Monitor = Monitor;
 
     return ns;
