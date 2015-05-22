@@ -496,24 +496,6 @@ define([
 
 
     /**
-     * Fully re-run whole key agreements, but retain the ephemeral signing key.
-     *
-     * @returns {SignatureKeyExchangeMessage}
-     * @method
-     */
-    ns.SignatureKeyExchangeMember.prototype.fullRefresh = function() {
-        // Force complete new exchange of session info.
-        this.sessionId = null;
-
-        // Start with the other members.
-        var otherMembers = utils.clone(this.members);
-        var myPos = otherMembers.indexOf(this.id);
-        otherMembers.splice(myPos, 1);
-        return this.commit(otherMembers);
-    };
-
-
-    /**
      * Computes the session ID.
      *
      * @param members {array<string>}

@@ -139,22 +139,6 @@ define([
 
 
     /**
-     * Start the IKA (Initial Key Agreement) for a full/complete refresh of
-     * all keys.
-     *
-     * @returns {CliquesMessage}
-     * @method
-     */
-    ns.CliquesMember.prototype.ikaFullRefresh = function() {
-        // Start with the other members.
-        var otherMembers = utils.clone(this.members);
-        var myPos = otherMembers.indexOf(this.id);
-        otherMembers.splice(myPos, 1);
-        return this.ika(otherMembers);
-    };
-
-
-    /**
      * Start the AKA (Auxiliary Key Agreement) for joining new members.
      *
      * @method

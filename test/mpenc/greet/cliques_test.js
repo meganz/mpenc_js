@@ -105,7 +105,7 @@ define([
         });
 
         describe('#_renewPrivKey() method', function() {
-            it('reniewing private key and int keys', function() {
+            it('renewing private key and int keys', function() {
                 var numMembers = 5;
                 var participant = new ns.CliquesMember('3');
                 participant.privKeyList = [_PRIV_KEY()];
@@ -118,21 +118,6 @@ define([
                 assert.lengthOf(participant.privKeyList, 2);
                 assert.strictEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
                 assert.notDeepEqual(cardinalKey, _td.C25519_PRIV_KEY);
-            });
-
-            it('reniewing private key and int keys for full refresh', function() {
-                var numMembers = 5;
-                var participant = new ns.CliquesMember('3');
-                participant.privKeyList = [];
-                participant.intKeys = [];
-                for (var i = 1; i <= numMembers; i++) {
-                    participant.members.push(i.toString());
-                }
-                var cardinalKey = participant._renewPrivKey();
-                assert.lengthOf(participant.privKeyList, 1);
-                assert.notStrictEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(cardinalKey, _td.C25519_PRIV_KEY);
-                assert.deepEqual(participant.intKeys, []);
             });
         });
 
@@ -149,25 +134,6 @@ define([
                 var participant = new ns.CliquesMember('1');
                 assert.throws(function() { participant.ika([]); },
                               'No members to add.');
-            });
-        });
-
-        describe('#ikaFullRefresh() method', function() {
-            it('fully refresh using ika', function() {
-                var initialMembers = 5;
-                var participant = new ns.CliquesMember('3');
-                participant.intKeys = [];
-                participant.privKeyList = [_PRIV_KEY()];
-                participant.goupKey = _PRIV_KEY();
-                for (var i = 1; i <= initialMembers; i++) {
-                    participant.members.push(i.toString());
-                    participant.intKeys.push(_PRIV_KEY());
-                }
-                var message = participant.ikaFullRefresh();
-                assert.lengthOf(participant.privKeyList, 1);
-                assert.notStrictEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.strictEqual(message.dest, '1');
-                assert.deepEqual(message.members, ['3', '1', '2', '4', '5']);
             });
         });
 
@@ -258,31 +224,6 @@ define([
                 // Last one goes to all.
                 assert.strictEqual(message.source, members[numMembers - 1]);
                 assert.strictEqual(message.dest, '');
-            });
-
-            it('ika upflow, for full refresh', function() {
-                var participant = new ns.CliquesMember('2');
-                var members = ['1', '2', '3', '4', '5'];
-                participant.members = members;
-                participant.privKeyList = [_PRIV_KEY()];
-                var startMessage = {
-                    members: ['1', '2', '3', '4', '5'],
-                    agreement: 'ika',
-                    flow: 'up',
-                    intKeys: [null, 'foo'],
-                };
-                var newMessage = participant.upflow(startMessage);
-                assert.lengthOf(participant.privKeyList, 1);
-                assert.strictEqual(_tu.keyBits(participant.privKeyList[0], 8), 256);
-                assert.deepEqual(participant.members, members);
-                assert.deepEqual(newMessage.members, members);
-                assert.strictEqual(newMessage.agreement, 'ika');
-                assert.strictEqual(newMessage.flow, 'up');
-                assert.lengthOf(newMessage.intKeys, 3);
-                assert.strictEqual(_tu.keyBits(newMessage.intKeys[0], 8), 256);
-                assert.strictEqual(_tu.keyBits(newMessage.intKeys[newMessage.intKeys.length - 1], 8), 256);
-                assert.strictEqual(newMessage.source, '2');
-                assert.strictEqual(newMessage.dest, '3');
             });
         });
 
@@ -521,7 +462,7 @@ define([
         });
 
         describe('whole ika', function() {
-            it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh, full refresh', function() {
+            it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh', function() {
                 this.timeout(this.timeout() * 2);
                 var numMembers = 5;
                 var initiator = 0;
@@ -641,46 +582,6 @@ define([
                         } else {
                             assert.strictEqual(participants[i].groupKey, keyCheck);
                         }
-                    }
-                }
-
-                // '5' starts a full refresh.
-                var oldPrivKeyList = participants[2].privKeyList;
-                message = participants[2].ikaFullRefresh();
-                assert.notDeepEqual(participants[2].privKeyList, oldPrivKeyList);
-                // Sort participants.
-                var tempParticipants = [];
-                for (var i = 0; i < message.members.length; i++) {
-                    var index = members.indexOf(message.members[i]);
-                    tempParticipants.push(participants[index]);
-                }
-                participants = tempParticipants;
-                members = message.members;
-
-                // Upflow for full refresh.
-                while (message.flow === 'up') {
-                    if (message.dest !== '') {
-                        var nextId = message.members.indexOf(message.dest);
-                        oldPrivKeyList = participants[nextId].privKeyList;
-                        message = participants[nextId].upflow(message);
-                        assert.notDeepEqual(participants[nextId].privKeyList, oldPrivKeyList);
-                    } else {
-                        assert.ok(false,
-                                  "This shouldn't happen, something's seriously dodgy!");
-                    }
-                }
-
-                // Downflow for full refresh.
-                keyCheck = null;
-                for (var i = 0; i < numMembers; i++) {
-                    var participant = participants[i];
-                    participant.downflow(message);
-                    assert.strictEqual(participant.id, members[i]);
-                    assert.deepEqual(participant.members, members);
-                    if (!keyCheck) {
-                        keyCheck = participant.groupKey;
-                    } else {
-                        assert.strictEqual(participant.groupKey, keyCheck);
                     }
                 }
             });

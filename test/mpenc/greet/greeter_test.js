@@ -489,7 +489,7 @@ define([
             });
         });
 
-        describe('#inclnude() method', function() {
+        describe('#include() method', function() {
             it('include empty member list', function() {
                 var participant = makeGreeting('1',
                                                       _td.ED25519_PRIV_KEY,

@@ -1184,8 +1184,7 @@ define([
      * @returns {GreetMessage}
      *     Joined message (not wire encoded).
      */
-    Greeting.prototype._mergeMessages = function(cliquesMessage,
-                                                           askeMessage) {
+    Greeting.prototype._mergeMessages = function(cliquesMessage, askeMessage) {
         // Are we done already?
         if (!cliquesMessage && !askeMessage) {
             return null;
@@ -1325,16 +1324,6 @@ define([
      */
     Greeting.prototype.isSessionAcknowledged = function(participantID) {
         return this.askeMember.isSessionAcknowledged();
-    };
-
-
-    /**
-     * Discard all authentications, and set only self to authenticated.
-     *
-     * @method
-     */
-    Greeting.prototype.discardAuthentications = function() {
-        this.askeMember.discardAuthentications();
     };
 
 

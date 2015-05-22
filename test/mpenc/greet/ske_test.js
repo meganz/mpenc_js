@@ -630,22 +630,6 @@ define([
             });
         });
 
-        describe('#fullRefresh() method', function() {
-            it('simple tests', function() {
-                var participant = new ns.SignatureKeyExchangeMember('John');
-                participant.members = ['John', 'Paul', 'George', 'Ringo'];
-                participant.ephemeralPubKeys = ['1', '2', '3'];
-                participant.authenticatedMembers = [true, false];
-                sandbox.stub(participant, 'commit', _echo);
-                var result = participant.fullRefresh();
-                var compare = {John: {pub: '1', priv: null, authenticated: true},
-                               Paul: {pub: '2', priv: null, authenticated: false},
-                               George: {pub: '3', priv: null, authenticated: false}};
-                assert.deepEqual(result, ['Paul', 'George', 'Ringo']);
-                sinon_assert.calledOnce(participant.commit);
-            });
-        });
-
         describe('#getMemberEphemeralPubKey() method', function() {
             it('simple tests', function() {
                 var participant = new ns.SignatureKeyExchangeMember('John');
@@ -657,7 +641,7 @@ define([
         });
 
         describe('whole ASKE', function() {
-            it('whole flow for 5 members, 2 joining, 2 others leaving, full refresh', function() {
+            it('whole flow for 5 members, 2 joining, 2 others leaving', function() {
                 // Extend timeout, this test takes longer.
                 this.timeout(this.timeout() * 30);
                 var numMembers = 5;
@@ -780,64 +764,6 @@ define([
                             continue;
                         }
                         var nextMessage = participant.downflow(message);
-                        if (nextMessage !== null) {
-                            nextMessages.push(nextMessage);
-                        }
-                        assert.deepEqual(participant.members, members);
-                        if (!sid) {
-                            sid = participant.sessionId;
-                        } else {
-                            assert.strictEqual(participant.sessionId, sid);
-                        }
-                    }
-                    message = nextMessages.shift();
-                }
-                for (var i = 0; i < participants.length; i++) {
-                    var participant = participants[i];
-                    if (members.indexOf(participant.id) < 0) {
-                        continue;
-                    }
-                    assert.ok(participant.isSessionAcknowledged());
-                }
-
-                // '5' starts a full refresh.
-                var oldSigningKey = participants[2].ephemeralPrivKey;
-                message = participants[2].fullRefresh();
-                assert.strictEqual(participants[2].ephemeralPrivKey, oldSigningKey);
-                // Sort participants.
-                var tempParticipants = [];
-                for (var i = 0; i < message.members.length; i++) {
-                    var index = members.indexOf(message.members[i]);
-                    tempParticipants.push(participants[index]);
-                }
-                participants = tempParticipants;
-                members = message.members;
-
-                // Upflow for full refresh.
-                while (message.flow === 'up') {
-                    if (message.dest !== '') {
-                        var nextId = message.members.indexOf(message.dest);
-                        oldSigningKey = participants[nextId].ephemeralPrivKey;
-                        message = participants[nextId].upflow(message);
-                        assert.strictEqual(participants[nextId].ephemeralPrivKey, oldSigningKey);
-                    } else {
-                        assert.ok(false,
-                                  "This shouldn't happen, something's seriously dodgy!");
-                    }
-                }
-
-                // Downflow for full refresh.
-                sid = null;
-                nextMessages = [];
-                while (message !== undefined) {
-                    for (var i = 0; i < participants.length; i++) {
-                        var participant = participants[i];
-                        if (members.indexOf(participant.id) < 0) {
-                            continue;
-                        }
-                        oldSigningKey = participant.ephemeralPrivKey;
-                        var nextMessage = participant.downflow(message);
-                        assert.strictEqual(participant.ephemeralPrivKey, oldSigningKey);
                         if (nextMessage !== null) {
                             nextMessages.push(nextMessage);
                         }
