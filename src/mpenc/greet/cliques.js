@@ -244,7 +244,6 @@ define([
         var cardinalKey = this._renewPrivKey();
 
         // Discard old and make new group key.
-        this.groupKey = null;
         this.groupKey = utils.sha256(cardinalKey);
 
         // Pass broadcast message on to all members.
@@ -372,8 +371,6 @@ define([
      * @private
      */
     ns.CliquesMember.prototype._setKeys = function(intKeys) {
-        this.groupKey = null;
-
         // New objects for intermediate keys.
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;
