@@ -23,6 +23,8 @@ DEP_ALL_NAMES = asmcrypto.js $(DEP_NONCUSTOM_NAMES) jodid25519
 # Build-depends - make sure you keep BUILD_DEP_ALL and BUILD_DEP_ALL_NAMES up-to-date
 KARMA  = $(NODE_PATH)/karma/bin/karma
 JSDOC  = $(NODE_PATH)/.bin/jsdoc
+JSHINT = $(NODE_PATH)/.bin/jshint
+JSCS   = $(NODE_PATH)/.bin/jscs
 R_JS   = $(NODE_PATH)/.bin/r.js
 ALMOND = $(NODE_PATH)/almond/almond.js
 R_JS_ALMOND_OPTS = baseUrl=src name=../$(ALMOND:%.js=%) wrap.startFile=almond.0 wrap.endFile=almond.1
@@ -49,6 +51,14 @@ api-doc: $(JSDOC)
 	$(NODE) $(JSDOC) --destination doc/api/ --private \
                  --configure jsdoc.json \
                  --recurse src/
+
+jshint: $(JSHINT)
+	@-$(NODE) $(JSHINT) --verbose .
+
+jscs: $(JSCS)
+	@-$(NODE) $(JSCS) --verbose .
+
+checks: jshint jscs
 
 $(BUILDDIR)/build-config-static.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
@@ -113,5 +123,6 @@ clean-all: clean
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
 	rm -f .npm-build-deps
 
-.PHONY: all test browser-test api-doc clean clean-all build-deps-auto
+.PHONY: all test browser-test api-doc jshint jscs checks
+.PHONY: clean clean-all build-deps-auto
 .PHONY: build-static build-shared test-static test-shared dist
