@@ -39,7 +39,7 @@ define([
 
     var assert = chai.assert;
     var Set = ns.ImmutableSet;
-    var diff = ns.Set_diff;
+    var diff = ns.setDiff;
     var patch = ns.Set_patch;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
@@ -167,6 +167,12 @@ define([
                 assert(changed_b[0].equals(changed_a[1]));
                 assert.sameMembers(changed_a[0].toArray(), [4, 5]);
                 assert.sameMembers(changed_b[0].toArray(), [1, 2]);
+            });
+            it("set diff", function() {
+                var a = Set([1, 2, 3]), b = Set([3, 4, 5]);
+                var diffs = diff(a, b);
+                assert.sameMembers(diffs[0].toArray(), [4, 5]);
+                assert.sameMembers(diffs[1].toArray(), [1, 2]);
             });
             it("patch changes", function() {
                 var a = Set([1, 2, 3]), b = Set([3, 4, 5]), c = Set([2, 3, 7]);
