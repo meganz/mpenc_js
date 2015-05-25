@@ -68,6 +68,100 @@ define([
 
 
     /**
+     * An entity with a transcript that can be flow-controlled.
+     *
+     * This is more an 'internal-facing" [interface to] a session - separate from it
+     * since the functionality here should only be accessible to FlowControl and not
+     * the user. Also the current FlowControl system works under the assumption
+     * that there is a single underlying transcript to query, which may not be the
+     * case for some Session implementations, e.g. HybridSession.
+     *
+     * @interface
+     * @memberOf module:mpenc/liveness
+     */
+    var Flow = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+    // jshint -W030
+
+    /**
+     * The uId of the owner of this process, the authors messages.
+     * @method
+     */
+    Flow.prototype.owner;
+
+    /**
+     * The transcript object, for making precise queries about the flow's history.
+     * @method
+     */
+    Flow.prototype.transcript;
+
+    /**
+     * The current set of members.
+     * @method
+     */
+    Flow.prototype.curMembers;
+
+    /**
+     * The tick at which message was accepted.
+     * @method
+     */
+    Flow.prototype.cTime;
+
+    /**
+     * The tick at which message was fully-acked, or null if not yet so.
+     * @method
+     */
+    Flow.prototype.kTime;
+
+    /**
+     * Whether we want an active process to reach full-ack for a message.
+     * @method
+     */
+    Flow.prototype.needAckmon;
+
+    /**
+     * Whether this flow authored the given message.
+     * @param mId {string} Message ID
+     * @returns {boolean}
+     */
+    Flow.prototype.owns = function(mId) {
+        return this.owner() === this.transcript().author(mId);
+    };
+
+    /**
+     * The last message written by the owner of the flow.
+     * @returns {?string} Message ID
+     */
+    Flow.prototype.lastOwnMsg = function() {
+        var ownBy = this.transcript().by(this.owner());
+        return ownBy.length ? ownBy[ownBy.length - 1] : null;
+    };
+
+    /**
+     * Send an MessageBody to everyone.
+     * @method
+     */
+    Flow.prototype.sendObj;
+
+    /**
+     * Re-send a previously-sent message, possibly by someone else.
+     * @method
+     */
+    Flow.prototype.resend;
+
+    /**
+     * Get stats for the current flow.
+     * @method
+     */
+    Flow.prototype.getFlowStats;
+
+    Object.freeze(Flow.prototype);
+    ns.Flow = Flow;
+    // jshint +W030
+
+
+    /**
      * A message has been decrypted but not accepted, after a grace period.
      * That is, the parent/ancestor messages have not yet all been accepted.
      *
