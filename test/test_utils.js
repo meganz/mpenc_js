@@ -3,7 +3,7 @@
  * Some utils to help testing.
  */
 
-"use strict";
+"use strict"; // jshint ignore:line
 
 var _tu = {};
 

@@ -102,7 +102,7 @@ define([
         if (Object.setPrototypeOf) {
             Object.setPrototypeOf(subscribe, Subscribe.prototype);
         } else {
-            subscribe.__proto__ = Subscribe.prototype;
+            subscribe.__proto__ = Subscribe.prototype; // jshint ignore:line
         }
         Object.freeze(subscribe);
         return subscribe;
@@ -405,6 +405,8 @@ define([
     ns.ObservableSequence = ObservableSequence;
 
 
+    // jshint -W055
+
     var _AutoNode = function(mkchild, cleanup) {
         if (!(this instanceof _AutoNode)) {
             return new _AutoNode(mkchild, cleanup);
@@ -603,6 +605,8 @@ define([
     Object.freeze(EventContext.prototype);
     ns.EventContext = EventContext;
 
+    // jshint +W055
+
 
     /**
      * A source of events.
@@ -614,6 +618,7 @@ define([
     var EventSource = function() {
         throw new Error("cannot instantiate an interface");
     };
+    // jshint -W030
 
     /**
      * Subscribe to events; delegates to some underlying internal EventContext.
@@ -625,6 +630,7 @@ define([
 
     Object.freeze(EventSource.prototype);
     ns.EventSource = EventSource;
+    // jshint +W030
 
 
     /**
@@ -676,7 +682,7 @@ define([
      * @returns canceller {module:mpenc/helper/async~canceller}
      * @see module:mpenc/helper/async~timer
      */
-    Timer.prototype.timer;
+    Timer.prototype.timer; // jshint ignore:line
     Timer.prototype._timer = function(ticks, action) {
         if (ticks < 0) {
             throw new Error("can't schedule in the past");

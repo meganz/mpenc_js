@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // shim in browser global vars that some libs assume the existence of
-navigator = { appName: "nodejs" };
+navigator = { appName: "nodejs" }; // jshint ignore:line
 
 // load our library
 var mpenc = require(process.argv[2]);

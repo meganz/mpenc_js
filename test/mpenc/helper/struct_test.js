@@ -35,6 +35,7 @@ define([
 ], function(ns, utils, es6_shim, MegaLogger,
             chai, stub, spy, sinon_sandbox, sinon_assert) {
     "use strict";
+    // jshint -W064
 
     var assert = chai.assert;
     var Set = ns.ImmutableSet;
@@ -373,4 +374,6 @@ define([
             });
         });
     });
+
+    // jshint +W064
 });

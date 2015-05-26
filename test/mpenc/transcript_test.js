@@ -33,6 +33,7 @@ define([
 ], function(ns, impl, async, graph, message, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
+    // jshint -W064
 
     var assert = chai.assert;
 
@@ -274,9 +275,11 @@ define([
             }
             for (var i=0; i<mId_ex.length; i++) {
                 assert(log.indexOf(mId_ex[i]) < 0);
+                // jshint -W083
                 assert.throws(function() { log.get(mId_ex[i]); });
                 assert.throws(function() { log.parents(mId_ex[i]); });
                 assert.throws(function() { log.unackby(mId_ex[i]); });
+                // jshint +W083
             }
             assert.deepEqual(log.parents("E").toArray(), ["B"]);
             assert.deepEqual(log.parents("B").toArray(), ["A"]);
@@ -320,4 +323,5 @@ define([
         });
     });
 
+    // jshint +W064
 });

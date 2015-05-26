@@ -392,7 +392,7 @@ define([
 
     // polyfill for PhantomJS in our tests
     if (!Function.prototype.bind) {
-      Function.prototype.bind = function(oThis) {
+      Function.prototype.bind = function(oThis) { // jshint ignore:line
         if (typeof this !== 'function') {
           // closest thing possible to the ECMAScript 5
           // internal IsCallable function
@@ -410,7 +410,7 @@ define([
             };
 
         fNOP.prototype = this.prototype;
-        fBound.prototype = new fNOP();
+        fBound.prototype = new fNOP(); // jshint ignore:line
 
         return fBound;
       };

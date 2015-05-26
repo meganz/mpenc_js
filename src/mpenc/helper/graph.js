@@ -49,6 +49,7 @@ define([
     var CausalOrder = function() {
         throw new Error("cannot instantiate an interface");
     };
+    // jshint -W030
 
     /**
      * Number of elements.
@@ -281,6 +282,7 @@ define([
 
     Object.freeze(CausalOrder.prototype);
     ns.CausalOrder = CausalOrder;
+    // jshint +W030
 
 
     /**

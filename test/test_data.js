@@ -3,7 +3,7 @@
  * Test data for use with all the tests.
  */
 
-"use strict";
+"use strict"; // jshint ignore:line
 
 /*
  * Created: 4 March 2014-2015 Guy K. Kloss <gk@mega.co.nz>

@@ -45,6 +45,7 @@ define([
     var Messages = function() {
         throw new Error("cannot instantiate an interface");
     };
+    // jshint -W030
 
     /**
      * Whether the message is in this collection. Does not throw an Error.
@@ -96,6 +97,7 @@ define([
 
     Object.freeze(Messages.prototype);
     ns.Messages = Messages;
+    // jshint +W030
 
 
     /**
@@ -122,6 +124,7 @@ define([
     var Transcript = function() {
         throw new Error("cannot instantiate an interface");
     };
+    // jshint -W030
 
     /**
      * Add/accept a message; all its parents must already have been added.
@@ -177,6 +180,7 @@ define([
 
     Object.freeze(Transcript.prototype);
     ns.Transcript = Transcript;
+    // jshint +W030
 
 
     /**
@@ -265,6 +269,7 @@ define([
         }
         async.ObservableSequence.call(this);
     };
+    // jshint -W030
 
     MessageLog.prototype = Object.create(async.ObservableSequence.prototype);
 
@@ -327,6 +332,7 @@ define([
 
     Object.freeze(MessageLog.prototype);
     ns.MessageLog = MessageLog;
+    // jshint +W030
 
     return ns;
 });

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Shim in browser global vars that some libs assume the existence of.
-navigator = { appName: "nodejs" };
-window = { navigator: navigator };
+navigator = { appName: "nodejs" }; // jshint ignore:line
+window = { navigator: navigator }; // jshint ignore:line
 
 var fs = require("fs");
 var path = require("path");
@@ -21,7 +21,7 @@ function loadContents(filepath) {
 function loadInlineModule(filepath) {
     var old_exports = module.exports;
     delete module.exports; // hopefully force naive libs to go into "browser global" mode
-    eval(loadContents(filepath));
+    eval(loadContents(filepath)); // jshint ignore:line
     for (var k in window) {
         this[k] = window[k]; // some modules patch "window", forward this to the real nodejs global object
     }
