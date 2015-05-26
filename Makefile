@@ -36,11 +36,11 @@ ASMCRYPTO_MODULES = common,utils,exports,globals,aes,aes-ecb,aes-cbc,aes-cfb,aes
 
 all: test api-doc dist test-shared
 
-mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
-	sed -e 's,$<,$@,g' "$<.map" > "$@.map"
-	sed -e 's,$<,$@,g' "$<" > "$@"
+dist: mpenc.js $(BUILDDIR)/mpenc-static.js
 
-test: .npm-build-deps $(KARMA) $(R_JS) $(DEP_ALL)
+checks: jshint jscs
+
+test: $(KARMA) $(R_JS) $(DEP_ALL)
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --colors=false --browsers PhantomJS
 
 # use e.g. `make BROWSER=Chrome browser-test` to use a different browser
@@ -57,8 +57,6 @@ jshint: $(JSHINT)
 
 jscs: $(JSCS)
 	@-$(NODE) $(JSCS) --verbose .
-
-checks: jshint jscs
 
 $(BUILDDIR)/build-config-static.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
@@ -92,7 +90,9 @@ test-shared: test/build-test-shared.js build-shared $(DEP_ALL)
 $(BUILDDIR)/%.min.js: $(BUILDDIR)/%.js $(UGLIFY)
 	$(NODE) $(UGLIFY) $< -o $@ --source-map $@.map --mangle --compress --lint
 
-dist: $(BUILDDIR)/mpenc-shared.min.js $(BUILDDIR)/mpenc-static.js
+mpenc.js: $(BUILDDIR)/mpenc-shared.min.js
+	sed -e 's,$<,$@,g' "$<.map" > "$@.map"
+	sed -e 's,$<,$@,g' "$<" > "$@"
 
 # TODO: this may be removed when the default dist of asmcrypto includes sha512
 $(DEP_ASMCRYPTO): $(DEP_ASMCRYPTO).with.sha512
@@ -106,7 +106,9 @@ $(DEP_JODID):
 	$(NPM) install jodid25519
 	cd $(NODE_PATH)/jodid25519 && make jodid25519.js
 
-$(BUILD_DEP_ALL) $(DEP_NONCUSTOM):
+# annoyingly, npm sets mtime to package publish date so we have to use |-syntax
+# https://www.gnu.org/software/make/manual/html_node/Prerequisite-Types.html
+$(BUILD_DEP_ALL) $(DEP_NONCUSTOM): | .npm-build-deps
 	$(NPM) install $(BUILD_DEP_ALL_NAMES) $(DEP_NONCUSTOM_NAMES)
 
 # other things from package.json, such as karma plugins. we touch a guard file
@@ -124,5 +126,5 @@ clean-all: clean
 	rm -f .npm-build-deps
 
 .PHONY: all test browser-test api-doc jshint jscs checks
-.PHONY: clean clean-all build-deps-auto
+.PHONY: clean clean-all
 .PHONY: build-static build-shared test-static test-shared dist

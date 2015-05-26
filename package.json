@@ -9,7 +9,6 @@
     "doc": "doc"
   },
   "scripts": {
-    "prepublish": "make mpenc.js",
     "test": "make test test-shared",
     "api-doc": "make api-doc",
     "build-shared": "make build-shared",
