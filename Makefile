@@ -53,10 +53,10 @@ api-doc: $(JSDOC)
                  --recurse src/
 
 jshint: $(JSHINT)
-	@-$(NODE) $(JSHINT) --verbose .
+	@-$(NODE) $(JSHINT) --verbose src test
 
 jscs: $(JSCS)
-	@-$(NODE) $(JSCS) --verbose .
+	@-$(NODE) $(JSCS) --verbose src test
 
 $(BUILDDIR)/build-config-static.js: src/config.js Makefile
 	mkdir -p $(BUILDDIR)
