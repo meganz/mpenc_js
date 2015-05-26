@@ -36,10 +36,7 @@ define([
      */
     var ns = {};
 
-    var MutableSet = Set; // TODO(xl): for some reason this doesn't work
-    // even though the exact same thing is fine in struct.js, and we have to
-    // instead resort to new Set().asMutable() below. investigate why...
-    var Set = struct.ImmutableSet;
+    var ImmutableSet = struct.ImmutableSet;
     var safeGet = struct.safeGet;
     var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
 
@@ -51,17 +48,17 @@ define([
      * @implements {module:mpenc/transcript.Transcript}
      */
     var BaseTranscript = function() {
-        if (!(this instanceof BaseTranscript)) return new BaseTranscript();
+        if (!(this instanceof BaseTranscript)) { return new BaseTranscript(); }
 
-        this._uIds = new Set();
+        this._uIds = new ImmutableSet();
         this._messages = new Map();
-        this._minMessages = new Set();
-        this._maxMessages = new Set();
+        this._minMessages = new ImmutableSet();
+        this._maxMessages = new ImmutableSet();
 
         this._successors = new Map(); // mId: Set[mId], successors
 
         // overall sequence. only meaningful internally
-        this._length = 0
+        this._length = 0;
         this._messageIndex = new Map(); // mId: int, index into _log
         this._log = [];
 
@@ -72,7 +69,7 @@ define([
         this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
 
         this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
-        this._unacked = new Set(); // Set[mId] of not fully-acked messages
+        this._unacked = new ImmutableSet(); // Set[mId] of not fully-acked messages
 
         var self = this;
         this._merge = graph.createMerger(
@@ -111,8 +108,8 @@ define([
             });
         });
         pmId.forEach(function(m) { context.set(self.author(m), m); });
-        ruId.forEach(function(u) { if (!context.has(u)) context.set(u, null); });
-        context.forEach(function(_, pu) { if (!ruId.has(pu)) context.delete(pu); });
+        ruId.forEach(function(u) { if (!context.has(u)) { context.set(u, null); } });
+        context.forEach(function(_, pu) { if (!ruId.has(pu)) { context.delete(pu); }});
         return context;
     };
 
@@ -295,7 +292,7 @@ define([
 
         // check sanity of parents
         if (pmId.size >
-            new Set(pmIdArr.map(function(m) { return self.author(m); })).size) {
+            new ImmutableSet(pmIdArr.map(function(m) { return self.author(m); })).size) {
             throw new Error("redundant parents: not from distinct authors");
         }
 
@@ -319,8 +316,8 @@ define([
 
         try {
             // update core
-            var mIdS = new Set([mId]);
-            this._uIds = this._uIds.union(new Set([uId]));
+            var mIdS = new ImmutableSet([mId]);
+            this._uIds = this._uIds.union(new ImmutableSet([uId]));
             this._messages.set(mId, msg);
             if (!pmId.size) {
                 this._minMessages = this._minMessages.union(mIdS);
@@ -331,7 +328,7 @@ define([
             pmId.forEach(function(m) {
                 self._successors.set(m, self._successors.get(m).union(mIdS));
             });
-            this._successors.set(mId, new Set());
+            this._successors.set(mId, new ImmutableSet());
 
             // update overall sequences
             this._messageIndex.set(mId, this._length);
@@ -353,12 +350,12 @@ define([
             this._unackby.set(mId, ruId);
             this._unacked = this._unacked.union(mIdS);
             var anc = this.iterAncestors(pmIdArr, function(m) { return self._unackby.get(m).has(uId); });
-            var acked = new Set().asMutable(); // TODO(xl): see note at top
+            var acked = new Set();
             if (!ruId.size) {
                 acked.add(mId);
             }
             struct.iteratorForEach(anc, function(am) {
-                self._unackby.set(am, self._unackby.get(am).subtract(new Set([uId])));
+                self._unackby.set(am, self._unackby.get(am).subtract(new ImmutableSet([uId])));
                 if (!self._unackby.get(am).size) {
                     acked.add(am);
                 }
@@ -392,7 +389,7 @@ define([
     BaseTranscript.prototype.pre_pred = function(mId, pred) {
         var it = this.iterAncestors(this.pre(mId).toArray(),
             null, function(mId) { return !pred(mId); }, true);
-        return new Set(struct.iteratorToArray(it));
+        return new ImmutableSet(struct.iteratorToArray(it));
     };
 
     BaseTranscript.prototype.suc_ruId = function(mId, ruId) {
@@ -404,7 +401,7 @@ define([
         }
         var self = this;
         var visible = function(m) { return self._messages.get(m).members().has(ruId); };
-        var it = this.iterDescendants([mId], visible, function(m) { return ruId != self.author(m); }, true);
+        var it = this.iterDescendants([mId], visible, function(m) { return ruId !== self.author(m); }, true);
         var next = it.next();
         return (next.done) ? null : next.value;
     };
@@ -427,11 +424,11 @@ define([
      * @extends {module:mpenc/transcript.MessageLog}
      */
     var DefaultMessageLog = function() {
-        if (!(this instanceof DefaultMessageLog)) return new DefaultMessageLog();
+        if (!(this instanceof DefaultMessageLog)) { return new DefaultMessageLog(); }
         transcript.MessageLog.call(this);
         this._messageIndex = new Map(); // mId: int, index into _log
         this._parents = [];
-        this._transcripts = new Set().asMutable();
+        this._transcripts = new Set();
     };
 
     DefaultMessageLog.prototype = Object.create(transcript.MessageLog.prototype);
@@ -447,7 +444,7 @@ define([
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
         this.push(mId);
-        this._parents.push(new struct.ImmutableSet(parents));
+        this._parents.push(new ImmutableSet(parents));
         this.__rInsert__(0, mId);
     };
 
@@ -493,7 +490,7 @@ define([
         });
         unacked.sort(function(a, b) {
             var ia = self._messageIndex.get(a), ib = self._messageIndex.get(b);
-            return (ia < ib)? -1: (ia == ib)? 0: 1;
+            return (ia < ib)? -1: (ia === ib)? 0: 1;
         });
         return unacked;
     };

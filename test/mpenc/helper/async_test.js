@@ -189,18 +189,18 @@ define([
             var cancel_z = events.subscribe(Evt1, [3, 5])(z);
 
             //console.log(events.activeChildren(Evt1));
-            events.publish(Evt1(1, 3));
+            events.publish(new Evt1(1, 3));
             assertLog("x got: (1, 3)");
 
-            events.publish(Evt1(3, 4));
+            events.publish(new Evt1(3, 4));
             assertLog("y got: (3, 4)");
             assertLog("x got: (3, 4)");
 
-            events.publish(Evt1(3, 5));
+            events.publish(new Evt1(3, 5));
             var p = logs.shift();
             assert(p instanceof ns.SubscriberFailure);
             assert.deepEqual(p.sub, z);
-            assert.deepEqual(p.item, Evt1(3, 5));
+            assert.deepEqual(p.item, new Evt1(3, 5));
             assertLog("y got: (3, 5)");
             assertLog("x got: (3, 5)");
 
@@ -211,7 +211,7 @@ define([
             assert(cancel_z());
             assert(!cancel_z());
 
-            events.publish(Evt1(3, 5));
+            events.publish(new Evt1(3, 5));
             assert.deepEqual(logs, []);
         });
 
@@ -224,7 +224,7 @@ define([
             events.subscribe(Evt1)(function(evt) { logs.push("outer called b 1"); });
             events.subscribe(Evt1)(function(evt) { logs.push("outer called b 2"); });
 
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
 
             // same order as browsers
             assertLog("outer called c 1");
@@ -255,8 +255,8 @@ define([
                 }
             });
 
-            events.publish(Evt1(1, 2));
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
             assertLog("called x");
             assertLog("called y, 1");
             assertLog("called x");
@@ -277,11 +277,11 @@ define([
                 logs.push("called y, cancelled x");
             });
 
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
             assertLog("called x");
             assertLog("called y, cancelled x");
 
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
             assertLog("called y, cancelled x");
             assert.deepEqual(logs, []);
         });
@@ -298,11 +298,11 @@ define([
                 cancel_y();
             });
 
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
             assertLog("called x");
             assertLog("called y, cancelled y");
 
-            events.publish(Evt1(1, 2));
+            events.publish(new Evt1(1, 2));
             assertLog("called x");
             assert.deepEqual(logs, []);
         });
@@ -421,10 +421,10 @@ define([
                 }
             };
             var mon = new ns.Monitor(timer, 1, act);
-            assert(mon.state() == "RUNNING");
+            assert(mon.state() === "RUNNING");
             mon.pause();
             assert.throws(mon.pause.bind(mon));
-            assert(mon.state() == "PAUSED");
+            assert(mon.state() === "PAUSED");
             mon.resume();
             assert.throws(mon.resume.bind(mon));
             timer(50, function() {
@@ -432,9 +432,9 @@ define([
                 assertLog("called act-basic");
                 assertLog("called act-basic");
                 assertLog("called act-basic");
-                assert(mon.state() == "STOPPED");
+                assert(mon.state() === "STOPPED");
                 mon.stop();
-                assert(mon.state() == "STOPPED");
+                assert(mon.state() === "STOPPED");
                 assert.throws(mon.pause.bind(mon));
                 assert.throws(mon.resume.bind(mon));
                 assert.deepEqual(logs, []);
@@ -470,7 +470,7 @@ define([
             };
             var mon = new ns.Monitor(timer, [1, 1, 1, 1], act);
             timer(2, function() { logs.push("called middle"); });
-            assert(mon.state() == "RUNNING");
+            assert(mon.state() === "RUNNING");
             timer(50, function() {
                 assertLog("called act-fs");
                 assertLog("called middle"); // not sure if ordering is part of JS spec
@@ -478,7 +478,7 @@ define([
                 assertLog("called act-fs");
                 assertLog("called act-fs");
                 assertLog("called act-fs");
-                assert(mon.state() == "STOPPED");
+                assert(mon.state() === "STOPPED");
                 assert.deepEqual(logs, []);
                 done();
             });
@@ -490,18 +490,18 @@ define([
                 logs.push("called act-reset");
             };
             var mon = new ns.Monitor(timer, [1, 1], act);
-            assert(mon.state() == "RUNNING");
+            assert(mon.state() === "RUNNING");
             timer(30, function() {
                 assertLog("called act-reset");
                 assertLog("called act-reset");
-                assert(mon.state() == "STOPPED");
+                assert(mon.state() === "STOPPED");
                 assert.deepEqual(logs, []);
                 mon.reset([1, 1, 1]);
                 timer(40, function() {
                     assertLog("called act-reset");
                     assertLog("called act-reset");
                     assertLog("called act-reset");
-                    assert(mon.state() == "STOPPED");
+                    assert(mon.state() === "STOPPED");
                     assert.deepEqual(logs, []);
                     done();
                 });

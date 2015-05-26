@@ -39,7 +39,7 @@ define([
 
     var logger = MegaLogger.getLogger('message', undefined, 'mpenc');
 
-    var Set = struct.ImmutableSet;
+    var ImmutableSet = struct.ImmutableSet;
 
     /**
      * A Message object, sent by a user.
@@ -48,7 +48,7 @@ define([
      * @memberOf module:mpenc/message
      */
     var Message = function(mId, author, parents, recipients, body) {
-        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, body);
+        if (!(this instanceof Message)) { return new Message(mId, author, parents, recipients, body); }
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -63,19 +63,19 @@ define([
             throw new Error("invalid empty recipients");
         }
 
-        parents = new Set(parents);
+        parents = new ImmutableSet(parents);
         if (parents.has(null) || parents.has(undefined)) {
             throw new Error("invalid parents: has empty value");
         }
-        recipients = new Set(recipients);
+        recipients = new ImmutableSet(recipients);
         if (recipients.has(null) || recipients.has(undefined)) {
             throw new Error("invalid recipients: has empty value");
         }
 
         this.mId = mId;
         this.author = author;
-        this.parents = new Set(parents);
-        this.recipients = new Set(recipients);
+        this.parents = new ImmutableSet(parents);
+        this.recipients = new ImmutableSet(recipients);
         this.body = body;
     };
 
@@ -84,7 +84,7 @@ define([
      * @param mId {string} Message (node) id.
      * @returns {module:mpenc/message.Message} Message object for the id. */
     Message.prototype.members = function() {
-        return this.recipients.union(new Set([this.author]));
+        return this.recipients.union(new ImmutableSet([this.author]));
     };
 
     Object.freeze(Message.prototype);
@@ -181,8 +181,8 @@ define([
         // iv, message data
         var sessionID = sessionKeyStore.sessionIDs[0];
         var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
-        var members = recipients.union(new Set([this.owner]));
-        _assert(members.equals(new Set(sessionKeyStore.sessions[sessionID].members)));
+        var members = recipients.union(new ImmutableSet([this.owner]));
+        _assert(members.equals(new ImmutableSet(sessionKeyStore.sessions[sessionID].members)));
 
         // Three portions: unsigned content (hint), signature, rest.
         // Compute info for the SIDKEY_HINT and signature.
@@ -350,7 +350,7 @@ define([
         recipients.splice(idx, 1);
 
         var mId = _createMessageId(inspected.signature, inspected.rawMessage);
-        return new Message(mId, author, parents, recipients, Payload(data));
+        return new Message(mId, author, parents, recipients, new Payload(data));
     };
 
     var _decode = function(rawMessage) {
@@ -380,7 +380,7 @@ define([
 
     var _inspect = function(message, debugOutput) {
         // partial decode, no crypto operations
-        var debugOutput = debugOutput || [];
+        debugOutput = debugOutput || [];
         var out = {};
         var rest = message;
 
@@ -398,7 +398,7 @@ define([
         out.rawMessage = rest;
 
         return out;
-    }
+    };
 
     /**
      * Decrypts a given data message.

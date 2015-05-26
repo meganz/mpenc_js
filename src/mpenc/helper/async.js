@@ -32,7 +32,7 @@ define([
     var ns = {};
 
     var logger = MegaLogger.getLogger("async");
-    var assert = assert.assert;
+    var _assert = assert.assert;
 
     /**
      * 0-arg function to cancel a subscription; does not throw an exception.
@@ -263,7 +263,7 @@ define([
             }
             var status = [];
             iterSubs().forEach(function(sub, k) {
-                if (!_subs.has(k)) return; // don't call if removed by previous sub
+                if (!_subs.has(k)) { return; } // don't call if removed by previous sub
                 try {
                     status.push(sub(item));
                 } catch (e) {
@@ -388,7 +388,7 @@ define([
      * @see module:mpenc/helper/async.SequenceInsert
      */
     ObservableSequence.prototype.__rInsert__ = function(rIdx, item) {
-        this._updates.publish(SequenceInsert(rIdx, item));
+        this._updates.publish(new SequenceInsert(rIdx, item));
     };
 
     /**
@@ -441,8 +441,8 @@ define([
     };
 
     _AutoNode.prototype._cleanChild = function(key, subj) {
-        assert(this._child.has(key));
-        assert(this._child.get(key) === subj);
+        _assert(this._child.has(key));
+        _assert(this._child.get(key) === subj);
         logger.debug("AutoNode deleting key: " + key);
         this._child.delete(key);
         this._maybeClean();
@@ -472,8 +472,8 @@ define([
             return new _ObservableNode(cleanup);
         }
         _AutoNode.call(this, function(c) { return new _ObservableNode(c); }, cleanup);
-        this._capture = Observable();
-        this._bubble = Observable();
+        this._capture = new Observable();
+        this._bubble = new Observable();
         this._publishing = false;
     };
     _ObservableNode.prototype = Object.create(_AutoNode.prototype);
@@ -498,7 +498,7 @@ define([
     };
 
     _ObservableNode.prototype.pubDeep = function(evt, i) {
-        if (!i) i = 0;
+        if (!i) { i = 0; }
         this._publishing = true;
         this._capture.publish(evt);
         if (i < evt.length && this._child.has(evt[i])) {
@@ -526,7 +526,7 @@ define([
             return new EventContext(evtcls);
         }
         _AutoNode.call(this, function(c) { return new _ObservableNode(); });
-        var evtcls = new struct.ImmutableSet(evtcls)
+        evtcls = new struct.ImmutableSet(evtcls);
         var non_evtcls = evtcls.toArray().filter(function(ec) {
             return (typeof ec.prototype.length !== "number");
         });
@@ -693,7 +693,7 @@ define([
                 // already cancelled or already run
                 return false;
             }
-            if (!obs.size() && t != self.now()) {
+            if (!obs.size() && t !== self.now()) {
                 // nothing left and not currently being iterated through
                 delete self._cb[t];
             }
@@ -785,14 +785,14 @@ define([
 
     Monitor.prototype.state = function() {
         if (this._stopped) {
-            assert(!this._cancel);
-            assert(!this._intervals);
+            _assert(!this._cancel);
+            _assert(!this._intervals);
             return "STOPPED";
         } else if (this._cancel) {
-            assert(this._intervals);
+            _assert(this._intervals);
             return "RUNNING";
         } else {
-            assert(this._intervals);
+            _assert(this._intervals);
             return "PAUSED";
         }
     };
@@ -841,7 +841,7 @@ define([
         this._intervals = struct.toIterator(intervals);
         this._stopped = false;
         this.resume();
-        assert(this.state() == "RUNNING");
+        _assert(this.state() === "RUNNING");
     };
 
     /**
@@ -855,7 +855,7 @@ define([
         }
         this._intervals = null;
         this._stopped = true;
-        assert(this.state() == "STOPPED");
+        _assert(this.state() === "STOPPED");
     };
 
     Object.freeze(Monitor.prototype);

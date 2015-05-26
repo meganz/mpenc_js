@@ -155,9 +155,9 @@ define([
             tr.add(M(1, 50, [0], [51]));
             tr.add(M(2, 51, [0], [50]));
             for (var i=1; i<halfsz; i++) {
-                tr.add(M(2*i+1, 50, [2*i-1, 2*i+0], [51]))
-                tr.add(M(2*i+2, 51, [2*i-1, 2*i+0], [50]))
-            };
+                tr.add(M(2*i+1, 50, [2*i-1, 2*i+0], [51]));
+                tr.add(M(2*i+2, 51, [2*i-1, 2*i+0], [50]));
+            }
             return tr;
         };
 
@@ -258,7 +258,7 @@ define([
             var all = sourceTranscript.all();
             for (var i=0; i<all.length; i++) {
                 src.publish(new ns.MsgAccepted(all[i]));
-            };
+            }
             return log;
         };
 
@@ -268,9 +268,9 @@ define([
             assert.strictEqual(log.length, 4);
             for (var i=0; i<mId_ud.length; i++) {
                 assert(log.indexOf(mId_ud[i]) >= 0);
-                assert(log.get(mId_ud[i]) != null);
-                assert(log.parents(mId_ud[i]) != null);
-                assert(log.unackby(mId_ud[i]) != null);
+                assert(log.get(mId_ud[i]) !== null);
+                assert(log.parents(mId_ud[i]) !== null);
+                assert(log.unackby(mId_ud[i]) !== null);
             }
             for (var i=0; i<mId_ex.length; i++) {
                 assert(log.indexOf(mId_ex[i]) < 0);

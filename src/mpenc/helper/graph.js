@@ -188,7 +188,7 @@ define([
 
     // https://stackoverflow.com/a/11935263
     var getRandomSubarray = function(arr, size) {
-        if (arr.length <= size) return arr;
+        if (arr.length <= size) { return arr; }
         var shuffled = arr.slice(0), i = arr.length, temp, index;
         while (i--) {
             index = Math.floor((i + 1) * Math.random());
@@ -366,7 +366,7 @@ define([
                         if (!neednv.size) {
                             queue.push(nv);
                         }
-                    };
+                    }
                     if (!returnBoundary) {
                         return { value: v, done: false };
                     }
@@ -453,7 +453,7 @@ define([
         var cache = new LRUCache({ max: 256 });
         var merge_recursive; // mutually recursive, needs early declaration
         var merge = function(parents) {
-            if (parents.toArray) parents = parents.toArray();
+            if (parents.toArray) { parents = parents.toArray(); }
             //return merge_recursive(parents); // uncomment to disable caching
             var key = makeLRUKey(parents);
             if (!cache.has(key)) {
@@ -475,7 +475,7 @@ define([
                     var merge_base = lca2(merged, v);
                     merged_state = merge3(merge(merge_base), state(v), merged_state);
                     merged.push(v);
-                };
+                }
                 return merged_state;
             }
         };

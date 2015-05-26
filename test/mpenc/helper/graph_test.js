@@ -29,7 +29,7 @@ define([
     "use strict";
 
     var assert = chai.assert;
-    var Set = struct.ImmutableSet;
+    var ImmutableSet = struct.ImmutableSet;
 
     // JS objects have *string* properties, using numbers results in unpredictable behaviour
     var G_with_blocked_path = {
@@ -51,7 +51,7 @@ define([
     };
 
     var _objGetter = function(d) {
-        return function(k) { return d[k]; }
+        return function(k) { return d[k]; };
     };
 
     var _preGetter = function(g) {
@@ -113,7 +113,7 @@ define([
                         function(perm) { return [item].concat(perm); }));
             }, []);
             var factorial = 1;
-            for (var i=2; i<=parents.length; i++) factorial *= i;
+            for (var i=2; i<=parents.length; i++) { factorial *= i; }
             assert(permutations.length === factorial);
             permutations.forEach(function(par) {
                 assert(par.length === parents.length);
@@ -131,18 +131,18 @@ define([
                 "4": ["2"]
             };
             var s = {
-                "0": new Set("a".split("")),
-                "1": new Set("ax".split("")),
-                "2": new Set("abc".split("")),
-                "3": new Set("abcd".split("")),
-                "4": new Set("ab".split("")),
-            }
+                "0": new ImmutableSet("a".split("")),
+                "1": new ImmutableSet("ax".split("")),
+                "2": new ImmutableSet("abc".split("")),
+                "3": new ImmutableSet("abcd".split("")),
+                "4": new ImmutableSet("ab".split("")),
+            };
             var lt = ["01", "02", "03", "04", "23", "24"];
             var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
             var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
-                function(k) { return s[k]; }, Set, function(p, a, b) { return p.merge(a, b); });
+                function(k) { return s[k]; }, ImmutableSet, function(p, a, b) { return p.merge(a, b); });
 
-            assertMergeSymmetry(merger, ["1", "3", "4"], new Set("abdx".split("")));
+            assertMergeSymmetry(merger, ["1", "3", "4"], new ImmutableSet("abdx".split("")));
         });
         it("multiple roots set subtraction", function() {
             // naive merge implementations would return "bcdx"
@@ -153,17 +153,17 @@ define([
                 "4": ["2"]
             };
             var s = {
-                "1": new Set("x".split("")),
-                "2": new Set("bc".split("")),
-                "3": new Set("bcd".split("")),
-                "4": new Set("b".split("")),
-            }
+                "1": new ImmutableSet("x".split("")),
+                "2": new ImmutableSet("bc".split("")),
+                "3": new ImmutableSet("bcd".split("")),
+                "4": new ImmutableSet("b".split("")),
+            };
             var lt = ["23", "24"];
             var le = function(a, b) { return a === b || lt.indexOf(""+a+""+b) >= 0; };
             var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
-                function(k) { return s[k]; }, Set, function(p, a, b) { return p.merge(a, b); });
+                function(k) { return s[k]; }, ImmutableSet, function(p, a, b) { return p.merge(a, b); });
 
-            assertMergeSymmetry(merger, ["1", "3", "4"], new Set("bdx".split("")));
+            assertMergeSymmetry(merger, ["1", "3", "4"], new ImmutableSet("bdx".split("")));
         });
 
         var createHellGraph = function(halfsz) {
@@ -180,11 +180,11 @@ define([
         it("hell graph completes in a sane amount of time", function() {
             this.timeout(this.timeout() * 10);
             var g = createHellGraph(50000);
-            var le = function(a, b) { a = parseInt(a); b = parseInt(b); return (b & 1)? a <= b: (a == b || a <= b-2); };
-            var dummy_state = function(k) { return new Set(); };
+            var le = function(a, b) { a = parseInt(a); b = parseInt(b); return (b & 1)? a <= b: (a === b || a <= b-2); };
+            var dummy_state = function(k) { return new ImmutableSet(); };
 
             var merger = ns.createMerger(_objGetter(g), _preGetter(g), le,
-                dummy_state, Set, function(p, a, b) { return p.merge(a, b); });
+                dummy_state, ImmutableSet, function(p, a, b) { return p.merge(a, b); });
 
             // unfortunately this stack-overflows. iterative algorithm is a *lot* more complex...
             assert.throws(function() { merger(["99999", "100000"]); });
@@ -192,7 +192,7 @@ define([
             // parents are usually already cached => few recursive calls. so this should not
             // be a problem even for transcripts with 100k+ messages.
             for (var i=2000; i<100001; i+=2000) {
-                assertMergeSymmetry(merger, [""+(i-1), ""+i], new Set());
+                assertMergeSymmetry(merger, [""+(i-1), ""+i], new ImmutableSet());
             }
         });
     });

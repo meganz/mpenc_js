@@ -90,7 +90,7 @@ define([
      */
     var iteratorForEach = function(iter, func) {
         // work around https://github.com/WebReflection/es6-collections/issues/22
-        if (iter instanceof Array) return iter.forEach(func);
+        if (iter instanceof Array) { return iter.forEach(func); }
         var done = false;
         while (!done) {
             var result = iter.next();
@@ -173,7 +173,7 @@ define([
         var cls = function() {
             if (!(this instanceof cls)) {
                 var args = Array.prototype.concat.apply([undefined], arguments);
-                return new (Function.prototype.bind.apply(cls, args));
+                return new (Function.prototype.bind.apply(cls, args))();
             }
             for (var i=0; i<arguments.length; i++) {
                 this[i] = arguments[i];
@@ -324,7 +324,7 @@ define([
         this.forEach(function(v) {
             union.add(v);
         });
-        return ImmutableSet(union);
+        return new ImmutableSet(union);
     };
 
     /**
@@ -340,7 +340,7 @@ define([
                 intersection.add(v);
             }
         });
-        return ImmutableSet(intersection);
+        return new ImmutableSet(intersection);
     };
 
     /**
@@ -356,7 +356,7 @@ define([
                 difference.delete(v);
             }
         });
-        return ImmutableSet(difference);
+        return new ImmutableSet(difference);
     };
 
     /**

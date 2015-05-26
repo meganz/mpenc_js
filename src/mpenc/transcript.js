@@ -320,7 +320,7 @@ define([
                 return (self.length - rIdx - 1) - self.indexOf(pm);
             });
             _assert(parents.every(function(p) { return p > 0; }));
-            target.publish(MsgReady(mId, rIdx, parents));
+            target.publish(new MsgReady(mId, rIdx, parents));
         };
         return this.onUpdate(msgReadyCb);
     };
