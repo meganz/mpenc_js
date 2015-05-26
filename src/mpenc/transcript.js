@@ -210,10 +210,10 @@ define([
      * should still be a topological (preserves causality) total order. Events
      * are published in sequence from a single EventContext.
      *
-     * Typically, only UserData messages are included here. Implementations may
-     * expose the UserData-parents of a message mId from transcript ts as:
+     * Typically, only Payload messages are included here. Implementations may
+     * expose the Payload-parents of a message mId from transcript ts as:
      *
-     * ud_pmId = ts.pre_pred(mId, lambda m: type(ts[m].secobj) == UserData)
+     * pl_pmId = ts.pre_pred(mId, function(m) { return ts.get(m).body instanceof Payload; });
      *
      * Note the right index definitions. For example, if three events were
      * published as (x, 0, []), (a, 0, [1]), (b, 1, [1]), the overall resulting
@@ -241,8 +241,8 @@ define([
     /**
      * A log (or total order, or linear sequence) of messages for the user.
      *
-     * Only contains UserData messages. We generate "apparent" parents for each
-     * message, by collapsing non-UserData parents into the nearest UserData
+     * Only contains Payload messages. We generate "apparent" parents for each
+     * message, by collapsing non-Payload parents into the nearest Payload
      * ancestor, preserving transitive reduction. For example:
      *
      * <pre>
@@ -251,7 +251,7 @@ define([
      * O - A - C
      * </pre>
      *
-     * O is the root; everything is UserData except C, D. Then, the parents of
+     * O is the root; everything is Payload except C, D. Then, the parents of
      * E are {B}, because even though A < C, it is also the case that A < B.
      *
      * @class
@@ -277,7 +277,7 @@ define([
      * @method
      * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
      * @param mId {string} Identifier of the message to add.
-     * @param parents {string} Effective UserData parents of this message.
+     * @param parents {string} Effective Payload parents of this message.
      */
     MessageLog.prototype.add;
 
@@ -294,11 +294,11 @@ define([
         var totalOrderCb = function(evt) {
             var mId = evt.mId;
             _assert(sourceTranscript.has(mId));
-            if (!(sourceTranscript.get(mId).secretContent instanceof message.UserData)) {
+            if (!(sourceTranscript.get(mId).body instanceof message.Payload)) {
                 return;
             }
             var userDataParents = sourceTranscript.pre_pred(mId, function(m) {
-                return sourceTranscript.get(m).secretContent instanceof message.UserData;
+                return sourceTranscript.get(m).body instanceof message.Payload;
             });
             self.add(sourceTranscript, mId, userDataParents);
         };

@@ -315,7 +315,7 @@ define([
                 participant.processMessage(messageClone);
                 var uiMessage = participant.uiQueue.shift();
                 assert(uiMessage instanceof messages.Message);
-                assert.strictEqual(uiMessage.secretContent.body, 'Rock me Amadeus');
+                assert.strictEqual(uiMessage.body.content, 'Rock me Amadeus');
                 assert.strictEqual(uiMessage.author, '5');
             }
 
@@ -602,7 +602,7 @@ define([
         );
 
         assert(participants['2'].uiQueue[0] instanceof messages.Message);
-        assert.strictEqual(participants['2'].uiQueue[0].secretContent.body, "How you doin'?");
+        assert.strictEqual(participants['2'].uiQueue[0].body.content, "How you doin'?");
         assert.strictEqual(participants['2'].uiQueue[0].author, "1");
     });
 });

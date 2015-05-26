@@ -441,7 +441,7 @@ define([
             throw new Error("already added: " + mId);
         }
         var msg = tr.get(mId);
-        if (!(msg.secretContent instanceof message.UserData)) {
+        if (!(msg.body instanceof message.Payload)) {
             return;
         }
         this._transcripts.add(tr);
@@ -454,7 +454,7 @@ define([
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;
         this._transcripts.forEach(function(ts) {
-            if (ts.has(mId) && ts.get(mId).secretContent instanceof message.UserData) {
+            if (ts.has(mId) && ts.get(mId).body instanceof message.Payload) {
                 targetTranscript = ts;
             }
         });

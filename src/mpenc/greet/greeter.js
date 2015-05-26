@@ -1055,7 +1055,7 @@ define([
      * @param message {GreetMessage}
      *     Received message (decoded).
      * @returns {object}
-     *     Object containing the decoded message content as
+     *     Object containing any response output message as
      *     {GreetMessage} in attribute `decodedMessage` and
      *     optional (null if not used) the new the Greeting state in
      *     attribute `newState`.

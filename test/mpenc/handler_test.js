@@ -818,8 +818,8 @@ define([
                 recipient.processMessage(message1);
                 // until first one is received
                 assert.lengthOf(recipient.uiQueue, 2);
-                assert.deepEqual(recipient.uiQueue[0].secretContent.body, sender.uiQueue[0].secretContent.body);
-                assert.deepEqual(recipient.uiQueue[1].secretContent.body, sender.uiQueue[1].secretContent.body);
+                assert.deepEqual(recipient.uiQueue[0].body.content, sender.uiQueue[0].body.content);
+                assert.deepEqual(recipient.uiQueue[1].body.content, sender.uiQueue[1].body.content);
             });
 
             it('on query message', function() {

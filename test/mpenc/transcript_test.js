@@ -241,12 +241,12 @@ define([
 
     describe("DefaultMessageLog class", function() {
         var tr = new impl.BaseTranscript();
-        tr.add(M("O", "Alice", [], ["Bob"], message.UserData("")));
-        tr.add(M("A", "Alice", ["O"], ["Bob"], message.UserData("")));
+        tr.add(M("O", "Alice", [], ["Bob"], message.Payload("")));
+        tr.add(M("A", "Alice", ["O"], ["Bob"], message.Payload("")));
         tr.add(M("C", "Alice", ["A"], ["Bob"], message.ExplicitAck(false)));
-        tr.add(M("B", "Bob", ["A"], ["Alice"], message.UserData("")));
+        tr.add(M("B", "Bob", ["A"], ["Alice"], message.Payload("")));
         tr.add(M("D", "Bob", ["B", "C"], ["Alice"], message.ExplicitAck(false)));
-        tr.add(M("E", "Bob", ["D"], ["Alice"], message.UserData("")));
+        tr.add(M("E", "Bob", ["D"], ["Alice"], message.Payload("")));
         var mId_ud = "OABE".split("");
         var mId_ex = ["C", "D"];
 
@@ -262,7 +262,7 @@ define([
             return log;
         };
 
-        it("UserData filtering", function() {
+        it("Payload filtering", function() {
             var ctx = new async.EventContext([ns.MsgAccepted, ns.MsgReady]);
             var log = makeLog(ctx, ctx, tr);
             assert.strictEqual(log.length, 4);
@@ -298,8 +298,8 @@ define([
             var ctx2 = new async.EventContext([ns.MsgAccepted]);
             var log = new impl.DefaultMessageLog();
             var tr2 = new impl.BaseTranscript();
-            tr2.add(M("X", "Alice", [], ["Bob"], message.UserData("")));
-            tr2.add(M("Y", "Alice", ["X"], ["Bob"], message.UserData("")));
+            tr2.add(M("X", "Alice", [], ["Bob"], message.Payload("")));
+            tr2.add(M("Y", "Alice", ["X"], ["Bob"], message.Payload("")));
             tr2.add(M("Z", "Alice", ["Y"], ["Bob"], message.ExplicitAck(false)));
 
             log.bindTarget(ctx0);

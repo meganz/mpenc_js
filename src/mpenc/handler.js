@@ -373,7 +373,7 @@ define([
         var parents = this._transcript.max();
         var recipients = this.currentMembers().subtract(new struct.ImmutableSet([this.id]));
         var out = this._messageSecurity.encrypt(messageContent, recipients, parents, this.exponentialPadding);
-        var msg = message.Message(out.mId, this.id, parents, recipients, message.UserData(messageContent));
+        var msg = message.Message(out.mId, this.id, parents, recipients, message.Payload(messageContent));
         this._transcript.add(msg);
         this.uiQueue.push(msg);
         var outMessage = {

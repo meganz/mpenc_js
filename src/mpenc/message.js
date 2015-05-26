@@ -47,8 +47,8 @@ define([
      * @interface
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, author, parents, recipients, secretContent) {
-        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, secretContent);
+    var Message = function(mId, author, parents, recipients, body) {
+        if (!(this instanceof Message)) return new Message(mId, author, parents, recipients, body);
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -76,7 +76,7 @@ define([
         this.author = author;
         this.parents = new Set(parents);
         this.recipients = new Set(recipients);
-        this.secretContent = secretContent;
+        this.body = body;
     };
 
     /**
@@ -93,22 +93,22 @@ define([
     /**
      * Message body object.
      */
-    var Content = function() {};
+    var MessageBody = function() {};
 
-    Content.prototype = Object.create(Array.prototype);
+    MessageBody.prototype = Object.create(Array.prototype);
 
-    Object.freeze(Content.prototype);
-    ns.Content = Content;
+    Object.freeze(MessageBody.prototype);
+    ns.MessageBody = MessageBody;
 
     /**
      * Message actively sent by a user, to be consumed by the application.
      *
-     * @property body {string} Content of the message.
+     * @property body {string} Body of the message.
      */
-    var UserData = struct.createTupleClass(Content, "body");
+    var Payload = struct.createTupleClass(MessageBody, "content");
 
-    Object.freeze(UserData.prototype);
-    ns.UserData = UserData;
+    Object.freeze(Payload.prototype);
+    ns.Payload = Payload;
 
     /**
      * Explicit ack of the message parents.
@@ -123,7 +123,7 @@ define([
      *
      * @property manual {boolean} Whether this was sent with conscious user oversight.
      */
-    var ExplicitAck = struct.createTupleClass(Content, "manual");
+    var ExplicitAck = struct.createTupleClass(MessageBody, "manual");
 
     Object.freeze(ExplicitAck.prototype);
     ns.ExplicitAck = ExplicitAck;
@@ -350,7 +350,7 @@ define([
         recipients.splice(idx, 1);
 
         var mId = _createMessageId(inspected.signature, inspected.rawMessage);
-        return new Message(mId, author, parents, recipients, UserData(data));
+        return new Message(mId, author, parents, recipients, Payload(data));
     };
 
     var _decode = function(rawMessage) {

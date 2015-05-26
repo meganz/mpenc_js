@@ -126,7 +126,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with second group key', function() {
@@ -139,7 +139,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING2, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message, debug on', function() {
@@ -174,7 +174,7 @@ define([
                 ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.secretContent.body, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
         });
     });
 
@@ -199,7 +199,7 @@ define([
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');
                 assert.strictEqual(result.author, 'Moe');
-                assert.strictEqual(result.secretContent.body, tests[i]);
+                assert.strictEqual(result.body.content, tests[i]);
             }
         });
 
@@ -219,7 +219,7 @@ define([
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients, null, 32).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');
                 assert.strictEqual(result.author, 'Moe');
-                assert.strictEqual(result.secretContent.body, tests[i]);
+                assert.strictEqual(result.body.content, tests[i]);
                 assert(encrypted.length === 135 || encrypted.length === 135 + 32);
             }
         });
