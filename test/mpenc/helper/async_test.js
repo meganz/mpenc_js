@@ -312,60 +312,61 @@ define([
         describe("defaultMsTimer", function() {
             it("zeroTimeoutOrderAdd", function(done) {
                 this.timeout(this.timeout() * 4);
-                var timer = new ns.Timer().timer;
-                timer(1, function() { logs.push("cb2"); });
-                timer(0, function() {
+                var timer = new ns.Timer();
+                timer.after(1, function() { logs.push("cb2"); });
+                timer.after(0, function() {
                     logs.push("cb0");
-                    timer(0, function() { logs.push("cb1"); });
+                    timer.after(0, function() { logs.push("cb1"); });
                 });
                 // wait a bit longer because browsers do delay clamping
-                timer(15, function() {
+                timer.after(15, function() {
                     assertLog("cb0");
                     assertLog("cb1");
                     assertLog("cb2");
                     assert.deepEqual(logs, []);
+                    assert.equal(timer.stop(), 1); // 1 for this callback
                     done();
                 }, "check");
             });
 
             it("oneTimeoutOrder", function(done) {
                 this.timeout(this.timeout() * 4);
-                var timer = new ns.Timer().timer;
-                timer(2, function() { logs.push("cb1"); });
-                timer(1, function() { logs.push("cb0"); });
-                timer(2, function() { logs.push("cb2"); });
+                var timer = new ns.Timer();
+                timer.after(2, function() { logs.push("cb1"); });
+                timer.after(1, function() { logs.push("cb0"); });
+                timer.after(2, function() { logs.push("cb2"); });
                 // wait a bit longer because browsers do delay clamping
-                timer(10, function() {
+                timer.after(10, function() {
                     assertLog("cb0");
                     assertLog("cb1");
                     assertLog("cb2");
                     assert.deepEqual(logs, []);
+                    assert.equal(timer.stop(), 1); // 1 for this callback
                     done();
                 });
             });
 
             it("oneTimeoutOrderAdd", function(done) {
                 this.timeout(this.timeout() * 4);
-                var timer = new ns.Timer().timer;
-                timer(2, function() { logs.push("cb1"); });
-                timer(1, function() {
+                var timer = new ns.Timer();
+                timer.after(2, function() { logs.push("cb1"); });
+                timer.after(1, function() {
                     logs.push("cb0");
-                    timer(1, function() { logs.push("cb2"); });
+                    timer.after(1, function() { logs.push("cb2"); });
                 });
                 // wait a bit longer because browsers do delay clamping
-                timer(15, function() {
+                timer.after(15, function() {
                     assertLog("cb0");
                     assertLog("cb1");
                     assertLog("cb2");
                     assert.deepEqual(logs, []);
+                    assert.equal(timer.stop(), 1); // 1 for this callback
                     done();
                 });
             });
         });
 
         describe("subscribe timeout", function() {
-            var timer = new ns.Timer().timer;
-
             var cb_x = function() {
                 logs.push("called x");
             };
@@ -375,31 +376,35 @@ define([
 
             it("default, no allowFireLater", function(done) {
                 this.timeout(this.timeout() * 4);
+                var timer = new ns.Timer();
                 var obs = new ns.Observable();
-                var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x)(cb_x);
-                timer(20, function() {
+                var cancel_x = obs.subscribe.withBackup(timer.after(1), fail_x)(cb_x);
+                timer.after(20, function() {
                     assertLog("timeout x");
                     assert.deepEqual(logs, []);
                     obs.publish(1);
                     assert(!cancel_x());
                     assert.deepEqual(logs, []);
+                    assert.equal(timer.stop(), 1); // 1 for this callback
                     done();
                 });
             });
 
             it("allowFireLater", function(done) {
                 this.timeout(this.timeout() * 4);
+                var timer = new ns.Timer();
                 var obs = new ns.Observable();
-                var cancel_x = obs.subscribe.withBackup(timer.bind(null, 1), fail_x, true)(cb_x);
-                timer(5, function() {
+                var cancel_x = obs.subscribe.withBackup(timer.after(1), fail_x, true)(cb_x);
+                timer.after(5, function() {
                     obs.publish(1);
                 });
-                timer(20, function() {
+                timer.after(20, function() {
                     assertLog("timeout x");
                     assertLog("called x");
                     assert.deepEqual(logs, []);
                     assert(cancel_x());
                     assert.deepEqual(logs, []);
+                    assert.equal(timer.stop(), 1); // 1 for this callback
                     done();
                 });
             });
@@ -407,7 +412,8 @@ define([
     });
 
     describe("Monitor", function() {
-        var timer = new ns.Timer().timer;
+        var timer = new ns.Timer();
+        var after = timer.after.bind(timer);
 
         it("basic usage", function(done) {
             this.timeout(this.timeout() * 4);
@@ -427,7 +433,7 @@ define([
             assert(mon.state() === "PAUSED");
             mon.resume();
             assert.throws(mon.resume.bind(mon));
-            timer(50, function() {
+            after(50, function() {
                 assert.equal(called, 3);
                 assertLog("called act-basic");
                 assertLog("called act-basic");
@@ -454,7 +460,7 @@ define([
                 }
             };
             var mon = new ns.Monitor(timer, 1, act);
-            timer(20, function() {
+            after(20, function() {
                 assert.equal(called, 1);
                 assertLog("called act-sf");
                 assert(logs.shift() instanceof ns.SubscriberFailure);
@@ -469,9 +475,9 @@ define([
                 logs.push("called act-fs");
             };
             var mon = new ns.Monitor(timer, [1, 1, 1, 1], act);
-            timer(2, function() { logs.push("called middle"); });
+            after(2, function() { logs.push("called middle"); });
             assert(mon.state() === "RUNNING");
-            timer(50, function() {
+            after(50, function() {
                 assertLog("called act-fs");
                 assertLog("called middle"); // not sure if ordering is part of JS spec
                 // but this works on phantomJS/firefox/chrome. if it fails elsewhere, we'll need to be less strict
@@ -491,13 +497,13 @@ define([
             };
             var mon = new ns.Monitor(timer, [1, 1], act);
             assert(mon.state() === "RUNNING");
-            timer(30, function() {
+            after(30, function() {
                 assertLog("called act-reset");
                 assertLog("called act-reset");
                 assert(mon.state() === "STOPPED");
                 assert.deepEqual(logs, []);
                 mon.reset([1, 1, 1]);
-                timer(40, function() {
+                after(40, function() {
                     assertLog("called act-reset");
                     assertLog("called act-reset");
                     assertLog("called act-reset");

@@ -61,23 +61,6 @@ define([
      * @see module:mpenc/helper/async.Observable#subscribe
      */
 
-    /**
-     * 2-arg function for scheduling actions to be run in the future.
-     *
-     * One pattern is to use this as an input to {@link module:mpenc/helper/async.Subscribe#withBackup}:
-     *
-     * <pre>
-     * myObservable.subscribe
-     *      .withBackup(timer.bind(null, myInterval), timeoutCb)(successCb)
-     * </pre>
-     *
-     * @callback timer
-     * @param ticks {number} Number of ticks in the future to schedule the
-     *      action for. How long this is in real terms is defined by the timer.
-     * @param action {function} Function to run.
-     * @returns canceller {module:mpenc/helper/async~canceller}
-     */
-
 
     /**
      * A subscribe-function with child tweaked subscribe-functions.
@@ -85,7 +68,8 @@ define([
      * This is not instantiable directly; use Subscribe.wrap() instead.
      *
      * @class
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
+     * @see module:mpenc/helper/async~subscribe
      */
     var Subscribe = function() {
         throw new Error("cannot instantiate; use Subscribe.wrap() instead.");
@@ -199,7 +183,7 @@ define([
      *
      * @class
      * @param {boolean} require_subs Elements of the set
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var Observable = function(require_subs, subscriptionReentry) {
         if (!(this instanceof Observable)) {
@@ -285,7 +269,7 @@ define([
      * A subscriber failed to handle an item or event.
      *
      * @class
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var SubscriberFailure = function(sub, item, error) {
         if (!(this instanceof SubscriberFailure)) {
@@ -327,7 +311,7 @@ define([
      *
      * @param cancels {module:mpenc/helper/async~canceller[]}
      * @returns {module:mpenc/helper/async~canceller}
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var combinedCancel = function(cancels) {
         return function() {
@@ -521,7 +505,7 @@ define([
      *      It should be an array of classes that represent Array-like objects,
      *      with a length and numerical indexes. See also {@link
      *      module:mpenc/helper/struct.createTupleClass} for compatible types.
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var EventContext = function(evtcls) {
         if (!(this instanceof EventContext)) {
@@ -638,9 +622,13 @@ define([
      *
      * (Browsers don't typically make this ordering guarantee.)
      *
+     * Note: when created, this creates a background task to run the scheduled
+     * callbacks via <code>setInterval</code>, which uses up resources. It
+     * should generally not be necessary to create more than one instance.
+     *
      * @class
      * @param tps {number} Ticks per second. Default: 1000
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var Timer = function(tps) {
         this._tpms = (tps) ? tps/1000 : 1;
@@ -648,9 +636,16 @@ define([
         this._lastCompleted = this._realNow();
 
         var tId = setInterval(this._runTick.bind(this), 0.5 / this._tpms);
-        this.stop = function() { clearInterval(tId); };
+
+        this.stop = function() {
+            clearInterval(tId);
+            var s = 0;
+            for (var k in this._cb) {
+                s += this._cb[k].size();
+            }
+            return s;
+        };
         var self = this;
-        this.timer = function(t, a, n) { return self._timer(t, a, n); };
     };
 
     if (typeof performance === "undefined") {
@@ -673,19 +668,29 @@ define([
     };
 
     /**
-     * Schedule future timed calls. This follows the timer interface.
+     * Schedule future timed calls.
      *
-     * @method
-     * @param ticks {number} Number of ticks later to schedule the action for.
-     *      How long this is in real terms is defined in the constructor.
-     * @param action {function} 0-arg function to run.
+     * <p>If <code>action</code> is omitted, this instead returns a {@link
+     * module:mpenc/helper/async.Subscribe} that runs subscriptions after
+     * the given number of ticks. One pattern is to use this as an input to
+     * {@link module:mpenc/helper/async.Subscribe#withBackup}:</p>
+     *
+     * <pre>
+     * myObservable.subscribe
+     *      .withBackup(timer.after(myInterval), timeoutCb)(successCb)
+     * </pre>
+     *
+     * @param ticks {number} Number of ticks in the future to schedule the
+     *      action for. How long this is in real terms is defined by the timer.
+     * @param action {?function} 1-arg function to run, takes the current tick.
      * @returns canceller {module:mpenc/helper/async~canceller}
-     * @see module:mpenc/helper/async~timer
      */
-    Timer.prototype.timer; // jshint ignore:line
-    Timer.prototype._timer = function(ticks, action) {
+    Timer.prototype.after = function(ticks, action) {
         if (ticks < 0) {
             throw new Error("can't schedule in the past");
+        }
+        if (!action) {
+            return Subscribe.wrap(this.after.bind(this, ticks));
         }
         var t = this.now() + Math.floor(ticks);
         if (!(t in this._cb)) {
@@ -726,6 +731,17 @@ define([
         }
     };
 
+    /**
+     * Stop the timer.
+     *
+     * <p>Applications should generally not need to call this.</p>
+     *
+     * @method
+     * @returns remaining {number} Number of subscriptions yet to fire, that
+     *      will now never be fired.
+     */
+    Timer.prototype.stop;
+
     Object.freeze(Timer.prototype);
     ns.Timer = Timer;
 
@@ -734,7 +750,7 @@ define([
      * Repeatedly schedule calls to an action until stopped.
      *
      * @class
-     * @param timer {module:mpenc/helper/async~timer} To execute the calls.
+     * @param timer {module:mpenc/helper/async.Timer} To execute the calls.
      * @param intervals {(number|Iterable|Iterator)} An iterable of int, that
      *      represents the ticks between calls. Alternatively, a single int,
      *      interpreted as a non-terminating constant sequence. If the iterable
@@ -743,7 +759,7 @@ define([
      *      monitor to stop, e.g. if the task it represents "finishes". If the
      *      action throws an exception, the monitor also stops.
      * @param name {string=} Optional name for the monitor, for logging.
-     * @memberOf! module:mpenc/helper/async
+     * @memberOf module:mpenc/helper/async
      */
     var Monitor = function(timer, intervals, action, name) {
         if (!(this instanceof Monitor)) {
@@ -768,7 +784,7 @@ define([
             return;
         }
         logger.debug("monitor " + this._name + " timed in " + next.value + " ticks");
-        this._cancel = this._timer(next.value, this._run.bind(this));
+        this._cancel = this._timer.after(next.value, this._run.bind(this));
     };
 
     Monitor.prototype._run = function() {
