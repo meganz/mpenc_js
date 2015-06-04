@@ -882,6 +882,15 @@ define([
     };
 
     /**
+     * @returns {string} Indicating the packet type.
+     */
+    GreetingSummary.prototype.packetType = function() {
+        var a = 0 + this.isInitial();
+        var b = 0 + this.isFinal();
+        return "" + (a << 1 | b);
+    };
+
+    /**
      * Wrapper around the constructor that automatically converts its arguments
      * into types that are valid for the class.
      *
