@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/message",
+    "mpenc/greet/greeter",
     "mpenc/codec",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
@@ -50,13 +50,13 @@ define([
     });
 
     function _dummySessionKeyStore() {
-        var sessionKeyStore = { sessionIDs: [_td.SESSION_ID],
-                                sessions: {} };
-        sessionKeyStore.sessions[_td.SESSION_ID] = {
-            sid: _td.SESSION_ID,
-            members: ['Moe', 'Larry', 'Curly'],
-            groupKeys: [_td.GROUP_KEY]
+        var sessionKeyStore = { sessionId: _td.SESSION_ID,
+            members : ['Moe', 'Larry', 'Curly'],
+            groupKey : _td.GROUP_KEY,
+            ephemeralPrivKey : _td.ED25519_PRIV_KEY,
+            ephemeralPubKey : _td.ED25519_PUB_KEY
         };
+
         return sessionKeyStore;
     }
 
@@ -108,23 +108,7 @@ define([
     describe("MessageSecurity.encrypt()", function() {
         it('data message', function() {
             var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe',
-                                                _td.ED25519_PRIV_KEY,
-                                                _td.ED25519_PUB_KEY,
-                                                sessionKeyStore).encrypt('foo', defaultRecipients);
-            // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
-            // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
-            assert.lengthOf(result.ciphertext, 112);
-        });
-
-        it('data message with second group key', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            sessionKeyStore.sessionIDs.push('foo');
-            sessionKeyStore.sessions['foo'] = {};
-            sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
-            var result = new ns.MessageSecurity('Moe',
-                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, sessionKeyStore
-                ).encrypt('foo', defaultRecipients);
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore).encrypt('foo', defaultRecipients);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
             assert.lengthOf(result.ciphertext, 112);
@@ -132,8 +116,7 @@ define([
 
         it('data message with exponential padding', function() {
             var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe',
-                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, sessionKeyStore
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore
                 ).encrypt('foo', defaultRecipients, null, 32);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
@@ -142,8 +125,7 @@ define([
 
         it('data message with parents', function() {
             var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe',
-                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, sessionKeyStore
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore
                 ).encrypt('foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]));
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5 + parents (4 + 4) * 2))
@@ -152,8 +134,7 @@ define([
 
         it('data message with parents and padding', function() {
             var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe',
-                _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, sessionKeyStore
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore
                 ).encrypt('foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]), 32);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
@@ -165,55 +146,18 @@ define([
         it('data message', function() {
             var sessionKeyStore = _dummySessionKeyStore();
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-            var result = new ns.MessageSecurity('Moe', null, null, sessionKeyStore
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore
                 ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
             assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
-        });
-
-        it('data message with second group key', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            sessionKeyStore.sessionIDs.push('foo');
-            sessionKeyStore.sessions['foo'] = {};
-            sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
-            sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-            var result = new ns.MessageSecurity('Moe', null, null, sessionKeyStore
-                ).decrypt(_td.DATA_MESSAGE_STRING2, 'Moe');
-
-            assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
-        });
-
-        it('data message, debug on', function() {
-            sandbox.stub(MegaLogger._logRegistry.codec, '_log');
-            sandbox.stub(MegaLogger._logRegistry.message, '_log');
-
-            var sessionKeyStore = _dummySessionKeyStore();
-            sessionKeyStore.sessionIDs.push('foo');
-            sessionKeyStore.sessions['foo'] = {};
-            sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
-            sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-
-            var result = new ns.MessageSecurity('Moe', null, null, sessionKeyStore
-                ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
-
-            var log = MegaLogger._logRegistry.message._log.getCall(0).args;
-            assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
-                                       ['protocol: 1',
-                                        'messageType: 0x3 (MPENC_DATA_MESSAGE)',
-                                        'messageIV: evs2iGlNE8kspMvZ',
-                                        'rawDataMessage: jBDsQxp66K9e']]]);
-            log = MegaLogger._logRegistry.message._log.getCall(1).args;
-            assert.deepEqual(log, [0, ['mpENC decrypted message debug: ',
-                                       ['body: foo']]]);
         });
 
         it('data message with exponential padding', function() {
             var sessionKeyStore = _dummySessionKeyStore();
             sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
 
-            var result = new ns.MessageSecurity('Moe', null, null, sessionKeyStore
+            var result = new ns.MessageSecurity('Moe', sessionKeyStore
                 ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
@@ -230,14 +174,11 @@ define([
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
                 var sessionKeyStore = _dummySessionKeyStore();
-                sessionKeyStore.sessionIDs.push('foo');
-                sessionKeyStore.sessions['foo'] = {};
-                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
+                //sessionKeyStore.sessionIDs.push('foo');
+                //sessionKeyStore.sessions['foo'] = {};
+                //sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
                 sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-                var mSecurity = new ns.MessageSecurity('Moe',
-                                                       _td.ED25519_PRIV_KEY,
-                                                       _td.ED25519_PUB_KEY,
-                                                       sessionKeyStore);
+                var mSecurity = new ns.MessageSecurity('Moe', sessionKeyStore);
 
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');
@@ -250,14 +191,11 @@ define([
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
                 var sessionKeyStore = _dummySessionKeyStore();
-                sessionKeyStore.sessionIDs.push('foo');
-                sessionKeyStore.sessions['foo'] = {};
-                sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
+                //sessionKeyStore.sessionIDs.push('foo');
+                //sessionKeyStore.sessions['foo'] = {};
+                //sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
                 sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-                var mSecurity = new ns.MessageSecurity('Moe',
-                                                       _td.ED25519_PRIV_KEY,
-                                                       _td.ED25519_PUB_KEY,
-                                                       sessionKeyStore);
+                var mSecurity = new ns.MessageSecurity('Moe', sessionKeyStore);
 
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients, null, 32).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');

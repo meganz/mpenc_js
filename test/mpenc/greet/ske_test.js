@@ -123,6 +123,19 @@ define([
             });
         });
 
+        describe("#_yetToAuthenticate", function() {
+            it('test method', function() {
+                var participant = new ns.SignatureKeyExchangeMember('1');
+                participant.members = ['1', '2', '3', '4'];
+                participant.discardAuthentications();
+                participant.authenticatedMembers[2] = true;
+                var yetToAuth = participant.yetToAuthenticate();
+                assert.strictEqual(yetToAuth.length, 2);
+                assert.strictEqual(yetToAuth[0], '2');
+                assert.strictEqual(yetToAuth[1], '4');
+            });
+        });
+
         describe('#_verifySessionSig() method', function() {
             it('verification fail on invalid member', function() {
                 var participant = new ns.SignatureKeyExchangeMember('3');
