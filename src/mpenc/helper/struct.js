@@ -180,6 +180,9 @@ define([
             }
             this.length = arguments.length;
             Object.freeze(this);
+            if (this.postInit) {
+                this.postInit();
+            }
         };
         cls.prototype = Object.create(baseClass.prototype);
         cls.prototype.constructor = cls;

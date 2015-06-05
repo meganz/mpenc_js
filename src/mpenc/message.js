@@ -107,6 +107,12 @@ define([
      */
     var Payload = struct.createTupleClass(MessageBody, "content");
 
+    Payload.prototype.postInit = function() {
+        if (!(typeof this.content === "string" && this.content.length)) {
+            throw new Error("Payload content must be non-empty");
+        }
+    };
+
     Object.freeze(Payload.prototype);
     ns.Payload = Payload;
 
@@ -125,10 +131,79 @@ define([
      */
     var ExplicitAck = struct.createTupleClass(MessageBody, "manual");
 
+    ExplicitAck.prototype.postInit = function() {
+        if (this.manual !== (!!this.manual)) {
+            throw new Error("ExplicitAck manual must be boolean");
+        }
+    };
+
     Object.freeze(ExplicitAck.prototype);
     ns.ExplicitAck = ExplicitAck;
 
-    // TODO: messaging-level metadata like ExplicitAck, HeartBeat, Consistency
+    var HeartBeat = {}; // TODO(xl): TBA
+
+    /**
+     * Request immediate acks from others so that consistency can be reached.
+     * This is useful e.g. when changing the membership of the channel, and you
+     * want to check consistency of the history with the previous membership.
+     *
+     * @property close {boolean} If true, this is a commitment that the author
+     *      will send no more Payload messages to the session, and that they
+     *      will ignore the content of later messages by others, except to
+     *      treat it as an ack of this message. After this is fully-acked,
+     *      other members should formally exclude the author from the session,
+     *      e.g. by running a greeting protocol.
+     */
+    var Consistency = struct.createTupleClass(MessageBody, "close");
+
+    Consistency.isFin = function(obj) {
+        return (obj instanceof Consistency) && obj.close;
+    };
+
+    Consistency.prototype.postInit = function() {
+        if (this.close !== (!!this.close)) {
+            throw new Error("Consistency close must be boolean");
+        }
+    };
+
+    Object.freeze(Consistency.prototype);
+    ns.Consistency = Consistency;
+
+
+    var MESSAGE_BODY_TYPES = [
+        Payload,            // 0x00
+        ExplicitAck,        // 0x01
+        HeartBeat,          // 0x02
+        Consistency,        // 0x03
+    ];
+
+    /**
+     * Object for converting MessageBody to/from string representation.
+     */
+    var DefaultMessageCodec = {
+        // TODO(xl): maybe move this as static methods of MessageBody
+        // and/or use TLV-based encoding to be consistent
+
+        encode: function(body) {
+            if (!(body instanceof MessageBody)) {
+                throw new Error("tried to encode non-MessageBody: " + body);
+            }
+            var type = String.fromCharCode(MESSAGE_BODY_TYPES.indexOf(body.constructor));
+            _assert(type.length === 1);
+            return type + JSON.stringify(body.slice());
+        },
+
+        decode: function(data) {
+            var type = data[0], body = JSON.parse(data.substring(1));
+            var cls = MESSAGE_BODY_TYPES[type.charCodeAt(0)];
+            if (!(body instanceof Array)) {
+                throw new Error("bad decode: not an Array: " + body);
+            }
+            return new (Function.prototype.bind.apply(cls, [undefined].concat(body)))();
+        },
+
+    };
+    ns.DefaultMessageCodec = DefaultMessageCodec;
 
 
     var _createMessageId = function(signature, content) {

@@ -242,12 +242,12 @@ define([
 
     describe("DefaultMessageLog class", function() {
         var tr = new impl.BaseTranscript();
-        tr.add(M("O", "Alice", [], ["Bob"], message.Payload("")));
-        tr.add(M("A", "Alice", ["O"], ["Bob"], message.Payload("")));
-        tr.add(M("C", "Alice", ["A"], ["Bob"], message.ExplicitAck(false)));
-        tr.add(M("B", "Bob", ["A"], ["Alice"], message.Payload("")));
-        tr.add(M("D", "Bob", ["B", "C"], ["Alice"], message.ExplicitAck(false)));
-        tr.add(M("E", "Bob", ["D"], ["Alice"], message.Payload("")));
+        tr.add(M("O", "Alice", [], ["Bob"], new message.Payload("x")));
+        tr.add(M("A", "Alice", ["O"], ["Bob"], new message.Payload("x")));
+        tr.add(M("C", "Alice", ["A"], ["Bob"], new message.ExplicitAck(false)));
+        tr.add(M("B", "Bob", ["A"], ["Alice"], new message.Payload("x")));
+        tr.add(M("D", "Bob", ["B", "C"], ["Alice"], new message.ExplicitAck(false)));
+        tr.add(M("E", "Bob", ["D"], ["Alice"], new message.Payload("x")));
         var mId_ud = "OABE".split("");
         var mId_ex = ["C", "D"];
 
@@ -301,9 +301,9 @@ define([
             var ctx2 = new async.EventContext([ns.MsgAccepted]);
             var log = new impl.DefaultMessageLog();
             var tr2 = new impl.BaseTranscript();
-            tr2.add(M("X", "Alice", [], ["Bob"], message.Payload("")));
-            tr2.add(M("Y", "Alice", ["X"], ["Bob"], message.Payload("")));
-            tr2.add(M("Z", "Alice", ["Y"], ["Bob"], message.ExplicitAck(false)));
+            tr2.add(M("X", "Alice", [], ["Bob"], new message.Payload("x")));
+            tr2.add(M("Y", "Alice", ["X"], ["Bob"], new message.Payload("x")));
+            tr2.add(M("Z", "Alice", ["Y"], ["Bob"], new message.ExplicitAck(false)));
 
             log.bindTarget(ctx0);
             log.bindSource({ onEvent: ctx1.subscribe.bind(ctx1) }, tr);

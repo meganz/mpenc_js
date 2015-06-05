@@ -62,6 +62,49 @@ define([
 
     var defaultRecipients = new struct.ImmutableSet(['Larry', 'Curly']);
 
+    describe("DefaultMessageCodec", function() {
+        var codec = ns.DefaultMessageCodec;
+        var assertEncodeDecode = function(body) {
+            assert.deepEqual(body, codec.decode(codec.encode(body)));
+        };
+
+        it("encode-decode", function() {
+            assertEncodeDecode(new ns.Payload("hello"));
+            assertEncodeDecode(new ns.ExplicitAck(true));
+            assertEncodeDecode(new ns.ExplicitAck(false));
+            assertEncodeDecode(new ns.Consistency(true));
+            assertEncodeDecode(new ns.Consistency(false));
+        });
+
+        it("encode fail", function() {
+            assert.throws(codec.encode.bind(null, null));
+            assert.throws(codec.encode.bind(null, undefined));
+            assert.throws(codec.encode.bind(null, new ns.Message("", [], "", [], new ns.Payload("x"))));
+            assert.throws(codec.encode.bind(null, {}));
+            assert.throws(codec.encode.bind(null, []));
+        });
+
+        it("decode fail", function() {
+            assert.throws(codec.decode.bind(null, null));
+            assert.throws(codec.decode.bind(null, ""));
+            assert.throws(codec.decode.bind(null, '[]'));
+            assert.throws(codec.decode.bind(null, '\x00{}'));
+            assert.throws(codec.decode.bind(null, '\xff[""]'));
+            // specific values
+            assert.throws(codec.decode.bind(null, '\x00[]'));
+            assert.throws(codec.decode.bind(null, '\x00[123]'));
+            assert.throws(codec.decode.bind(null, '\x00[false]'));
+            assert.throws(codec.decode.bind(null, '\x01[]'));
+            assert.throws(codec.decode.bind(null, '\x01[123]'));
+            assert.throws(codec.decode.bind(null, '\x01["x"]'));
+            assert.throws(codec.decode.bind(null, '\x03[]'));
+            assert.throws(codec.decode.bind(null, '\x03[123]'));
+            assert.throws(codec.decode.bind(null, '\x03["x"]'));
+        });
+
+    });
+
+
     describe("MessageSecurity.encrypt()", function() {
         it('data message', function() {
             var sessionKeyStore = _dummySessionKeyStore();
@@ -179,7 +222,7 @@ define([
     });
 
     describe("encrypt-decrypt with arbitrary unicode text", function() {
-        var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+        var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                      "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                      'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
 
