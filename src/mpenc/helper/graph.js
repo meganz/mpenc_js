@@ -53,9 +53,9 @@ define([
 
     /**
      * Number of elements.
-     * @member {number}
-     */
-    CausalOrder.prototype.length;
+     * @method
+     * @returns {number} */
+    CausalOrder.prototype.size;
 
     /** All the ids as an array.
      * @method

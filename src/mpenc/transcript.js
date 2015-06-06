@@ -127,15 +127,6 @@ define([
     // jshint -W030
 
     /**
-     * Add/accept a message; all its parents must already have been added.
-     *
-     * @method
-     * @param msg {module:mpenc/message.Message} Message to add.
-     * @returns {Array.<string>} List of older messages that became fully-acked
-     * by this message being accepted, in some topological order. */
-    Transcript.prototype.add;
-
-    /**
      * The latest message before mId authored by the same author, or
      * <code>null</code> if mId is the first message authored by them.
      *

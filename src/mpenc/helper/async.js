@@ -83,7 +83,11 @@ define([
      */
     Subscribe.wrap = function(subscribe) {
         // a slight hack here to support some nicer syntax for clients
-        if (Object.setPrototypeOf) {
+        if (subscribe instanceof Subscribe) {
+            return subscribe;
+        } else if (!(subscribe instanceof Function)) {
+            throw new Error("tried to wrap non-function: " + subscribe);
+        } else if (Object.setPrototypeOf) {
             Object.setPrototypeOf(subscribe, Subscribe.prototype);
         } else {
             subscribe.__proto__ = Subscribe.prototype; // jshint ignore:line
@@ -206,6 +210,9 @@ define([
          * @returns canceller {module:mpenc/helper/async~canceller}
          */
         this.subscribe = Subscribe.wrap(function(sub) {
+            if (!(sub instanceof Function)) {
+                throw new Error("tried to subscribe non-function: " + sub);
+            }
             _subs.set(_subn, sub);
             var k = _subn;
             _subn += 1;
@@ -863,7 +870,7 @@ define([
         this._intervals = struct.toIterator(intervals);
         this._stopped = false;
         this.resume();
-        _assert(this.state() === "RUNNING");
+        _assert(this.state() === "RUNNING" || this.state() === "STOPPED");
     };
 
     /**

@@ -121,9 +121,9 @@ define([
 
     // CausalOrder
 
-    BaseTranscript.prototype.__defineGetter__("length", function() {
+    BaseTranscript.prototype.size = function() {
         return this._length;
-    });
+    };
 
     BaseTranscript.prototype.all = function() {
         return this._log.slice(); // TODO: P- could be optimised with a cache
@@ -236,8 +236,16 @@ define([
         return this._cacheUnacked;
     };
 
-    // Transcript
+    // own public
 
+    /**
+     * Add/accept a message; all its parents must already have been added.
+     *
+     * @method
+     * @param msg {module:mpenc/message.Message} Message to add.
+     * @returns {Array.<string>} List of older messages that became fully-acked
+     * by this message being accepted, in some topological order.
+     */
     BaseTranscript.prototype.add = function(msg) {
         if (this._fubar) {
             throw new Error("something horrible happened previously, refusing all operations");
@@ -371,6 +379,8 @@ define([
             throw e;
         }
     };
+
+    // Transcript
 
     BaseTranscript.prototype.pre_uId = function(mId) {
         var i = safeGet(this._authorIndex, mId);

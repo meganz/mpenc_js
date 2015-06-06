@@ -424,13 +424,17 @@ define([
      * {@link TrialBuffer} operates on.
      *
      * @interface
-     * @name TrialTarget
+     * @memberOf module:mpenc/helper/struct
      */
+    var TrialTarget = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+    // jshint -W030
 
     /**
      * This method performs the actual trial.
      *
-     * @method TrialTarget#tryMe
+     * @method
      * @param pending {boolean}
      *     Set to `true` if the params are already on the queue (i.e. was seen
      *     before). Note: `false` does not necessarily mean it was *never* seen
@@ -440,25 +444,32 @@ define([
      * @returns {boolean}
      *     `true` if processing succeeds, otherwise `false`.
      */
+    TrialTarget.prototype.tryMe;
 
     /**
      * This method determines the buffer capacity. It takes no parameters.
      *
-     * @method TrialTarget#maxSize
+     * @method
      * @returns {integer}
      *     Number of allowed elements in the buffer.
      */
+    TrialTarget.prototype.maxSize;
 
     /**
      * This method determines a parameter's identifier.
      *
-     * @method TrialTarget#paramId
+     * @method
      * @param param {object}
      *     The parameter to find an identifier for.
      * @returns {string}
      *     Identifier that can be used as the key in an {object} to index the
      *     parameters in the buffer, usually a {string}.
      */
+    TrialTarget.prototype.paramId;
+
+    Object.freeze(TrialTarget.prototype);
+    ns.TrialTarget = TrialTarget;
+    // jshint +W030
 
 
     /**
@@ -512,7 +523,6 @@ define([
     TrialBuffer.prototype.length = function() {
         return this._bufferIDs.length;
     };
-
 
     /**
      * Try to accept a parameter, stashing it in the buffer if this fails.
