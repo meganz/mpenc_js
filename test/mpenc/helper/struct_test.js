@@ -24,6 +24,7 @@
 
 define([
     "mpenc/helper/struct",
+    "mpenc/helper/async",
     "mpenc/helper/utils",
     "es6-collections",
     "megalogger",
@@ -32,7 +33,7 @@ define([
     "sinon/spy",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, utils, es6_shim, MegaLogger,
+], function(ns, async, utils, es6_shim, MegaLogger,
             chai, stub, spy, sinon_sandbox, sinon_assert) {
     "use strict";
     // jshint -W064
@@ -377,6 +378,56 @@ define([
                 assert.deepEqual(log, [30, ['Brian DROPPED bar at size 1, potential data loss.']]);
                 assert.deepEqual(myTrialBuffer._buffer, {'foo': param});
                 assert.deepEqual(myTrialBuffer._bufferIDs, [paramID]);
+            });
+        });
+    });
+
+    describe("TrialTimeoutTarget class", function() {
+        var timer = new async.Timer();
+        var param = {'foo': 'bar'};
+        var paramID = 'foo';
+        var mkTarget = function() {
+            return { tryMe: stub().returns(false),
+                     maxSize: stub(),
+                     paramId: stub().returns(paramID) };
+        };
+
+        it("errback is called after timeout", function(done) {
+            var target = mkTarget();
+            var errback = stub();
+            var timeoutTarget = new ns.TrialTimeoutTarget(timer, 5, errback, target);
+            var myTrialBuffer = new ns.TrialBuffer('Timeout', timeoutTarget);
+
+            var result = myTrialBuffer.trial(param);
+            assert(!result);
+
+            timer.after(10, function() {
+                sinon_assert.calledOnce(errback);
+
+                target.tryMe = stub().returns(true);
+                myTrialBuffer.trial(param);
+
+                assert(!timeoutTarget._timeouts.has(paramID));
+                done();
+            });
+        });
+
+        it("errback is not called after success", function(done) {
+            var target = mkTarget();
+            var errback = stub();
+            var timeoutTarget = new ns.TrialTimeoutTarget(timer, 5, errback, target);
+            var myTrialBuffer = new ns.TrialBuffer('Timeout', timeoutTarget);
+
+            myTrialBuffer.trial(param);
+            assert(timeoutTarget._timeouts.has(paramID));
+
+            target.tryMe = stub().returns(true);
+            myTrialBuffer.trial(param);
+
+            timer.after(10, function() {
+                sinon_assert.notCalled(errback);
+                assert(!timeoutTarget._timeouts.has(paramID));
+                done();
             });
         });
     });
