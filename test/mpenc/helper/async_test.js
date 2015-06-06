@@ -34,6 +34,9 @@ define([
     var cancel_sub = null;
     var assertLog = function(x) { assert.strictEqual(logs.shift(), x); };
 
+    // we will explicitly generate subscribe failures, so avoid console polluting output
+    ns.SubscriberFailure.cancelGlobalLog();
+
     beforeEach(function() {
         logs = [];
         cancel_sub = ns.SubscriberFailure.subscribeGlobal(function(item) { logs.push(item); });
@@ -115,6 +118,11 @@ define([
             });
         });
 
+        it("fail fast for bad args", function() {
+            var obs = new ns.Observable();
+            assert.throws(function() { obs.subscribe(0); });
+        });
+
         it("subscribe once", function() {
             var obs = new ns.Observable();
             obs.subscribe(cb_x);
@@ -171,6 +179,12 @@ define([
     describe("events", function() {
         var Evt1 = struct.createTupleClass("x", "y");
         var Evt2 = struct.createTupleClass("x", "y", "z");
+
+        it("fail fast for bad args", function() {
+            var events = new ns.EventContext([Evt1]);
+            assert.throws(function() { events.subscribe(Evt1, 0); });
+            assert.throws(function() { events.publish([]); });
+        });
 
         it("basic events", function() {
             var events = new ns.EventContext([Evt1, Evt2]);

@@ -306,7 +306,9 @@ define([
      * Stop logging all subscriber failures in the entire program.
      */
     SubscriberFailure.cancelGlobalLog = __SubscriberFailure_global.subscribe(function(f) {
-        logger.warn("subscriber (" + f.sub + ") failed on (" + f.item + "): " + f.error);
+        logger.warn("subscriber (" + String.valueOf(f.sub) +
+            ") failed on (" + String.valueOf(f.item) + "): " + String.valueOf(f.error) +
+            "; stack trace: ");
         logger.warn(f.error.stack);
     });
 
@@ -442,7 +444,11 @@ define([
     };
 
     _AutoNode.prototype.getDescendant = function(path) {
-        path = path || [];
+        if (path === undefined ) {
+            path = [];
+        } else if (!(path instanceof Array)) {
+            throw new Error("getDescendant needs an array, but given: " + path);
+        }
         var node = this;
         for (var i=0; i<path.length; i++) {
             node = node.get(path[i]);
@@ -574,9 +580,7 @@ define([
      */
     EventContext.prototype.publish = function(evt) {
         var evtcls = evt.constructor;
-        if (this.has(evtcls)) {
-            this.get(evtcls).pubDeep(evt);
-        }
+        this.get(evtcls).pubDeep(evt);
     };
 
     EventContext.prototype.activeChildren = function(evtcls, prefix) {
@@ -588,8 +592,9 @@ define([
      * Subscribe to and republish events from another EventContext.
      */
     EventContext.prototype.chainFrom = function(evtctx, evtcls) {
+        var self = this;
         return combinedCancel(new struct.ImmutableSet(evtcls).toArray().map(function(ec) {
-            evtctx.subscribe(ec)(this.publish.bind(this));
+            evtctx.subscribe(ec)(self.publish.bind(self));
         }));
     };
 
