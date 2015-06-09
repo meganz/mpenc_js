@@ -796,6 +796,20 @@ define([
     });
 
     describe("Greeter Class", function() {
+        var stubPartialDecodeInternals = function(interceptDecode) {
+            var popStub = function(rest, type, action) {
+                var r = interceptDecode(type);
+                if (r !== undefined) { action(r); }
+                return rest;
+            };
+            sandbox.stub(codec, "popTLV", popStub);
+            sandbox.stub(codec, "popTLVMaybe", popStub);
+            sandbox.stub(codec, "decodeWirePacket").returns({
+                type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
+                content : ""
+            });
+        };
+
         it("Test _determineFlowType correct data", function() {
             var owner = '1';
             var initOldMembers = new Set([]);
@@ -850,35 +864,22 @@ define([
             ];
 
             var t = null;
-            var fRet = function(content, type) {
-                if(type === codec.TLV_TYPE.GREET_TYPE) {
-                    return t;
+            var members = ["1", "2"];
+            stubPartialDecodeInternals(function(type) {
+                switch(type) {
+                case codec.TLV_TYPE.GREET_TYPE: return t;
+                case codec.TLV_TYPE.SOURCE: return "1";
+                case codec.TLV_TYPE.CHAIN_HASH: return utils.sha256("dummyHash");
+                case codec.TLV_TYPE.PREV_PF: return utils.sha256("dummyPrevPf");
+                case codec.TLV_TYPE.LATEST_PM: return utils.sha256("dummyParent");
+                case codec.TLV_TYPE.MEMBER: return members.shift();
                 }
-                else if(type === codec.TLV_TYPE.SOURCE) {
-                    return "1";
-                }
-                else if(type === codec.TLV_TYPE.CHAIN_HASH) {
-                    return utils.sha256("dummyHash");
-                }
-                else if(type === codec.TLV_TYPE.PREV_PF) {
-                    return utils.sha256("dummyPrevPf");
-                }
-                else if(type === codec.TLV_TYPE.LATEST_PM) {
-                    return utils.sha256("dummpLatestPm");
-                }
-
-            };
-
-            sandbox.stub(codec, "getValue", fRet);
-            sandbox.stub(codec, "getVecValue").returns(["1", "2"]);
-            sandbox.stub(codec, "decodeWirePacket").returns(
-                {type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                    content : "blawaffle"
-                });
-            for(var x = 0; x < acceptedTypes.length; x++) {
+            });
+            for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
-                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                    function(value){ });
+                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB,
+                    function(value){}, function(value){},
+                    function(value){});
                 var greetSummary = gtr.partialDecode("random message");
                 assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
             }
@@ -892,23 +893,15 @@ define([
             ];
 
             var t = null;
-            var fRet = function(content, type) {
-                if(type === codec.TLV_TYPE.GREET_TYPE) {
-                    console.log(ns.GREET_TYPE_MAPPING[t]);
-                    return t;
+            var members = ["1", "2"];
+            stubPartialDecodeInternals(function(type) {
+                switch(type) {
+                case codec.TLV_TYPE.GREET_TYPE: return t;
+                case codec.TLV_TYPE.SOURCE: return "1";
+                case codec.TLV_TYPE.MEMBER: return members.shift();
                 }
-                else if(type === codec.TLV_TYPE.SOURCE) {
-                    return "1";
-                }
-            };
-
-            sandbox.stub(codec, "getValue", fRet);
-            sandbox.stub(codec, "getVecValue").returns(["1", "2"]);
-            sandbox.stub(codec, "decodeWirePacket").returns(
-                {type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                    content : "blawaffle"
-                });
-            for(var x = 0; x < acceptedTypes.length; x++) {
+            });
+            for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
                 var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
                     function(value){ });
@@ -918,22 +911,12 @@ define([
         });
 
         it("Test final message, no current greeting", function(){
-            var fRet = function(content, type) {
-                if(type === codec.TLV_TYPE.GREET_TYPE) {
-                    return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+            stubPartialDecodeInternals(function(type) {
+                switch(type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "1";
                 }
-                else if(type === codec.TLV_TYPE.SOURCE) {
-                    return "1";
-                }
-            };
-
-            sandbox.stub(codec, "getValue", fRet);
-            sandbox.stub(codec, "getVecValue").returns(["1", "2"]);
-            sandbox.stub(codec, "decodeWirePacket").returns(
-                {type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                    content : "blawaffle"
-                });
-
+            });
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
                 function(value){ });
             assert.Throw(function(){gtr.partialDecode("random message");},
@@ -942,21 +925,12 @@ define([
         });
 
         it("Test final message tested, correct", function() {
-            var fRet = function(content, type) {
-                if(type === codec.TLV_TYPE.GREET_TYPE) {
-                    return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+            stubPartialDecodeInternals(function(type) {
+                switch(type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "2";
                 }
-                else if(type === codec.TLV_TYPE.SOURCE) {
-                    return "2";
-                }
-            };
-
-            sandbox.stub(codec, "getValue", fRet);
-            sandbox.stub(codec, "getVecValue").returns(["1", "2"]);
-            sandbox.stub(codec, "decodeWirePacket").returns(
-                {type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                    content : "blawaffle"
-                });
+            });
             var prevPi = utils.sha256("randomMessage");
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["2"]} } };
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -970,22 +944,12 @@ define([
         });
 
         it("Test final message tested, incorrect", function() {
-            var fRet = function(content, type) {
-                if(type === codec.TLV_TYPE.GREET_TYPE) {
-                    return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+            stubPartialDecodeInternals(function(type) {
+                switch(type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "2";
                 }
-                else if(type === codec.TLV_TYPE.SOURCE) {
-                    return "2";
-                }
-            };
-
-            sandbox.stub(codec, "getValue", fRet);
-            sandbox.stub(codec, "getVecValue").returns(["1", "2"]);
-            sandbox.stub(codec, "decodeWirePacket").returns(
-                {type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                    content : "blawaffle"
-                });
-
+            });
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["3"]} } };
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
                 function(value){ });
@@ -997,8 +961,8 @@ define([
         it("Test saving of greeter", function() {
             var prevPf = "prevPf";
             var chainHash = "chainHash";
-            var pmId = [utils.sha256("pmId")];
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", pmId);
+            var parents = [utils.sha256("parents")];
+            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", parents);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1034,9 +998,9 @@ define([
         it("Encode->partial decode proposal message", function() {
             var prevPf = "prevPf";
             var chainHash = "chainHash";
-            var pmId = [utils.sha256("pmId")];
+            var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", pmId, seenInChannel);
+            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", parents, seenInChannel);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1049,24 +1013,23 @@ define([
             var members = ["2", "3"];
             gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
             assert.ok(pubtxt, "pubtxt not ok.");
-            pubtxt = "?mpENC:" + btoa(pubtxt) + ".";
+            pubtxt = codec.encodeWirePacket(pubtxt);
             var m = gtr.partialDecode(pubtxt);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, "chainHash", "chainHash not equal");
             assert.strictEqual(m.metadata.prevPf, "prevPf");
-            assert.strictEqual(m.metadata.uId, "1");
-            assert.deepEqual(m.metadata.pmId, pmId);
-            
+            assert.strictEqual(m.metadata.author, "1");
+            assert.deepEqual(m.metadata.parents, parents);
+
         });
 
         it("Encode->decoce proposal message", function(){
             var prevPf = utils.sha256("prevPf");
             var chainHash = utils.sha256("chainHash");
-            var latestPm = utils.sha256("latestPm");
-            var pmId = [utils.sha256("pmId")];
+            var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
             var id = "1";
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, id, pmId, seenInChannel);
+            var metadata = new ns.GreetingMetadata(prevPf, chainHash, id, parents, seenInChannel);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1088,11 +1051,9 @@ define([
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
-            assert.strictEqual(m.metadata.uId, id, "uId not equal.");
-            assert.deepEqual(m.metadata.pmId, pmId, "pmId not equal.");
+            assert.strictEqual(m.metadata.author, id, "author not equal.");
+            assert.deepEqual(m.metadata.parents, parents, "parents not equal.");
             assert.strictEqual(dest, "2", "Destination not correct");
-            console.log(m.metadata.seenInChannel[0]);
-            console.log(m.metadata.seenInChannel[1]);
             assert.deepEqual(m.metadata.seenInChannel, seenInChannel);
 
             // Check the message with the other user.
@@ -1108,7 +1069,7 @@ define([
             assert.ok(nGreeting.askeMember.members, "askeMember.members is null.");
             assert.strictEqual(nGreeting.state, ns.STATE.INIT_UPFLOW, "state is not equal.");
             assert.deepEqual(nGreeting.askeMember.members, ["1", "2", "3"], "Members are not equal.");
-            assert.strictEqual(nGreeting.metaDataIsAuthenticated(), true, "metadata is not authenticated.");
+            assert.strictEqual(nGreeting.metadataIsAuthenticated(), true, "metadata is not authenticated.");
             assert.strictEqual(dest, "3", "Destination not correct.");
 
             // Check the message with ourselves.Save a backup to ensure it is ours.

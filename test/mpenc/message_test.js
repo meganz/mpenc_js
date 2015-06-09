@@ -22,7 +22,7 @@
  */
 
 define([
-    "mpenc/greet/greeter",
+    "mpenc/message",
     "mpenc/codec",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
@@ -49,15 +49,16 @@ define([
         sandbox.restore();
     });
 
-    function _dummySessionKeyStore() {
-        var sessionKeyStore = { sessionId: _td.SESSION_ID,
+    function _dummyMessageSecurity() {
+        return new ns.MessageSecurity({
+            id: 'Moe',
+            sessionId: _td.SESSION_ID,
             members : ['Moe', 'Larry', 'Curly'],
             groupKey : _td.GROUP_KEY,
             ephemeralPrivKey : _td.ED25519_PRIV_KEY,
-            ephemeralPubKey : _td.ED25519_PUB_KEY
-        };
-
-        return sessionKeyStore;
+            ephemeralPubKey : _td.ED25519_PUB_KEY,
+            pubKeyMap : { 'Moe': _td.ED25519_PUB_KEY },
+        });
     }
 
     var defaultRecipients = new struct.ImmutableSet(['Larry', 'Curly']);
@@ -107,35 +108,32 @@ define([
 
     describe("MessageSecurity.encrypt()", function() {
         it('data message', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore).encrypt('foo', defaultRecipients);
+            var result = _dummyMessageSecurity().encrypt(
+                'foo', defaultRecipients);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
             assert.lengthOf(result.ciphertext, 112);
         });
 
         it('data message with exponential padding', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore
-                ).encrypt('foo', defaultRecipients, null, 32);
+            var result = _dummyMessageSecurity().encrypt(
+                'foo', defaultRecipients, null, 32);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
             assert.lengthOf(result.ciphertext, 135);
         });
 
         it('data message with parents', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore
-                ).encrypt('foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]));
+            var result = _dummyMessageSecurity().encrypt(
+                'foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]));
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5 + parents (4 + 4) * 2))
             assert.lengthOf(result.ciphertext, 128);
         });
 
         it('data message with parents and padding', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore
-                ).encrypt('foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]), 32);
+            var result = _dummyMessageSecurity().encrypt(
+                'foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]), 32);
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
             assert.lengthOf(result.ciphertext, 135);
@@ -144,21 +142,14 @@ define([
 
     describe("MessageSecurity.decrypt()", function() {
         it('data message', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore
-                ).decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
+            var result = _dummyMessageSecurity().decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
             assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with exponential padding', function() {
-            var sessionKeyStore = _dummySessionKeyStore();
-            sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-
-            var result = new ns.MessageSecurity('Moe', sessionKeyStore
-                ).decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
+            var result = _dummyMessageSecurity().decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
 
             assert.strictEqual(result.author, 'Moe');
             assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
@@ -173,13 +164,7 @@ define([
         it('data messages', function() {
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
-                var sessionKeyStore = _dummySessionKeyStore();
-                //sessionKeyStore.sessionIDs.push('foo');
-                //sessionKeyStore.sessions['foo'] = {};
-                //sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
-                sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-                var mSecurity = new ns.MessageSecurity('Moe', sessionKeyStore);
-
+                var mSecurity = _dummyMessageSecurity();
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');
                 assert.strictEqual(result.author, 'Moe');
@@ -190,13 +175,7 @@ define([
         it('data messages with exponential padding', function() {
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
-                var sessionKeyStore = _dummySessionKeyStore();
-                //sessionKeyStore.sessionIDs.push('foo');
-                //sessionKeyStore.sessions['foo'] = {};
-                //sessionKeyStore.sessions[_td.SESSION_ID].groupKeys.push('foo');
-                sessionKeyStore.pubKeyMap = {'Moe': _td.ED25519_PUB_KEY };
-                var mSecurity = new ns.MessageSecurity('Moe', sessionKeyStore);
-
+                var mSecurity = _dummyMessageSecurity();
                 var encrypted = mSecurity.encrypt(tests[i], defaultRecipients, null, 32).ciphertext;
                 var result = mSecurity.decrypt(encrypted, 'Moe');
                 assert.strictEqual(result.author, 'Moe');

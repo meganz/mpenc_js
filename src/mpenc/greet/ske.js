@@ -340,19 +340,18 @@ define([
     };
 
     /**
-     * Returns the ids of the members yet to be acknoledged.
+     * Returns the ids of the members yet to acknowledge to us.
      *
      * @returns {Array}
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.yetToAuthenticate = function() {
         var memNotAck = [];
-        for(var x = 0; x < this.authenticatedMembers.length; x++) {
-            if(!this.authenticatedMembers[x]) {
+        for (var x = 0; x < this.authenticatedMembers.length; x++) {
+            if (!this.authenticatedMembers[x]) {
                 memNotAck.push(this.members[x]);
             }
         }
-
         return memNotAck;
     };
 

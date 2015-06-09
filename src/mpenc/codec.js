@@ -153,7 +153,7 @@ define([
         SIGNING_KEY:       0x0107, // 263
         // Error messages
         SEVERITY:          0x0201, // 513
-        //Proposal message
+        // Proposal messages
         CHAIN_HASH:        0x0301,
         PREV_PF:           0x0302,
         LATEST_PM:         0x0303,
@@ -257,58 +257,6 @@ define([
         return undefined;
     };
 
-    /**
-     * Brute force method of finding a particular tlv in the given message.
-     *
-     * @param message {string} The message to iterate through..
-     * @param valtype {TLV_TYPE} The type of tlv to scan for.
-     * @returns {*} The found value, or null if not present.
-     */
-    ns.getValue = function(message, valtype) {
-        _assert(valtype);
-
-        while(message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            if(tlv.type === valtype) {
-                return tlv.value;
-            }
-            message = tlv.rest;
-        }
-
-        return null;
-    };
-
-    /**
-     * Get a vector of values, if multilpes are expected (e.g. member).
-     *
-     * @param message {string} The message to iterate through.
-     * @param valtype {TLV_TYPE} The type of tlv to scan for.
-     * @returns {Array} An array with the values (if any) found.
-     */
-    ns.getVecValue = function(message, valtype) {
-        _assert(valtype);
-        var values = [];
-        while(message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            if(tlv.type === valtype) {
-                values.push(tlv.value);
-            }
-            message = tlv.rest;
-        }
-
-        return values;
-    }
-
-    ns.getContValue = function(message, valtype) {
-        _assert(valtype);
-        var retVal = {};
-        while(message.length > 0) {
-            var tlv = ns.decodeTLV(message);
-            if(tlv.type === valtype) {
-                retValye
-            }
-        }
-    }
 
     /**
      * Encodes an mpENC TLV string suitable for sending onto the wire.
@@ -329,12 +277,13 @@ define([
      *     left over bytes from the input are returned in `rest`.
      */
     ns.decodeTLV = function(tlv) {
+        _assert(typeof tlv === "string", "tried to decode non-string");
         var type = ns._bin2short(tlv.substring(0, 2));
         var length = ns._bin2short(tlv.substring(2, 4));
         var value = tlv.substring(4, 4 + length);
         _assert(length === value.length,
-                'TLV payload length does not match indicated length: ' +
-                 + ' type = ' + type + " length = " + length + "value.length = " + value.length);
+                'TLV payload length does not match indicated length: type ' + type +
+                "; expected " + length + "; actual " + value.length);
         if (length === 0) {
             value = '';
         }
@@ -360,7 +309,7 @@ define([
      */
     ns.popTLV = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
-        tlv.type === type || ns.decodeError("expected TLV " + type + " but got " + tlv.type);
+        tlv.type === type || ns.decodeError("expected TLV type " + type + " but got " + tlv.type);
         action(tlv.value);
         return tlv.rest;
     };
@@ -431,6 +380,25 @@ define([
 
 
     /**
+     * Keep decoding TLV values *until* we reach a particular type. Stop when
+     * the next value is of the expected type.
+     */
+    ns.popTLVUntil = function(message, type) {
+        var oldrest;
+        var rest = message;
+        do {
+            oldrest = rest;
+            var tlv = ns.decodeTLV(rest);
+            if (tlv.type === type) {
+                break;
+            };
+            rest = tlv.rest;
+        } while (rest !== oldrest);
+        return rest;
+    };
+
+
+    /**
      * Detects the type of a given message.
      *
      * @param message {string}
@@ -445,7 +413,6 @@ define([
 
         // Check for plain text or "other".
         if (message.substring(0, _PROTOCOL_PREFIX.length) !== _PROTOCOL_PREFIX) {
-            console.log("plain");
             return { type: ns.MESSAGE_TYPE.PLAIN, content: message };
         }
         message = message.substring(_PROTOCOL_PREFIX.length);

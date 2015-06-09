@@ -22,12 +22,9 @@ define([
     "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
-    "mpenc/helper/struct",
     "mpenc/codec",
-    "mpenc/message",
     "megalogger",
-    "jodid25519",
-], function(assert, async, utils, cliques, ske, struct, codec, message, MegaLogger, jodid25519) {
+], function(assert, async, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -46,15 +43,10 @@ define([
      */
     var ns = {};
 
-    var Set = struct.ImmutableSet;
-
     var _assert = assert.assert;
     var _T = codec.TLV_TYPE;
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
-
-    var Message = message.Message;
-    var UserData = message.Payload;
 
     // Message type bit mapping
     ns._AUX_BIT = 0;
@@ -124,10 +116,6 @@ define([
         // Refresh sequence.
         REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
         REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
-
-        RECOVER_REFRESH_AUX_INITIATOR_DOWN:    '\u0001\u00c7', // 0b11000111
-        RECOVER_REFRESH_AUX_PARTICIPANT_DOWN:  '\u0001\u0047', // 0b01000111
-
         // Quit indication.
         QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
     };
@@ -323,7 +311,7 @@ define([
         // Proposal message stuff.
         this.chainHash = source.chainHash || null;
         this.prevPf = source.prevPf || null;
-        this.latestPm = source.latestPm || [];
+        this.parents = source.parents || [];
         this.seenInChannel = source.seenInChannel || [];
         return this;
     };
@@ -552,7 +540,7 @@ define([
         READY:         0x03,
         AUX_UPFLOW:    0x04,
         AUX_DOWNFLOW:  0x05,
-        QUIT:          0x06
+        QUIT:          0x06,
     };
 
     /** Mapping of state to string representation. */
@@ -611,7 +599,6 @@ define([
                         'Signature of message does not verify: ' + e + '!');
             }
         }
-
         return out;
     };
 
@@ -681,15 +668,14 @@ define([
             debugOutput.push("chainHash: " + btoa(value));
         });
 
-
         rest = codec.popTLVMaybe(rest, _T.PREV_PF, function(value) {
             out.prevPf = value;
             debugOutput.push("prevPf: " + btoa(value));
         });
 
         rest = codec.popTLVAll(rest, _T.LATEST_PM, function(value) {
-            out.latestPm.push[value];
-            debugOutput.push("latestPm: " + btoa(value));
+            out.parents.push[value];
+            debugOutput.push("parents: " + btoa(value));
         });
 
         rest = codec.popTLVAll(rest, _T.SEEN_IN_CHANNEL, function(value) {
@@ -731,10 +717,6 @@ define([
      *     will be used.
      * @returns {string}
      *     A TLV string.
-     *
-     *       message.chainHash = metaData.prevCh;
-            message.prevPf = metaData.prevPf;
-            message.latestPm = metaData.pmId;
      */
     ns.encodeGreetMessage = function(message, privKey, pubKey, paddingSize) {
         if (message === null || message === undefined) {
@@ -761,17 +743,18 @@ define([
         if (message.pubKeys) {
             out += codec._encodeTlvArray(codec.TLV_TYPE.PUB_KEY, message.pubKeys);
         }
-        // This is for the proposal messages.
-        if(message.chainHash) {
+        // This is for the initial message of a key agreement, where we need
+        // to send some extra metadata to help resolve concurrent operations.
+        if (message.chainHash) {
             out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, message.chainHash);
         }
-        if(message.prevPf) {
+        if (message.prevPf) {
             out += codec.encodeTLV(codec.TLV_TYPE.PREV_PF, message.prevPf);
         }
-        if(message.latestPm) {
-            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.latestPm);
+        if (message.parents) {
+            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.parents);
         }
-        if(message.seenInChannel) {
+        if (message.seenInChannel) {
             out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, message.seenInChannel);
         }
         //
@@ -790,291 +773,7 @@ define([
     };
 
 
-    ///////////////// Message Security ///////////////////
-
-    var _createMessageId = function(signature, content) {
-        // ignore sidkeyHint since that's unauthenticated
-        return utils.sha256(signature + content).slice(0, 20);
-    };
-
-    /**
-     * Component that holds cryptographic state needed to encrypt/decrypt
-     * messages that are part of a session.
-     *
-     * @class
-     * @memberOf module:mpenc/message
-     */
-    var MessageSecurity = function(owner, greetStore) {
-        this.owner = owner;
-        this._greetStore = greetStore;
-    };
-
-    /**
-     * Encodes a given data message ready to be put onto the wire, using
-     * base64 encoding for the binary message pay load.
-     *
-     * @param author {string}
-     *     Author of the message.
-     * @param recipients {module:mpenc/helper/struct.ImmutableSet}
-     *     Recipients of the message.
-     * @param parents {?module:mpenc/helper/struct.ImmutableSet}
-     *     Parent message ids.
-     * @param body {string}
-     *     Message body as byte string.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {{ mId: string, ciphertext: string}}
-     *     Message id and ciphertext.
-     */
-    MessageSecurity.prototype.encrypt = function(body, recipients, parents, paddingSize) {
-        var privKey = this._greetStore.ephemeralPrivKey;
-        var pubKey = this._greetStore.ephemeralPubKey;
-        paddingSize = paddingSize | 0;
-
-        // We want message attributes in this order:
-        // sid/key hint, message signature, protocol version, message type,
-        // iv, message data
-        var sessionID = this._greetStore.sessionId;
-        var groupKey = this._greetStore.groupKey;
-        var members = recipients.union(new Set([this.owner]));
-        _assert(members.equals(new Set(this._greetStore.members)), 'Recipients not members of session: ' +
-                        members + ' current members: ' + this._greetStore.members);
-
-        // Three portions: unsigned content (hint), signature, rest.
-        // Compute info for the SIDKEY_HINT and signature.
-        var sidkeyHash = utils.sha256(sessionID + groupKey);
-
-        // Rest (protocol version, message type, iv, message data).
-        var content = codec.ENCODED_VERSION + codec.ENCODED_TYPE_DATA;
-
-        // Encryption payload
-        var rawBody = "";
-        if (parents && parents.forEach) {
-            parents.forEach(function(pmId) {
-                rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PARENT, pmId);
-            });
-        }
-        // Protect multi-byte characters
-        body = unescape(encodeURIComponent(body));
-        rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, body);
-
-        var encrypted = ns._encryptRaw(rawBody, groupKey, paddingSize);
-        content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
-        content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PAYLOAD, encrypted.data);
-
-        // Compute the content signature.
-        var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
-            content, privKey, pubKey, sidkeyHash);
-
-        // Assemble everything.
-        var out = codec.encodeTLV(codec.TLV_TYPE.SIDKEY_HINT, sidkeyHash[0]);
-        out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
-        out += content;
-
-        return { mId: _createMessageId(signature, content), ciphertext: out };
-    };
-
-    /**
-     * Encrypts a given data message.
-     *
-     * The data message is encrypted using AES-128-CTR, and a new random
-     * IV/nonce (12 byte) is generated and returned.
-     *
-     * @param data {string}
-     *     Binary string data message.
-     * @param key {string}
-     *     Binary string representation of 128-bit encryption key.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {Object}
-     *     An object containing the message (in `data`, binary string) and
-     *     the IV used (in `iv`, binary string).
-     */
-    ns._encryptRaw = function(dataBytes, key, paddingSize) {
-        paddingSize = paddingSize | 0;
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = utils._newKey08(96);
-        // Prepend length in bytes to message.
-        _assert(dataBytes.length < 0xffff,
-            'Message size too large for encryption scheme.');
-        dataBytes = codec._short2bin(dataBytes.length) + dataBytes;
-        if (paddingSize) {
-            // Compute exponential padding size.
-            var exponentialPaddingSize = paddingSize
-                * (1 << Math.ceil(Math.log(Math.ceil((dataBytes.length) / paddingSize))
-                    / Math.log(2))) + 1;
-            var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
-            dataBytes += (new Array(numPaddingBytes)).join('\u0000');
-        }
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
-        return { data: jodid25519.utils.bytes2string(cipherBytes),
-            iv: jodid25519.utils.bytes2string(nonceBytes) };
-    };
-
-    /**
-     * Decodes a given TLV encoded data message into an object.
-     *
-     * @param message {string}
-     *     A TLV string for the message.
-     * @param authorHint {string}
-     *     Claimed (unverified) author for the message.
-     * @returns {mpenc.message.Message}
-     *     Message as JavaScript object.
-     */
-    MessageSecurity.prototype.decrypt = function(message, authorHint) {
-        var sessionID = this._greetStore.sessionId;
-        var groupKey = this._greetStore.groupKey;
-
-        if (!authorHint) {
-            logger.warn('No message author for message available, '
-                + 'will not be able to decrypt: ' + message);
-            return null;
-        }
-
-        var signingPubKey = this._greetStore.pubKeyMap[authorHint];
-        var inspected = _inspectMessage(message);
-        var decoded = null;
-        var sidkeyHash = utils.sha256(sessionID + groupKey);
-
-        var verifySig = codec.verifySig =
-            codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
-            inspected.rawMessage,
-            inspected.signature,
-            signingPubKey,
-            sidkeyHash);
-
-        if(verifySig === true) {
-            decoded = _decrypt(inspected, groupKey, authorHint, this._greetStore.members);
-        }
-
-        if (!decoded) {
-            return null;
-        }
-
-        logger.debug('Message from "' + authorHint + '" successfully decrypted.');
-        return decoded;
-    };
-
-    var _decrypt = function(inspected, groupKey, author, members) {
-        var debugOutput = [];
-        var out = _decodeMessage(inspected.rawMessage);
-        _assert(out.data);
-
-        // Data message signatures were already verified through trial decryption.
-        var rest = ns._decryptRaw(out.data, groupKey, out.iv);
-
-        var encrypted = ns._encryptRaw(codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, rest), groupKey, 0);
-
-        var parents = [];
-        rest = codec.popTLVAll(rest, _T.MESSAGE_PARENT, function(value) {
-            parents.push(value);
-            debugOutput.push('parent: ' + btoa(value));
-        });
-
-        var data;
-        rest = codec.popTLV(rest, _T.MESSAGE_BODY, function(value) {
-            // Undo protection for multi-byte characters.
-            data = decodeURIComponent(escape(value));
-            debugOutput.push('body: ' + value);
-        });
-
-        logger.debug('mpENC decrypted message debug: ', debugOutput);
-
-        var idx = members.indexOf(author);
-        _assert(idx >= 0);
-        var recipients = members.slice();
-        recipients.splice(idx, 1);
-
-        var mId = _createMessageId(inspected.signature, inspected.rawMessage);
-        return new Message(mId, author, parents, recipients, UserData(data));
-    };
-
-    var _decodeMessage = function(rawMessage) {
-        // full decode, no crypto operations
-        var debugOutput = [];
-        var out = {};
-        var rest = rawMessage;
-
-        rest = codec.popStandardFields(rest,
-            codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE, debugOutput);
-
-        rest = codec.popTLV(rest, _T.MESSAGE_IV, function(value) {
-            out.iv = value;
-            debugOutput.push('messageIV: ' + btoa(value));
-        });
-
-        rest = codec.popTLV(rest, _T.MESSAGE_PAYLOAD, function(value) {
-            out.data = value;
-            debugOutput.push('rawDataMessage: ' + btoa(out.data));
-        });
-
-        // TODO(xl): maybe complain if too much junk afterwards
-        // Debugging output.
-        logger.debug('mpENC decoded message debug: ', debugOutput);
-        return out;
-    };
-
-    var _inspectMessage = function(message, debugOutput) {
-        // partial decode, no crypto operations
-        var debugOutput = debugOutput || [];
-        var out = {};
-        var rest = message;
-
-        rest = codec.popTLV(rest, _T.SIDKEY_HINT, function(value) {
-            value.length === 1 || codec.decodeError("unexpected length for SIDKEY_HINT");
-            out.sidkeyHint = value;
-            debugOutput.push('sidkeyHint: 0x'
-                + value.charCodeAt(0).toString(16));
-        });
-
-        rest = codec.popTLV(rest, _T.MESSAGE_SIGNATURE, function(value) {
-            out.signature = value;
-            debugOutput.push('messageSignature: ' + btoa(value));
-        });
-        out.rawMessage = rest;
-
-        return out;
-    }
-
-    /**
-     * Decrypts a given data message.
-     *
-     * The data message is decrypted using AES-128-CTR.
-     *
-     * @param data {string}
-     *     Binary string data message.
-     * @param key {string}
-     *     Binary string representation of 128-bit encryption key.
-     * @param iv {string}
-     *     Binary string representation of 96-bit nonce/IV.
-     * @returns {string}
-     *     The clear text message as a binary string.
-     */
-    ns._decryptRaw = function(data, key, iv) {
-        if (data === null || data === undefined) {
-            return null;
-        }
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = jodid25519.utils.string2bytes(iv);
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var clearBytes = asmCrypto.AES_CTR.decrypt(data, keyBytes, ivBytes);
-        // Strip off message size and zero padding.
-        var clearString = jodid25519.utils.bytes2string(clearBytes);
-        var messageSize = codec._bin2short(clearString.slice(0, 2));
-        clearString = clearString.slice(2, messageSize + 2);
-        return clearString;
-    };
-
-    ns.MessageSecurity = MessageSecurity;
-
-    //////////////////// GreetingMetaData ////////////////////////
+    //////////////////// GreetingMetadata ////////////////////////
 
     /**
      * The metadata for an initial protocol message.
@@ -1083,17 +782,17 @@ define([
      *      The id of the previous final message.
      * @param prevCh
      *      The ChainHash from the previous protocol flow.
-     * @param uId
+     * @param author
      *      The id of the sender.
-     * @param pmId
-     *      The last seen message.
+     * @param parents
+     *      The last seen messages.
      * @constructor
      */
-    var GreetingMetadata = function(prevPf, prevCh, uId, pmId, seenInChannel) {
+    var GreetingMetadata = function(prevPf, prevCh, author, parents, seenInChannel) {
         this.prevPf = prevPf;
         this.prevCh = prevCh;
-        this.uId = uId;
-        this.pmId = pmId;
+        this.author = author;
+        this.parents = parents;
         this.seenInChannel = seenInChannel || null;
         this.isAuthenticated = false;
     };
@@ -1186,51 +885,58 @@ define([
     Greeter.prototype.partialDecode = function(pubtxt, oldmembers, from) {
         _assert(pubtxt);
         var decMessage = codec.decodeWirePacket(pubtxt);
-        if(decMessage.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
-            return null;
-        }
+        var rest = decMessage.content;
+        var pId = ns.makePid(rest);
 
-        var greetingSummary = null;
-        var pId = ns.makePid(decMessage.content);
-
+        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
+        rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE);
         // Find all of the relavant data from the message.
-        var source = codec.getValue(decMessage.content, codec.TLV_TYPE.SOURCE);
-        var mType = codec.getValue(decMessage.content, codec.TLV_TYPE.GREET_TYPE);
-        var members = codec.getVecValue(decMessage.content, codec.TLV_TYPE.MEMBER);
+        var greetingSummary, mType, source, dest, members = [];
+        rest = codec.popTLVUntil(rest, codec.TLV_TYPE.GREET_TYPE);
+        rest = codec.popTLV(rest, codec.TLV_TYPE.GREET_TYPE, function(value) {
+            mType = value;
+        });
+        rest = codec.popTLV(rest, codec.TLV_TYPE.SOURCE, function(value) {
+            source = value;
+        });
+        rest = codec.popTLV(rest, codec.TLV_TYPE.DEST, function(value) {});
+        rest = codec.popTLVAll(rest, codec.TLV_TYPE.MEMBER, function(value) {
+            members.push(value);
+        });
 
         // Sanity Checks.
         var errStr = ((!source) ? " source" : "")
                    + ((!mType) ? " greet_type" : "")
                    + ((!members) ? " members" : "");
-        if(errStr > 0) {
+        if (errStr > 0) {
             throw Error("Missing records from message: " + errStr);
         }
 
         // There _is_ a shorter way to test for these, but I decided to be explicit.
         // Initial type messages need to have their metadata extracted.
-        if(mType === ns.GREET_TYPE.INIT_INITIATOR_UP ||
+        if (mType === ns.GREET_TYPE.INIT_INITIATOR_UP ||
            mType === ns.GREET_TYPE.INIT_PARTICIPANT_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_UP) {
-            var metadata = this._extractMetaData(decMessage, source);
+            var metadata = this._extractMetadata(rest, source);
             greetingSummary = new GreetingSummary(pId, metadata, null, members);
         }
         // Downflow confirm messages require testing for final messages.
-        else if(mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
+        else if (mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             _assert(this.currentGreeting, "currentGreeting is null.");
             // Test if this is the final message.
             var pF = this._testFinalMessage(decMessage, source);
-            if(pF) {
+            if (pF) {
                 greetingSummary = new GreetingSummary(pId, null, this.prevPi, members);
             }
         }
         // Exclude message need special attention.
-        else if(mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
+        else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
                 mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
-            metadata = this._extractMetaData(decMessage);
+            metadata = this._extractMetadata(rest);
             greetingSummary = new GreetingSummary(pId, metadata, pId, members);
         }
 
@@ -1247,21 +953,32 @@ define([
      * @returns {GreetingMetadata}
      * @private
      */
-    Greeter.prototype._extractMetaData = function(decMessage, source) {
-        var chainHash = codec.getValue(decMessage.content, codec.TLV_TYPE.CHAIN_HASH);
-        var prevPf = codec.getValue(decMessage.content, codec.TLV_TYPE.PREV_PF);
-        var latestPm = codec.getVecValue(decMessage.content, codec.TLV_TYPE.LATEST_PM);
-        var seenInChannel = codec.getVecValue(decMessage.content, codec.TLV_TYPE.SEEN_IN_CHANNEL);
+    Greeter.prototype._extractMetadata = function(rest, source) {
+        var chainHash, prevPf, parents = [], seenInChannel = [];
+
+        rest = codec.popTLVUntil(rest, codec.TLV_TYPE.CHAIN_HASH);
+        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
+            chainHash = value;
+        });
+        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
+            prevPf = value;
+        });
+        rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
+            parents.push(value);
+        });
+        rest = codec.popTLVAll(rest, codec.TLV_TYPE.SEEN_IN_CHANNEL, function(value) {
+            seenInChannel.push(value);
+        });
 
         var errStr = ((!chainHash) ? "chainHash" : "")
                    + ((!prevPf) ? " prevPf" : "")
-                   + ((!latestPm) ? " latestPm" : "");
+                   + ((!parents) ? " parents" : "");
 
-        if(errStr.length > 0) {
+        if (errStr.length > 0) {
             throw Error("Missing metadata from message: " + errStr);
         }
 
-        return new GreetingMetadata(prevPf, chainHash, source, latestPm, seenInChannel);
+        return new GreetingMetadata(prevPf, chainHash, source, parents, seenInChannel);
     };
 
     /**
@@ -1277,8 +994,8 @@ define([
         var yetToAuthenticate = this.currentGreeting.askeMember.yetToAuthenticate();
         _assert(yetToAuthenticate.length > 0, "Members have all been authenticated.");
         var pF = false;
-        if(yetToAuthenticate.length === 1) {
-            if(source !== yetToAuthenticate[0]) {
+        if (yetToAuthenticate.length === 1) {
+            if (source !== yetToAuthenticate[0]) {
                 throw Error("Final received message is not from expected source.");
             }
             pF = true;
@@ -1302,38 +1019,37 @@ define([
         // We can't both exclude and include members at the same time.
         _assert(!(diff[0].size > 0 && diff[1].size > 0), "Cannot both exclude and join members.");
 
-        var thisMember = Set(owner);
-        if(oldMembers.size === 0 && newMembers.size > 0) {
+        if (oldMembers.size === 0 && newMembers.size > 0) {
             return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : newMembers};
         }
          //If newMembers does not contain this member, and is the only member not
          //present, then we must be quitting.
-        else if(diff[0].intersect(thisMember).size !== 0 && diff[0].length === 1) {
+        else if (diff[0].has(owner) && diff[0].length === 1) {
             return {greetType : ns.GREET_TYPE.QUIT_DOWN, members : diff[0] };
         }
         // If the nummber of members in oldMembers is greater than newMembers, then
         // we must be performing an exclude.
-        else if(diff[0].size > 0) {
+        else if (diff[0].size > 0) {
             return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : diff[0]};
         }
         // If the number of members in newMembers is greater than oldMembers, then
         // we must be performing a join.
-        else if(diff[1].size > 0) {
+        else if (diff[1].size > 0) {
             return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : diff[1]};
         }
         // Same members in oldMembers and newMembers means refresh.
-        else if(diff[0].size === 0 && diff[1].size === 0) {
+        else if (diff[0].size === 0 && diff[1].size === 0) {
             return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : newMembers};
         }
     };
 
     /**
      *
-     * @param oldSecurity {MessageSecurity}
-     * @param metaData
+     * @param oldGreetstore
+     * @param metadata
      * @param greetType
      */
-    Greeter.prototype.encode = function(oldGreetstore, metaData, oldMembers, newMembers) {
+    Greeter.prototype.encode = function(oldGreetstore, metadata, oldMembers, newMembers) {
         var message = null;
         var greeting = this._createGreeting(oldGreetstore, this.stateUpdatedCallback,
             null, this.pubKey, this.privKey, this.staticPubKeyDir);
@@ -1356,22 +1072,23 @@ define([
                 break;
             case ns.GREET_TYPE.QUIT_DOWN:
                 message = greeting.quit();
+                break;
             default:
                 throw new Error("Invalid greet type");
         }
 
         var errMsg = ((!message.chainHash) ? " chainHash" : "")
                    + ((!message.prevPf) ? " prevPf" : "")
-                   + ((!message.latestPm) ? " latestPm" : "");
+                   + ((!message.parents) ? " parents" : "");
 
-        if(errMsg > 0) {
+        if (errMsg > 0) {
             throw Error("Missing metadata: " + errMsg);
         }
 
-        message.chainHash = metaData.prevCh;
-        message.prevPf = metaData.prevPf;
-        message.latestPm = metaData.pmId;
-        message.seenInChannel = metaData.seenInChannel;
+        message.chainHash = metadata.prevCh;
+        message.prevPf = metadata.prevPf;
+        message.parents = metadata.parents;
+        message.seenInChannel = metadata.seenInChannel;
 
         var payLoad = ns.encodeGreetMessage(message, greeting.getEphemeralPrivKey(),
             greeting.getEphemeralPubKey());
@@ -1389,8 +1106,8 @@ define([
     };
 
     /**
-     * var GreetingMetadata = function(prevPf, prevCh, uId, pmId)
-     * @param oldSecurity
+     * var GreetingMetadata = function(prevPf, prevCh, author, parents)
+     * @param oldGreetStore
      * @param pubTxt
      * @returns {*}
      */
@@ -1399,7 +1116,7 @@ define([
         var mId = ns.makePid(message.content);
 
         // This is our message, so just recreate the greeting and pass it out.
-        if(this.proposedGreeting && this.proposedPi === mId) {
+        if (this.proposedGreeting && this.proposedPi === mId) {
             this.currentGreeting = this.proposedGreeting;
             this.currentGreeting.subscribeSend(this.subscribeSend);
             // We will assume that anything that was going to be done with the metadata has
@@ -1423,7 +1140,7 @@ define([
         return this.currentGreeting;
     };
 
-    Greeter.getCurrentGreeting = function() {
+    Greeter.prototype.getCurrentGreeting = function() {
         return this.currentGreeting;
     }
 
@@ -1434,7 +1151,6 @@ define([
 
     ns.makePid = function(packet) {
         return utils.sha256(packet);
-
     };
 
     ns.Greeter = Greeter;
@@ -1503,7 +1219,7 @@ define([
         this.metadata = utils.clone(metadata) || null;
         // Create the map of members : ephemeralPubKeys.
         this.pubKeyMap = {};
-        if(members) {
+        if (members) {
             _assert(ephemeralPubKeys, 'ephemeral pubkeys null when members present.');
             _assert(members.length === ephemeralPubKeys.length, 'Length of members/pub keys mismatch,'
                     + ' members.length = ' + members.length + " ephemeralPubKeys.length = " +
@@ -1535,10 +1251,6 @@ define([
      */
     GreetStore.prototype.getEphemeralPubKey = function() {
         return this.ephemeralPubKey;
-    };
-
-    GreetStore.prototype.newMessageSecurity = function(privKey, pubKey) {
-        return new MessageSecurity(this.id, this, privKey, pubKey);
     };
 
     /**
@@ -1596,7 +1308,7 @@ define([
     /**
      * Get the old security for this Greeting.
      *
-     * @returns The previous MessageSecurity for the last session.
+     * @returns The previous GreetStore for the last session.
      */
     Greeting.prototype.getOldState = function() {
         return this.oldState;
@@ -1619,16 +1331,16 @@ define([
      */
     Greeting.prototype.getNewMembers = function() {
         var newMembers = [];
-        for(var n in this.askeMember.members) {
+        for (var n in this.askeMember.members) {
             var found = false;
 
-            for(var o in this.oldState.members) {
-                if(o === n) {
+            for (var o in this.oldState.members) {
+                if (o === n) {
                     found = true;
                 }
             }
 
-            if(!found) {
+            if (!found) {
                 newMembers.push(n);
             }
         }
@@ -1641,14 +1353,14 @@ define([
      *
      * @returns {GreetingMetadata} The metadata for this Greeting.
      */
-    Greeting.prototype.getMetaData = function () {
+    Greeting.prototype.getMetadata = function () {
         return this.metadata;
     };
 
     /**
      *
      */
-    Greeting.prototype.metaDataIsAuthenticated = function () {
+    Greeting.prototype.metadataIsAuthenticated = function () {
         return this.metadata.isAuthenticated;
     };
 
@@ -1887,10 +1599,10 @@ define([
     };
 
     Greeting.prototype._verifyMetadata = function(message) {
-        if(message.prevPf) {
-            _assert(message.chainHash && message.latestPm);
+        if (message.prevPf) {
+            _assert(message.chainHash && message.parents);
             this.metadata = new GreetingMetadata(message.prevPf, message.prevCh, message.source,
-                message.latestPm);
+                message.parents);
             this.metadata.isAuthenticated = true;
         }
     };
