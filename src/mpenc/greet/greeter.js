@@ -837,20 +837,14 @@ define([
      *      The static public key for this member.
      * @param statiPubKeyDir {function}
      *      The callback for obtaining static public keys for other members.
-     * @param stateUpdatedCallback {function}
-     *      The callback for notifiying observers of protocol state changes.
-     *
      */
-    var Greeter = function(transcript, privKey, pubKey, staticPubKeyDir, stateUpdatedCallback,
-            sendSubscribe) {
+    var Greeter = function(transcript, privKey, pubKey, staticPubKeyDir) {
         this.transcript = transcript;
         this.privKey = privKey;
         this.pubKey= pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
-        this.stateUpdatedCallback = stateUpdatedCallback;
         this.proposedGreeting = null;
         this.proposedPi = null;
-        this.subscribeSend = sendSubscribe;
 
         // The current operating greeting, if an operation is in progress.
         this.currentGreeting = null;
@@ -1036,8 +1030,8 @@ define([
         }
 
         var message = null;
-        var greeting = this._createGreeting(oldGreetstore, this.stateUpdatedCallback,
-            null, this.pubKey, this.privKey, this.staticPubKeyDir);
+        var greeting = new Greeting(
+            oldGreetstore, null, this.pubKey, this.privKey, this.staticPubKeyDir);
         var greetData = ns._determineFlowType(oldGreetstore.id, oldMembers, newMembers);
         switch(greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
@@ -1066,9 +1060,6 @@ define([
             greeting.getEphemeralPubKey());
 
         var pI = ns.makePid(payLoad);
-        // TODO(xl): #2350: unclear if we really need to do this here
-        greeting.subscribeSend(this.subscribeSend);
-        greeting._send.publish([message.dest, payLoad]);
         this.proposedGreeting = greeting;
         this.proposedPi = pI;
 
@@ -1080,7 +1071,7 @@ define([
     };
 
     /**
-     * var GreetingMetadata = function(prevPf, prevCh, author, parents)
+     * TODO(xl): #2350 DOC
      * @param oldGreetStore
      * @param pubTxt
      * @returns {*}
@@ -1092,16 +1083,13 @@ define([
         // This is our message, so just recreate the greeting and pass it out.
         if (this.proposedGreeting && this.proposedPi === mId) {
             this.currentGreeting = this.proposedGreeting;
-            this.currentGreeting.subscribeSend(this.subscribeSend);
             // We will assume that anything that was going to be done with the metadata has
             // been done. TODO: Maybe we should just dispose of metadata when creating greetstore?
             this.currentGreeting.metadata = null;
         }
         // Otherwise, just create a new greeting from the past one.
         else {
-            this.currentGreeting = new Greeting(oldGreetStore, this.stateUpdatedCallback,
-                null, this.pubKey, this.privKey, this.staticPubKeyDir);
-            this.currentGreeting.subscribeSend(this.subscribeSend);
+            this.currentGreeting = new Greeting(oldGreetStore, null, this.pubKey, this.privKey, this.staticPubKeyDir);
             this.currentGreeting.metadata = null;
             //this.currentGreeting.processIncoming(from, message.content);
         }
@@ -1117,11 +1105,6 @@ define([
     Greeter.prototype.getCurrentGreeting = function() {
         return this.currentGreeting;
     }
-
-    Greeter.prototype._createGreeting = function(greetStore, stateUpdatedCallback, metadata,
-            pubKey, privKey, staticPubKeyDir) {
-        return new Greeting(greetStore, stateUpdatedCallback, metadata, pubKey, privKey, staticPubKeyDir);
-    };
 
     ns.makePid = function(packet) {
         return utils.sha256(packet);
@@ -1235,20 +1218,15 @@ define([
      * @constructor
      * @param store {module:mpenc/greet/greeter.GreetStore}
      *      GreetStore
-     * @param stateUpdatedCallback {Function}
-     *      A callback function, that will be called every time the `state` is
-     *      changed.
      * @returns {Greeting}
      */
-    var Greeting = function(store, stateUpdatedCallback, metadata, pubKey, privKey,
-                                staticPubKeyDir) {
+    var Greeting = function(store, metadata, pubKey, privKey, staticPubKeyDir) {
         this.id = store.id;
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
 
         this.state = store.state;
-        this.stateUpdatedCallback = stateUpdatedCallback || function() {};
         this._send = new async.Observable(true);
 
         var cliquesMember = new cliques.CliquesMember(store.id);
@@ -1358,7 +1336,6 @@ define([
         _assert(typeof state === "number");
         logger.debug('Reached new state: ' + ns.STATE_MAPPING[state]);
         this.state = state;
-        this.stateUpdatedCallback(this);
     };
 
     Greeting.prototype._assertState = function(valid, message) {

@@ -45,11 +45,11 @@ define([
         return x;
     }
 
-    function makeGreeting(id, privKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
-        return new ns.Greeting(new ns.GreetStore(id), stateUpdatedCallback,
-                                null, pubKey, privKey, staticPubKeyDir);
+    function makeGreeting(id, privKey, pubKey, staticPubKeyDir) {
+        return new ns.Greeting(new ns.GreetStore(id), null, pubKey, privKey, staticPubKeyDir);
     };
 
+    var doNothing = function(){};
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -473,7 +473,6 @@ define([
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['2', '3', '4', '5', '6'];
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 var message = participant.start(otherMembers);
                 assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.ika);
@@ -504,7 +503,6 @@ define([
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['6', '7'];
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 var message = participant.include(otherMembers);
                 assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaJoin);
@@ -544,7 +542,6 @@ define([
                 participant.state = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 var message = participant.exclude(['1', '4']);
                 assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaExclude);
@@ -564,7 +561,6 @@ define([
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant.cliquesMember, 'akaQuit');
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 var message = participant.quit();
                 assert(message);
                 sinon_assert.calledOnce(participant.askeMember.quit);
@@ -583,7 +579,6 @@ define([
                 participant.cliquesMember.akaRefresh = sinon_spy();
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 participant.state = ns.STATE.READY;
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
                 var message = participant.refresh();
                 assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
@@ -877,9 +872,7 @@ define([
             });
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
-                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB,
-                    function(value){}, function(value){},
-                    function(value){});
+                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
                 var greetSummary = gtr.partialDecode("random message");
                 assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
             }
@@ -903,8 +896,7 @@ define([
             });
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
-                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                    function(value){ });
+                var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
                 var greetSummary = gtr.partialDecode("random message");
                 assert.notOk(greetSummary, "Failed to reject on: " + ns.GREET_TYPE_MAPPING[t]);
             }
@@ -917,8 +909,7 @@ define([
                 case codec.TLV_TYPE.SOURCE: return "1";
                 }
             });
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                function(value){ });
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             assert.Throw(function(){gtr.partialDecode("random message");},
                     "currentGreeting is null.");
 
@@ -933,8 +924,7 @@ define([
             });
             var prevPi = utils.sha256("randomMessage");
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["2"]} } };
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                function(value){ });
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             gtr.prevPi = prevPi;
             gtr.currentGreeting = dummyGreeting;
             var summary = gtr.partialDecode("random message");
@@ -951,8 +941,7 @@ define([
                 }
             });
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["3"]} } };
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                function(value){ });
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             gtr.currentGreeting = dummyGreeting;
             assert.Throw(function(){gtr.partialDecode("random message");},
                 "Final received message is not from expected source.");
@@ -963,34 +952,28 @@ define([
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
-            var pubtxt = null;
-            var dest = null;
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                function(value){ dest = value[0]; pubtxt = value[1]; });
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
 
             var dummyGreetStore = {
                 id : "1",
                 state : ns.STATE.NULL
             };
 
-
             var dummyMessage = { source: '3', dest: '4',
                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                 members: ['1', '3', '2', '4', '5'],
                 metadata: null };
-            var dummyGreeting = { id : "1", subscribeSend : function(value) {},
+            var dummyGreeting = { id : "1", subscribeSend : doNothing,
                 start : function(value) { return dummyMessage; },
                 getEphemeralPrivKey : function() { return _td.ED25519_PRIV_KEY; },
-                getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; },
-                _send : { publish : function(data) { dest = data[0]; pubtxt = data[1]; } } };
-            sandbox.stub(gtr, "_createGreeting").returns(dummyGreeting);
+                getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; } };
 
             var members = ["2", "3"];
-            gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
-            assert.ok(dest);
+            var pubtxt = gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
             assert.ok(pubtxt);
+
+            gtr.proposedGreeting = dummyGreeting;
             var decMessage = codec.decodeWirePacket(pubtxt);
-            assert.ok(gtr.proposedGreeting);
             assert.strictEqual(gtr.proposedPi, ns.makePid(decMessage.content));
             var retGreeting = gtr.decode("1", dummyGreetStore, pubtxt);
             assert.deepEqual(dummyGreeting, retGreeting);
@@ -1002,17 +985,14 @@ define([
             var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents, seenInChannel);
-            var pubtxt = null;
-            var dest = null;
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                function(value){ dest = value[0]; pubtxt = value[1]; });
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
                 id : "1",
                 state : ns.STATE.NULL
             };
 
             var members = ["2", "3"];
-            gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
+            var pubtxt = gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
             assert.ok(pubtxt, "pubtxt not ok.");
             pubtxt = codec.encodeWirePacket(pubtxt);
             var m = gtr.partialDecode(pubtxt);
@@ -1024,37 +1004,31 @@ define([
 
         });
 
-        it("Encode->decoce proposal message", function(){
+        it("Encode->decode proposal message", function(){
             var prevPf = utils.sha256("prevPf");
             var chainHash = utils.sha256("chainHash");
             var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
             var id = "1";
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents, seenInChannel);
-            var pubtxt = null;
-            var dest = null;
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                    function(value){ dest = value[0]; pubtxt = value[1];});
+            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
 
             var dummyGreetStore = {
                 id : "1",
                 state : ns.STATE.NULL
             };
 
-            var pubtxtTwo = null;
             var members = ["2", "3"];
-            gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
+            var pubtxt = gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
             assert.ok(pubtxt, "pubtxt not ok.");
             pubtxt = "?mpENC:" + btoa(pubtxt) + ".";
-            var gtrTwo = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
-                    function(value){ dest = value[0]; pubtxtTwo = value[1]; });
+            var gtrTwo = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var m = gtrTwo.partialDecode(pubtxt);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
             assert.strictEqual(m.metadata.author, id, "author not equal.");
             assert.deepEqual(m.metadata.parents.toArray(), parents, "parents not equal.");
-            assert.strictEqual(dest, "2", "Destination not correct");
             assert.deepEqual(m.metadata.seenInChannel.toArray(), seenInChannel);
 
             // Check the message with the other user.
@@ -1064,6 +1038,8 @@ define([
             };
 
             var nGreeting = gtrTwo.decode("1", dummyGreetStoreTwo, pubtxt);
+            var dest;
+            nGreeting.subscribeSend(function(send_out) { dest = send_out[0]; return true; });
             var decMessage = codec.decodeWirePacket(pubtxt);
             nGreeting.processIncoming("1", decMessage.content);
             assert.ok(nGreeting, "nGreeting is null.");
