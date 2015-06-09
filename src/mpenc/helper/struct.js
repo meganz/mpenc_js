@@ -594,6 +594,59 @@ define([
         }
     };
 
+    /**
+     * Trial target with a timeout.
+     *
+     * Use this to wrap a trial target, to automatically call an errback if
+     * the param stays unaccepted for too long.
+     *
+     * @class
+     * @memberOf module:mpenc/helper/struct
+     * @implements {module:mpenc/helper/struct.TrialTarget}
+     * @param timer {module:mpenc/helper/async.Timer} Timer to run the timeout.
+     * @param timeout {number} Timer ticks to set the timeout to.
+     * @param errback {function} 1-arg function, takes a param object and
+     *      called on expiry of the timeout.
+     * @param target {module:mpenc/helper/struct.TrialTarget} Target to wrap.
+     */
+    var TrialTimeoutTarget = function(timer, timeout, errback, target) {
+        this._timer = timer;
+        this._timeout = timeout;
+        this._errback = errback;
+        this._target = target;
+        this._timeouts = new Map();
+    };
+
+    TrialTimeoutTarget.prototype.tryMe = function(pending, param) {
+        var success = this._target.tryMe(pending, param);
+        var paramId = this._target.paramId(param);
+        if (!success && !pending && !this._timeouts.has(paramId)) {
+            var self = this;
+            var timeout = function() {
+                self._errback(param);
+                self._timeouts.delete(paramId);
+            };
+            var cancel = this._timer.after(this._timeout, timeout);
+            this._timeouts.set(paramId, cancel);
+        }
+        if (success && this._timeouts.has(paramId)) {
+            this._timeouts.get(paramId)(); // cancel timeout when it succeeds
+            this._timeouts.delete(paramId);
+        }
+        return success;
+    };
+
+    TrialTimeoutTarget.prototype.maxSize = function() {
+        return this._target.maxSize();
+    };
+
+    TrialTimeoutTarget.prototype.paramId = function(param) {
+        return this._target.paramId(param);
+    };
+
+    Object.freeze(TrialTimeoutTarget.prototype);
+    ns.TrialTimeoutTarget = TrialTimeoutTarget;
+
 
     return ns;
 });
