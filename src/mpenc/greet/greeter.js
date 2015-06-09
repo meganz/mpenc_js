@@ -826,12 +826,15 @@ define([
      *      The new members for the flow.
      * @constructor
      */
-    var GreetingSummary = function(pId, metadata, prevPi, newmembers) {
-        this.pId = pId;
-        this.metadata = metadata;
-        this.prevPi = prevPi;
-        this.newMembers = newmembers || [];
-        this.packetType = null;
+    var GreetingSummary = struct.createTupleClass(
+        "pId", "metadata", "prevPi", "newMembers");
+
+    GreetingSummary.prototype.postInit = function() {
+        _assert(typeof this.pId === "string");
+        _assert(this.metadata !== null || this.prevPi !== null);
+        _assert(this.metadata === null || this.metadata instanceof GreetingMetadata);
+        _assert(this.prevPi === null || typeof this.prevPi === "string");
+        _assert(this.newMembers instanceof ImmutableSet);
     };
 
     /**
@@ -839,7 +842,7 @@ define([
      * @returns {boolean}
      */
     GreetingSummary.prototype.isInitial = function() {
-        return (this.metadata) ? true : false;
+        return this.metadata !== null;
     };
 
     /**
@@ -847,7 +850,11 @@ define([
      * @returns {boolean}
      */
     GreetingSummary.prototype.isFinal = function() {
-        return (this.prevPi) ? true : false;
+        return this.prevPi !== null;
+    };
+
+    GreetingSummary.create = function(pId, metadata, prevPi, newMembers) {
+        return new this(pId, metadata || null, prevPi || null, new ImmutableSet(newMembers));
     };
 
     ns.GreetingSummary = GreetingSummary;
@@ -933,7 +940,7 @@ define([
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_UP) {
             var metadata = this._extractMetadata(rest, source);
-            greetingSummary = new GreetingSummary(pId, metadata, null, members);
+            greetingSummary = GreetingSummary.create(pId, metadata, null, members);
         }
         // Downflow confirm messages require testing for final messages.
         else if (mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
@@ -944,14 +951,14 @@ define([
             // Test if this is the final message.
             var pF = this._testFinalMessage(decMessage, source);
             if (pF) {
-                greetingSummary = new GreetingSummary(pId, null, this.prevPi, members);
+                greetingSummary = GreetingSummary.create(pId, null, this.prevPi, members);
             }
         }
         // Exclude message need special attention.
         else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
                 mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
             metadata = this._extractMetadata(rest, source);
-            greetingSummary = new GreetingSummary(pId, metadata, pId, members);
+            greetingSummary = GreetingSummary.create(pId, metadata, pId, members);
         }
 
         return greetingSummary;
