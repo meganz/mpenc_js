@@ -665,30 +665,13 @@ define([
         });
 
         // For the proposal messages.
-        var parents = [], seenInChannel = [];
-
-        rest = codec.popTLVMaybe(rest, _T.PREV_PF, function(value) {
-            out.prevPf = value;
-            debugOutput.push("prevPf: " + btoa(value));
+        rest = ns._popTLVMetadata(rest, out.source, false, function(value) {
+            var metadata = value;
+            out.prevPf = metadata.prevPf;
+            out.chainHash = metadata.prevCh;
+            out.parents = metadata.parents;
+            out.seenInChannel = metadata.seenInChannel;
         });
-
-        rest = codec.popTLVMaybe(rest, _T.CHAIN_HASH, function(value) {
-            out.chainHash = value;
-            debugOutput.push("chainHash: " + btoa(value));
-        });
-
-        rest = codec.popTLVAll(rest, _T.LATEST_PM, function(value) {
-            parents.push[value];
-            debugOutput.push("parents: " + btoa(value));
-        });
-
-        rest = codec.popTLVAll(rest, _T.SEEN_IN_CHANNEL, function(value) {
-            seenInChannel.push(value);
-            debugOutput.push("seenInChannel: " + btoa(value));
-        });
-
-        out.parents = new ImmutableSet(parents);
-        out.seenInChannel = new ImmutableSet(seenInChannel);
 
         rest = codec.popTLVMaybe(rest, _T.SESSION_SIGNATURE, function(value) {
             out.sessionSignature = value;
@@ -912,7 +895,7 @@ define([
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
         rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE);
         // Find all of the relavant data from the message.
-        var greetingSummary, mType, source, dest, members = [];
+        var mType, source, dest, members = [];
         rest = codec.popTLVUntil(rest, codec.TLV_TYPE.GREET_TYPE);
         rest = codec.popTLV(rest, codec.TLV_TYPE.GREET_TYPE, function(value) {
             mType = value;
@@ -925,13 +908,7 @@ define([
             members.push(value);
         });
 
-        // Sanity Checks.
-        var errStr = ((!source) ? " source" : "")
-                   + ((!mType) ? " greet_type" : "")
-                   + ((!members) ? " members" : "");
-        if (errStr > 0) {
-            throw Error("Missing records from message: " + errStr);
-        }
+        var greetingSummary = null;
 
         // There _is_ a shorter way to test for these, but I decided to be explicit.
         // Initial type messages need to have their metadata extracted.
@@ -939,8 +916,9 @@ define([
            mType === ns.GREET_TYPE.INIT_PARTICIPANT_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_UP) {
-            var metadata = this._extractMetadata(rest, source);
-            greetingSummary = GreetingSummary.create(pId, metadata, null, members);
+            ns._popTLVMetadata(rest, source, true, function(value) {
+                greetingSummary = GreetingSummary.create(pId, value, null, members);
+            });
         }
         // Downflow confirm messages require testing for final messages.
         else if (mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
@@ -957,31 +935,37 @@ define([
         // Exclude message need special attention.
         else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
                 mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
-            metadata = this._extractMetadata(rest, source);
-            greetingSummary = GreetingSummary.create(pId, metadata, pId, members);
+            rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
+            ns._popTLVMetadata(rest, source, true, function(value) {
+                greetingSummary = GreetingSummary.create(pId, value, pId, members);
+            });
         }
 
         return greetingSummary;
     };
 
-    /**
-     * This is used to extract the required metadata from the supplied message.
-     *
-     * @param decMessage {string}
-     *      The message to extract the metadata from.
-     * @param source {string}
-     *      The source of the message.
-     * @returns {GreetingMetadata}
-     * @private
-     */
-    Greeter.prototype._extractMetadata = function(rest, source) {
-        var chainHash, prevPf, parents = [], seenInChannel = [];
+    ns._popTLVMetadata = function(rest, source, search, action) {
+        var prevPf, chainHash, parents = [], seenInChannel = [];
 
-        rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
-        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
-            prevPf = value;
-        });
-        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
+        if (search) {
+            // search until we find one, or throw an error
+            rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
+            rest = codec.popTLV(rest, codec.TLV_TYPE.PREV_PF, function(value) {
+                prevPf = value;
+            });
+        } else {
+            // just return rest if we don't immediately hit PREV_PF
+            var newRest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
+                prevPf = value;
+            });
+            if (newRest === rest) {
+                return rest;
+            } else {
+                rest = newRest;
+            }
+        }
+
+        rest = codec.popTLV(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
             chainHash = value;
         });
         rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
@@ -991,15 +975,8 @@ define([
             seenInChannel.push(value);
         });
 
-        var errStr = ((!chainHash) ? "chainHash" : "")
-                   + ((!prevPf) ? " prevPf" : "")
-                   + ((!parents) ? " parents" : "");
-
-        if (errStr.length > 0) {
-            throw Error("Missing metadata from message: " + errStr);
-        }
-
-        return GreetingMetadata.create(prevPf, chainHash, source, parents, seenInChannel);
+        action(GreetingMetadata.create(prevPf, chainHash, source, parents, seenInChannel));
+        return rest;
     };
 
     /**
