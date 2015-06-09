@@ -19,12 +19,13 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/async",
+    "mpenc/helper/struct",
     "mpenc/helper/utils",
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
     "megalogger",
-], function(assert, async, utils, cliques, ske, codec, MegaLogger) {
+], function(assert, async, struct, utils, cliques, ske, codec, MegaLogger) {
     "use strict";
 
     /**
@@ -45,6 +46,7 @@ define([
 
     var _assert = assert.assert;
     var _T = codec.TLV_TYPE;
+    var ImmutableSet = struct.ImmutableSet;
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
 
@@ -311,8 +313,8 @@ define([
         // Proposal message stuff.
         this.chainHash = source.chainHash || null;
         this.prevPf = source.prevPf || null;
-        this.parents = source.parents || [];
-        this.seenInChannel = source.seenInChannel || [];
+        this.parents = source.parents || ImmutableSet.EMPTY;
+        this.seenInChannel = source.seenInChannel || ImmutableSet.EMPTY;
         return this;
     };
     ns.GreetMessage = GreetMessage;
@@ -663,6 +665,8 @@ define([
         });
 
         // For the proposal messages.
+        var parents = [], seenInChannel = [];
+
         rest = codec.popTLVMaybe(rest, _T.PREV_PF, function(value) {
             out.prevPf = value;
             debugOutput.push("prevPf: " + btoa(value));
@@ -674,14 +678,17 @@ define([
         });
 
         rest = codec.popTLVAll(rest, _T.LATEST_PM, function(value) {
-            out.parents.push[value];
+            parents.push[value];
             debugOutput.push("parents: " + btoa(value));
         });
 
         rest = codec.popTLVAll(rest, _T.SEEN_IN_CHANNEL, function(value) {
-            out.seenInChannel.push(value);
+            seenInChannel.push(value);
             debugOutput.push("seenInChannel: " + btoa(value));
         });
+
+        out.parents = new ImmutableSet(parents);
+        out.seenInChannel = new ImmutableSet(seenInChannel);
 
         rest = codec.popTLVMaybe(rest, _T.SESSION_SIGNATURE, function(value) {
             out.sessionSignature = value;
@@ -752,10 +759,10 @@ define([
             out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, message.chainHash);
         }
         if (message.parents) {
-            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.parents);
+            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.parents.toArray());
         }
         if (message.seenInChannel) {
-            out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, message.seenInChannel);
+            out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, message.seenInChannel.toArray());
         }
         //
         if (message.sessionSignature) {
@@ -788,12 +795,20 @@ define([
      *      The last seen messages.
      * @constructor
      */
-    var GreetingMetadata = function(prevPf, prevCh, author, parents, seenInChannel) {
-        this.prevPf = prevPf;
-        this.prevCh = prevCh;
-        this.author = author;
-        this.parents = parents;
-        this.seenInChannel = seenInChannel || null;
+    var GreetingMetadata = struct.createTupleClass(
+        "prevPf", "prevCh", "author", "parents", "seenInChannel");
+
+    GreetingMetadata.prototype.postInit = function() {
+        _assert(typeof this.prevPf === "string");
+        _assert(typeof this.prevCh === "string");
+        _assert(typeof this.author === "string");
+        _assert(this.parents instanceof ImmutableSet);
+        _assert(this.seenInChannel instanceof ImmutableSet);
+    };
+
+    GreetingMetadata.create = function(prevPf, prevCh, author, parents, seenInChannel) {
+        return new this(prevPf, prevCh, author,
+                        new ImmutableSet(parents), new ImmutableSet(seenInChannel));
     };
 
     ns.GreetingMetadata = GreetingMetadata;
@@ -935,7 +950,7 @@ define([
         // Exclude message need special attention.
         else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
                 mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
-            metadata = this._extractMetadata(rest);
+            metadata = this._extractMetadata(rest, source);
             greetingSummary = new GreetingSummary(pId, metadata, pId, members);
         }
 
@@ -977,7 +992,7 @@ define([
             throw Error("Missing metadata from message: " + errStr);
         }
 
-        return new GreetingMetadata(prevPf, chainHash, source, parents, seenInChannel);
+        return GreetingMetadata.create(prevPf, chainHash, source, parents, seenInChannel);
     };
 
     /**
@@ -1600,7 +1615,7 @@ define([
     Greeting.prototype._verifyMetadata = function(message) {
         if (message.prevPf) {
             _assert(message.chainHash && message.parents);
-            this.metadata = new GreetingMetadata(message.prevPf, message.prevCh, message.source,
+            this.metadata = GreetingMetadata.create(message.prevPf, message.chainHash, message.source,
                 message.parents);
             this._metadataIsAuthenticated = true;
         }

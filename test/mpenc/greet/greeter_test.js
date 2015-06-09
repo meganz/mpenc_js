@@ -962,7 +962,7 @@ define([
             var prevPf = "prevPf";
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", parents);
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1000,7 +1000,7 @@ define([
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, "1", parents, seenInChannel);
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents, seenInChannel);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1019,7 +1019,7 @@ define([
             assert.strictEqual(m.metadata.prevCh, "chainHash", "chainHash not equal");
             assert.strictEqual(m.metadata.prevPf, "prevPf");
             assert.strictEqual(m.metadata.author, "1");
-            assert.deepEqual(m.metadata.parents, parents);
+            assert.deepEqual(m.metadata.parents.toArray(), parents);
 
         });
 
@@ -1029,7 +1029,7 @@ define([
             var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
             var id = "1";
-            var metadata = new ns.GreetingMetadata(prevPf, chainHash, id, parents, seenInChannel);
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents, seenInChannel);
             var pubtxt = null;
             var dest = null;
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, function(value){}, function(value){},
@@ -1052,9 +1052,9 @@ define([
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
             assert.strictEqual(m.metadata.author, id, "author not equal.");
-            assert.deepEqual(m.metadata.parents, parents, "parents not equal.");
+            assert.deepEqual(m.metadata.parents.toArray(), parents, "parents not equal.");
             assert.strictEqual(dest, "2", "Destination not correct");
-            assert.deepEqual(m.metadata.seenInChannel, seenInChannel);
+            assert.deepEqual(m.metadata.seenInChannel.toArray(), seenInChannel);
 
             // Check the message with the other user.
             var dummyGreetStoreTwo = {
