@@ -976,7 +976,8 @@ define([
 
             var dummyMessage = { source: '3', dest: '4',
                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
-                members: ['1', '3', '2', '4', '5'] };
+                members: ['1', '3', '2', '4', '5'],
+                metadata: null };
             var dummyGreeting = { id : "1", subscribeSend : function(value) {},
                 start : function(value) { return dummyMessage; },
                 getEphemeralPrivKey : function() { return _td.ED25519_PRIV_KEY; },

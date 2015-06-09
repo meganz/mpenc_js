@@ -288,36 +288,25 @@ define([
      * @property data {string}
      *     Binary string containing the decrypted pay load of the message.
      */
-    var GreetMessage = function(source) {
-        if (source === undefined) {
-            source = {};
-        }
-        if (source instanceof Object) {
-            this.source = source.source || '';
-        } else {
-            this.source = source || '';
-        }
-        this.dest = source.dest || '';
-        this.greetType = source.greetType || null;
-        this.sidkeyHint = source.sidkeyHint || null;
-        this.members = source.members || [];
-        this.intKeys = source.intKeys || [];
-        this.nonces = source.nonces || [];
-        this.pubKeys = source.pubKeys || [];
-        this.sessionSignature = source.sessionSignature || null;
-        this.signingKey = source.signingKey || null;
-        this.signature = source.signature || null;
-        this.signatureOk = source.signatureOk || false;
-        this.rawMessage = source.rawMessage || null;
-        this.data = source.data || null;
-        // Proposal message stuff.
-        this.chainHash = source.chainHash || null;
-        this.prevPf = source.prevPf || null;
-        this.parents = source.parents || ImmutableSet.EMPTY;
-        this.seenInChannel = source.seenInChannel || ImmutableSet.EMPTY;
+    var GreetMessage = function(old) {
+        old = old || {};
+        this.source = old.source || '';
+        this.dest = old.dest || '';
+        this.greetType = old.greetType || null;
+        this.sidkeyHint = old.sidkeyHint || null;
+        this.members = old.members || [];
+        this.intKeys = old.intKeys || [];
+        this.nonces = old.nonces || [];
+        this.pubKeys = old.pubKeys || [];
+        this.sessionSignature = old.sessionSignature || null;
+        this.signingKey = old.signingKey || null;
+        this.signature = old.signature || null;
+        this.signatureOk = old.signatureOk || false;
+        this.rawMessage = old.rawMessage || null;
+        this.data = old.data || null;
+        this.metadata = old.metadata || null;
         return this;
     };
-    ns.GreetMessage = GreetMessage;
 
 
     /**
@@ -515,6 +504,9 @@ define([
     };
 
 
+    ns.GreetMessage = GreetMessage;
+
+
     /**
      * "Enumeration" defining the different stable and intermediate states of
      * the mpENC module.
@@ -611,7 +603,7 @@ define([
         }
 
         // TODO(gk): high-priority - put range checks etc on the below
-        var out = new ns.GreetMessage();
+        var out = new GreetMessage();
         var debugOutput = [];
         var rest = message;
 
@@ -666,11 +658,7 @@ define([
 
         // For the proposal messages.
         rest = ns._popTLVMetadata(rest, out.source, false, function(value) {
-            var metadata = value;
-            out.prevPf = metadata.prevPf;
-            out.chainHash = metadata.prevCh;
-            out.parents = metadata.parents;
-            out.seenInChannel = metadata.seenInChannel;
+            out.metadata = value;
         });
 
         rest = codec.popTLVMaybe(rest, _T.SESSION_SIGNATURE, function(value) {
@@ -735,17 +723,12 @@ define([
         }
         // This is for the initial message of a key agreement, where we need
         // to send some extra metadata to help resolve concurrent operations.
-        if (message.prevPf) {
-            out += codec.encodeTLV(codec.TLV_TYPE.PREV_PF, message.prevPf);
-        }
-        if (message.chainHash) {
-            out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, message.chainHash);
-        }
-        if (message.parents) {
-            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.parents.toArray());
-        }
-        if (message.seenInChannel) {
-            out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, message.seenInChannel.toArray());
+        if (message.metadata) {
+            var metadata = message.metadata;
+            out += codec.encodeTLV(codec.TLV_TYPE.PREV_PF, metadata.prevPf);
+            out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, metadata.prevCh);
+            out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, metadata.parents.toArray());
+            out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, metadata.seenInChannel.toArray());
         }
         //
         if (message.sessionSignature) {
@@ -1048,12 +1031,14 @@ define([
      * @param greetType
      */
     Greeter.prototype.encode = function(oldGreetstore, metadata, oldMembers, newMembers) {
+        if (!metadata) {
+            throw new Error("missing metadata");
+        }
+
         var message = null;
         var greeting = this._createGreeting(oldGreetstore, this.stateUpdatedCallback,
             null, this.pubKey, this.privKey, this.staticPubKeyDir);
-        greeting.subscribeSend(this.subscribeSend);
         var greetData = ns._determineFlowType(oldGreetstore.id, oldMembers, newMembers);
-        var nonce = null;
         switch(greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
                 message = greeting.start(greetData.members.toArray());
@@ -1075,23 +1060,14 @@ define([
                 throw new Error("Invalid greet type");
         }
 
-        var errMsg = ((!message.chainHash) ? " chainHash" : "")
-                   + ((!message.prevPf) ? " prevPf" : "")
-                   + ((!message.parents) ? " parents" : "");
-
-        if (errMsg > 0) {
-            throw Error("Missing metadata: " + errMsg);
-        }
-
-        message.chainHash = metadata.prevCh;
-        message.prevPf = metadata.prevPf;
-        message.parents = metadata.parents;
-        message.seenInChannel = metadata.seenInChannel;
-
+        _assert(message.metadata === null);
+        message.metadata = metadata;
         var payLoad = ns.encodeGreetMessage(message, greeting.getEphemeralPrivKey(),
             greeting.getEphemeralPubKey());
 
         var pI = ns.makePid(payLoad);
+        // TODO(xl): #2350: unclear if we really need to do this here
+        greeting.subscribeSend(this.subscribeSend);
         greeting._send.publish([message.dest, payLoad]);
         this.proposedGreeting = greeting;
         this.proposedPi = pI;
@@ -1597,10 +1573,10 @@ define([
     };
 
     Greeting.prototype._verifyMetadata = function(message) {
-        if (message.prevPf) {
-            _assert(message.chainHash && message.parents);
-            this.metadata = GreetingMetadata.create(message.prevPf, message.chainHash, message.source,
-                message.parents);
+        var metadata = message.metadata;
+        if (metadata.prevPf) {
+            _assert(metadata.prevCh && metadata.parents);
+            this.metadata = metadata;
             this._metadataIsAuthenticated = true;
         }
     };
@@ -1747,7 +1723,8 @@ define([
             return null;
         }
 
-        var newMessage = new ns.GreetMessage(this.id);
+        var newMessage = new GreetMessage();
+        newMessage.source = this.id;
 
         if (cliquesMessage && askeMessage) {
             _assert(cliquesMessage.source === askeMessage.source,
