@@ -151,13 +151,13 @@ define([
         PUB_KEY:           0x0105, // 261
         SESSION_SIGNATURE: 0x0106, // 262
         SIGNING_KEY:       0x0107, // 263
+        // Greet proposal messages
+        PREV_PF:           0x0301,
+        CHAIN_HASH:        0x0302,
+        LATEST_PM:         0x0303,
+        SEEN_IN_CHANNEL:   0x0304,
         // Error messages
         SEVERITY:          0x0201, // 513
-        // Proposal messages
-        CHAIN_HASH:        0x0301,
-        PREV_PF:           0x0302,
-        LATEST_PM:         0x0303,
-        SEEN_IN_CHANNEL:   0x0304
     };
 
 

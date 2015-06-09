@@ -663,14 +663,14 @@ define([
         });
 
         // For the proposal messages.
-        rest = codec.popTLVMaybe(rest, _T.CHAIN_HASH, function(value) {
-            out.chainHash = value;
-            debugOutput.push("chainHash: " + btoa(value));
-        });
-
         rest = codec.popTLVMaybe(rest, _T.PREV_PF, function(value) {
             out.prevPf = value;
             debugOutput.push("prevPf: " + btoa(value));
+        });
+
+        rest = codec.popTLVMaybe(rest, _T.CHAIN_HASH, function(value) {
+            out.chainHash = value;
+            debugOutput.push("chainHash: " + btoa(value));
         });
 
         rest = codec.popTLVAll(rest, _T.LATEST_PM, function(value) {
@@ -745,11 +745,11 @@ define([
         }
         // This is for the initial message of a key agreement, where we need
         // to send some extra metadata to help resolve concurrent operations.
-        if (message.chainHash) {
-            out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, message.chainHash);
-        }
         if (message.prevPf) {
             out += codec.encodeTLV(codec.TLV_TYPE.PREV_PF, message.prevPf);
+        }
+        if (message.chainHash) {
+            out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, message.chainHash);
         }
         if (message.parents) {
             out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, message.parents);
@@ -794,7 +794,6 @@ define([
         this.author = author;
         this.parents = parents;
         this.seenInChannel = seenInChannel || null;
-        this.isAuthenticated = false;
     };
 
     ns.GreetingMetadata = GreetingMetadata;
@@ -956,12 +955,12 @@ define([
     Greeter.prototype._extractMetadata = function(rest, source) {
         var chainHash, prevPf, parents = [], seenInChannel = [];
 
-        rest = codec.popTLVUntil(rest, codec.TLV_TYPE.CHAIN_HASH);
-        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
-            chainHash = value;
-        });
+        rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
             prevPf = value;
+        });
+        rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
+            chainHash = value;
         });
         rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
             parents.push(value);
@@ -1298,9 +1297,9 @@ define([
         this.askeMember = askeMember;
         this.metadata = metadata;
 
+        this._metadataIsAuthenticated = false;
         // We can keep the old state around for further use.
         this.oldState = store;
-
         return this;
     };
     ns.Greeting = Greeting;
@@ -1361,7 +1360,7 @@ define([
      *
      */
     Greeting.prototype.metadataIsAuthenticated = function () {
-        return this.metadata.isAuthenticated;
+        return this._metadataIsAuthenticated;
     };
 
     /**
@@ -1603,7 +1602,7 @@ define([
             _assert(message.chainHash && message.parents);
             this.metadata = new GreetingMetadata(message.prevPf, message.prevCh, message.source,
                 message.parents);
-            this.metadata.isAuthenticated = true;
+            this._metadataIsAuthenticated = true;
         }
     };
 
