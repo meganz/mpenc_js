@@ -598,10 +598,6 @@ define([
 
 
     var _decode = function(message) {
-        if (!message) {
-            return null;
-        }
-
         // TODO(gk): high-priority - put range checks etc on the below
         var out = new GreetMessage();
         var debugOutput = [];
@@ -829,8 +825,8 @@ define([
      * Greeter is used to test for pI and pF messages, create GreetingSummary and GreetingMetadata
      * objects on these messages,
      * @constructor
-     * @param transcript {Transcript}
-     *      The transcript object for this Greeter.
+     * @param id {string}
+     *      The owner of this greeter.
      * @param privKey {string}
      *      The static private key for this member.
      * @param pubKey {string}
@@ -838,18 +834,18 @@ define([
      * @param statiPubKeyDir {function}
      *      The callback for obtaining static public keys for other members.
      */
-    var Greeter = function(transcript, privKey, pubKey, staticPubKeyDir) {
-        this.transcript = transcript;
+    var Greeter = function(id, privKey, pubKey, staticPubKeyDir) {
+        this.id = id;
         this.privKey = privKey;
         this.pubKey= pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
+
+        // The current proposal started by the local user, if one is pending
         this.proposedGreeting = null;
         this.proposedPi = null;
-
         // The current operating greeting, if an operation is in progress.
         this.currentGreeting = null;
-        // The previous message id, if an operation is in progress.
-        this.prevPi = null;
+        this.currentPi = null;
     };
 
     /**
@@ -902,11 +898,14 @@ define([
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
-            _assert(this.currentGreeting, "currentGreeting is null.");
+            if (!this.currentGreeting) {
+                logger.info("ignored " + btoa(pId) + "; it is a downflow message but there is no current Greeting");
+                return null;
+            }
             // Test if this is the final message.
             var pF = this._testFinalMessage(decMessage, source);
             if (pF) {
-                greetingSummary = GreetingSummary.create(pId, null, this.prevPi, members);
+                greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
             }
         }
         // Exclude message need special attention.
@@ -1031,7 +1030,7 @@ define([
 
         var message = null;
         var greeting = new Greeting(
-            oldGreetstore, null, this.pubKey, this.privKey, this.staticPubKeyDir);
+            oldGreetstore, this.pubKey, this.privKey, this.staticPubKeyDir);
         var greetData = ns._determineFlowType(oldGreetstore.id, oldMembers, newMembers);
         switch(greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
@@ -1055,7 +1054,7 @@ define([
         }
 
         _assert(message.metadata === null);
-        message.metadata = metadata;
+        message.metadata = greeting.metadata = metadata;
         var payLoad = ns.encodeGreetMessage(message, greeting.getEphemeralPrivKey(),
             greeting.getEphemeralPubKey());
 
@@ -1074,24 +1073,23 @@ define([
      */
     Greeter.prototype.decode = function(from, oldGreetStore, pubtxt) {
         var message = codec.decodeWirePacket(pubtxt);
-        var mId = ns.makePid(message.content);
+        var pId = ns.makePid(message.content);
 
-        // This is our message, so just recreate the greeting and pass it out.
-        if (this.proposedGreeting && this.proposedPi === mId) {
+        // This is our message, so reuse the already-created greeting.
+        if (this.proposedGreeting && this.proposedPi === pId) {
             this.currentGreeting = this.proposedGreeting;
-            // We will assume that anything that was going to be done with the metadata has
-            // been done. TODO: Maybe we should just dispose of metadata when creating greetstore?
-            this.currentGreeting.metadata = null;
         }
-        // Otherwise, just create a new greeting from the past one.
+        // Otherwise, just create a new greeting.
         else {
-            this.currentGreeting = new Greeting(oldGreetStore, null, this.pubKey, this.privKey, this.staticPubKeyDir);
-            this.currentGreeting.metadata = null;
-            //this.currentGreeting.processIncoming(from, message.content);
+            if (message.source === this.id) {
+                logger.info("ignored " + btoa(pId) + "; it claims to be from us but we did not send it");
+                return null;
+            }
+            this.currentGreeting = new Greeting(oldGreetStore, this.pubKey, this.privKey, this.staticPubKeyDir);
         }
 
         // Clear the proposedGreeting field.
-        this.prevPi = mId;
+        this.currentPi = pId;
         this.proposedGreeting = null;
         this.proposedPi = null;
 
@@ -1144,7 +1142,7 @@ define([
      */
     var GreetStore = function(id, state, members,
             sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
-            groupKey, privKeyList, intKeys, metadata) {
+            groupKey, privKeyList, intKeys) {
 
         this.id = id;
         this._opState = state || ns.STATE.NULL;
@@ -1165,7 +1163,6 @@ define([
         this.groupKey = utils.clone(groupKey) || null;
         this.privKeyList = utils.clone(privKeyList) || [];
         this.intKeys = utils.clone(intKeys) || [];
-        this.metadata = utils.clone(metadata) || null;
         // Create the map of members : ephemeralPubKeys.
         this.pubKeyMap = {};
         if (members) {
@@ -1212,7 +1209,8 @@ define([
      *      GreetStore
      * @returns {Greeting}
      */
-    var Greeting = function(store, metadata, pubKey, privKey, staticPubKeyDir) {
+    var Greeting = function(store, pubKey, privKey, staticPubKeyDir) {
+        // TODO(xl): #2350 what if store is null, i.e. on a new session
         this.id = store.id;
         this.privKey = privKey;
         this.pubKey = pubKey;
@@ -1240,8 +1238,8 @@ define([
         askeMember.nonces = utils.clone(store.nonces);
         askeMember.authenticatedMembers = [];
         this.askeMember = askeMember;
-        this.metadata = metadata;
 
+        this.metadata = null;
         this._metadataIsAuthenticated = false;
         // We can keep the old state around for further use.
         this.oldState = store;
@@ -1304,8 +1302,7 @@ define([
             this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
             this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
-            this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys,
-            this.metadata);
+            this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys);
     };
 
     Greeting.prototype.getResultSId = function () {
@@ -1497,6 +1494,7 @@ define([
 
 
     Greeting.prototype.processIncoming = function(from, content) {
+        var pId = ns.makePid(content);
         var decodedMessage = null;
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
@@ -1507,8 +1505,22 @@ define([
         } else {
             decodedMessage = ns.decodeGreetMessage(content);
         }
-        // Now we have authenticated the message, we can state that the metadata has been authenticated.
-        this._verifyMetadata(decodedMessage);
+
+        if (this.metadata) {
+            if (decodedMessage.metadata) {
+                logger.info("ignored " + btoa(pId) + "; it has metadata but greeting is already started");
+                return;
+            }
+        } else {
+            if (!decodedMessage.metadata) {
+                logger.info("ignored " + btoa(pId) + "; it has no metadata but greeting not yet started");
+                return;
+            }
+            this.metadata = decodedMessage.metadata;
+            // TODO(xl): #2350 need to tweak ske to verify metadata, e.g. by hashing
+            // the packet-id of the proposal into the session-id
+        }
+
         var oldState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
@@ -1523,14 +1535,6 @@ define([
         return result.newState;
     };
 
-    Greeting.prototype._verifyMetadata = function(message) {
-        var metadata = message.metadata;
-        if (metadata.prevPf) {
-            _assert(metadata.prevCh && metadata.parents);
-            this.metadata = metadata;
-            this._metadataIsAuthenticated = true;
-        }
-    };
 
     /**
      * Handles greet (key agreement) protocol execution with all participants.
