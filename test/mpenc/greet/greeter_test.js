@@ -294,7 +294,7 @@ define([
                 assert.deepEqual(participant.askeMember.staticPrivKey, _td.ED25519_PRIV_KEY);
                 assert.ok(participant.askeMember.staticPubKeyDir);
                 assert.ok(participant.cliquesMember);
-                assert.strictEqual(participant.state, ns.STATE.NULL);
+                assert.strictEqual(participant._opState, ns.STATE.NULL);
             });
         });
 
@@ -487,7 +487,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.include([]); },
                               'No members to add.');
             });
@@ -499,7 +499,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaJoin = sinon_spy();
                 participant.askeMember.join = sinon_spy();
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['6', '7'];
@@ -517,7 +517,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.exclude([]); },
                               'No members to exclude.');
             });
@@ -527,7 +527,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
@@ -539,7 +539,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaExclude = sinon_spy();
                 participant.askeMember.exclude = sinon_spy();
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var message = participant.exclude(['1', '4']);
@@ -578,7 +578,7 @@ define([
                 participant._mergeMessages = stub().returns(new ns.GreetMessage());
                 participant.cliquesMember.akaRefresh = sinon_spy();
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 var message = participant.refresh();
                 assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
@@ -636,7 +636,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.NULL;
+                participant._opState = ns.STATE.NULL;
                 var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
@@ -662,7 +662,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
@@ -691,7 +691,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.stub(participant.askeMember, 'downflow').throws(new Error('Session authentication by member 5 failed.'));
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage({ source: participant.id,
@@ -716,7 +716,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.members = ['1', '2', '3', '4', '5'];
                 participant.askeMember.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
-                participant.state = ns.STATE.INIT_DOWNFLOW;
+                participant._opState = ns.STATE.INIT_DOWNFLOW;
                 participant.cliquesMember.groupKey = "bar";
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
@@ -739,11 +739,11 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.QUIT;
+                participant._opState = ns.STATE.QUIT;
                 var result = participant._processMessage(
                         new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(result, null);
-                assert.strictEqual(participant.state, ns.STATE.QUIT);
+                assert.strictEqual(participant._opState, ns.STATE.QUIT);
             });
 
             it('processing for a downflow without me in it', function() {
@@ -754,7 +754,7 @@ define([
                 var message = { source: '1', dest: '',
                                 greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 var result = participant._processMessage(
                         new ns.GreetMessage(message));
                 assert.deepEqual(result,
@@ -769,7 +769,7 @@ define([
                 var message = { source: '3', dest: '4',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '3', '2', '4', '5'] };
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 var result = participant._processMessage(
                         new ns.GreetMessage(message));
                 assert.strictEqual(result, null);
@@ -783,7 +783,7 @@ define([
                 var message = { source: '1', dest: '',
                                 greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
-                participant.state = ns.STATE.AUX_DOWNFLOW;
+                participant._opState = ns.STATE.AUX_DOWNFLOW;
                 var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result, null);
             });
@@ -956,7 +956,7 @@ define([
 
             var dummyGreetStore = {
                 id : "1",
-                state : ns.STATE.NULL
+                _opState : ns.STATE.NULL
             };
 
             var dummyMessage = { source: '3', dest: '4',
@@ -988,7 +988,7 @@ define([
             var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
                 id : "1",
-                state : ns.STATE.NULL
+                _opState : ns.STATE.NULL
             };
 
             var members = ["2", "3"];
@@ -1015,7 +1015,7 @@ define([
 
             var dummyGreetStore = {
                 id : "1",
-                state : ns.STATE.NULL
+                _opState : ns.STATE.NULL
             };
 
             var members = ["2", "3"];
@@ -1034,7 +1034,7 @@ define([
             // Check the message with the other user.
             var dummyGreetStoreTwo = {
                 id : "2",
-                state : ns.STATE.NULL
+                _opState : ns.STATE.NULL
             };
 
             var nGreeting = gtrTwo.decode("1", dummyGreetStoreTwo, pubtxt);
@@ -1044,7 +1044,7 @@ define([
             nGreeting.processIncoming("1", decMessage.content);
             assert.ok(nGreeting, "nGreeting is null.");
             assert.ok(nGreeting.askeMember.members, "askeMember.members is null.");
-            assert.strictEqual(nGreeting.state, ns.STATE.INIT_UPFLOW, "state is not equal.");
+            assert.strictEqual(nGreeting._opState, ns.STATE.INIT_UPFLOW, "state is not equal.");
             assert.deepEqual(nGreeting.askeMember.members, ["1", "2", "3"], "Members are not equal.");
             assert.strictEqual(nGreeting.metadataIsAuthenticated(), true, "metadata is not authenticated.");
             assert.strictEqual(dest, "3", "Destination not correct.");

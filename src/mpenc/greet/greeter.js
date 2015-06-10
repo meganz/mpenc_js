@@ -1147,9 +1147,9 @@ define([
             groupKey, privKeyList, intKeys, metadata) {
 
         this.id = id;
-        this.state = state || ns.STATE.NULL;
+        this._opState = state || ns.STATE.NULL;
         this.members = utils.clone(members) || [];
-        _assert(this.state === ns.STATE.READY || this.state === ns.STATE.NULL,
+        _assert(this._opState === ns.STATE.READY || this._opState === ns.STATE.NULL,
             "tried to create a GreetStore on a state other than NULL or READY: " +
             ns.STATE_MAPPING[state]);
 
@@ -1218,7 +1218,7 @@ define([
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
 
-        this.state = store.state;
+        this._opState = store._opState;
         this._send = new async.Observable(true);
 
         var cliquesMember = new cliques.CliquesMember(store.id);
@@ -1297,11 +1297,11 @@ define([
      *
      */
     Greeting.prototype.getResultState = function () {
-        if (this.state !== ns.STATE.READY) {
+        if (this._opState !== ns.STATE.READY) {
             throw new Error("Greeting not yet finished");
         }
         return new ns.GreetStore(this.id,
-            this.state, this.askeMember.members, this.askeMember.sessionId,
+            this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
             this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
             this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys,
@@ -1309,7 +1309,7 @@ define([
     };
 
     Greeting.prototype.getResultSId = function () {
-        if (this.state !== ns.STATE.READY) {
+        if (this._opState !== ns.STATE.READY) {
             throw new Error("Greeting not yet finished");
         }
         return this.askeMember.sessionId;
@@ -1319,17 +1319,18 @@ define([
         throw new Error("not implemented");
     };
 
-    Greeting.prototype._updateState = function(state) {
+    Greeting.prototype._updateOpState = function(state) {
         // Update the state if required.
         _assert(typeof state === "number");
         logger.debug('Reached new state: ' + ns.STATE_MAPPING[state]);
-        this.state = state;
+        this._opState = state;
     };
 
     Greeting.prototype._assertState = function(valid, message) {
+        var state = this._opState;
         _assert(valid.some(function(v) {
-            return this.state === v;
-        }, this), message);
+            return state === v;
+        }, this), message + " but state was: " + ns.STATE_MAPPING[state]);
     };
 
     Greeting.prototype._encodeAndPublish = function(packet, state) {
@@ -1341,7 +1342,7 @@ define([
         // TODO(xl): use a RawSendT instead of Array[2]
         this._send.publish([packet.dest, payload]);
         if (state !== undefined) {
-            this._updateState(state);
+            this._updateOpState(state);
         }
     };
 
@@ -1374,7 +1375,7 @@ define([
             // as we won't be able to complete the protocol flow.
             return this.quit();
         } else {
-            this._updateState(ns.STATE.INIT_UPFLOW);
+            this._updateOpState(ns.STATE.INIT_UPFLOW);
             return packet;
         }
     };
@@ -1402,7 +1403,7 @@ define([
 
         var packet = this._mergeMessages(cliquesMessage, askeMessage);
         packet.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
-        this._updateState(ns.STATE.AUX_UPFLOW);
+        this._updateOpState(ns.STATE.AUX_UPFLOW);
         return packet;
     };
 
@@ -1440,7 +1441,8 @@ define([
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
-            this._updateState(this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
+            this._updateOpState(
+                this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
             return packet;
         }
     };
@@ -1455,7 +1457,7 @@ define([
      *      The message to commence quitting.
      */
     Greeting.prototype.quit = function() {
-        if (this.state === ns.STATE.QUIT) {
+        if (this._opState === ns.STATE.QUIT) {
             return; // Nothing do do here.
         }
 
@@ -1467,7 +1469,7 @@ define([
 
         var packet = this._mergeMessages(null, askeMessage);
         packet.greetType = ns.GREET_TYPE.QUIT_DOWN;
-        this._updateState(ns.STATE.QUIT);
+        this._updateOpState(ns.STATE.QUIT);
         return packet;
     };
 
@@ -1507,7 +1509,7 @@ define([
         }
         // Now we have authenticated the message, we can state that the metadata has been authenticated.
         this._verifyMetadata(decodedMessage);
-        var oldState = this.state;
+        var oldState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
             return;
@@ -1516,7 +1518,7 @@ define([
             this._encodeAndPublish(result.decodedMessage);
         }
         if (result.newState) {
-            this._updateState(result.newState);
+            this._updateOpState(result.newState);
         }
         return result.newState;
     };
@@ -1545,7 +1547,7 @@ define([
     Greeting.prototype._processMessage = function(message) {
         logger.debug('Processing message of type '
                      + message.getGreetTypeString());
-        if (this.state === ns.STATE.QUIT) {
+        if (this._opState === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
             logger.debug("Ignoring message as we're in state QUIT.");
             return null;
@@ -1554,7 +1556,7 @@ define([
         // If I'm not part of it any more, go and quit.
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
-            if (this.state !== ns.STATE.QUIT) {
+            if (this._opState !== ns.STATE.QUIT) {
                 return { decodedMessage: null,
                          newState: ns.STATE.QUIT };
             } else {
