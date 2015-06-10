@@ -1066,10 +1066,6 @@ define([
         return payLoad;
     };
 
-    Greeter.prototype.hasProposal = function() {
-        return this.proposedGreeting !== null;
-    };
-
     /**
      * TODO(xl): #2350 DOC
      * @param oldGreetStore
@@ -1101,10 +1097,6 @@ define([
 
         return this.currentGreeting;
     };
-
-    Greeter.prototype.getCurrentGreeting = function() {
-        return this.currentGreeting;
-    }
 
     ns.makePid = function(packet) {
         return utils.sha256(packet);
@@ -1182,7 +1174,7 @@ define([
                     + ' members.length = ' + members.length + " ephemeralPubKeys.length = " +
                     ephemeralPubKeys.length);
 
-            for (var i in members) {
+            for (var i=0; i<members.length; i++) {
                 this.pubKeyMap[members[i]] = ephemeralPubKeys[i];
             }
         }
@@ -1262,7 +1254,7 @@ define([
      *
      * @returns The previous GreetStore for the last session.
      */
-    Greeting.prototype.getOldState = function() {
+    Greeting.prototype.getPrevState = function() {
         return this.oldState;
     };
 
@@ -1272,8 +1264,8 @@ define([
      *
      * @returns {array<string>} The previous members of the old Greeting.
      */
-    Greeting.prototype.getOldMembers = function() {
-        return this.oldState.members;
+    Greeting.prototype.getPrevMembers = function() {
+        return this.oldState.members.slice();
     };
 
     /**
@@ -1281,23 +1273,8 @@ define([
      *
      * @returns {array<string>} The new members for this Greeting.
      */
-    Greeting.prototype.getNewMembers = function() {
-        var newMembers = [];
-        for (var n in this.askeMember.members) {
-            var found = false;
-
-            for (var o in this.oldState.members) {
-                if (o === n) {
-                    found = true;
-                }
-            }
-
-            if (!found) {
-                newMembers.push(n);
-            }
-        }
-
-        return newMembers;
+    Greeting.prototype.getMembers = function() {
+        return this.askeMember.members.slice();
     };
 
     /**
@@ -1319,16 +1296,27 @@ define([
     /**
      *
      */
-    Greeting.prototype.newState = function () {
-        return this.toGreetStore();
+    Greeting.prototype.getResultState = function () {
+        if (this.state !== ns.STATE.READY) {
+            throw new Error("Greeting not yet finished");
+        }
+        return new ns.GreetStore(this.id,
+            this.state, this.askeMember.members, this.askeMember.sessionId,
+            this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
+            this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
+            this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys,
+            this.metadata);
     };
 
-    Greeting.prototype.newSid = function () {
+    Greeting.prototype.getResultSId = function () {
+        if (this.state !== ns.STATE.READY) {
+            throw new Error("Greeting not yet finished");
+        }
         return this.askeMember.sessionId;
     };
 
-    Greeting.prototype.getDeferred = function () {
-
+    Greeting.prototype.getPromise = function () {
+        throw new Error("not implemented");
     };
 
     Greeting.prototype._updateState = function(state) {
@@ -1359,22 +1347,6 @@ define([
 
     Greeting.prototype.subscribeSend = function(subscriber) {
         return this._send.subscribe(subscriber);
-    };
-
-    /**
-     * Create a new GreetStore from this greeting.
-     *
-     * The state must be READY or NULL.
-     *
-     * @method
-     */
-    Greeting.prototype.toGreetStore = function() {
-        return new ns.GreetStore(this.id,
-            this.state, this.askeMember.members, this.askeMember.sessionId,
-            this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
-            this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
-            this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys,
-            this.metadata);
     };
 
     /**
@@ -1468,7 +1440,7 @@ define([
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
-            this._updateState(this.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
+            this._updateState(this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
             return packet;
         }
     };
@@ -1826,41 +1798,6 @@ define([
 
 
     /**
-     * Returns true if the authenticated signature key exchange is fully
-     * acknowledged.
-     *
-     * @method
-     * @returns {boolean}
-     *     True on a valid session.
-     */
-    Greeting.prototype.isSessionAcknowledged = function(participantID) {
-        return this.askeMember.isSessionAcknowledged();
-    };
-
-
-    /**
-     * Returns the current session ID.
-     *
-     * @method
-     * @returns {string}
-     */
-    Greeting.prototype.getSessionId = function() {
-        return this.askeMember.sessionId;
-    };
-
-
-    /**
-     * Returns the current members.
-     *
-     * @method
-     * @returns {array<string>}
-     */
-    Greeting.prototype.getMembers = function() {
-        return this.askeMember.members;
-    };
-
-
-    /**
      * Returns the current ephemeral public keys.
      *
      * @method
@@ -1880,7 +1817,6 @@ define([
     Greeting.prototype.getGroupKey = function() {
         return this.cliquesMember.groupKey;
     };
-
 
 
     return ns;
