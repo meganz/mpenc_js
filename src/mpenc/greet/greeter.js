@@ -837,7 +837,7 @@ define([
     var Greeter = function(id, privKey, pubKey, staticPubKeyDir) {
         this.id = id;
         this.privKey = privKey;
-        this.pubKey= pubKey;
+        this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
 
         // The current proposal started by the local user, if one is pending
@@ -1029,9 +1029,8 @@ define([
         }
 
         var message = null;
-        var greeting = new Greeting(
-            oldGreetstore, this.pubKey, this.privKey, this.staticPubKeyDir);
-        var greetData = ns._determineFlowType(oldGreetstore.id, oldMembers, newMembers);
+        var greeting = new Greeting(this, oldGreetstore);
+        var greetData = ns._determineFlowType(this.id, oldMembers, newMembers);
         switch(greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
                 message = greeting.start(greetData.members.toArray());
@@ -1085,7 +1084,7 @@ define([
                 logger.info("ignored " + btoa(pId) + "; it claims to be from us but we did not send it");
                 return null;
             }
-            this.currentGreeting = new Greeting(oldGreetStore, this.pubKey, this.privKey, this.staticPubKeyDir);
+            this.currentGreeting = new Greeting(this, oldGreetStore);
         }
 
         // Clear the proposedGreeting field.
@@ -1140,11 +1139,9 @@ define([
      * @property intKeys {?array<string>}
      *      The list of previous initial keys for all members.
      */
-    var GreetStore = function(id, state, members,
+    var GreetStore = function(state, members,
             sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
             groupKey, privKeyList, intKeys) {
-
-        this.id = id;
         this._opState = state || ns.STATE.NULL;
         this.members = utils.clone(members) || [];
         _assert(this._opState === ns.STATE.READY || this._opState === ns.STATE.NULL,
@@ -1205,30 +1202,30 @@ define([
      * MH: Added newMembers to satisfy the interface in mpnec_py.
      *
      * @constructor
-     * @param store {module:mpenc/greet/greeter.GreetStore}
-     *      GreetStore
+     * @param greeter {module:mpenc/greet/greeter.Greeter} Greeter, context
+     * @param store {?module:mpenc/greet/greeter.GreetStore} GreetStore
      * @returns {Greeting}
      */
-    var Greeting = function(store, pubKey, privKey, staticPubKeyDir) {
-        // TODO(xl): #2350 what if store is null, i.e. on a new session
-        this.id = store.id;
-        this.privKey = privKey;
-        this.pubKey = pubKey;
-        this.staticPubKeyDir = staticPubKeyDir;
+    var Greeting = function(greeter, store) {
+        store = store || new GreetStore();
+        this.id = greeter.id;
+        this.privKey = greeter.privKey;
+        this.pubKey = greeter.pubKey;
+        this.staticPubKeyDir = greeter.staticPubKeyDir;
 
         this._opState = store._opState;
         this._send = new async.Observable(true);
 
-        var cliquesMember = new cliques.CliquesMember(store.id);
+        var cliquesMember = new cliques.CliquesMember(greeter.id);
         cliquesMember.members = utils.clone(store.members);
         cliquesMember.groupKey = utils.clone(store.groupKey);
         cliquesMember.privKeyList = utils.clone(store.privKeyList);
         cliquesMember.intKeys = utils.clone(store.intKeys);
         this.cliquesMember = cliquesMember;
 
-        var askeMember = new ske.SignatureKeyExchangeMember(store.id);
-        askeMember.staticPrivKey = privKey;
-        askeMember.staticPubKeyDir = staticPubKeyDir;
+        var askeMember = new ske.SignatureKeyExchangeMember(greeter.id);
+        askeMember.staticPrivKey = greeter.privKey;
+        askeMember.staticPubKeyDir = greeter.staticPubKeyDir;
         askeMember.sessionId = store.sessionId;
         askeMember.members = utils.clone(store.members);
         askeMember.ephemeralPrivKey = utils.clone(store.ephemeralPrivKey);
@@ -1298,7 +1295,7 @@ define([
         if (this._opState !== ns.STATE.READY) {
             throw new Error("Greeting not yet finished");
         }
-        return new ns.GreetStore(this.id,
+        return new GreetStore(this.id,
             this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
             this.askeMember.ephemeralPubKeys, this.askeMember.nonces,

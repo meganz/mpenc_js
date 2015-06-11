@@ -46,7 +46,12 @@ define([
     }
 
     function makeGreeting(id, privKey, pubKey, staticPubKeyDir) {
-        return new ns.Greeting(new ns.GreetStore(id), pubKey, privKey, staticPubKeyDir);
+        return new ns.Greeting({
+            id: id,
+            privKey: privKey,
+            pubKey: pubKey,
+            staticPubKeyDir: staticPubKeyDir,
+        });
     };
 
     var doNothing = function(){};
@@ -951,10 +956,8 @@ define([
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
-
+            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
-                id : "1",
                 _opState : ns.STATE.NULL
             };
 
@@ -984,9 +987,8 @@ define([
             var parents = [utils.sha256("parents")];
             var seenInChannel = ["2", "3"];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents, seenInChannel);
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
-                id : "1",
                 _opState : ns.STATE.NULL
             };
 
@@ -1010,10 +1012,8 @@ define([
             var seenInChannel = ["2", "3"];
             var id = "1";
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents, seenInChannel);
-            var gtr = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
-
+            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
-                id : "1",
                 _opState : ns.STATE.NULL
             };
 
@@ -1021,7 +1021,9 @@ define([
             var pubtxt = gtr.encode(dummyGreetStore, metadata, new Set([]), new Set(members));
             assert.ok(pubtxt, "pubtxt not ok.");
             pubtxt = "?mpENC:" + btoa(pubtxt) + ".";
-            var gtrTwo = new ns.Greeter(null, _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+
+            // Check the message with the other user.
+            var gtrTwo = new ns.Greeter("2", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var m = gtrTwo.partialDecode(pubtxt);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
@@ -1029,10 +1031,7 @@ define([
             assert.strictEqual(m.metadata.author, id, "author not equal.");
             assert.deepEqual(m.metadata.parents.toArray(), parents, "parents not equal.");
             assert.deepEqual(m.metadata.seenInChannel.toArray(), seenInChannel);
-
-            // Check the message with the other user.
             var dummyGreetStoreTwo = {
-                id : "2",
                 _opState : ns.STATE.NULL
             };
 
