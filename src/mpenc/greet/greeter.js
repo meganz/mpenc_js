@@ -1003,40 +1003,33 @@ define([
     };
 
     ns._determineFlowType = function(owner, prevMembers, members) {
-        // Sanity?
-        _assert(prevMembers);
-        _assert(members);
         _assert(owner);
-        // This would make 0 sense.
-        _assert(!(prevMembers.size === 0 && members.size === 0));
-        // TODO: Is there a flow where we would have 0 members? Most likely last member.
-        // diff[0] = members in prevMembers but not in new members.
-        // diff[1] = members in members but not in old members.
+        _assert(prevMembers.has(owner));
+        _assert(members.has(owner));
 
-        var diff = members.diff(prevMembers);
+        var ownSet = new ImmutableSet([owner]);
+        prevMembers = prevMembers.subtract(ownSet);
+        members = members.subtract(ownSet);
+        _assert(prevMembers.size || members.size);
+
+        var diff = prevMembers.diff(members);
+        var include = diff[0];
+        var exclude = diff[1];
+        var keeping = prevMembers.intersect(members);
+
         // We can't both exclude and include members at the same time.
-        _assert(!(diff[0].size > 0 && diff[1].size > 0), "Cannot both exclude and join members.");
+        _assert(!(exclude.size && include.size), "Cannot both exclude and join members.");
 
-        if (prevMembers.size === 0 && members.size > 0) {
-            return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
-        }
-        //If members does not contain this member, and is the only member not
-        //present, then we must be quitting.
-        else if (diff[0].has(owner) && diff[0].length === 1) {
-            return {greetType : ns.GREET_TYPE.QUIT_DOWN, members : diff[0] };
-        }
-        // If the nummber of members in prevMembers is greater than members, then
-        // we must be performing an exclude.
-        else if (diff[0].size > 0) {
-            return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : diff[0]};
-        }
-        // If the number of members in members is greater than prevMembers, then
-        // we must be performing a join.
-        else if (diff[1].size > 0) {
-            return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : diff[1]};
-        }
-        // Same members in prevMembers and members means refresh.
-        else if (diff[0].size === 0 && diff[1].size === 0) {
+        if (include.size) {
+            if (!keeping.size) {
+                // no previous session, start() instead of include()
+                return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
+            } else {
+                return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : include};
+            }
+        } else if (exclude.size) {
+            return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : exclude};
+        } else {
             return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : members};
         }
     };
@@ -1048,9 +1041,9 @@ define([
      * @param greetType
      */
     Greeter.prototype.encode = function(prevGreetStore, prevMembers, members, metadata) {
-        if (!metadata) {
-            throw new Error("missing metadata");
-        }
+        _assert(metadata);
+        _assert(prevMembers.has(this.id));
+        _assert(members.has(this.id));
 
         var message = null;
         var greeting = new Greeting(this, prevGreetStore);

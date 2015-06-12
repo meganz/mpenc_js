@@ -812,35 +812,35 @@ define([
 
         it("Test _determineFlowType correct data", function() {
             var owner = '1';
-            var initOldMembers = new Set([]);
+            var initOldMembers = new Set(['1']);
             var initNewMembers = new Set(['1', '2', '3']);
             var oldMembers = new Set(['1', '2', '3']);
             var excludeNewMembers = new Set(['1', '2']);
             var joinNewMembers = new Set(['1', '2', '3', '4']);
-            var quitNewMembers = new Set(['2', '3']);
+            //var quitNewMembers = new Set(['2', '3']);
             var refreshNewMembers = new Set(['1', '2', '3']);
 
             var greetInit = ns._determineFlowType(owner, initOldMembers, initNewMembers);
             var greetExclude = ns._determineFlowType(owner, oldMembers, excludeNewMembers);
             var greetJoin = ns._determineFlowType(owner, oldMembers, joinNewMembers);
-            var greetQuit = ns._determineFlowType(owner, oldMembers, quitNewMembers);
+            //var greetQuit = ns._determineFlowType(owner, oldMembers, quitNewMembers);
             var greetRefresh = ns._determineFlowType(owner, oldMembers, refreshNewMembers);
 
             assert.strictEqual(greetInit.greetType, ns.GREET_TYPE.INIT_INITIATOR_UP,
                 "Expected include, got " + ns.GREET_TYPE_MAPPING[greetInit.greetType]);
-            assert.deepEqual(greetInit.members.toArray(), ['1', '2', '3']);
+            assert.deepEqual(greetInit.members.toArray(), ['2', '3']);
             assert.strictEqual(greetExclude.greetType, ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                 "Expected exclude, got " + ns.GREET_TYPE_MAPPING[greetExclude.greetType]);
             assert.deepEqual(greetExclude.members.toArray(), ['3'], "Exclude members not correct.");
             assert.strictEqual(greetJoin.greetType, ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP,
                 "Expected join, got " + ns.GREET_TYPE_MAPPING[greetJoin.greetType]);
             assert.deepEqual(greetJoin.members.toArray(), ['4'], "Join members not correct.");
-            assert.strictEqual(greetQuit.greetType, ns.GREET_TYPE.QUIT_DOWN,
-                "Expected quit, got " + ns.GREET_TYPE_MAPPING[greetQuit.greetType]);
-            assert.deepEqual(greetQuit.members.toArray(), ['1']);
+            //assert.strictEqual(greetQuit.greetType, ns.GREET_TYPE.QUIT_DOWN,
+            //    "Expected quit, got " + ns.GREET_TYPE_MAPPING[greetQuit.greetType]);
+            //assert.deepEqual(greetQuit.members.toArray(), ['1']);
             assert.strictEqual(greetRefresh.greetType, ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN,
                 "Expected refresh, got " + ns.GREET_TYPE_MAPPING[greetRefresh.greetType]);
-            assert.deepEqual(greetRefresh.members.toArray(), ['1', '2', '3']);
+            assert.deepEqual(greetRefresh.members.toArray(), ['2', '3']);
         });
 
         it("Test _determineFlowType incorrect data", function() {
@@ -975,7 +975,9 @@ define([
                 getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; } };
 
             var channelMembers = new Set(["1", "2", "3"]);
-            var pubtxt = gtr.encode(dummyGreetStore, Set.EMPTY, new Set(["2", "3"]), metadata);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt);
 
             gtr.proposedGreeting = dummyGreeting;
@@ -996,7 +998,9 @@ define([
             };
 
             var channelMembers = new Set(["1", "2", "3"]);
-            var pubtxt = gtr.encode(dummyGreetStore, Set.EMPTY, new Set(["2", "3"]), metadata);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt, "pubtxt not ok.");
             pubtxt = codec.encodeWirePacket(pubtxt);
             var m = gtr.partialDecode(prevMem, pubtxt, "1", channelMembers);
@@ -1020,7 +1024,9 @@ define([
             };
 
             var channelMembers = new Set(["1", "2", "3"]);
-            var pubtxt = gtr.encode(dummyGreetStore, new Set([]), new Set(["2", "3"]), metadata);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt, "pubtxt not ok.");
             pubtxt = "?mpENC:" + btoa(pubtxt) + ".";
 
