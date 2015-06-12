@@ -799,19 +799,19 @@ define([
      *      The metadata for the message, if it is an initial protocol flow message.
      * @property prevPi {?string}
      *      The previous pI for the protocol flow, if it is a final protocol flow message.
-     * @param newMembers {module:mpenc/helper/struct.ImmutableSet}
-     *      The new members for the flow.
+     * @param members {module:mpenc/helper/struct.ImmutableSet}
+     *      The members of the new sub-session if the operation completes.
      * @see module:mpenc/greet/greeter.GreetingSummary.create
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "newMembers");
+    var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "members");
 
     GreetingSummary.prototype.postInit = function() {
         _assert(typeof this.pId === "string");
         _assert(this.metadata !== null || this.prevPi !== null);
         _assert(this.metadata === null || this.metadata instanceof GreetingMetadata);
         _assert(this.prevPi === null || typeof this.prevPi === "string");
-        _assert(this.newMembers instanceof ImmutableSet);
+        _assert(this.members instanceof ImmutableSet);
     };
 
     /**
@@ -840,8 +840,8 @@ define([
      * @param parents {Iterable}
      * @returns {module:mpenc/greet/greeter.GreetingSummary}
      */
-    GreetingSummary.create = function(pId, metadata, prevPi, newMembers) {
-        return new this(pId, metadata || null, prevPi || null, new ImmutableSet(newMembers));
+    GreetingSummary.create = function(pId, metadata, prevPi, members) {
+        return new this(pId, metadata || null, prevPi || null, new ImmutableSet(members));
     };
 
     ns.GreetingSummary = GreetingSummary;
@@ -886,7 +886,7 @@ define([
      * @returns {*}
      *      A GreetingSummary object if this is pI or pF, null otherwise.
      */
-    Greeter.prototype.partialDecode = function(pubtxt, oldmembers, from) {
+    Greeter.prototype.partialDecode = function(pubtxt, prevMembers, from) {
         _assert(pubtxt);
         var decMessage = codec.decodeWirePacket(pubtxt);
         var rest = decMessage.content;
@@ -1002,59 +1002,59 @@ define([
         return pF;
     };
 
-    ns._determineFlowType = function(owner, oldMembers, newMembers) {
+    ns._determineFlowType = function(owner, prevMembers, members) {
         // Sanity?
-        _assert(oldMembers);
-        _assert(newMembers);
+        _assert(prevMembers);
+        _assert(members);
         _assert(owner);
         // This would make 0 sense.
-        _assert(!(oldMembers.size === 0 && newMembers.size === 0));
+        _assert(!(prevMembers.size === 0 && members.size === 0));
         // TODO: Is there a flow where we would have 0 members? Most likely last member.
-        // diff[0] = members in oldMembers but not in new members.
-        // diff[1] = members in newMembers but not in old members.
+        // diff[0] = members in prevMembers but not in new members.
+        // diff[1] = members in members but not in old members.
 
-        var diff = newMembers.diff(oldMembers);
+        var diff = members.diff(prevMembers);
         // We can't both exclude and include members at the same time.
         _assert(!(diff[0].size > 0 && diff[1].size > 0), "Cannot both exclude and join members.");
 
-        if (oldMembers.size === 0 && newMembers.size > 0) {
-            return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : newMembers};
+        if (prevMembers.size === 0 && members.size > 0) {
+            return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
         }
-        //If newMembers does not contain this member, and is the only member not
+        //If members does not contain this member, and is the only member not
         //present, then we must be quitting.
         else if (diff[0].has(owner) && diff[0].length === 1) {
             return {greetType : ns.GREET_TYPE.QUIT_DOWN, members : diff[0] };
         }
-        // If the nummber of members in oldMembers is greater than newMembers, then
+        // If the nummber of members in prevMembers is greater than members, then
         // we must be performing an exclude.
         else if (diff[0].size > 0) {
             return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : diff[0]};
         }
-        // If the number of members in newMembers is greater than oldMembers, then
+        // If the number of members in members is greater than prevMembers, then
         // we must be performing a join.
         else if (diff[1].size > 0) {
             return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : diff[1]};
         }
-        // Same members in oldMembers and newMembers means refresh.
+        // Same members in prevMembers and members means refresh.
         else if (diff[0].size === 0 && diff[1].size === 0) {
-            return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : newMembers};
+            return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : members};
         }
     };
 
     /**
      *
-     * @param oldGreetstore
+     * @param prevGreetStore
      * @param metadata
      * @param greetType
      */
-    Greeter.prototype.encode = function(oldGreetstore, metadata, oldMembers, newMembers) {
+    Greeter.prototype.encode = function(prevGreetStore, metadata, prevMembers, members) {
         if (!metadata) {
             throw new Error("missing metadata");
         }
 
         var message = null;
-        var greeting = new Greeting(this, oldGreetstore);
-        var greetData = ns._determineFlowType(this.id, oldMembers, newMembers);
+        var greeting = new Greeting(this, prevGreetStore);
+        var greetData = ns._determineFlowType(this.id, prevMembers, members);
         switch(greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
                 message = greeting.start(greetData.members.toArray());
@@ -1090,11 +1090,11 @@ define([
 
     /**
      * TODO(xl): #2350 DOC
-     * @param oldGreetStore
+     * @param prevGreetStore
      * @param pubTxt
      * @returns {*}
      */
-    Greeter.prototype.decode = function(from, oldGreetStore, pubtxt) {
+    Greeter.prototype.decode = function(from, prevGreetStore, pubtxt) {
         var message = codec.decodeWirePacket(pubtxt);
         var pId = ns.makePid(message.content);
 
@@ -1108,7 +1108,7 @@ define([
                 logger.info("ignored " + btoa(pId) + "; it claims to be from us but we did not send it");
                 return null;
             }
-            this.currentGreeting = new Greeting(this, oldGreetStore);
+            this.currentGreeting = new Greeting(this, prevGreetStore);
         }
 
         // Clear the proposedGreeting field.
@@ -1223,8 +1223,6 @@ define([
     /**
      * Implementation of a protocol handler with its state machine.
      *
-     * MH: Added newMembers to satisfy the interface in mpnec_py.
-     *
      * @constructor
      * @param greeter {module:mpenc/greet/greeter.Greeter} Greeter, context
      * @param store {?module:mpenc/greet/greeter.GreetStore} GreetStore
@@ -1263,34 +1261,33 @@ define([
         this.metadata = null;
         this._metadataIsAuthenticated = false;
         // We can keep the old state around for further use.
-        this.oldState = store;
+        this.prevState = store;
         return this;
     };
     ns.Greeting = Greeting;
 
     /**
-     * Get the old security for this Greeting.
+     * Get the previous GreetStore for this Greeting.
      *
      * @returns The previous GreetStore for the last session.
      */
     Greeting.prototype.getPrevState = function() {
-        return this.oldState;
+        return this.prevState;
     };
 
     /**
-     * Get the old members for the previous Greeting.
-     * MH: Added this to satisfy the interface found in mpenc_py.
+     * Get the members for the previous Greeting.
      *
-     * @returns {array<string>} The previous members of the old Greeting.
+     * @returns {array<string>} The members of the previous Greeting.
      */
     Greeting.prototype.getPrevMembers = function() {
-        return this.oldState.members.slice();
+        return this.prevState.members.slice();
     };
 
     /**
      * Get the new members for this Greeting.
      *
-     * @returns {array<string>} The new members for this Greeting.
+     * @returns {array<string>} The members for this Greeting.
      */
     Greeting.prototype.getMembers = function() {
         return this.askeMember.members.slice();
@@ -1402,22 +1399,19 @@ define([
     /**
      * Mechanism to start a new upflow for including new members.
      *
-     * MH: Added the new mebers being added to the group to satisfy
-     * Greeting interface in mpenc_py.
-     *
      * @method
-     * @param newMembers {Array}
-     *     Iterable of new members to include into the group.
+     * @param includeMembers {Array}
+     *     Array of members to include into the group.
      * @returns {object}
      *      The message to commence inclusion.
      */
-    Greeting.prototype.include = function(newMembers) {
+    Greeting.prototype.include = function(includeMembers) {
         this._assertState([ns.STATE.READY],
                 'include() can only be called from a ready state.');
-        _assert(newMembers && newMembers.length !== 0, 'No members to add.');
-        this.newMembers = newMembers;
-        var cliquesMessage = this.cliquesMember.akaJoin(newMembers);
-        var askeMessage = this.askeMember.join(newMembers);
+        _assert(includeMembers && includeMembers.length !== 0, 'No members to add.');
+        this.includeMembers = includeMembers;
+        var cliquesMessage = this.cliquesMember.akaJoin(includeMembers);
+        var askeMessage = this.askeMember.join(includeMembers);
 
         var packet = this._mergeMessages(cliquesMessage, askeMessage);
         packet.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
@@ -1542,7 +1536,7 @@ define([
             // the packet-id of the proposal into the session-id
         }
 
-        var oldState = this._opState;
+        var prevState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
             return;
