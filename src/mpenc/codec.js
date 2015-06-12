@@ -155,7 +155,6 @@ define([
         PREV_PF:           0x0301,
         CHAIN_HASH:        0x0302,
         LATEST_PM:         0x0303,
-        SEEN_IN_CHANNEL:   0x0304,
         // Error messages
         SEVERITY:          0x0201, // 513
     };

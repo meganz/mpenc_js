@@ -985,8 +985,7 @@ define([
             var prevPf = "prevPf";
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
-            var seenInChannel = ["2", "3"];
-            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents, seenInChannel);
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
             var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
                 _opState : ns.STATE.NULL
@@ -1009,9 +1008,8 @@ define([
             var prevPf = utils.sha256("prevPf");
             var chainHash = utils.sha256("chainHash");
             var parents = [utils.sha256("parents")];
-            var seenInChannel = ["2", "3"];
             var id = "1";
-            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents, seenInChannel);
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents);
             var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             var dummyGreetStore = {
                 _opState : ns.STATE.NULL
@@ -1030,7 +1028,6 @@ define([
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
             assert.strictEqual(m.metadata.author, id, "author not equal.");
             assert.deepEqual(m.metadata.parents.toArray(), parents, "parents not equal.");
-            assert.deepEqual(m.metadata.seenInChannel.toArray(), seenInChannel);
             var dummyGreetStoreTwo = {
                 _opState : ns.STATE.NULL
             };

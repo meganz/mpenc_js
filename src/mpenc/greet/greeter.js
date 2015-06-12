@@ -724,7 +724,6 @@ define([
             out += codec.encodeTLV(codec.TLV_TYPE.PREV_PF, metadata.prevPf);
             out += codec.encodeTLV(codec.TLV_TYPE.CHAIN_HASH, metadata.prevCh);
             out += codec._encodeTlvArray(codec.TLV_TYPE.LATEST_PM, metadata.parents.toArray());
-            out += codec._encodeTlvArray(codec.TLV_TYPE.SEEN_IN_CHANNEL, metadata.seenInChannel.toArray());
         }
         //
         if (message.sessionSignature) {
@@ -757,20 +756,17 @@ define([
      *      The last seen messages.
      * @constructor
      */
-    var GreetingMetadata = struct.createTupleClass(
-        "prevPf", "prevCh", "author", "parents", "seenInChannel");
+    var GreetingMetadata = struct.createTupleClass("prevPf", "prevCh", "author", "parents");
 
     GreetingMetadata.prototype.postInit = function() {
         _assert(typeof this.prevPf === "string");
         _assert(typeof this.prevCh === "string");
         _assert(typeof this.author === "string");
         _assert(this.parents instanceof ImmutableSet);
-        _assert(this.seenInChannel instanceof ImmutableSet);
     };
 
-    GreetingMetadata.create = function(prevPf, prevCh, author, parents, seenInChannel) {
-        return new this(prevPf, prevCh, author,
-                        new ImmutableSet(parents), new ImmutableSet(seenInChannel));
+    GreetingMetadata.create = function(prevPf, prevCh, author, parents) {
+        return new this(prevPf, prevCh, author, new ImmutableSet(parents));
     };
 
     ns.GreetingMetadata = GreetingMetadata;
@@ -921,7 +917,7 @@ define([
     };
 
     ns._popTLVMetadata = function(rest, source, search, action) {
-        var prevPf, chainHash, parents = [], seenInChannel = [];
+        var prevPf, chainHash, parents = [];
 
         if (search) {
             // search until we find one, or throw an error
@@ -947,11 +943,8 @@ define([
         rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
             parents.push(value);
         });
-        rest = codec.popTLVAll(rest, codec.TLV_TYPE.SEEN_IN_CHANNEL, function(value) {
-            seenInChannel.push(value);
-        });
 
-        action(GreetingMetadata.create(prevPf, chainHash, source, parents, seenInChannel));
+        action(GreetingMetadata.create(prevPf, chainHash, source, parents));
         return rest;
     };
 
