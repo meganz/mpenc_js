@@ -741,20 +741,27 @@ define([
     };
 
 
-    //////////////////// GreetingMetadata ////////////////////////
-
     /**
-     * The metadata for an initial protocol message.
+     * Metadata about the context of a greeting.
      *
-     * @param prevPf {string}
-     *      The id of the previous final message.
-     * @param prevCh
-     *      The ChainHash from the previous protocol flow.
-     * @param author
-     *      The id of the sender.
-     * @param parents
-     *      The last seen messages.
-     * @constructor
+     * <p>This is attached to the initial message of every greeting operation.</p>
+     *
+     * <p>Users should prefer the <code>create</code> factory method instead of
+     * this constructor.</p>
+     *
+     * @class
+     * @property prevPf {string}
+     *      The packet-id of the previous operation's final message. If there
+     *      was no previous operation, a random id should be used here instead.
+     * @property prevCh {string}
+     *      The ChainHash corresponding to prevPf.
+     * @property author {string}
+     *      The author of this initial message (i.e. initiator of the greeting).
+     * @property parents {module:mpenc/helper/struct.ImmutableSet}
+     *      The ids of the messages last seen by the author. (i.e. same as
+     *      <code>session.transcript().max()</code>).
+     * @see module:mpenc/greet/greeter.GreetingMetadata.create
+     * @memberOf module:mpenc/greet/greeter
      */
     var GreetingMetadata = struct.createTupleClass("prevPf", "prevCh", "author", "parents");
 
@@ -765,27 +772,39 @@ define([
         _assert(this.parents instanceof ImmutableSet);
     };
 
+    /**
+     * Wrapper around the constructor that automatically converts its arguments
+     * into types that are valid for the class.
+     *
+     * @param prevPf {string}
+     * @param prevCh {string}
+     * @param author {string}
+     * @param parents {Iterable}
+     * @returns {module:mpenc/greet/greeter.GreetingMetadata}
+     */
     GreetingMetadata.create = function(prevPf, prevCh, author, parents) {
         return new this(prevPf, prevCh, author, new ImmutableSet(parents));
     };
 
     ns.GreetingMetadata = GreetingMetadata;
 
+
     /**
-     * The summary for an initial or final message.
+     * Summary of an initial or final greeting (membership operation) message.
      *
-     * @param pId {string}
-     *      The id of the message.
-     * @param metadata
+     * @class
+     * @property pId {string}
+     *      The packet-id of the message.
+     * @property metadata {?module:mpenc/greet/greeter.GreetingMetadata}
      *      The metadata for the message, if it is an initial protocol flow message.
-     * @param prevPi
+     * @property prevPi {?string}
      *      The previous pI for the protocol flow, if it is a final protocol flow message.
-     * @param newMembers
+     * @param newMembers {module:mpenc/helper/struct.ImmutableSet}
      *      The new members for the flow.
-     * @constructor
+     * @see module:mpenc/greet/greeter.GreetingSummary.create
+     * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingSummary = struct.createTupleClass(
-        "pId", "metadata", "prevPi", "newMembers");
+    var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "newMembers");
 
     GreetingSummary.prototype.postInit = function() {
         _assert(typeof this.pId === "string");
@@ -811,15 +830,27 @@ define([
         return this.prevPi !== null;
     };
 
+    /**
+     * Wrapper around the constructor that automatically converts its arguments
+     * into types that are valid for the class.
+     *
+     * @param pId {string}
+     * @param metadata {?module:mpenc/greet/greeter.GreetingMetadata}
+     * @param prevPi {?string}
+     * @param parents {Iterable}
+     * @returns {module:mpenc/greet/greeter.GreetingSummary}
+     */
     GreetingSummary.create = function(pId, metadata, prevPi, newMembers) {
         return new this(pId, metadata || null, prevPi || null, new ImmutableSet(newMembers));
     };
 
     ns.GreetingSummary = GreetingSummary;
 
+
     /**
-     * Greeter is used to test for pI and pF messages, create GreetingSummary and GreetingMetadata
-     * objects on these messages,
+     * Greeter is used to test for pI and pF messages, create GreetingSummary
+     * and GreetingMetadata objects on these messages,
+     *
      * @constructor
      * @param id {string}
      *      The owner of this greeter.
@@ -989,8 +1020,8 @@ define([
         if (oldMembers.size === 0 && newMembers.size > 0) {
             return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : newMembers};
         }
-         //If newMembers does not contain this member, and is the only member not
-         //present, then we must be quitting.
+        //If newMembers does not contain this member, and is the only member not
+        //present, then we must be quitting.
         else if (diff[0].has(owner) && diff[0].length === 1) {
             return {greetType : ns.GREET_TYPE.QUIT_DOWN, members : diff[0] };
         }
