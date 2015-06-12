@@ -869,7 +869,7 @@ define([
 
         // The current proposal started by the local user, if one is pending
         this.proposedGreeting = null;
-        this.proposedPi = null;
+        this.proposalHash = null;
         // The current operating greeting, if an operation is in progress.
         this.currentGreeting = null;
         this.currentPi = null;
@@ -886,11 +886,11 @@ define([
      * @returns {*}
      *      A GreetingSummary object if this is pI or pF, null otherwise.
      */
-    Greeter.prototype.partialDecode = function(pubtxt, prevMembers, from) {
+    Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, channelMembers) {
         _assert(pubtxt);
         var decMessage = codec.decodeWirePacket(pubtxt);
         var rest = decMessage.content;
-        var pId = ns.makePid(rest);
+        var pId = ns._makePid(rest, from, channelMembers);
 
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
         rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE);
@@ -1047,7 +1047,7 @@ define([
      * @param metadata
      * @param greetType
      */
-    Greeter.prototype.encode = function(prevGreetStore, metadata, prevMembers, members) {
+    Greeter.prototype.encode = function(prevGreetStore, prevMembers, members, metadata) {
         if (!metadata) {
             throw new Error("missing metadata");
         }
@@ -1055,7 +1055,7 @@ define([
         var message = null;
         var greeting = new Greeting(this, prevGreetStore);
         var greetData = ns._determineFlowType(this.id, prevMembers, members);
-        switch(greetData.greetType) {
+        switch (greetData.greetType) {
             case ns.GREET_TYPE.INIT_INITIATOR_UP:
                 message = greeting.start(greetData.members.toArray());
                 break;
@@ -1081,9 +1081,9 @@ define([
         var payLoad = ns.encodeGreetMessage(message, greeting.getEphemeralPrivKey(),
             greeting.getEphemeralPubKey());
 
-        var pI = ns.makePid(payLoad);
+        var pHash = ns._makePacketHash(payLoad);
         this.proposedGreeting = greeting;
-        this.proposedPi = pI;
+        this.proposalHash = pHash;
 
         return payLoad;
     };
@@ -1094,12 +1094,13 @@ define([
      * @param pubTxt
      * @returns {*}
      */
-    Greeter.prototype.decode = function(from, prevGreetStore, pubtxt) {
+    Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, channelMembers) {
         var message = codec.decodeWirePacket(pubtxt);
-        var pId = ns.makePid(message.content);
+        var pHash = ns._makePacketHash(message.content);
+        var pId = ns._makePid(message.content, from, channelMembers);
 
         // This is our message, so reuse the already-created greeting.
-        if (this.proposedGreeting && this.proposedPi === pId) {
+        if (this.proposedGreeting && this.proposalHash === pHash) {
             this.currentGreeting = this.proposedGreeting;
         }
         // Otherwise, just create a new greeting.
@@ -1114,13 +1115,23 @@ define([
         // Clear the proposedGreeting field.
         this.currentPi = pId;
         this.proposedGreeting = null;
-        this.proposedPi = null;
+        this.proposalHash = null;
 
         return this.currentGreeting;
     };
 
-    ns.makePid = function(packet) {
+    ns._makePacketHash = function(packet) {
+        // the packet-id depends on the channelMembers, so we can't calculate
+        // it when we send the packet. so calculate a packetHash instead.
         return utils.sha256(packet);
+    };
+
+    ns._makePid = function(packet, sender, channelMembers) {
+        _assert(typeof sender === "string");
+        _assert(channelMembers instanceof ImmutableSet);
+        _assert(channelMembers.has(sender));
+        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
+        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
     };
 
     ns.Greeter = Greeter;
@@ -1508,8 +1519,8 @@ define([
     };
 
 
-    Greeting.prototype.processIncoming = function(from, content) {
-        var pId = ns.makePid(content);
+    Greeting.prototype.processIncoming = function(content, from, channelMembers) {
+        var pId = ns._makePid(content, from, channelMembers);
         var decodedMessage = null;
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
