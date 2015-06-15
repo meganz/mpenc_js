@@ -50,6 +50,10 @@ define([
 
     var logger = MegaLogger.getLogger('greeter', undefined, 'greet');
 
+    var _logIgnored = function(id, pId, message) {
+        logger.info(id + ": ignored " + btoa(pId) + "; " + message);
+    };
+
     // Message type bit mapping
     ns._AUX_BIT = 0;
     ns._DOWN_BIT = 1;
@@ -945,7 +949,7 @@ define([
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
-                logger.info("ignored " + btoa(pId) + "; it is a downflow message but there is no current Greeting");
+                _logIgnored(this.id, pId, "it is a downflow message but there is no current Greeting");
                 return null;
             }
             // Test if this is the final message.
@@ -964,7 +968,7 @@ define([
         if (greetingSummary && (from === this.id || source === this.id)) {
             var pHash = ns._makePacketHash(message.content);
             if (this.proposalHash !== pHash) {
-                logger.info("ignored " + btoa(pHash) + "; it claims to be from us but we did not send it");
+                _logIgnored(this.id, pHash, "(pHash) it claims to be from us but we did not send it");
                 return null;
             }
         }
@@ -1008,7 +1012,7 @@ define([
             if (source === yetToAuthenticate[0]) {
                 return true;
             }
-            logger.info("ignored " + btoa(pId) + "; possible final message but not from expected source.");
+            _logIgnored(this.id, pId, "possible final message but not from expected source.");
         }
         return false;
     };
@@ -1563,13 +1567,13 @@ define([
         if (this.metadata) {
             if (decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
-                logger.info("ignored " + btoa(pHash) + "; (pHash) it has metadata but greeting is already started");
+                _logIgnored(this.id, pHash, "(pHash) it has metadata but greeting is already started");
                 return false;
             }
         } else {
             if (!decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
-                logger.info("ignored " + btoa(pHash) + "; (pHash) it has no metadata but greeting not yet started");
+                _logIgnored(this.id, pHash, "(pHash) it has no metadata but greeting not yet started");
                 return false;
             }
             this.metadata = decodedMessage.metadata;
