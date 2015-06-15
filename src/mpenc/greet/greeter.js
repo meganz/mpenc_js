@@ -904,9 +904,11 @@ define([
      * @returns {?module:mpenc/greet/greeter.GreetingSummary}
      */
     Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, channelMembers) {
-        _assert(pubtxt);
-        var decMessage = codec.decodeWirePacket(pubtxt);
-        var rest = decMessage.content;
+        var message = codec.decodeWirePacket(pubtxt);
+        if (message.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
+            return null;
+        }
+        var rest = message.content;
         var pId = ns._makePid(rest, from, channelMembers);
 
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
@@ -960,7 +962,7 @@ define([
         }
 
         if (greetingSummary && (from === this.id || source === this.id)) {
-            var pHash = ns._makePacketHash(decMessage.content);
+            var pHash = ns._makePacketHash(message.content);
             if (this.proposalHash !== pHash) {
                 logger.info("ignored " + btoa(pHash) + "; it claims to be from us but we did not send it");
                 return null;
@@ -1053,9 +1055,9 @@ define([
      * it should not mutate state in a way that is non-reversible, since the
      * operation may be rejected by the resolution mechanism.
      *
-     * @param prevGreetStore {module:mpenc/greet/greeter.GreetStore}
+     * @param prevGreetStore {?module:mpenc/greet/greeter.GreetStore}
      *      Greeting state of the previous (i.e. currently active) sub-session.
-     * @param prevMembers {module:mpenc/helper/struct.ImmutableSet}
+     * @param prevMembers {?module:mpenc/helper/struct.ImmutableSet}
      *      Membership of the previous (i.e. currently active) sub-session.
      * @param members {module:mpenc/helper/struct.ImmutableSet}
      *      The desired members of the new sub-session.
@@ -1065,6 +1067,7 @@ define([
      *      Encoded data to send out to the transport.
      */
     Greeter.prototype.encode = function(prevGreetStore, prevMembers, members, metadata) {
+        prevMembers = prevMembers || new ImmutableSet([this.id]);
         _assert(metadata);
         _assert(prevMembers.has(this.id));
         _assert(members.has(this.id));
@@ -1094,15 +1097,16 @@ define([
         }
 
         _assert(message.metadata === null);
-        message.metadata = greeting.metadata = metadata;
+        message.metadata = metadata;
+        // no need to set greeting.metadata here, it will be set automatically
+        // by greeting.recv() if the proposal is accepted
         var payLoad = ns.encodeGreetMessage(message, greeting.getEphemeralPrivKey(),
             greeting.getEphemeralPubKey());
 
-        var pHash = ns._makePacketHash(payLoad);
         this.proposedGreeting = greeting;
-        this.proposalHash = pHash;
+        this.proposalHash = ns._makePacketHash(payLoad);
 
-        return payLoad;
+        return codec.encodeWirePacket(payLoad);
     };
 
     /**
@@ -1112,7 +1116,7 @@ define([
      * been accepted by the resolution mechanism. Therefore, it may (and must)
      * mutate local state as appropriate for the operation.
      *
-     * After this method returns a Greeting, the params (pubtxt, sender) that
+     * After this method returns a Greeting, the params [pubtxt, sender] that
      * were input here are automatically also passed into its recv() method.
      * This allows the Greeting to complete within one packet if necessary, and
      * might also simplify the object's constructor.
@@ -1344,7 +1348,7 @@ define([
         if (this._opState !== ns.STATE.READY) {
             throw new Error("Greeting not yet finished");
         }
-        return new GreetStore(this.id,
+        return new GreetStore(
             this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
             this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
@@ -1382,14 +1386,15 @@ define([
             packet,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
+        var recipients = new ImmutableSet((packet.dest)? [packet.dest]: this.getMembers());
         // TODO(xl): use a RawSendT instead of Array[2]
-        this._send.publish([packet.dest, payload]);
+        this._send.publish([codec.encodeWirePacket(payload), recipients]);
         if (state !== undefined) {
             this._updateOpState(state);
         }
     };
 
-    Greeting.prototype.subscribeSend = function(subscriber) {
+    Greeting.prototype.onSend = function(subscriber) {
         return this._send.subscribe(subscriber);
     };
 
@@ -1536,8 +1541,14 @@ define([
     };
 
 
-    Greeting.prototype.processIncoming = function(content, from, channelMembers) {
-        var pId = ns._makePid(content, from, channelMembers);
+    Greeting.prototype.recv = function(recv_in) {
+        var pubtxt = recv_in[0], from = recv_in[1];
+        var message = codec.decodeWirePacket(pubtxt);
+        if (message.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
+            return false;
+        }
+        var content = message.content;
+
         var decodedMessage = null;
         if (this.getEphemeralPubKey()) {
             // In case of a key refresh (groupKey existent),
@@ -1551,13 +1562,15 @@ define([
 
         if (this.metadata) {
             if (decodedMessage.metadata) {
-                logger.info("ignored " + btoa(pId) + "; it has metadata but greeting is already started");
-                return;
+                var pHash = ns._makePacketHash(content);
+                logger.info("ignored " + btoa(pHash) + "; (pHash) it has metadata but greeting is already started");
+                return false;
             }
         } else {
             if (!decodedMessage.metadata) {
-                logger.info("ignored " + btoa(pId) + "; it has no metadata but greeting not yet started");
-                return;
+                var pHash = ns._makePacketHash(content);
+                logger.info("ignored " + btoa(pHash) + "; (pHash) it has no metadata but greeting not yet started");
+                return false;
             }
             this.metadata = decodedMessage.metadata;
             // TODO(xl): #2350 need to tweak ske to verify metadata, e.g. by hashing
@@ -1567,7 +1580,7 @@ define([
         var prevState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
-            return;
+            return false;
         }
         if (result.decodedMessage) {
             this._encodeAndPublish(result.decodedMessage);
@@ -1575,7 +1588,7 @@ define([
         if (result.newState) {
             this._updateOpState(result.newState);
         }
-        return result.newState;
+        return true;
     };
 
 
@@ -1613,12 +1626,14 @@ define([
 
         // Ignore the message if it is not for me.
         if ((message.dest !== '') && (message.dest !== this.id)) {
-            return null;
+            return { decodedMessage: null,
+                     newState: null };
         }
 
         // Ignore the message if it is from me.
         if (message.source === this.id) {
-            return null;
+            return { decodedMessage: null,
+                     newState: null };
         }
 
         // State transitions.
@@ -1656,6 +1671,8 @@ define([
                 } else {
                     newState = ns.STATE.INIT_DOWNFLOW;
                 }
+            } else {
+                // TODO(gk): what happens here?
             }
         } else {
             // Upflow message.

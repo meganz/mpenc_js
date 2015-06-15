@@ -777,7 +777,8 @@ define([
                 participant._opState = ns.STATE.INIT_UPFLOW;
                 var result = participant._processMessage(
                         new ns.GreetMessage(message));
-                assert.strictEqual(result, null);
+                assert.strictEqual(result.decodedMessage, null);
+                assert.strictEqual(result.newState, null);
             });
 
             it('processing for a downflow from me', function() {
@@ -790,7 +791,8 @@ define([
                                 members: ['1', '3', '4', '5'] };
                 participant._opState = ns.STATE.AUX_DOWNFLOW;
                 var result = participant._processMessage(new ns.GreetMessage(message));
-                assert.strictEqual(result, null);
+                assert.strictEqual(result.decodedMessage, null);
+                assert.strictEqual(result.newState, null);
             });
         });
     });
@@ -972,7 +974,7 @@ define([
                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                 members: ['1', '3', '2', '4', '5'],
                 metadata: null };
-            var dummyGreeting = { id : "1", subscribeSend : doNothing,
+            var dummyGreeting = { id : "1", onSend : doNothing,
                 start : function(value) { return dummyMessage; },
                 getEphemeralPrivKey : function() { return _td.ED25519_PRIV_KEY; },
                 getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; } };
@@ -1005,7 +1007,6 @@ define([
             var nextMembers = channelMembers;
             var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt, "pubtxt not ok.");
-            pubtxt = codec.encodeWirePacket(pubtxt);
             var m = gtr.partialDecode(prevMem, pubtxt, "1", channelMembers);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, "chainHash", "chainHash not equal");
@@ -1031,7 +1032,6 @@ define([
             var nextMembers = channelMembers;
             var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt, "pubtxt not ok.");
-            pubtxt = "?mpENC:" + btoa(pubtxt) + ".";
 
             // Check the message with the other user.
             var gtrTwo = new ns.Greeter("2", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
@@ -1047,15 +1047,15 @@ define([
 
             var nGreeting = gtrTwo.decode(dummyGreetStoreTwo, prevMem, pubtxt, "1", channelMembers);
             var dest;
-            nGreeting.subscribeSend(function(send_out) { dest = send_out[0]; return true; });
-            var decMessage = codec.decodeWirePacket(pubtxt);
-            nGreeting.processIncoming(decMessage.content, "1", channelMembers);
+            nGreeting.onSend(function(send_out) { dest = send_out[1]; return true; });
+            var status = nGreeting.recv([pubtxt, "1"]);
+            assert.ok(status);
             assert.ok(nGreeting, "nGreeting is null.");
             assert.ok(nGreeting.askeMember.members, "askeMember.members is null.");
             assert.strictEqual(nGreeting._opState, ns.STATE.INIT_UPFLOW, "state is not equal.");
             assert.deepEqual(nGreeting.askeMember.members, ["1", "2", "3"], "Members are not equal.");
             //assert.strictEqual(nGreeting.metadataIsAuthenticated(), true, "metadata is not authenticated.");
-            assert.strictEqual(dest, "3", "Destination not correct.");
+            assert.deepEqual(dest.toArray(), ["3"], "Destination not correct.");
 
             // Check the message with ourselves.Save a backup to ensure it is ours.
             var savedGreeting = gtr.proposedGreeting;
