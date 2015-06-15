@@ -848,18 +848,21 @@ define([
 
 
     /**
-     * Greeter is used to test for pI and pF messages, create GreetingSummary
-     * and GreetingMetadata objects on these messages,
+     * Greeter tests for pI and pF messages, decodes these into GreetingSummary
+     * and GreetingMetadata objects, and encodes local outgoing proposals for
+     * Greetings.
      *
-     * @constructor
+     * @class
      * @param id {string}
      *      The owner of this greeter.
      * @param privKey {string}
      *      The static private key for this member.
      * @param pubKey {string}
      *      The static public key for this member.
-     * @param statiPubKeyDir {function}
-     *      The callback for obtaining static public keys for other members.
+     * @param staticPubKeyDir {function}
+     *      Object with a 1-arg "get" method for obtaining static public keys
+     *      for other members.
+     * @memberOf module:mpenc/greet/greeter
      */
     var Greeter = function(id, privKey, pubKey, staticPubKeyDir) {
         this.id = id;
@@ -876,15 +879,29 @@ define([
     };
 
     /**
-     * Tests if the supplied message is an initial or final message. If it is either, then
-     * a GreetingSummary object is returned. A GreetingMetadata object will be present in
-     * the GreetingSummary object if it is an initial message - otherwise the prevPi will
-     * be included. Any other message will have null returned.
+     * Partially decode a greeting proposal.
      *
+     * Determine if the supplied message is an initial or final message of a
+     * membership operation. If either, then a GreetingSummary object is
+     * returned, otherwise <code>null</code>.
+     *
+     * This is called *before* the packet is accepted or rejected. Therefore,
+     * it should not mutate state in a way that is non-reversible, since the
+     * proposal may be rejected by the resolution mechanism.
+     *
+     * Roughly, this can be thought of as the analogue of a "peek" or "inspect"
+     * method that exists in some APIs for other things.
+     *
+     * @param prevMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      Membership of the previous (i.e. currently active) sub-session.
      * @param pubtxt {string}
-     *      The original received wireMessage.
-     * @returns {*}
-     *      A GreetingSummary object if this is pI or pF, null otherwise.
+     *      The original data received from the transport.
+     * @param from {string}
+     *      The unauthenticated (transport) sender of the message.
+     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      The unauthenticated membership of the group transport channel at
+     *      the time that the message was received.
+     * @returns {?module:mpenc/greet/greeter.GreetingSummary}
      */
     Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, channelMembers) {
         _assert(pubtxt);
@@ -930,18 +947,24 @@ define([
                 return null;
             }
             // Test if this is the final message.
-            var pF = this._testFinalMessage(decMessage, source);
-            if (pF) {
+            if (this._testFinalMessage(pId, source)) {
                 greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
             }
         }
         // Exclude message need special attention.
         else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
                 mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
-            rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
             ns._popTLVMetadata(rest, source, true, function(value) {
                 greetingSummary = GreetingSummary.create(pId, value, pId, members);
             });
+        }
+
+        if (greetingSummary && (from === this.id || source === this.id)) {
+            var pHash = ns._makePacketHash(decMessage.content);
+            if (this.proposalHash !== pHash) {
+                logger.info("ignored " + btoa(pHash) + "; it claims to be from us but we did not send it");
+                return null;
+            }
         }
 
         return greetingSummary;
@@ -951,21 +974,17 @@ define([
         var prevPf, chainHash, parents = [];
 
         if (search) {
-            // search until we find one, or throw an error
+            // search until we find one
             rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
-            rest = codec.popTLV(rest, codec.TLV_TYPE.PREV_PF, function(value) {
-                prevPf = value;
-            });
-        } else {
+        }
+        var newRest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
+            prevPf = value;
+        });
+        if (prevPf === undefined) {
             // just return rest if we don't immediately hit PREV_PF
-            var newRest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
-                prevPf = value;
-            });
-            if (newRest === rest) {
-                return rest;
-            } else {
-                rest = newRest;
-            }
+            return rest;
+        } else {
+            rest = newRest;
         }
 
         rest = codec.popTLV(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
@@ -979,27 +998,17 @@ define([
         return rest;
     };
 
-    /**
-     * This is used to test for final messages. The hash of the message is returned
-     * if it proves to be so.
-     *
-     * @param decMessage {string} The message to test.
-     * @param source {string} The source of the message.
-     * @returns {*} The hash of the message if it is a final message, null otherwise.
-     * @private
-     */
-    Greeter.prototype._testFinalMessage = function(decMessage, source) {
+    Greeter.prototype._testFinalMessage = function(pId, source) {
+        // check to see if message matches what the current greeting is expecting
         var yetToAuthenticate = this.currentGreeting.askeMember.yetToAuthenticate();
         _assert(yetToAuthenticate.length > 0, "Members have all been authenticated.");
-        var pF = false;
         if (yetToAuthenticate.length === 1) {
-            if (source !== yetToAuthenticate[0]) {
-                throw Error("Final received message is not from expected source.");
+            if (source === yetToAuthenticate[0]) {
+                return true;
             }
-            pF = true;
+            logger.info("ignored " + btoa(pId) + "; possible final message but not from expected source.");
         }
-
-        return pF;
+        return false;
     };
 
     ns._determineFlowType = function(owner, prevMembers, members) {
@@ -1035,10 +1044,25 @@ define([
     };
 
     /**
+     * Encode a new Greeting proposal, given local context.
      *
-     * @param prevGreetStore
-     * @param metadata
-     * @param greetType
+     * This encodes only initial packets, and returns raw data to send to the
+     * other members.
+     *
+     * This is called *before* the packet is accepted or rejected. Therefore,
+     * it should not mutate state in a way that is non-reversible, since the
+     * operation may be rejected by the resolution mechanism.
+     *
+     * @param prevGreetStore {module:mpenc/greet/greeter.GreetStore}
+     *      Greeting state of the previous (i.e. currently active) sub-session.
+     * @param prevMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      Membership of the previous (i.e. currently active) sub-session.
+     * @param members {module:mpenc/helper/struct.ImmutableSet}
+     *      The desired members of the new sub-session.
+     * @param metadata {?module:mpenc/greet/greeter.GreetingMetadata}
+     *      The metadata for the message, to help preserve ordering.
+     * @returns {string}
+     *      Encoded data to send out to the transport.
      */
     Greeter.prototype.encode = function(prevGreetStore, prevMembers, members, metadata) {
         _assert(metadata);
@@ -1082,10 +1106,33 @@ define([
     };
 
     /**
-     * TODO(xl): #2350 DOC
-     * @param prevGreetStore
-     * @param pubTxt
-     * @returns {*}
+     * Decode an incoming accepted Greeting, assuming local context.
+     *
+     * This decodes only initial packets, and is called *after* the packet has
+     * been accepted by the resolution mechanism. Therefore, it may (and must)
+     * mutate local state as appropriate for the operation.
+     *
+     * After this method returns a Greeting, the params (pubtxt, sender) that
+     * were input here are automatically also passed into its recv() method.
+     * This allows the Greeting to complete within one packet if necessary, and
+     * might also simplify the object's constructor.
+     *
+     * @param prevGreetStore {module:mpenc/greet/greeter.GreetStore}
+     *      Greeting state of the previous (i.e. currently active) sub-session.
+     * @param prevMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      Membership of the previous (i.e. currently active) sub-session.
+     * @param pubtxt {string}
+     *      The original data received from the transport.
+     * @param from {string}
+     *      The unauthenticated (transport) sender of the message.
+     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      The unauthenticated membership of the group transport channel at
+     *      the time that the message was received.
+     * @returns {module:mpenc/greet/greeter.Greeting}
+     * @throws This method (and future versions of it) tries to avoid throwing
+     *      an error here, and instead these are detected during partialDecode.
+     *      However, if this does need to occur for whatever reason, then the
+     *      caller will treat this as an *immediate failure* of the operation.
      */
     Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, channelMembers) {
         var message = codec.decodeWirePacket(pubtxt);
@@ -1098,10 +1145,7 @@ define([
         }
         // Otherwise, just create a new greeting.
         else {
-            if (message.source === this.id) {
-                logger.info("ignored " + btoa(pId) + "; it claims to be from us but we did not send it");
-                return null;
-            }
+            _assert(message.source !== this.id);
             this.currentGreeting = new Greeting(this, prevGreetStore);
         }
 
@@ -1110,6 +1154,7 @@ define([
         this.proposedGreeting = null;
         this.proposalHash = null;
 
+        _assert(this.currentGreeting !== null);
         return this.currentGreeting;
     };
 
@@ -1130,51 +1175,45 @@ define([
     ns.Greeter = Greeter;
 
     /**
-     * @description SessionStore holds all of the public and private data required to
-     * restore a greet object to a given state.
+     * GreetStore holds all of the public and private data required to start
+     * a Greeting operation, that may be based on the result of previously
+     * completed operations.
      *
      * @constructor
-     * @param id {string}
-     *      The id for <b>this</b> member.
-     * @param privKey
-     *      The static private key for <b>this</b> member.
-     * @param pubKey
-     *      The static public key for <b>this</b> member.
-     * @param staticPubKeyDir
-     *      Callback to obtain public keys for <b>other</b> memebrs.
-     * @property state {?number}
-     *      The state of the last Greeting.
-     * @property members {?array<string>}
+     * @param [opState] {number}
+     *      The state of the last Greeting; must be NULL or READY.
+     * @param [members] {array<string>}
      *      The members for the greet session.
      *
-     * @property sessionId {?string}
+     * @param [sessionId] {string}
      *      The id for the session.
-     * @property ephemeralPrivKey {?string}
+     * @param [ephemeralPrivKey] {string}
      *      The ephemeral private key for <b>this</b> member.
-     * @property ephemeralPubKey {?string}
+     * @param [ephemeralPubKey] {string}
      *      The ephemeral public key for <b>this</b> member.
-     * @property nonce {?string}
+     * @param [nonce] {string}
      *      The nonce for <b>this</b> member.
-     * @property ephemeralPubKeys {?array<string>}
+     * @param [ephemeralPubKeys] {array<string>}
      *      The ephemeral signing keys for the other members in the chat session.
-     * @property nonces {?array<string>}
+     * @param [nonces] {array<string>}
      *      The nonces for the other members in the chat session.
      *
-     * @property groupKey {?string}
+     * @param [groupKey] {string}
      *      The group secret key for this session.
-     * @property privKeyList {?array<string>}
+     * @param [privKeyList] {array<string>}
      *      The list of private contributions for <b>this</b> member.
-     * @property intKeys {?array<string>}
+     * @param [intKeys] {array<string>}
      *      The list of previous initial keys for all members.
+     * @memberOf module:mpenc/greet/greeter
      */
-    var GreetStore = function(state, members,
+    var GreetStore = function(opState, members,
             sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
             groupKey, privKeyList, intKeys) {
-        this._opState = state || ns.STATE.NULL;
+        this._opState = opState || ns.STATE.NULL;
         this.members = utils.clone(members) || [];
         _assert(this._opState === ns.STATE.READY || this._opState === ns.STATE.NULL,
             "tried to create a GreetStore on a state other than NULL or READY: " +
-            ns.STATE_MAPPING[state]);
+            ns.STATE_MAPPING[opState]);
 
         // Aske Objects.
         this.sessionId = utils.clone(sessionId) || null;
@@ -1206,31 +1245,16 @@ define([
 
     ns.GreetStore = GreetStore;
 
-    /**
-     * @method
-     *
-     * @returns {string} The Ephemeral private key for this GreetStore.
-     */
-    GreetStore.prototype.getEphemeralPrivKey = function() {
-        return this.ephemeralPrivKey;
-    };
-
-    /**
-     * @method
-     *
-     * @returns {string} The ephemeral public key for this GreetStore.
-     */
-    GreetStore.prototype.getEphemeralPubKey = function() {
-        return this.ephemeralPubKey;
-    };
 
     /**
      * Implementation of a protocol handler with its state machine.
      *
-     * @constructor
-     * @param greeter {module:mpenc/greet/greeter.Greeter} Greeter, context
-     * @param store {?module:mpenc/greet/greeter.GreetStore} GreetStore
-     * @returns {Greeting}
+     * @class
+     * @param greeter {module:mpenc/greet/greeter.Greeter}
+     *      Context of this Greeting operation with various static information.
+     * @param [store] {module:mpenc/greet/greeter.GreetStore}
+     *      State at the end of the previously-completed operation, if any.
+     * @memberOf module:mpenc/greet/greeter
      */
     var Greeting = function(greeter, store) {
         store = store || new GreetStore();

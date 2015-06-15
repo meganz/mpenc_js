@@ -863,9 +863,7 @@ define([
                 ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN
             ];
 
-            var t = null;
-            var channelMembers = new Set(["1", "2"]);
-            var decodeMembers = channelMembers.toArray();
+            var t, decodeMembers;
             stubPartialDecodeInternals(function(type) {
                 switch(type) {
                 case codec.TLV_TYPE.GREET_TYPE: return t;
@@ -876,10 +874,14 @@ define([
                 case codec.TLV_TYPE.MEMBER: return decodeMembers.shift();
                 }
             });
+
+            sandbox.stub(ns, '_makePacketHash').returns(null);
+            var channelMembers = new Set(["1", "2"]);
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
+                decodeMembers = channelMembers.toArray();
                 var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
-                var greetSummary = gtr.partialDecode(prevMem, "random message", "2", channelMembers);
+                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
                 assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
             }
         });
@@ -891,9 +893,7 @@ define([
                 ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN
             ];
 
-            var t = null;
-            var channelMembers = new Set(["1", "2"]);
-            var decodeMembers = channelMembers.toArray();
+            var t, decodeMembers;
             stubPartialDecodeInternals(function(type) {
                 switch(type) {
                 case codec.TLV_TYPE.GREET_TYPE: return t;
@@ -901,8 +901,11 @@ define([
                 case codec.TLV_TYPE.MEMBER: return decodeMembers.shift();
                 }
             });
+
+            var channelMembers = new Set(["1", "2"]);
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
+                decodeMembers = channelMembers.toArray();
                 var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
                 var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
                 assert.notOk(greetSummary, "Failed to reject on: " + ns.GREET_TYPE_MAPPING[t]);
@@ -950,9 +953,9 @@ define([
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["3"]} } };
             var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
             gtr.currentGreeting = dummyGreeting;
-            assert.Throw(function() {
-                gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"]));
-            }, "Final received message is not from expected source.");
+            assert.deepEqual(
+                gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"])), null,
+                "Final received message is not from expected source.");
         });
 
         it("Test saving of greeter", function() {
@@ -1032,7 +1035,7 @@ define([
 
             // Check the message with the other user.
             var gtrTwo = new ns.Greeter("2", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
-            var m = gtrTwo.partialDecode(prevMem, pubtxt, "2", channelMembers);
+            var m = gtrTwo.partialDecode(prevMem, pubtxt, "1", channelMembers);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
