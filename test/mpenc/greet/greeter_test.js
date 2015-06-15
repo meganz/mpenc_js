@@ -55,6 +55,7 @@ define([
     };
 
     var doNothing = function(){};
+    var dummyPubKeyDir = { get: function() { return _td.ED25519_PUB_KEY; } };
     var prevMem = "UNUSED"; // partialDecode doesn't do anything with prevMembers, just pass in a dummy value
 
     // Create/restore Sinon stub/spy/mock sandboxes.
@@ -882,7 +883,7 @@ define([
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
                 decodeMembers = channelMembers.toArray();
-                var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+                var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
                 var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
                 assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
             }
@@ -908,7 +909,7 @@ define([
             for (var x = 0; x < acceptedTypes.length; x++) {
                 t = acceptedTypes[x];
                 decodeMembers = channelMembers.toArray();
-                var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+                var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
                 var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
                 assert.notOk(greetSummary, "Failed to reject on: " + ns.GREET_TYPE_MAPPING[t]);
             }
@@ -921,7 +922,7 @@ define([
                 case codec.TLV_TYPE.SOURCE: return "1";
                 }
             });
-            var gtr = new ns.Greeter("2", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             assert.strictEqual(gtr.partialDecode(
                 prevMem, "random message", "1", new Set(["1", "2"])), null);
 
@@ -936,7 +937,7 @@ define([
             });
             var prevPi = utils.sha256("randomMessage");
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["2"]} } };
-            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             gtr.currentPi = prevPi;
             gtr.currentGreeting = dummyGreeting;
             var summary = gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"]));
@@ -953,7 +954,7 @@ define([
                 }
             });
             var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["3"]} } };
-            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             gtr.currentGreeting = dummyGreeting;
             assert.deepEqual(
                 gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"])), null,
@@ -965,7 +966,7 @@ define([
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
-            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
 
             var dummyGreetStore = {
                 _opState : ns.STATE.NULL
@@ -997,7 +998,7 @@ define([
             var chainHash = "chainHash";
             var parents = [utils.sha256("parents")];
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
-            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             var dummyGreetStore = {
                 _opState : ns.STATE.NULL
             };
@@ -1022,7 +1023,7 @@ define([
             var parents = [utils.sha256("parents")];
             var id = "1";
             var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents);
-            var gtr = new ns.Greeter("1", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             var dummyGreetStore = {
                 _opState : ns.STATE.NULL
             };
@@ -1034,7 +1035,7 @@ define([
             assert.ok(pubtxt, "pubtxt not ok.");
 
             // Check the message with the other user.
-            var gtrTwo = new ns.Greeter("2", _td.BOB_PRIV, _td.BOB_PUB, doNothing);
+            var gtrTwo = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             var m = gtrTwo.partialDecode(prevMem, pubtxt, "1", channelMembers);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
