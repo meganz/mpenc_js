@@ -509,43 +509,6 @@ define([
 
 
     /**
-     * "Enumeration" defining the different stable and intermediate states of
-     * the mpENC module.
-     *
-     * @property NULL {integer}
-     *     Uninitialised (default) state.
-     * @property INIT_UPFLOW {integer}
-     *     During process of initial protocol upflow.
-     * @property INIT_DOWNFLOW {integer}
-     *     During process of initial protocol downflow.
-     * @property READY {integer}
-     *     Default state during general usage of mpENC. No protocol/key
-     *     negotiation going on, and a valid group key is available.
-     * @property AUX_UPFLOW {integer}
-     *     During process of auxiliary protocol upflow.
-     * @property AUX_DOWNFLOW {integer}
-     *     During process of auxiliary protocol downflow.
-     * @property QUIT {integer}
-     *     After quitting participation.
-     */
-    ns.STATE = {
-        NULL:          0x00,
-        INIT_UPFLOW:   0x01,
-        INIT_DOWNFLOW: 0x02,
-        READY:         0x03,
-        AUX_UPFLOW:    0x04,
-        AUX_DOWNFLOW:  0x05,
-        QUIT:          0x06,
-    };
-
-    /** Mapping of state to string representation. */
-    ns.STATE_MAPPING = {};
-    for (var propName in ns.STATE) {
-        ns.STATE_MAPPING[ns.STATE[propName]] = propName;
-    }
-
-
-    /**
      * Decodes a given TLV encoded Greet message into an object.
      *
      * @param message {string}
@@ -675,6 +638,68 @@ define([
     };
 
 
+    ns._popTLVMetadata = function(rest, source, search, action) {
+        var prevPf, chainHash, parents = [];
+
+        if (search) {
+            // search until we find one
+            rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
+        }
+        var newRest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
+            prevPf = value;
+        });
+        if (prevPf === undefined) {
+            // just return rest if we don't immediately hit PREV_PF
+            return rest;
+        } else {
+            rest = newRest;
+        }
+
+        rest = codec.popTLV(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
+            chainHash = value;
+        });
+        rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
+            parents.push(value);
+        });
+
+        action(GreetingMetadata.create(prevPf, chainHash, source, parents));
+        return rest;
+    };
+
+
+    ns._determineFlowType = function(owner, prevMembers, members) {
+        _assert(owner);
+        _assert(prevMembers.has(owner));
+        _assert(members.has(owner));
+
+        var ownSet = new ImmutableSet([owner]);
+        prevMembers = prevMembers.subtract(ownSet);
+        members = members.subtract(ownSet);
+        _assert(prevMembers.size || members.size);
+
+        var diff = prevMembers.diff(members);
+        var include = diff[0];
+        var exclude = diff[1];
+        var keeping = prevMembers.intersect(members);
+
+        // We can't both exclude and include members at the same time.
+        _assert(!(exclude.size && include.size), "Cannot both exclude and join members.");
+
+        if (include.size) {
+            if (!keeping.size) {
+                // no previous session, start() instead of include()
+                return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
+            } else {
+                return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : include};
+            }
+        } else if (exclude.size) {
+            return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : exclude};
+        } else {
+            return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : members};
+        }
+    };
+
+
     /**
      * Encodes a given greet message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
@@ -739,6 +764,22 @@ define([
         out = codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
 
         return out;
+    };
+
+
+    ns._makePacketHash = function(packet) {
+        // the packet-id depends on the channelMembers, so we can't calculate
+        // it when we send the packet. so calculate a packetHash instead.
+        return utils.sha256(packet);
+    };
+
+
+    ns._makePid = function(packet, sender, channelMembers) {
+        _assert(typeof sender === "string");
+        _assert(channelMembers instanceof ImmutableSet);
+        _assert(channelMembers.has(sender));
+        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
+        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
     };
 
 
@@ -971,66 +1012,6 @@ define([
         return greetingSummary;
     };
 
-    ns._popTLVMetadata = function(rest, source, search, action) {
-        var prevPf, chainHash, parents = [];
-
-        if (search) {
-            // search until we find one
-            rest = codec.popTLVUntil(rest, codec.TLV_TYPE.PREV_PF);
-        }
-        var newRest = codec.popTLVMaybe(rest, codec.TLV_TYPE.PREV_PF, function(value) {
-            prevPf = value;
-        });
-        if (prevPf === undefined) {
-            // just return rest if we don't immediately hit PREV_PF
-            return rest;
-        } else {
-            rest = newRest;
-        }
-
-        rest = codec.popTLV(rest, codec.TLV_TYPE.CHAIN_HASH, function(value) {
-            chainHash = value;
-        });
-        rest = codec.popTLVAll(rest, codec.TLV_TYPE.LATEST_PM, function(value) {
-            parents.push(value);
-        });
-
-        action(GreetingMetadata.create(prevPf, chainHash, source, parents));
-        return rest;
-    };
-
-    ns._determineFlowType = function(owner, prevMembers, members) {
-        _assert(owner);
-        _assert(prevMembers.has(owner));
-        _assert(members.has(owner));
-
-        var ownSet = new ImmutableSet([owner]);
-        prevMembers = prevMembers.subtract(ownSet);
-        members = members.subtract(ownSet);
-        _assert(prevMembers.size || members.size);
-
-        var diff = prevMembers.diff(members);
-        var include = diff[0];
-        var exclude = diff[1];
-        var keeping = prevMembers.intersect(members);
-
-        // We can't both exclude and include members at the same time.
-        _assert(!(exclude.size && include.size), "Cannot both exclude and join members.");
-
-        if (include.size) {
-            if (!keeping.size) {
-                // no previous session, start() instead of include()
-                return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
-            } else {
-                return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : include};
-            }
-        } else if (exclude.size) {
-            return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : exclude};
-        } else {
-            return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : members};
-        }
-    };
-
     /**
      * Encode a new Greeting proposal, given local context.
      *
@@ -1147,21 +1128,45 @@ define([
         return this.currentGreeting;
     };
 
-    ns._makePacketHash = function(packet) {
-        // the packet-id depends on the channelMembers, so we can't calculate
-        // it when we send the packet. so calculate a packetHash instead.
-        return utils.sha256(packet);
-    };
-
-    ns._makePid = function(packet, sender, channelMembers) {
-        _assert(typeof sender === "string");
-        _assert(channelMembers instanceof ImmutableSet);
-        _assert(channelMembers.has(sender));
-        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
-        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
-    };
-
     ns.Greeter = Greeter;
+
+
+    /**
+     * "Enumeration" defining the different stable and intermediate states of
+     * the mpENC module.
+     *
+     * @property NULL {integer}
+     *     Uninitialised (default) state.
+     * @property INIT_UPFLOW {integer}
+     *     During process of initial protocol upflow.
+     * @property INIT_DOWNFLOW {integer}
+     *     During process of initial protocol downflow.
+     * @property READY {integer}
+     *     Default state during general usage of mpENC. No protocol/key
+     *     negotiation going on, and a valid group key is available.
+     * @property AUX_UPFLOW {integer}
+     *     During process of auxiliary protocol upflow.
+     * @property AUX_DOWNFLOW {integer}
+     *     During process of auxiliary protocol downflow.
+     * @property QUIT {integer}
+     *     After quitting participation.
+     */
+    ns.STATE = {
+        NULL:          0x00,
+        INIT_UPFLOW:   0x01,
+        INIT_DOWNFLOW: 0x02,
+        READY:         0x03,
+        AUX_UPFLOW:    0x04,
+        AUX_DOWNFLOW:  0x05,
+        QUIT:          0x06,
+    };
+
+    /** Mapping of state to string representation. */
+    ns.STATE_MAPPING = {};
+    for (var propName in ns.STATE) {
+        ns.STATE_MAPPING[ns.STATE[propName]] = propName;
+    }
+
 
     /**
      * GreetStore holds all of the public and private data required to start
