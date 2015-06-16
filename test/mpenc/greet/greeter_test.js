@@ -724,6 +724,7 @@ define([
                 participant.askeMember.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
                 participant._opState = ns.STATE.INIT_DOWNFLOW;
                 participant.cliquesMember.groupKey = "bar";
+                participant._recvOwnAuthMessage = true;
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
@@ -936,8 +937,10 @@ define([
                 }
             });
             var prevPi = utils.sha256("randomMessage");
-            var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["2"]} } };
             var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreeting = new ns.Greeting(gtr);
+            dummyGreeting.askeMember.yetToAuthenticate = function(){ return ["2"]; };
+            dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentPi = prevPi;
             gtr.currentGreeting = dummyGreeting;
             var summary = gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"]));
@@ -953,8 +956,10 @@ define([
                 case codec.TLV_TYPE.SOURCE: return "2";
                 }
             });
-            var dummyGreeting = { askeMember : { yetToAuthenticate : function(){ return ["3"]} } };
             var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreeting = new ns.Greeting(gtr);
+            dummyGreeting.askeMember.yetToAuthenticate = function(){ return ["3"]; };
+            dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentGreeting = dummyGreeting;
             assert.deepEqual(
                 gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"])), null,

@@ -946,14 +946,13 @@ define([
         // Downflow confirm messages require testing for final messages.
         else if (mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
-                mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
-                mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
+                mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
                 _logIgnored(this.id, pId, "it is a downflow message but there is no current Greeting");
                 return null;
             }
             // Test if this is the final message.
-            if (this._testFinalMessage(pId, source)) {
+            if (this.currentGreeting._expectsFinalMessage(pId, source)) {
                 greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
             }
         }
@@ -965,10 +964,10 @@ define([
             });
         }
 
-        if (greetingSummary && (from === this.id || source === this.id)) {
+        if (greetingSummary && greetingSummary.metadata && (from === this.id || source === this.id)) {
             var pHash = ns._makePacketHash(message.content);
             if (this.proposalHash !== pHash) {
-                _logIgnored(this.id, pHash, "(pHash) it claims to be from us but we did not send it");
+                _logIgnored(this.id, pHash, "(pHash) it claims to be a pI from us but we did not send it");
                 return null;
             }
         }
@@ -1002,19 +1001,6 @@ define([
 
         action(GreetingMetadata.create(prevPf, chainHash, source, parents));
         return rest;
-    };
-
-    Greeter.prototype._testFinalMessage = function(pId, source) {
-        // check to see if message matches what the current greeting is expecting
-        var yetToAuthenticate = this.currentGreeting.askeMember.yetToAuthenticate();
-        _assert(yetToAuthenticate.length > 0, "Members have all been authenticated.");
-        if (yetToAuthenticate.length === 1) {
-            if (source === yetToAuthenticate[0]) {
-                return true;
-            }
-            _logIgnored(this.id, pId, "possible final message but not from expected source.");
-        }
-        return false;
     };
 
     ns._determineFlowType = function(owner, prevMembers, members) {
@@ -1296,6 +1282,8 @@ define([
 
         this.metadata = null;
         this._metadataIsAuthenticated = false;
+        this._recvOwnAuthMessage = false;
+
         // We can keep the old state around for further use.
         this.prevState = store;
         return this;
@@ -1617,6 +1605,9 @@ define([
             return null;
         }
 
+        // State transitions.
+        var newState = null;
+
         // If I'm not part of it any more, go and quit.
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
@@ -1628,25 +1619,30 @@ define([
             }
         }
 
+        // Ignore the message if it is from me.
+        if (message.source === this.id) {
+            if (message.isDownflow()) {
+                // TODO: could check that we actually sent this message
+                this._recvOwnAuthMessage = true;
+            }
+
+            newState = this._maybeSetReady() ? ns.STATE.READY : newState;
+            return { decodedMessage: null,
+                     newState: newState };
+        }
+
         // Ignore the message if it is not for me.
         if ((message.dest !== '') && (message.dest !== this.id)) {
             return { decodedMessage: null,
                      newState: null };
         }
 
-        // Ignore the message if it is from me.
-        if (message.source === this.id) {
-            return { decodedMessage: null,
-                     newState: null };
-        }
-
-        // State transitions.
+        // Response message
         var inCliquesMessage = this._getCliquesMessage(message);
         var inAskeMessage = this._getAskeMessage(message);
         var outCliquesMessage = null;
         var outAskeMessage = null;
         var outMessage = null;
-        var newState = null;
 
         // Three cases: QUIT, upflow or downflow message.
         if (message.greetType === ns.GREET_TYPE.QUIT_DOWN) {
@@ -1703,17 +1699,7 @@ define([
             }
         }
 
-        if (this.askeMember.isSessionAcknowledged()) {
-            // We have seen and verified all broadcasts from others.
-            // Let's update our state information.
-            newState = ns.STATE.READY;
-            this.sessionId = this.askeMember.sessionId;
-            this.members = this.askeMember.members;
-            this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
-            this.groupKey = this.cliquesMember.groupKey;
-            logger.debug('Reached READY state.');
-        }
-
+        newState = this._maybeSetReady() ? ns.STATE.READY : newState;
         if (outMessage) {
             logger.debug('Sending message of type '
                          + outMessage.getGreetTypeString());
@@ -1722,6 +1708,42 @@ define([
         }
         return { decodedMessage: outMessage,
                  newState: newState };
+    };
+
+
+    Greeting.prototype._maybeSetReady = function() {
+        if (this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
+            // We have seen and verified all broadcasts from others.
+            // Let's update our state information.
+            this.sessionId = this.askeMember.sessionId;
+            this.members = this.askeMember.members;
+            this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
+            this.groupKey = this.cliquesMember.groupKey;
+            logger.debug('Reached READY state.');
+            return true;
+        }
+        return false;
+    };
+
+
+    Greeting.prototype._expectsFinalMessage = function(pId, source) {
+        // check to see if message matches what the current greeting is expecting
+        var yetToAuthenticate = this.askeMember.yetToAuthenticate();
+        _assert(yetToAuthenticate.length > 0 || !this._recvOwnAuthMessage,
+                "Members have all been authenticated.");
+
+        if (source === this.id) {
+            if (yetToAuthenticate.length === 0 && !this._recvOwnAuthMessage) {
+                return true;
+            }
+        } else if (yetToAuthenticate.length === 1 && this._recvOwnAuthMessage) {
+            if (source === yetToAuthenticate[0]) {
+                return true;
+            }
+            _logIgnored(this.id, pId, "looks-like final message but not from expected source: " + source + " vs expected " + yetToAuthenticate[0]);
+        }
+
+        return false;
     };
 
 
