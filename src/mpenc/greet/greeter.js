@@ -100,8 +100,6 @@ define([
      *     Participant aux exclude subsequent.
      * @property REFRESH_AUX_INITIATOR_DOWN {string}
      *     Initiator aux refresh downflow.
-     * @property REFRESH_AUX_PARTICIPANT_DOWN {string}
-     *     Participant aux refresh downflow.
      * @property QUIT_DOWN {string}
      *     Indicating departure. (Must be followed by an exclude sequence.)
      */
@@ -121,7 +119,6 @@ define([
         EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN:  '\u0000\u003b', // 0b00111011
         // Refresh sequence.
         REFRESH_AUX_INITIATOR_DOWN:            '\u0000\u00c7', // 0b11000111
-        REFRESH_AUX_PARTICIPANT_DOWN:          '\u0000\u0047', // 0b01000111
         // Quit indication.
         QUIT_DOWN:                             '\u0000\u00d3'  // 0b11010011
     };
@@ -873,6 +870,7 @@ define([
         this.privKey = privKey;
         this.pubKey = pubKey;
         this.staticPubKeyDir = staticPubKeyDir;
+        _assert(staticPubKeyDir.get(id) === pubKey, "bad static pubkey dir");
 
         // The current proposal started by the local user, if one is pending
         this.proposedGreeting = null;
@@ -936,17 +934,16 @@ define([
         // There _is_ a shorter way to test for these, but I decided to be explicit.
         // Initial type messages need to have their metadata extracted.
         if (mType === ns.GREET_TYPE.INIT_INITIATOR_UP ||
-           mType === ns.GREET_TYPE.INIT_PARTICIPANT_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
-           mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_UP) {
+           mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN) {
             ns._popTLVMetadata(rest, source, true, function(value) {
                 greetingSummary = GreetingSummary.create(pId, value, null, members);
             });
         }
         // Downflow confirm messages require testing for final messages.
         else if (mType === ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN ||
-                mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
-                mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
+                mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
+                mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
                 _logIgnored(this.id, pId, "it is a downflow message but there is no current Greeting");
                 return null;
@@ -956,9 +953,8 @@ define([
                 greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
             }
         }
-        // Exclude message need special attention.
-        else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN ||
-                mType === ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN) {
+        // Refresh message need special attention.
+        else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN) {
             ns._popTLVMetadata(rest, source, true, function(value) {
                 greetingSummary = GreetingSummary.create(pId, value, pId, members);
             });
@@ -1076,7 +1072,6 @@ define([
                 message = greeting.exclude(greetData.members.toArray());
                 break;
             case ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN:
-            case ns.GREET_TYPE.REFRESH_AUX_PARTICIPANT_DOWN:
                 message = greeting.refresh();
                 break;
             case ns.GREET_TYPE.QUIT_DOWN:
