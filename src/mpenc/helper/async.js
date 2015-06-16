@@ -302,12 +302,21 @@ define([
      */
     SubscriberFailure.subscribeGlobal = __SubscriberFailure_global.subscribe;
 
+    var _toString = function(x) {
+        try {
+            return "" + x;
+        } catch(e) {
+            // work around PhantomJS deficiency
+            return JSON.stringify(x);
+        }
+    };
+
     /**
      * Stop logging all subscriber failures in the entire program.
      */
     SubscriberFailure.cancelGlobalLog = __SubscriberFailure_global.subscribe(function(f) {
-        logger.warn("subscriber (" + String.valueOf(f.sub) +
-            ") failed on (" + String.valueOf(f.item) + "): " + String.valueOf(f.error) +
+        logger.warn("subscriber (" + f.sub +
+            ") failed on (" + _toString(f.item) + "): " + f.error +
             "; stack trace: ");
         logger.warn(f.error.stack);
     });
