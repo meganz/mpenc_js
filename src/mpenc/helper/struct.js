@@ -195,27 +195,20 @@ define([
 
 
     /**
-     * An immutable set, implemented using sorted arrays. Does not scale to
-     * massive sizes, but should be adequate for representing (e.g.) members
-     * of a chat.
+     * An immutable set, implemented using the ES6 mutable <code>Set</code>
+     * (or else a shim in browsers that don't support this).
      *
      * <p>Equality in equals() is taken strictly, using <code>===</code>.</p>
-     *
-     * <p>Use as a <b>factory function</b> as in <code><del>new</del>
-     * ImmutableSet([1, 2, 3])</code>.</p>
      *
      * <p>Otherwise, the API is intended to match Facebook's <a
      * href="https://github.com/facebook/immutable-js/">Immutable JS</a>
      * library. We don't use that, because it is 42KB and we only need Set.</p>
      *
-     * <p>Equality in equals() is taken strictly, using <code>===</code>. May
-     * be used as a factory method, without <code>new</code>.</p>
-     *
-     * <p>Does not scale to massive sizes, but should be adequate for
-     * representing (e.g.) members of a chat.</p>
+     * <p>The shim (from es6-shim) does not scale to massive sizes, but should
+     * be adequate for representing (e.g.) members of a chat.</p>
      *
      * @class
-     * @param {...*} ... Elements of the set
+     * @param iterable {Iterable} Elements of the set
      * @memberOf! module:mpenc/helper/struct
      */
     var ImmutableSet = function(iterable) {
