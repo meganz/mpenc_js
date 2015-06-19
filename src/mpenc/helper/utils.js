@@ -406,6 +406,97 @@ define([
     };
 
 
+    /**
+     * The state of the state machine was invalid.
+     *
+     * @param actual {*} Actual invalid state
+     * @param label {string} Label to describe the error-checking
+     * @param expected {Array} Expected valid states
+     */
+    var StateError = function(actual, label, expected) {
+        this._actual    = actual;
+        this._label     = label;
+        this._expected  = expected;
+    };
+
+    StateError.prototype = Object.create(Error.prototype);
+
+    /**
+     * Generate a string message for this error.
+     */
+    StateError.prototype.toString = function() {
+        return 'StateError: ' +  this._label + ' expected ' +  this._expected + ' actual: ' + this._actual;
+    };
+
+    Object.freeze(StateError.prototype);
+    ns.StateError = StateError;
+
+
+    /**
+     * A finite state machine.
+     * @param changeType {function} State change factory, takes a (new, old)
+     *      pair of states and returns an object.
+     * @param initstate {*} Initial state of the state machine.
+     */
+    var StateMachine = function(changeType, initstate) {
+        this._state = initstate;
+        this.ChangeType = changeType;
+    };
+
+    /**
+     * Get the current state.
+     * @returns {SessionState}
+     */
+    StateMachine.prototype.state = function() {
+        return this._state;
+    };
+
+    /**
+     * Set a new state.
+     * @param newState {SessionState} new state to set.
+     * @returns {} Object describing the state transition; the caller should
+     *      publish this in some {@link module:mpenc/helper/async.EventContext}.
+     */
+    StateMachine.prototype.setState = function(newState) {
+        var oldState = this._state;
+        this._state = newState;
+        return new this.ChangeType(newState, oldState);
+    };
+
+    /**
+     * Decorate a function with precondition and postcondition checks on the
+     * state. Use something like:
+     *
+     * <pre>
+     * MyStatefulClass.prototype.doSomething = StateMachine.transition(
+     *     [valid pre states], [valid post states], function(params) {
+     *     // function body. it should set the state somewhere
+     * });
+     * </pre>
+     */
+    StateMachine.transition = function(preStates, postStates, f) {
+        return function() {
+            try {
+                var preState = this.state();
+                logger.debug("pre state:" + preState);
+                if (preStates.indexOf(preState) < 0) {
+                    throw new StateError(preState, "precondition", preStates);
+                }
+                return f.apply(this, arguments);
+            } finally {
+                var postState = this.state();
+                logger.debug("post state:" + postState);
+                if (postStates.indexOf(postState) < 0) {
+                    throw new StateError(postState, "postcondition", postStates);
+                }
+            }
+        };
+    };
+
+    Object.freeze(StateMachine.prototype);
+    ns.StateMachine = StateMachine;
+
+
     // jshint -W030
 
     /**
