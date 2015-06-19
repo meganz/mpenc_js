@@ -186,18 +186,97 @@ define([
 
 
     /**
-     * XXX: TODO: import doc from python, with some tweaks.
+     * An ongoing communication session, from the view of a given member.
+     *
+     * <p>A session is a logical entity tied to a member ("owner"), who performs
+     * operations on their view of the membership set. It has no existence
+     * outside of a member's conception of it - c.f. a MUC transport channel,
+     * where a server keeps it "existing" even if nobody is in it.</p>
+     *
+     * <p>Hence, <code>this.curMembers().has(this.owner())</code> always returns
+     * <code>true</code>. Moreover, joining or parting another session is
+     * viewed as the other members being included into or excluded from a local
+     * 1-member session, as reflected in SNInclude or SNExclude.</p>
+     *
+     * Session has two API "surface areas".
+     *
+     * <ul>
+     * <li>{@link module:mpenc/helper/utils.SendingReceiver|SendingReceiver},
+     * facing a lower layer, e.g. the transport. Its instantiated types are:
+     * <ul>
+     * <li><code>{@link module:mpenc/session.Session#recv|RecvInput}</code>:
+     *      {@link module:mpenc/session.GroupChannelNotice} (TODO: not yet defined).</li>
+     * <li><code>{@link module:mpenc/session.Session#onSend|SendOutput}</code>:
+     *      {@link module:mpenc/session.GroupChannelAction} (TODO: not yet defined).</li>
+     * </ul></li>
+     * <li>{@link module:mpenc/helper/utils.ReceivingExecutor|ReceivingExecutor},
+     * facing an upper layer, e.g. the user interface. Its instantiated types are:
+     * <ul>
+     * <li><code>{@link module:mpenc/session.Session#send|SendInput}</code>:
+     *      {@link module:mpenc/session.SessionAction} (TODO: not yet defined).</li>
+     * <li><code>{@link module:mpenc/session.Session#onRecv|RecvOutput}</code>:
+     *      {@link module:mpenc/session.SessionNotice}</li>
+     * </ul></li>
+     * </ul>
+     *
+     * Additionally, the upper layer may subscribe to particular subsets of
+     * what <code>onRecv()</code> publishes, using <code>{@link
+     * module:mpenc/session.Session#onEvent|onEvent}</code>.
      *
      * @interface
      * @augments module:mpenc/helper/utils.SendingReceiver
      * @augments module:mpenc/helper/utils.ReceivingExecutor
+     * @augments module:mpenc/helper/async.EventSource
      * @memberOf module:mpenc/session
      */
     var Session = function() {
         throw new Error("cannot instantiate an interface");
     };
+    // jshint -W030
+
+    /**
+     * @method
+     * @returns {string} Session id, shared between all members.
+     */
+    Session.prototype.sessionId;
+
+    /**
+     * @method
+     * @returns {string}
+     *      The user id of the owner of this process, that authors messages.
+     */
+    Session.prototype.owner;
+
+    /**
+     * @method
+     * @returns {module:mpenc/transcript.MessageLog}
+     *      Payload messages belonging to this session.
+     */
+    Session.prototype.messages;
+
+    /**
+     * @method
+     * @returns {module:mpenc/session.SessionState} Current state of this session.
+     */
+    Session.prototype.state;
+
+    /**
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} The current session
+     *      membership. In some cases, the membership of some recent messages
+     *      may differ from this, such as during a membership operation. Any UI
+     *      should be able to detect this and display this accordingly.
+     */
+    Session.prototype.curMembers;
+
+    /**
+     * @method
+     * @returns {boolean} Whether there are any unacked Payload messages.
+     */
+    Session.prototype.isConsistent;
 
     ns.Session = Session;
+    // jshint +W030
 
 
     return ns;
