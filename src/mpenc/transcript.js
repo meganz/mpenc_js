@@ -190,6 +190,7 @@ define([
      * When a message is acked by all of its intended recipients.
      *
      * @class
+     * @implements module:mpenc/session.SessionNotice
      * @property mId {string} The message id.
      * @memberOf module:mpenc/transcript
      */
@@ -215,6 +216,7 @@ define([
      * order would be [x, b, a], with the real parents of b and a both being x.
      *
      * @class
+     * @implements module:mpenc/session.SessionNotice
      * @property mId {string} The message id.
      * @property ridx {number} The right (negative) index in the existing total
      *      order before which to insert this message. An ordering where these

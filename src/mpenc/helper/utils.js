@@ -34,8 +34,24 @@ define([
 
     ns._HEX_CHARS = '0123456789abcdef';
 
-    // The following are JSDoc callback typedefs
+    // The following are JSDoc typedefs
     // They may be referred to as {module:mpenc/helper/utils~$name}
+
+    /**
+     * Raw transport-layer data to be sent.
+     * @typedef {Object} RawSend
+     * @property pubtxt {string} Raw data to send
+     * @property recipients {module:mpenc/helper/struct.ImmutableSet}
+     *      Transport-layer recipient addresses to send to.
+     */
+
+    /**
+     * Raw transport-layer data that was received.
+     * @typedef {Object} RawRecv
+     * @property pubtxt {string} Raw data that was received.
+     * @property sender {string}
+     *      Transport-layer unauthenticated sender address we received from.
+     */
 
     /**
      * 1-arg function to get some "associates" of a subject.
@@ -388,6 +404,138 @@ define([
         // If everything passed, let's say YES.
         return true;
     };
+
+
+    // jshint -W030
+
+    /**
+     * Accepts data-to-send, and notifies about data-received. This typically
+     * represents a "less abstract" component than the client.
+     *
+     * <pre>
+     *                             +-send()-+ <<<< +--------------+
+     *                             |  this  |      | upper client |
+     *                             +--------+ [>>] +-(subscribed receivers)
+     * </pre>
+     *
+     * Implementations must define the following types:
+     *
+     * <ul>
+     * <li>SendInput, expected input into send() from the upper layer</li>
+     * <li>RecvOutput, result for subscribers of onRecv() to handle</li>
+     * </ul>
+     *
+     * @interface
+     * @memberOf module:mpenc/helper/utils
+     */
+    var ReceivingSender = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    /**
+     * Accept things to be sent by this component.
+     *
+     * @param input {SendInput} input to be handled for sending.
+     * @returns {boolean} Whether the input was valid and was accepted.
+     * @method
+     */
+    ReceivingSender.prototype.send;
+
+    /**
+     * Add a subscription for receive-items generated from this component.
+     *
+     * @method
+     * @param subscriber {module:mpenc/helper/async~subscriber} 1-arg function
+     *      that takes a <code>RecvOutput</code> object, and returns a boolean
+     *      that represents whether it was valid for it and accepted by it.
+     * @returns {module:mpenc/helper/async~canceller}
+     */
+    ReceivingSender.prototype.onRecv;
+
+    ns.ReceivingSender = ReceivingSender;
+
+
+    /**
+     * @interface
+     * @augments module:mpenc/helper/utils.ReceivingSender
+     * @memberOf module:mpenc/helper/utils
+     */
+    var ReceivingExecutor = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    ReceivingExecutor.prototype = Object.create(ReceivingSender.prototype);
+
+    /**
+     * Execute an action, initated by an initial SendInput.
+     *
+     * The exact conditions on when the action finishes is defined by the
+     * implementation.
+     *
+     * This may not be implemented for all inputs; the implementation should
+     * specify exactly which ones. If this is implemented for a given input,
+     * <code>send()</code> for that input should behave exactly the same as
+     * <code>return this.execute(input) !== null</code>; if not implemented
+     * then this should throw a "not implemented" error.
+     *
+     * @method
+     * @param input {SendInput} input to be handled for sending
+     * @returns {?Promise} A Promise to allow the client to detect when the
+     *      action finishes. <code>null</code> if the action was not started in
+     *      the first place, e.g. if the input is invalid at the current time.
+     */
+    ReceivingExecutor.prototype.execute;
+
+    ns.ReceivingExecutor = ReceivingExecutor;
+
+
+    /**
+     * Accepts data-received, and notifies about data-to-send. This typically
+     * represents a "more abstract" component than the client.
+     *
+     * <pre>
+     * (subscribed senders)-+ [<<] +--------+
+     *       | lower client |      |  this  |
+     *       +--------------+ >>>> +-recv()-+
+     * </pre>
+     *
+     * Implementations must define the following types:
+     *
+     * <ul>
+     * <li>RecvInput, expected input into recv() from the lower layer.</li>
+     * <li>SendOutput, result for subscribers of onSend() to handle.</li>
+     * </ul>
+     *
+     * @interface
+     * @memberOf module:mpenc/helper/utils
+     */
+    var SendingReceiver = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    /**
+     * Accept things to be received by this component.
+     *
+     * @param input {RecvInput} input to be handled for receiving.
+     * @returns {boolean} Whether the input was valid and was accepted.
+     * @method
+     */
+    SendingReceiver.prototype.recv;
+
+    /**
+     * Add a subscription for send-items generated from this component.
+     *
+     * @method
+     * @param subscriber {module:mpenc/helper/async~subscriber} 1-arg function
+     *      that takes a <code>SendOutput</code> object, and returns a boolean
+     *      that represents whether it was valid for it and accepted by it.
+     * @returns {module:mpenc/helper/async~canceller}
+     */
+    SendingReceiver.prototype.onSend;
+
+    ns.SendingReceiver = SendingReceiver;
+
+    // jshint +W030
 
 
     // polyfill for PhantomJS in our tests

@@ -173,9 +173,12 @@ define([
      * to check this, either wait for MsgAccepted (its absence means the message
      * has *not* been accepted) or check Transcript for the message.
      *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
      * @property uId {string} Verified author.
      * @property pmId {module:mpenc/helper/struct.ImmutableSet} Claimed parent
      *      messages that we timed out waiting for.
+     * @memberOf module:mpenc/liveness
      */
     var NotAccepted = struct.createTupleClass("uId", "pmId");
 
@@ -195,6 +198,11 @@ define([
      * The absence of this event does *not* mean the message has been fully-acked;
      * to check this, either wait for MsgFullyAcked (its absence means the message
      * has *not* been fully-acked) or check Transcript.unacked() for the message.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} Message ID.
+     * @memberOf module:mpenc/liveness
      */
     var NotFullyAcked = struct.createTupleClass("mId");
 

@@ -149,12 +149,26 @@ define([
 
 
     /**
-     * SessionBase; TODO document this
+     * Implementation of roughly the lower (transport-facing) part of Session.
+     *
+     * <p>Manages operations on the causally-ordered transcript data structure,
+     * flow control algorithms, message security, consistency checking, etc.</p>
+     *
+     * The instantiated types for <code>SendingReceiver</code> are:
+     *
+     * <ul>
+     * <li><code>{@link module:mpenc/impl/session.SessionBase#recv|RecvInput}</code>:
+     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     * <li><code>{@link module:mpenc/impl/session.SessionBase#onSend|SendOutput}</code>:
+     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     * </ul>
      *
      * @class
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/liveness.Flow}
      * @implements {module:mpenc/helper/async.EventSource}
+     * @implements {module:mpenc/helper/utils.SendingReceiver}
+     * @see module:mpenc/session.Session
      */
     var SessionBase = function(context, sId, members, msgsec) {
         this.options = {
@@ -383,7 +397,7 @@ define([
      */
     SessionBase.prototype.lastOwnMsg = Flow.prototype.lastOwnMsg;
 
-    // implements RawReceiver; also helps to implement Session
+    // implements SendingReceiver; also helps to implement Session
 
     /**
      * @returns {string} Session Id.
@@ -451,7 +465,7 @@ define([
     };
 
     /**
-     * TODO(xl): DOC RawReceiver
+     * @inheritDoc
      */
     SessionBase.prototype.recv = function(recv_in) {
         var pubtxt = recv_in[0], sender = recv_in[1];
@@ -484,7 +498,7 @@ define([
     };
 
     /**
-     * TODO(xl): DOC RawReceiver
+     * @inheritDoc
      */
     SessionBase.prototype.onSend = function(send_out) {
         return this._send.subscribe(send_out);
