@@ -151,6 +151,10 @@ define([
         PUB_KEY:           0x0105, // 261
         SESSION_SIGNATURE: 0x0106, // 262
         SIGNING_KEY:       0x0107, // 263
+        // Greet proposal messages
+        PREV_PF:           0x0301,
+        CHAIN_HASH:        0x0302,
+        LATEST_PM:         0x0303,
         // Error messages
         SEVERITY:          0x0201, // 513
     };
@@ -272,11 +276,13 @@ define([
      *     left over bytes from the input are returned in `rest`.
      */
     ns.decodeTLV = function(tlv) {
+        _assert(typeof tlv === "string", "tried to decode non-string");
         var type = ns._bin2short(tlv.substring(0, 2));
         var length = ns._bin2short(tlv.substring(2, 4));
         var value = tlv.substring(4, 4 + length);
         _assert(length === value.length,
-                'TLV payload length does not match indicated length.');
+                'TLV payload length does not match indicated length: type ' + type +
+                "; expected " + length + "; actual " + value.length);
         if (length === 0) {
             value = '';
         }
@@ -302,7 +308,7 @@ define([
      */
     ns.popTLV = function(message, type, action) {
         var tlv = ns.decodeTLV(message);
-        tlv.type === type || ns.decodeError("expected TLV " + type + " but got " + tlv.type);
+        tlv.type === type || ns.decodeError("expected TLV type " + type + " but got " + tlv.type);
         action(tlv.value);
         return tlv.rest;
     };
@@ -360,6 +366,15 @@ define([
     /**
      * Keep decoding TLV values of a particular type, executing the action on
      * each decoded value. Stop when the next value is not of the expected type.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV.
+     * @param action {function}
+     *     1-arg function to execute on each decoded value.
+     * @returns {string}
+     *     The rest of the string to decode later.
      */
     ns.popTLVAll = function(message, type, action) {
         var oldrest;
@@ -367,6 +382,32 @@ define([
         do {
             oldrest = rest;
             rest = ns.popTLVMaybe(rest, type, action);
+        } while (rest !== oldrest);
+        return rest;
+    };
+
+
+    /**
+     * Keep decoding TLV values *until* we reach a particular type. Stop when
+     * the next value is of the expected type.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV to search for.
+     * @returns {string}
+     *     A string that is either empty or whose next record is of the given type.
+     */
+    ns.popTLVUntil = function(message, type) {
+        var oldrest;
+        var rest = message;
+        do {
+            oldrest = rest;
+            var tlv = ns.decodeTLV(rest);
+            if (tlv.type === type) {
+                break;
+            }
+            rest = tlv.rest;
         } while (rest !== oldrest);
         return rest;
     };

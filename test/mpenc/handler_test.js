@@ -42,6 +42,7 @@ define([
             asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
+    return;
 
     var assert = chai.assert;
 

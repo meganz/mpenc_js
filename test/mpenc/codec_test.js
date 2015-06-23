@@ -162,7 +162,7 @@ define([
 
             it('misformed TLV', function() {
                 assert.throws(function() { ns.decodeTLV('\u0000\u0000\u0000\u0005hell'); },
-                              'TLV payload length does not match indicated length.');
+                              'TLV payload length does not match indicated length: type 0; expected 5; actual 4');
             });
         });
 

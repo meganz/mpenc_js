@@ -77,7 +77,7 @@ define([
             function(m) { return self.suc(m).toArray(); },
             function(a, b) { return self.le(a, b); },
             function(m) { return self._messages.get(m).members(); },
-            Set,
+            ImmutableSet,
             function(p, a, b) { return p.merge(a, b); });
         this._fubar = false;
 

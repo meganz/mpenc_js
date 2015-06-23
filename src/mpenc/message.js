@@ -218,11 +218,9 @@ define([
      * @class
      * @memberOf module:mpenc/message
      */
-    var MessageSecurity = function(owner, ephemeralPrivKey, ephemeralPubKey, sessionKeyStore) {
-        this.owner = owner;
-        this._privKey = ephemeralPrivKey;
-        this._pubKey = ephemeralPubKey;
-        this._sessionKeyStore = sessionKeyStore;
+    var MessageSecurity = function(greetStore) {
+        this.owner = greetStore.id;
+        this._greetStore = greetStore;
     };
 
     /**
@@ -246,18 +244,19 @@ define([
      *     Message id and ciphertext.
      */
     MessageSecurity.prototype.encrypt = function(body, recipients, parents, paddingSize) {
-        var privKey = this._privKey;
-        var pubKey = this._pubKey;
-        var sessionKeyStore = this._sessionKeyStore;
+        var privKey = this._greetStore.ephemeralPrivKey;
+        var pubKey = this._greetStore.ephemeralPubKey;
         paddingSize = paddingSize | 0;
 
         // We want message attributes in this order:
         // sid/key hint, message signature, protocol version, message type,
         // iv, message data
-        var sessionID = sessionKeyStore.sessionIDs[0];
-        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
+        var sessionID = this._greetStore.sessionId;
+        var groupKey = this._greetStore.groupKey;
         var members = recipients.union(new ImmutableSet([this.owner]));
-        _assert(members.equals(new ImmutableSet(sessionKeyStore.sessions[sessionID].members)));
+        _assert(members.equals(new ImmutableSet(this._greetStore.members)),
+                'Recipients not members of session: ' + members +
+                '; current members: ' + this._greetStore.members);
 
         // Three portions: unsigned content (hint), signature, rest.
         // Compute info for the SIDKEY_HINT and signature.
@@ -345,10 +344,8 @@ define([
      *     Message as JavaScript object.
      */
     MessageSecurity.prototype.decrypt = function(message, authorHint) {
-        var sessionKeyStore = this._sessionKeyStore;
-
-        var sessionID = sessionKeyStore.sessionIDs[0];
-        var groupKey = sessionKeyStore.sessions[sessionID].groupKeys[0];
+        var sessionID = this._greetStore.sessionId;
+        var groupKey = this._greetStore.groupKey;
 
         if (!authorHint) {
             logger.warn('No message author for message available, '
@@ -356,34 +353,20 @@ define([
             return null;
         }
 
-        var signingPubKey = sessionKeyStore.pubKeyMap[authorHint];
-        var inspected = _inspect(message);
+        var signingPubKey = this._greetStore.pubKeyMap[authorHint];
+        var inspected = _inspectMessage(message);
         var decoded = null;
+        var sidkeyHash = utils.sha256(sessionID + groupKey);
 
-        // Loop over (session ID, group key) combos, starting with the latest.
-        outer: // Label to break out of outer loop.
-        for (var sidNo in sessionKeyStore.sessionIDs) {
-            var sessionID = sessionKeyStore.sessionIDs[sidNo];
-            var session = sessionKeyStore.sessions[sessionID];
-            for (var gkNo in session.groupKeys) {
-                var groupKey = session.groupKeys[gkNo];
-                var sidkeyHash = utils.sha256(sessionID + groupKey);
-                if (inspected.sidkeyHint === sidkeyHash[0]) {
-                    var verifySig = codec.verifyMessageSignature(codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
-                                                                 inspected.rawMessage,
-                                                                 inspected.signature,
-                                                                 signingPubKey,
-                                                                 sidkeyHash);
-                    if (verifySig === true) {
-                        decoded = _decrypt(inspected,
-                                           groupKey,
-                                           authorHint,
-                                           session.members);
-                        break outer;
-                    }
-                    // TODO: maybe log bad signatures
-                }
-            }
+        var verifySig = codec.verifyMessageSignature(
+            codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
+            inspected.rawMessage,
+            inspected.signature,
+            signingPubKey,
+            sidkeyHash);
+
+        if (verifySig === true) {
+            decoded = _decrypt(inspected, groupKey, authorHint, this._greetStore.members);
         }
 
         if (!decoded) {
@@ -396,7 +379,7 @@ define([
 
     var _decrypt = function(inspected, groupKey, author, members) {
         var debugOutput = [];
-        var out = _decode(inspected.rawMessage);
+        var out = _decodeMessage(inspected.rawMessage);
         _assert(out.data);
 
         // Data message signatures were already verified through trial decryption.
@@ -428,7 +411,7 @@ define([
         return new Message(mId, author, parents, recipients, new Payload(data));
     };
 
-    var _decode = function(rawMessage) {
+    var _decodeMessage = function(rawMessage) {
         // full decode, no crypto operations
         var debugOutput = [];
         var out = {};
@@ -453,7 +436,7 @@ define([
         return out;
     };
 
-    var _inspect = function(message, debugOutput) {
+    var _inspectMessage = function(message, debugOutput) {
         // partial decode, no crypto operations
         debugOutput = debugOutput || [];
         var out = {};

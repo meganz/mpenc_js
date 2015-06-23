@@ -24,6 +24,7 @@
 define([
     "mpenc/greet/greeter",
     "mpenc/helper/utils",
+    "mpenc/helper/struct",
     "mpenc/codec",
     "asmcrypto",
     "jodid25519",
@@ -33,20 +34,29 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, codec, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, struct, codec, asmCrypto, jodid25519, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
     var assert = chai.assert;
+    var Set = struct.ImmutableSet;
 
     function _echo(x) {
         return x;
     }
 
-    function makeGreeting(id, priKey, pubKey, staticPubKeyDir, stateUpdatedCallback) {
-        return new ns.Greeting(new ns.GreetStore(id, priKey, pubKey, staticPubKeyDir), stateUpdatedCallback);
+    function makeGreeting(id, privKey, pubKey, staticPubKeyDir) {
+        return new ns.Greeting({
+            id: id,
+            privKey: privKey,
+            pubKey: pubKey,
+            staticPubKeyDir: staticPubKeyDir,
+        });
     };
 
+    var doNothing = function() {};
+    var dummyPubKeyDir = { get: function() { return _td.ED25519_PUB_KEY; } };
+    var prevMem = "UNUSED"; // partialDecode doesn't do anything with prevMembers, just pass in a dummy value
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -58,7 +68,6 @@ define([
     afterEach(function() {
         sandbox.restore();
     });
-
 
     describe("GreetMessage class", function() {
         describe("_readBit()", function() {
@@ -156,7 +165,6 @@ define([
                             '\u0000\u003b': 0x03b, // EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN
                             // Refresh sequence.
                             '\u0000\u00c7': 0x0c7, // REFRESH_AUX_INITIATOR_DOWN
-                            '\u0000\u0047': 0x047, // REFRESH_AUX_PARTICIPANT_DOWN
                             // Quit indication.
                             '\u0000\u00d3': 0x0d3  // QUIT_DOWN
         };
@@ -277,15 +285,6 @@ define([
         });
     });
 
-    describe("GreetStore class", function() {
-        describe('constructor', function() {
-            it('fails for missing params', function() {
-                assert.throws(function() { new ns.GreetStore('42', _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY); },
-                              "Constructor call missing required parameters.");
-            });
-        });
-    });
-
     describe("Greeting class", function() {
         describe('constructor', function() {
             it('just make an instance', function() {
@@ -300,7 +299,7 @@ define([
                 assert.deepEqual(participant.askeMember.staticPrivKey, _td.ED25519_PRIV_KEY);
                 assert.ok(participant.askeMember.staticPubKeyDir);
                 assert.ok(participant.cliquesMember);
-                assert.strictEqual(participant.state, ns.STATE.NULL);
+                assert.strictEqual(participant._opState, ns.STATE.NULL);
             });
         });
 
@@ -479,13 +478,11 @@ define([
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['2', '3', '4', '5', '6'];
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
-                participant.start(otherMembers);
+                var message = participant.start(otherMembers);
+                assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.ika);
                 sinon_assert.calledOnce(participant.askeMember.commit);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.INIT_INITIATOR_UP);
             });
         });
 
@@ -495,7 +492,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.include([]); },
                               'No members to add.');
             });
@@ -507,17 +504,15 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaJoin = sinon_spy();
                 participant.askeMember.join = sinon_spy();
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
                 var otherMembers = ['6', '7'];
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
-                participant.include(otherMembers);
+                var message = participant.include(otherMembers);
+                assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaJoin);
                 sinon_assert.calledOnce(participant.askeMember.join);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP);
             });
         });
 
@@ -527,7 +522,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.exclude([]); },
                               'No members to exclude.');
             });
@@ -537,7 +532,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 assert.throws(function() { participant.exclude(['3', '5']); },
                               'Cannot exclude mysefl.');
             });
@@ -549,16 +544,14 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.cliquesMember.akaExclude = sinon_spy();
                 participant.askeMember.exclude = sinon_spy();
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
-                participant.exclude(['1', '4']);
+                var message = participant.exclude(['1', '4']);
+                assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaExclude);
                 sinon_assert.calledOnce(participant.askeMember.exclude);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN);
             });
         });
 
@@ -573,13 +566,11 @@ define([
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
                 sandbox.stub(participant.cliquesMember, 'akaQuit');
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage());
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
-                participant.quit();
+                var message = participant.quit();
+                assert(message);
                 sinon_assert.calledOnce(participant.askeMember.quit);
                 sinon_assert.calledOnce(participant.cliquesMember.akaQuit);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.QUIT_DOWN);
             });
         });
 
@@ -592,13 +583,11 @@ define([
                 participant._mergeMessages = stub().returns(new ns.GreetMessage());
                 participant.cliquesMember.akaRefresh = sinon_spy();
                 sandbox.stub(ns, 'encodeGreetMessage', stub());
-                participant.state = ns.STATE.READY;
-                participant.subscribeSend(function(){}); // bypass no-subscriber warning
-                participant.refresh();
+                participant._opState = ns.STATE.READY;
+                var message = participant.refresh();
+                assert(message);
                 sinon_assert.calledOnce(participant.cliquesMember.akaRefresh);
                 sinon_assert.calledOnce(participant._mergeMessages);
-                sinon_assert.calledOnce(ns.encodeGreetMessage);
-                assert.strictEqual(ns.encodeGreetMessage.getCall(0).args[0].greetType, ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN);
             });
         });
 
@@ -652,7 +641,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.NULL;
+                participant._opState = ns.STATE.NULL;
                 var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.newState, ns.STATE.INIT_DOWNFLOW);
                 var output = result.decodedMessage;
@@ -678,7 +667,7 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
@@ -707,7 +696,7 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.ephemeralPrivKey = _td.ED25519_PRIV_KEY;
                 participant.askeMember.ephemeralPubKey = _td.ED25519_PUB_KEY;
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.stub(participant.askeMember, 'downflow').throws(new Error('Session authentication by member 5 failed.'));
                 sandbox.stub(participant, '_mergeMessages').returns(new ns.GreetMessage({ source: participant.id,
@@ -732,8 +721,9 @@ define([
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant.askeMember.members = ['1', '2', '3', '4', '5'];
                 participant.askeMember.ephemeralPubKeys = ['1', '2', '3', '4', '5'];
-                participant.state = ns.STATE.INIT_DOWNFLOW;
+                participant._opState = ns.STATE.INIT_DOWNFLOW;
                 participant.cliquesMember.groupKey = "bar";
+                participant._recvOwnAuthMessage = true;
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
@@ -755,11 +745,11 @@ define([
                                                       _td.ED25519_PRIV_KEY,
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
-                participant.state = ns.STATE.QUIT;
+                participant._opState = ns.STATE.QUIT;
                 var result = participant._processMessage(
                         new ns.GreetMessage(_td.DOWNFLOW_MESSAGE_CONTENT));
                 assert.strictEqual(result, null);
-                assert.strictEqual(participant.state, ns.STATE.QUIT);
+                assert.strictEqual(participant._opState, ns.STATE.QUIT);
             });
 
             it('processing for a downflow without me in it', function() {
@@ -770,7 +760,7 @@ define([
                 var message = { source: '1', dest: '',
                                 greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
-                participant.state = ns.STATE.READY;
+                participant._opState = ns.STATE.READY;
                 var result = participant._processMessage(
                         new ns.GreetMessage(message));
                 assert.deepEqual(result,
@@ -785,10 +775,11 @@ define([
                 var message = { source: '3', dest: '4',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '3', '2', '4', '5'] };
-                participant.state = ns.STATE.INIT_UPFLOW;
+                participant._opState = ns.STATE.INIT_UPFLOW;
                 var result = participant._processMessage(
                         new ns.GreetMessage(message));
-                assert.strictEqual(result, null);
+                assert.strictEqual(result.decodedMessage, null);
+                assert.strictEqual(result.newState, null);
             });
 
             it('processing for a downflow from me', function() {
@@ -799,10 +790,415 @@ define([
                 var message = { source: '1', dest: '',
                                 greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
-                participant.state = ns.STATE.AUX_DOWNFLOW;
+                participant._opState = ns.STATE.AUX_DOWNFLOW;
                 var result = participant._processMessage(new ns.GreetMessage(message));
-                assert.strictEqual(result, null);
+                assert.strictEqual(result.decodedMessage, null);
+                assert.strictEqual(result.newState, null);
             });
+        });
+    });
+
+    describe("Greeter Class", function() {
+        var stubPartialDecodeInternals = function(interceptDecode) {
+            var popStub = function(rest, type, action) {
+                var r = interceptDecode(type);
+                if (r !== undefined) { action(r); }
+                return rest;
+            };
+            sandbox.stub(codec, "popTLV", popStub);
+            sandbox.stub(codec, "popTLVMaybe", popStub);
+            sandbox.stub(codec, "decodeWirePacket").returns({
+                type : codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
+                content : ""
+            });
+        };
+
+        it("Test _determineFlowType correct data", function() {
+            var owner = '1';
+            var initOldMembers = new Set(['1']);
+            var initNewMembers = new Set(['1', '2', '3']);
+            var oldMembers = new Set(['1', '2', '3']);
+            var excludeNewMembers = new Set(['1', '2']);
+            var joinNewMembers = new Set(['1', '2', '3', '4']);
+            //var quitNewMembers = new Set(['2', '3']);
+            var refreshNewMembers = new Set(['1', '2', '3']);
+
+            var greetInit = ns._determineFlowType(owner, initOldMembers, initNewMembers);
+            var greetExclude = ns._determineFlowType(owner, oldMembers, excludeNewMembers);
+            var greetJoin = ns._determineFlowType(owner, oldMembers, joinNewMembers);
+            //var greetQuit = ns._determineFlowType(owner, oldMembers, quitNewMembers);
+            var greetRefresh = ns._determineFlowType(owner, oldMembers, refreshNewMembers);
+
+            assert.strictEqual(greetInit.greetType, ns.GREET_TYPE.INIT_INITIATOR_UP,
+                "Expected include, got " + ns.GREET_TYPE_MAPPING[greetInit.greetType]);
+            assert.deepEqual(greetInit.members.toArray(), ['2', '3']);
+            assert.strictEqual(greetExclude.greetType, ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                "Expected exclude, got " + ns.GREET_TYPE_MAPPING[greetExclude.greetType]);
+            assert.deepEqual(greetExclude.members.toArray(), ['3'], "Exclude members not correct.");
+            assert.strictEqual(greetJoin.greetType, ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP,
+                "Expected join, got " + ns.GREET_TYPE_MAPPING[greetJoin.greetType]);
+            assert.deepEqual(greetJoin.members.toArray(), ['4'], "Join members not correct.");
+            //assert.strictEqual(greetQuit.greetType, ns.GREET_TYPE.QUIT_DOWN,
+            //    "Expected quit, got " + ns.GREET_TYPE_MAPPING[greetQuit.greetType]);
+            //assert.deepEqual(greetQuit.members.toArray(), ['1']);
+            assert.strictEqual(greetRefresh.greetType, ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN,
+                "Expected refresh, got " + ns.GREET_TYPE_MAPPING[greetRefresh.greetType]);
+            assert.deepEqual(greetRefresh.members.toArray(), ['2', '3']);
+        });
+
+        it("Test _determineFlowType incorrect data", function() {
+            var owner = '1';
+            var oldMembers = new Set(['1', '2', '3']);
+            var newIncorrectMembers = new Set(['1', '2', '4']);
+
+            assert.throws(function() { ns._determineFlowType(owner, oldMembers, newIncorrectMembers);},
+                    "Cannot both exclude and join members.", "_determineFlowType not throwing on" +
+                        " both exclude and include members.");
+        });
+
+        it("Test get GreetingSummary from partialDecode.", function() {
+            var acceptedTypes = [
+                ns.GREET_TYPE.INIT_INITIATOR_UP,
+                ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP,
+                ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
+                ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN,
+            ];
+
+            var t, decodeMembers;
+            stubPartialDecodeInternals(function(type) {
+                switch (type) {
+                case codec.TLV_TYPE.GREET_TYPE: return t;
+                case codec.TLV_TYPE.SOURCE: return "1";
+                case codec.TLV_TYPE.CHAIN_HASH: return utils.sha256("dummyHash");
+                case codec.TLV_TYPE.PREV_PF: return utils.sha256("dummyPrevPf");
+                case codec.TLV_TYPE.LATEST_PM: return utils.sha256("dummyParent");
+                case codec.TLV_TYPE.MEMBER: return decodeMembers.shift();
+                }
+            });
+
+            sandbox.stub(ns, '_makePacketHash').returns(null);
+            var channelMembers = new Set(["1", "2"]);
+            for (var x = 0; x < acceptedTypes.length; x++) {
+                t = acceptedTypes[x];
+                decodeMembers = channelMembers.toArray();
+                var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
+                assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
+            }
+        });
+
+        it("Test return null from partialDecode.", function() {
+            var acceptedTypes = [
+                ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
+                ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_DOWN,
+                ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN
+            ];
+
+            var t, decodeMembers;
+            stubPartialDecodeInternals(function(type) {
+                switch (type) {
+                case codec.TLV_TYPE.GREET_TYPE: return t;
+                case codec.TLV_TYPE.SOURCE: return "1";
+                case codec.TLV_TYPE.MEMBER: return decodeMembers.shift();
+                }
+            });
+
+            var channelMembers = new Set(["1", "2"]);
+            for (var x = 0; x < acceptedTypes.length; x++) {
+                t = acceptedTypes[x];
+                decodeMembers = channelMembers.toArray();
+                var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
+                assert.notOk(greetSummary, "Failed to reject on: " + ns.GREET_TYPE_MAPPING[t]);
+            }
+        });
+
+        it("Test final message, no current greeting", function() {
+            stubPartialDecodeInternals(function(type) {
+                switch (type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "1";
+                }
+            });
+            var gtr = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            assert.strictEqual(gtr.partialDecode(
+                prevMem, "random message", "1", new Set(["1", "2"])), null);
+
+        });
+
+        it("Test final message tested, correct", function() {
+            stubPartialDecodeInternals(function(type) {
+                switch (type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "2";
+                }
+            });
+            var prevPi = utils.sha256("randomMessage");
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreeting = new ns.Greeting(gtr);
+            dummyGreeting.askeMember.yetToAuthenticate = function() { return ["2"]; };
+            dummyGreeting._recvOwnAuthMessage = true;
+            gtr.currentPi = prevPi;
+            gtr.currentGreeting = dummyGreeting;
+            var summary = gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"]));
+            assert.ok(summary);
+            assert.notOk(summary.metadata);
+            assert.strictEqual(summary.prevPi, prevPi);
+        });
+
+        it("Test final message tested, incorrect", function() {
+            stubPartialDecodeInternals(function(type) {
+                switch (type) {
+                case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
+                case codec.TLV_TYPE.SOURCE: return "2";
+                }
+            });
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreeting = new ns.Greeting(gtr);
+            dummyGreeting.askeMember.yetToAuthenticate = function() { return ["3"]; };
+            dummyGreeting._recvOwnAuthMessage = true;
+            gtr.currentGreeting = dummyGreeting;
+            assert.deepEqual(
+                gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"])), null,
+                "Final received message is not from expected source.");
+        });
+
+        it("Test saving of greeter", function() {
+            var prevPf = "prevPf";
+            var chainHash = "chainHash";
+            var parents = [utils.sha256("parents")];
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+
+            var dummyGreetStore = {
+                _opState : ns.STATE.NULL
+            };
+            var dummyMessage = { source: '3', dest: '4',
+                greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
+                members: ['1', '3', '2', '4', '5'],
+                metadata: null };
+            var dummyGreeting = { id : "1", onSend : doNothing,
+                start : function(value) { return dummyMessage; },
+                getEphemeralPrivKey : function() { return _td.ED25519_PRIV_KEY; },
+                getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; } };
+
+            var channelMembers = new Set(["1", "2", "3"]);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
+            assert.ok(pubtxt);
+
+            gtr.proposedGreeting = dummyGreeting;
+            var decMessage = codec.decodeWirePacket(pubtxt);
+            assert.strictEqual(gtr.proposalHash, ns._makePacketHash(decMessage.content));
+            var retGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", channelMembers);
+            assert.deepEqual(dummyGreeting, retGreeting);
+        });
+
+        it("Encode->partial decode proposal message", function() {
+            var prevPf = "prevPf";
+            var chainHash = "chainHash";
+            var parents = [utils.sha256("parents")];
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, "1", parents);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreetStore = {
+                _opState : ns.STATE.NULL
+            };
+
+            var channelMembers = new Set(["1", "2", "3"]);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
+            assert.ok(pubtxt, "pubtxt not ok.");
+            var m = gtr.partialDecode(prevMem, pubtxt, "1", channelMembers);
+            assert.ok(m, "message not ok.");
+            assert.strictEqual(m.metadata.prevCh, "chainHash", "chainHash not equal");
+            assert.strictEqual(m.metadata.prevPf, "prevPf");
+            assert.strictEqual(m.metadata.author, "1");
+            assert.deepEqual(m.metadata.parents.toArray(), parents);
+
+        });
+
+        it("Encode->decode proposal message", function() {
+            var prevPf = utils.sha256("prevPf");
+            var chainHash = utils.sha256("chainHash");
+            var parents = [utils.sha256("parents")];
+            var id = "1";
+            var metadata = ns.GreetingMetadata.create(prevPf, chainHash, id, parents);
+            var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var dummyGreetStore = {
+                _opState : ns.STATE.NULL
+            };
+
+            var channelMembers = new Set(["1", "2", "3"]);
+            var initMembers = new Set(["1"]);
+            var nextMembers = channelMembers;
+            var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
+            assert.ok(pubtxt, "pubtxt not ok.");
+
+            // Check the message with the other user.
+            var gtrTwo = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
+            var m = gtrTwo.partialDecode(prevMem, pubtxt, "1", channelMembers);
+            assert.ok(m, "message not ok.");
+            assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
+            assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
+            assert.strictEqual(m.metadata.author, id, "author not equal.");
+            assert.deepEqual(m.metadata.parents.toArray(), parents, "parents not equal.");
+            var dummyGreetStoreTwo = {
+                _opState : ns.STATE.NULL
+            };
+
+            var nGreeting = gtrTwo.decode(dummyGreetStoreTwo, prevMem, pubtxt, "1", channelMembers);
+            var dest;
+            nGreeting.onSend(function(send_out) { dest = send_out[1]; return true; });
+            var status = nGreeting.recv([pubtxt, "1"]);
+            assert.ok(status);
+            assert.ok(nGreeting, "nGreeting is null.");
+            assert.ok(nGreeting.askeMember.members, "askeMember.members is null.");
+            assert.strictEqual(nGreeting._opState, ns.STATE.INIT_UPFLOW, "state is not equal.");
+            assert.deepEqual(nGreeting.askeMember.members, ["1", "2", "3"], "Members are not equal.");
+            //assert.strictEqual(nGreeting.metadataIsAuthenticated(), true, "metadata is not authenticated.");
+            assert.deepEqual(dest.toArray(), ["3"], "Destination not correct.");
+
+            // Check the message with ourselves.Save a backup to ensure it is ours.
+            var savedGreeting = gtr.proposedGreeting;
+            var ourGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", channelMembers);
+            assert.ok(ourGreeting);
+            assert.deepEqual(ourGreeting, savedGreeting);
+        });
+    });
+
+    describe("Multiple Greeter instances with complete operation flows", function() {
+        var allSummariesAreFinal = function(summaries, nextPf) {
+            var allIsFinal = summaries.every(function(s) { return s && s.prevPi !== null; });
+            if (!allIsFinal) { return false; }
+            assert.strictEqual(
+                1, new Set(summaries.map(function(s) { return s.prevPi; })).size,
+                "got different values for prevPi");
+            assert.strictEqual(nextPf, undefined, "nextPf set twice");
+            return true;
+        };
+
+        var runGreetings = function(greeters, initId, prevPf,
+                prevStates, prevMembers, resultStates, nextMembers, channelMembers) {
+            assert.strictEqual(resultStates.size, 0);
+            nextMembers.forEach(function(id) {
+                assert.ok(greeters.has(id), "Greeter not present for id " + id);
+            });
+            var pubtxt0 = greeters.get(initId).encode(
+                prevStates.get(initId), prevMembers, nextMembers,
+                ns.GreetingMetadata.create(
+                    prevPf, utils.sha256("chainHash"), initId, []));
+
+            var sendQueue = [];
+            var greetings = new Map();
+            var currentPid, nextPf;
+            var summaries = [];
+
+            // Start the operation
+            greeters.forEach(function(greeter, id) {
+                if (!nextMembers.has(id)) { return; }
+                assert.strictEqual(greeter.id, id, "greeter id mismatch");
+                var summary = greeter.partialDecode(prevMembers, pubtxt0, initId, channelMembers);
+                assert.strictEqual(summary.metadata.prevPf, prevPf, "metadata prevPf mismatch");
+                summaries.push(summary);
+                currentPid = ns._makePid(
+                    codec.decodeWirePacket(pubtxt0).content, initId, channelMembers);
+                var greeting = greeter.decode(
+                    prevStates.get(id), prevMembers, pubtxt0, initId, channelMembers);
+                assert.strictEqual(greeting.id, id, "greeting id mismatch");
+                assert.ok(greeting.getMembers(), nextMembers.toArray(), "members mismatch");
+                greetings.set(id, greeting);
+                greeting.onSend(function(send_out) {
+                    var pubtxt = send_out[0], recipients = send_out[1];
+                    assert.deepEqual(recipients.subtract(channelMembers).size, 0,
+                        "recipients not all in channel");
+                    var recv_in = [pubtxt, id];
+                    sendQueue.push(recv_in);
+                });
+                var status = greeting.recv([pubtxt0, initId]);
+                assert.ok(status, "initial packet not accepted by receive handler");
+            });
+            if (allSummariesAreFinal(summaries, nextPf)) {
+                nextPf = currentPid;
+                assert.strictEqual(0, sendQueue.length);
+            }
+            nextMembers.forEach(function(id) {
+                assert.ok(greetings.has(id), "Greeting not created for id " + id);
+            });
+
+            // While there's pending sends, keep delivering them
+            while (sendQueue.length) {
+                var recv_in = sendQueue.shift();
+                // try partial decode
+                var summaries = [];
+                greeters.forEach(function(greeter, id) {
+                    if (!nextMembers.has(id)) { return; }
+                    summaries.push(greeter.partialDecode(
+                        prevMembers, recv_in[0], recv_in[1], channelMembers));
+                    currentPid = ns._makePid(
+                        codec.decodeWirePacket(recv_in[0]).content, recv_in[1], channelMembers);
+                });
+                if (allSummariesAreFinal(summaries, nextPf)) {
+                    nextPf = currentPid;
+                } else {
+                    var allIsNull = summaries.every(function(v) { return v === null; });
+                    assert.ok(allIsNull, "members got different results for partialDecode");
+                }
+                // try greeting recv
+                greetings.forEach(function(greeting, id) {
+                    var status = greeting.recv(recv_in);
+                    assert.ok(status, "medial/final packet not accepted by receive handler");
+                });
+            }
+
+            // Check result state
+            greetings.forEach(function(greeting, id) {
+                assert.ok(greeting.getResultState(), "greeting did not complete");
+                assert.deepEqual(greeting.getMembers(), nextMembers.toArray(), "result members mismatch");
+                resultStates.set(id, greeting.getResultState());
+            });
+            assert.ok(nextPf, "nextPf was not calculated");
+            return nextPf;
+        };
+
+        it("for 3 members, 2 joining, 2 others leaving, refresh key", function() {
+            this.timeout(this.timeout() * 30);
+
+            var greeters = new Map();
+            var makeNewGreeter = function(id) {
+                greeters.set(id,
+                    new ns.Greeter(id, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir));
+            };
+
+            var channelMembers = new Set(["0", "1", "2"]);
+            channelMembers.forEach(makeNewGreeter);
+            var prevPf = utils.sha256("dummyPrevPF");
+            var state0 = { get: function() { return null; } };
+
+            var members1 = channelMembers;
+            var state1 = new Map();
+            prevPf = runGreetings(greeters, "0", prevPf,
+                state0, null, state1, members1, channelMembers);
+
+            var includeMembers = new Set(["3", "4"]);
+            includeMembers.forEach(makeNewGreeter);
+            channelMembers = channelMembers.union(includeMembers);
+            var members2 = channelMembers;
+            var state2 = new Map();
+            prevPf = runGreetings(greeters, "1", prevPf,
+                state1, members1, state2, members2, channelMembers);
+
+            var excludeMembers = new Set(["1", "3"]);
+            var members3 = members2.subtract(excludeMembers);
+            var state3 = new Map();
+            prevPf = runGreetings(greeters, "2", prevPf,
+                state2, members2, state3, members3, channelMembers);
+
+            var members4 = members3;
+            var state4 = new Map();
+            prevPf = runGreetings(greeters, "4", prevPf,
+                state3, members3, state4, members4, channelMembers);
         });
     });
 
