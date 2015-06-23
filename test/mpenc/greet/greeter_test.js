@@ -54,7 +54,7 @@ define([
         });
     };
 
-    var doNothing = function(){};
+    var doNothing = function() {};
     var dummyPubKeyDir = { get: function() { return _td.ED25519_PUB_KEY; } };
     var prevMem = "UNUSED"; // partialDecode doesn't do anything with prevMembers, just pass in a dummy value
 
@@ -851,12 +851,12 @@ define([
             var oldMembers = new Set(['1', '2', '3']);
             var newIncorrectMembers = new Set(['1', '2', '4']);
 
-            assert.throws(function(){ ns._determineFlowType(owner, oldMembers, newIncorrectMembers);},
+            assert.throws(function() { ns._determineFlowType(owner, oldMembers, newIncorrectMembers);},
                     "Cannot both exclude and join members.", "_determineFlowType not throwing on" +
                         " both exclude and include members.");
         });
 
-        it("Test get GreetingSummary from partialDecode.", function(){
+        it("Test get GreetingSummary from partialDecode.", function() {
             var acceptedTypes = [
                 ns.GREET_TYPE.INIT_INITIATOR_UP,
                 ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP,
@@ -866,7 +866,7 @@ define([
 
             var t, decodeMembers;
             stubPartialDecodeInternals(function(type) {
-                switch(type) {
+                switch (type) {
                 case codec.TLV_TYPE.GREET_TYPE: return t;
                 case codec.TLV_TYPE.SOURCE: return "1";
                 case codec.TLV_TYPE.CHAIN_HASH: return utils.sha256("dummyHash");
@@ -887,7 +887,7 @@ define([
             }
         });
 
-        it("Test return null from partialDecode.", function(){
+        it("Test return null from partialDecode.", function() {
             var acceptedTypes = [
                 ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                 ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_DOWN,
@@ -896,7 +896,7 @@ define([
 
             var t, decodeMembers;
             stubPartialDecodeInternals(function(type) {
-                switch(type) {
+                switch (type) {
                 case codec.TLV_TYPE.GREET_TYPE: return t;
                 case codec.TLV_TYPE.SOURCE: return "1";
                 case codec.TLV_TYPE.MEMBER: return decodeMembers.shift();
@@ -913,9 +913,9 @@ define([
             }
         });
 
-        it("Test final message, no current greeting", function(){
+        it("Test final message, no current greeting", function() {
             stubPartialDecodeInternals(function(type) {
-                switch(type) {
+                switch (type) {
                 case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
                 case codec.TLV_TYPE.SOURCE: return "1";
                 }
@@ -928,7 +928,7 @@ define([
 
         it("Test final message tested, correct", function() {
             stubPartialDecodeInternals(function(type) {
-                switch(type) {
+                switch (type) {
                 case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
                 case codec.TLV_TYPE.SOURCE: return "2";
                 }
@@ -936,7 +936,7 @@ define([
             var prevPi = utils.sha256("randomMessage");
             var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             var dummyGreeting = new ns.Greeting(gtr);
-            dummyGreeting.askeMember.yetToAuthenticate = function(){ return ["2"]; };
+            dummyGreeting.askeMember.yetToAuthenticate = function() { return ["2"]; };
             dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentPi = prevPi;
             gtr.currentGreeting = dummyGreeting;
@@ -948,14 +948,14 @@ define([
 
         it("Test final message tested, incorrect", function() {
             stubPartialDecodeInternals(function(type) {
-                switch(type) {
+                switch (type) {
                 case codec.TLV_TYPE.GREET_TYPE: return ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN;
                 case codec.TLV_TYPE.SOURCE: return "2";
                 }
             });
             var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
             var dummyGreeting = new ns.Greeting(gtr);
-            dummyGreeting.askeMember.yetToAuthenticate = function(){ return ["3"]; };
+            dummyGreeting.askeMember.yetToAuthenticate = function() { return ["3"]; };
             dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentGreeting = dummyGreeting;
             assert.deepEqual(
@@ -1019,7 +1019,7 @@ define([
 
         });
 
-        it("Encode->decode proposal message", function(){
+        it("Encode->decode proposal message", function() {
             var prevPf = utils.sha256("prevPf");
             var chainHash = utils.sha256("chainHash");
             var parents = [utils.sha256("parents")];

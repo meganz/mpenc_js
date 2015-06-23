@@ -253,7 +253,7 @@ define([
      * @constructor
      * @param source {string}
      *     Message originator (from).
-     * @returns {mpenc.greet.greeter.GreetMessage}
+     * @memberOf module:mpenc/greet/greeter
      *
      * @property source {string|object}
      *     Message originator (from) or a {GreetMessage} object to copy.
@@ -337,7 +337,7 @@ define([
     /**
      * Sets a bit on the message type to a particular value.
      *
-     * @method
+     * @private
      * @param {integer}
      *     Bit number to modify.
      * @param {bool}
@@ -375,7 +375,7 @@ define([
     /**
      * Reads a bit on the message type to a particular value.
      *
-     * @method
+     * @private
      * @param {integer}
      *     Bit number to read.
      * @return {bool}
@@ -638,8 +638,11 @@ define([
     };
 
 
-    ns._popTLVMetadata = function(rest, source, search, action) {
+    ns._popTLVMetadata = function(message, source, search, action) {
+        // Decode a GreetingMetadata from the given TLV string, execute the
+        // action on it (if one was decoded) and return the rest of the string.
         var prevPf, chainHash, parents = [];
+        var rest = message;
 
         if (search) {
             // search until we find one
@@ -668,6 +671,8 @@ define([
 
 
     ns._determineFlowType = function(owner, prevMembers, members) {
+        // Determine the mpENC GKA flow type (start/include/exclude/refresh)
+        // from the requested prevMembers -> members abstract transition.
         _assert(owner);
         _assert(prevMembers.has(owner));
         _assert(members.has(owner));
@@ -688,14 +693,14 @@ define([
         if (include.size) {
             if (!keeping.size) {
                 // no previous session, start() instead of include()
-                return {greetType : ns.GREET_TYPE.INIT_INITIATOR_UP, members : members};
+                return { greetType: ns.GREET_TYPE.INIT_INITIATOR_UP, members: members };
             } else {
-                return {greetType : ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members : include};
+                return { greetType: ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP, members: include };
             }
         } else if (exclude.size) {
-            return {greetType : ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members : exclude};
+            return { greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN, members: exclude };
         } else {
-            return {greetType : ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members : members};
+            return { greetType: ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN, members: members };
         }
     };
 
@@ -768,13 +773,19 @@ define([
 
 
     ns._makePacketHash = function(packet) {
-        // the packet-id depends on the channelMembers, so we can't calculate
-        // it when we send the packet. so calculate a packetHash instead.
+        // Calculate the hash of a packet. This is used for encode() to keep
+        // track of packets that it sends out. (The packet-id depends on the
+        // channelMembers, so we can't calculate it when we send the packet,
+        // because we don't know what this will be when the server finally
+        // echoes it back.)
         return utils.sha256(packet);
     };
 
 
     ns._makePid = function(packet, sender, channelMembers) {
+        // Calculate the "packet-id" of a packet received from the server. The
+        // reasoning behind this definition is given in msg-notes, appendix 5
+        // "Hybrid ordering".
         _assert(typeof sender === "string");
         _assert(channelMembers instanceof ImmutableSet);
         _assert(channelMembers.has(sender));
@@ -818,10 +829,10 @@ define([
      * Wrapper around the constructor that automatically converts its arguments
      * into types that are valid for the class.
      *
-     * @param prevPf {string}
-     * @param prevCh {string}
-     * @param author {string}
-     * @param parents {Iterable}
+     * @param prevPf {string} See class docstring.
+     * @param prevCh {string} See class docstring.
+     * @param author {string} See class docstring.
+     * @param parents {Iterable} See class docstring.
      * @returns {module:mpenc/greet/greeter.GreetingMetadata}
      */
     GreetingMetadata.create = function(prevPf, prevCh, author, parents) {
@@ -841,7 +852,7 @@ define([
      *      The metadata for the message, if it is an initial protocol flow message.
      * @property prevPi {?string}
      *      The previous pI for the protocol flow, if it is a final protocol flow message.
-     * @param members {module:mpenc/helper/struct.ImmutableSet}
+     * @property members {module:mpenc/helper/struct.ImmutableSet}
      *      The members of the new sub-session if the operation completes.
      * @see module:mpenc/greet/greeter.GreetingSummary.create
      * @memberOf module:mpenc/greet/greeter
@@ -857,16 +868,14 @@ define([
     };
 
     /**
-     * Determine if this is an iniital message or not.
-     * @returns {boolean}
+     * @returns {boolean} <code>true</code> if this is an initial message.
      */
     GreetingSummary.prototype.isInitial = function() {
         return this.metadata !== null;
     };
 
     /**
-     * Determine if this is a final message or not.
-     * @returns {boolean}
+     * @returns {boolean} <code>true</code> if this is a final message.
      */
     GreetingSummary.prototype.isFinal = function() {
         return this.prevPi !== null;
@@ -876,10 +885,10 @@ define([
      * Wrapper around the constructor that automatically converts its arguments
      * into types that are valid for the class.
      *
-     * @param pId {string}
-     * @param metadata {?module:mpenc/greet/greeter.GreetingMetadata}
-     * @param prevPi {?string}
-     * @param parents {Iterable}
+     * @param pId {string} See class docstring.
+     * @param metadata {?module:mpenc/greet/greeter.GreetingMetadata} See class docstring.
+     * @param prevPi {?string} See class docstring.
+     * @param members {Iterable} See class docstring.
      * @returns {module:mpenc/greet/greeter.GreetingSummary}
      */
     GreetingSummary.create = function(pId, metadata, prevPi, members) {
@@ -1229,7 +1238,7 @@ define([
                     + ' members.length = ' + members.length + " ephemeralPubKeys.length = " +
                     ephemeralPubKeys.length);
 
-            for (var i=0; i<members.length; i++) {
+            for (var i = 0; i < members.length; i++) {
                 this.pubKeyMap[members[i]] = ephemeralPubKeys[i];
             }
         }
@@ -1320,21 +1329,26 @@ define([
     /**
      * Get the metadata associated with this Greeting.
      *
-     * @returns {GreetingMetadata} The metadata for this Greeting.
+     * @returns {module:mpenc/greet/greeter.GreetingMetadata} The metadata for this Greeting.
      */
     Greeting.prototype.getMetadata = function () {
         return this.metadata;
     };
 
     /**
-     *
+     * @returns {boolean} Whether the metadata associated with the initial
+     *      packet was authenticated against its claimed author/source by this
+     *      operation itself. If not, then a higher layer (e.g. Session) must
+     *      do this retroactively.
      */
     Greeting.prototype.metadataIsAuthenticated = function () {
         return this._metadataIsAuthenticated;
     };
 
     /**
-     *
+     * @returns {module:mpenc/greet/greeter.GreetStore} Resulting greet state
+     *      at the completion of the Greeting operation.
+     * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultState = function () {
         if (this._opState !== ns.STATE.READY) {
@@ -1347,6 +1361,11 @@ define([
             this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys);
     };
 
+    /**
+     * @returns {module:mpenc/greet/greeter.GreetStore} Resulting session id
+     *      for the next sub-session, as determined by the Greeting operation.
+     * @throws If the operation is not yet complete.
+     */
     Greeting.prototype.getResultSId = function () {
         if (this._opState !== ns.STATE.READY) {
             throw new Error("Greeting not yet finished");
@@ -1359,26 +1378,28 @@ define([
     };
 
     Greeting.prototype._updateOpState = function(state) {
-        // Update the state if required.
+        // Update the operation state.
         _assert(typeof state === "number");
         logger.debug('Reached new state: ' + ns.STATE_MAPPING[state]);
         this._opState = state;
     };
 
     Greeting.prototype._assertState = function(valid, message) {
+        // Check the operation state against an array of valid values.
         var state = this._opState;
         _assert(valid.some(function(v) {
             return state === v;
         }, this), message + " but state was: " + ns.STATE_MAPPING[state]);
     };
 
-    Greeting.prototype._encodeAndPublish = function(packet, state) {
-        _assert(packet);
+    Greeting.prototype._encodeAndPublish = function(message, state) {
+        // Encode a GreetMessage and publish it to send-subscribers.
+        _assert(message);
         var payload = ns.encodeGreetMessage(
-            packet,
+            message,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
-        var recipients = new ImmutableSet((packet.dest)? [packet.dest]: this.getMembers());
+        var recipients = new ImmutableSet((message.dest)? [message.dest]: this.getMembers());
         // TODO(xl): use a RawSendT instead of Array[2]
         this._send.publish([codec.encodeWirePacket(payload), recipients]);
         if (state !== undefined) {
@@ -1396,7 +1417,7 @@ define([
      * @method
      * @param otherMembers {Array}
      *     Iterable of other members for the group (excluding self).
-     * @returns {object}
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
      *      The message to commence the intial key exchange.
      */
     Greeting.prototype.start = function(otherMembers) {
@@ -1407,16 +1428,16 @@ define([
         var cliquesMessage = this.cliquesMember.ika(otherMembers);
         var askeMessage = this.askeMember.commit(otherMembers);
 
-        var packet = this._mergeMessages(cliquesMessage, askeMessage);
-        packet.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
+        var message = this._mergeMessages(cliquesMessage, askeMessage);
+        message.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
 
-        if (packet.members.length === 1) {
+        if (message.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
             return this.quit();
         } else {
             this._updateOpState(ns.STATE.INIT_UPFLOW);
-            return packet;
+            return message;
         }
     };
 
@@ -1427,7 +1448,7 @@ define([
      * @method
      * @param includeMembers {Array}
      *     Array of members to include into the group.
-     * @returns {object}
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
      *      The message to commence inclusion.
      */
     Greeting.prototype.include = function(includeMembers) {
@@ -1438,10 +1459,10 @@ define([
         var cliquesMessage = this.cliquesMember.akaJoin(includeMembers);
         var askeMessage = this.askeMember.join(includeMembers);
 
-        var packet = this._mergeMessages(cliquesMessage, askeMessage);
-        packet.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
+        var message = this._mergeMessages(cliquesMessage, askeMessage);
+        message.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateOpState(ns.STATE.AUX_UPFLOW);
-        return packet;
+        return message;
     };
 
 
@@ -1451,8 +1472,8 @@ define([
      * @method
      * @param excludeMembers {Array}
      *     Iterable of members to exclude from the group.
-     * @returns
-     *      {object} The message to commence exclusion.
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
+     *      The message to commence exclusion.
      */
     Greeting.prototype.exclude = function(excludeMembers) {
         this._assertState([ns.STATE.READY],
@@ -1464,8 +1485,8 @@ define([
         var cliquesMessage = this.cliquesMember.akaExclude(excludeMembers);
         var askeMessage = this.askeMember.exclude(excludeMembers);
 
-        var packet = this._mergeMessages(cliquesMessage, askeMessage);
-        packet.greetType = ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
+        var message = this._mergeMessages(cliquesMessage, askeMessage);
+        message.greetType = ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN;
 
         // We need to update the session state.
         this.sessionId = this.askeMember.sessionId;
@@ -1473,14 +1494,14 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
-        if (packet.members.length === 1) {
+        if (message.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
             this.quit();
         } else {
             this._updateOpState(
                 this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
-            return packet;
+            return message;
         }
     };
 
@@ -1489,8 +1510,7 @@ define([
      * Mechanism to start the downflow for quitting participation.
      *
      * @method
-     *
-     * @returns {object}
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
      *      The message to commence quitting.
      */
     Greeting.prototype.quit = function() {
@@ -1504,10 +1524,10 @@ define([
         this.cliquesMember.akaQuit();
         var askeMessage = this.askeMember.quit();
 
-        var packet = this._mergeMessages(null, askeMessage);
-        packet.greetType = ns.GREET_TYPE.QUIT_DOWN;
+        var message = this._mergeMessages(null, askeMessage);
+        message.greetType = ns.GREET_TYPE.QUIT_DOWN;
         this._updateOpState(ns.STATE.QUIT);
-        return packet;
+        return message;
     };
 
 
@@ -1515,8 +1535,7 @@ define([
      * Mechanism to refresh group key.
      *
      * @method
-     *
-     * @returns {object}
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
      *     The message to commence key refresh.
      *
      */
@@ -1525,11 +1544,11 @@ define([
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
-        var packet = this._mergeMessages(cliquesMessage, null);
-        packet.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
+        var message = this._mergeMessages(cliquesMessage, null);
+        message.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
-        return packet;
+        return message;
     };
 
 
@@ -1587,10 +1606,10 @@ define([
     /**
      * Handles greet (key agreement) protocol execution with all participants.
      *
-     * @method
-     * @param message {GreetMessage}
+     * @private
+     * @param message {module:mpenc/greet/greeter.GreetMessage}
      *     Received message (decoded).
-     * @returns {object}
+     * @returns {Object}
      *     Object containing any response output message as
      *     {GreetMessage} in attribute `decodedMessage` and
      *     optional (null if not used) the new the Greeting state in
@@ -1712,6 +1731,8 @@ define([
 
 
     Greeting.prototype._maybeSetReady = function() {
+        // Check if the operation is complete.
+        // If so, set public variables and fire hooks (e.g. promises)
         if (this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
             // We have seen and verified all broadcasts from others.
             // Let's update our state information.
@@ -1750,12 +1771,12 @@ define([
     /**
      * Merges the contents of the messages for ASKE and CLIQUES into one message.
      *
-     * @method
+     * @private
      * @param cliquesMessage {mpenc.greet.cliques.CliquesMessage}
      *     Message from CLIQUES protocol workflow.
      * @param askeMessage {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Message from ASKE protocol workflow.
-     * @returns {GreetMessage}
+     * @returns {module:mpenc/greet/greeter.GreetMessage}
      *     Joined message (not wire encoded).
      */
     Greeting.prototype._mergeMessages = function(cliquesMessage, askeMessage) {
@@ -1793,8 +1814,8 @@ define([
     /**
      * Extracts a CLIQUES message out of the received protocol handler message.
      *
-     * @method
-     * @param message {GreetMessage}
+     * @private
+     * @param message {module:mpenc/greet/greeter.GreetMessage}
      *     Message from protocol handler.
      * @returns {mpenc.greet.cliques.CliquesMessage}
      *     Extracted message.
@@ -1827,8 +1848,8 @@ define([
     /**
      * Extracts a ASKE message out of the received protocol handler message.
      *
-     * @method
-     * @param message {GreetMessage}
+     * @private
+     * @param message {module:mpenc/greet/greeter.GreetMessage}
      *     Message from protocol handler.
      * @returns {mpenc.greet.ske.SignatureKeyExchangeMessage}
      *     Extracted message.

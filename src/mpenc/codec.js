@@ -366,6 +366,15 @@ define([
     /**
      * Keep decoding TLV values of a particular type, executing the action on
      * each decoded value. Stop when the next value is not of the expected type.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV.
+     * @param action {function}
+     *     1-arg function to execute on each decoded value.
+     * @returns {string}
+     *     The rest of the string to decode later.
      */
     ns.popTLVAll = function(message, type, action) {
         var oldrest;
@@ -381,6 +390,13 @@ define([
     /**
      * Keep decoding TLV values *until* we reach a particular type. Stop when
      * the next value is of the expected type.
+     *
+     * @param message {string}
+     *     A binary TLV string.
+     * @param type {string}
+     *     Expected type of the TLV to search for.
+     * @returns {string}
+     *     A string that is either empty or whose next record is of the given type.
      */
     ns.popTLVUntil = function(message, type) {
         var oldrest;
@@ -390,7 +406,7 @@ define([
             var tlv = ns.decodeTLV(rest);
             if (tlv.type === type) {
                 break;
-            };
+            }
             rest = tlv.rest;
         } while (rest !== oldrest);
         return rest;

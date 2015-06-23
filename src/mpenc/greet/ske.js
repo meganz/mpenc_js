@@ -342,7 +342,7 @@ define([
     /**
      * Returns the ids of the members yet to acknowledge to us.
      *
-     * @returns {Array}
+     * @returns {array<string>} Participant ids.
      * @method
      */
     ns.SignatureKeyExchangeMember.prototype.yetToAuthenticate = function() {
@@ -400,15 +400,12 @@ define([
         this.members = allMembers;
         this.discardAuthentications();
 
-        //////////// Patch in nonce change //////////
         this.nonce = jodid25519.eddsa.generateKeySeed();
         var myPos = this.members.indexOf(this.id);
         this.nonces[myPos] = this.nonce;
 
         // Compute my session ID.
         this.sessionId = ns._computeSid(this.members, this.nonces);
-
-        /////////////////////////////////////////////
 
         // Pass a message on to the first new member to join.
         var startMessage = new ns.SignatureKeyExchangeMessage(this.id, '', 'up');
