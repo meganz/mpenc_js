@@ -386,7 +386,7 @@ define([
             return false;
         }
 
-        var stat = this._send.publish([pubtxt, recipients]);
+        var stat = this._send.publish({ pubtxt: pubtxt, recipients: recipients });
         return stat.some(function(v) { return !!v; });
     };
 
@@ -394,7 +394,8 @@ define([
      * @inheritDoc
      */
     SessionBase.prototype.recv = function(recv_in) {
-        var pubtxt = recv_in[0], sender = recv_in[1];
+        var pubtxt = recv_in.pubtxt;
+        var sender = recv_in.sender;
         var mId = this._pubtxt.get(pubtxt);
         if (mId) {
             // duplicate received

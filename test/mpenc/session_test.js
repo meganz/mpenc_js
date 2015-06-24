@@ -200,7 +200,11 @@ define([
             var sub0 = stub();
             sess0.onEvent(MsgAccepted)(sub0);
             sess0.onSend(stub().returns(true)); // suppress "no subscriber" warnings
-            sess1.onSend(function(send_out) { sess0.recv([send_out[0], 51]); return true; });
+            sess1.onSend(function(send_out) {
+                var status = sess0.recv({ pubtxt: send_out.pubtxt, sender: 51 });
+                assert.ok(status);
+                return true;
+            });
             assert(sub0.notCalled);
             sess1.sendData("txt");
             assert(sub0.calledOnce);
@@ -215,14 +219,14 @@ define([
             sess0.onSend(stub().returns(true)); // suppress "no subscriber" warnings
             sess1.onSend(function(send_out) {
                 // send to 52, withhold from 50
-                var recv_in = [send_out[0], 51];
+                var recv_in = { pubtxt: send_out.pubtxt, sender: 51 };
                 sess2.recv(recv_in);
                 forSess0.push(recv_in);
                 return true;
             });
             sess2.onSend(function(send_out) {
                 // send to 51, withhold from 50
-                var recv_in = [send_out[0], 52];
+                var recv_in = { pubtxt: send_out.pubtxt, sender: 52 };
                 sess1.recv(recv_in);
                 forSess0.push(recv_in);
                 return true;

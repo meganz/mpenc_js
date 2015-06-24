@@ -1252,12 +1252,22 @@ define([
     /**
      * Implementation of a protocol handler with its state machine.
      *
+     * The instantiated types for <code>SendingReceiver</code> are:
+     *
+     * <ul>
+     * <li><code>{@link module:mpenc/greet/greeter.Greeting#recv|RecvInput}</code>:
+     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     * <li><code>{@link module:mpenc/greet/greeter.Greeting#onSend|SendOutput}</code>:
+     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     * </ul>
+     *
      * @class
      * @param greeter {module:mpenc/greet/greeter.Greeter}
      *      Context of this Greeting operation with various static information.
      * @param [store] {module:mpenc/greet/greeter.GreetStore}
      *      State at the end of the previously-completed operation, if any.
      * @memberOf module:mpenc/greet/greeter
+     * @implements module:mpenc/helper/utils.SendingReceiver
      */
     var Greeting = function(greeter, store) {
         store = store || new GreetStore();
@@ -1401,12 +1411,15 @@ define([
             this.getEphemeralPubKey());
         var recipients = new ImmutableSet((message.dest)? [message.dest]: this.getMembers());
         // TODO(xl): use a RawSendT instead of Array[2]
-        this._send.publish([codec.encodeWirePacket(payload), recipients]);
+        this._send.publish({ pubtxt: codec.encodeWirePacket(payload), recipients: recipients });
         if (state !== undefined) {
             this._updateOpState(state);
         }
     };
 
+    /**
+     * @inheritDoc
+     */
     Greeting.prototype.onSend = function(subscriber) {
         return this._send.subscribe(subscriber);
     };
@@ -1552,8 +1565,12 @@ define([
     };
 
 
+    /**
+     * @inheritDoc
+     */
     Greeting.prototype.recv = function(recv_in) {
-        var pubtxt = recv_in[0], from = recv_in[1];
+        var pubtxt = recv_in.pubtxt;
+        var from = recv_in.sender;
         var message = codec.decodeWirePacket(pubtxt);
         if (message.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
             return false;

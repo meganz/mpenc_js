@@ -1050,8 +1050,8 @@ define([
 
             var nGreeting = gtrTwo.decode(dummyGreetStoreTwo, prevMem, pubtxt, "1", channelMembers);
             var dest;
-            nGreeting.onSend(function(send_out) { dest = send_out[1]; return true; });
-            var status = nGreeting.recv([pubtxt, "1"]);
+            nGreeting.onSend(function(send_out) { dest = send_out.recipients; return true; });
+            var status = nGreeting.recv({ pubtxt: pubtxt, sender: "1" });
             assert.ok(status);
             assert.ok(nGreeting, "nGreeting is null.");
             assert.ok(nGreeting.askeMember.members, "askeMember.members is null.");
@@ -1110,13 +1110,13 @@ define([
                 assert.ok(greeting.getMembers(), nextMembers.toArray(), "members mismatch");
                 greetings.set(id, greeting);
                 greeting.onSend(function(send_out) {
-                    var pubtxt = send_out[0], recipients = send_out[1];
+                    var pubtxt = send_out.pubtxt;
+                    var recipients = send_out.recipients;
                     assert.deepEqual(recipients.subtract(channelMembers).size, 0,
                         "recipients not all in channel");
-                    var recv_in = [pubtxt, id];
-                    sendQueue.push(recv_in);
+                    sendQueue.push({ pubtxt: pubtxt, sender: id });
                 });
-                var status = greeting.recv([pubtxt0, initId]);
+                var status = greeting.recv({ pubtxt: pubtxt0, sender: initId });
                 assert.ok(status, "initial packet not accepted by receive handler");
             });
             if (allSummariesAreFinal(summaries, nextPf)) {
@@ -1130,14 +1130,16 @@ define([
             // While there's pending sends, keep delivering them
             while (sendQueue.length) {
                 var recv_in = sendQueue.shift();
+                var pubtxt = recv_in.pubtxt;
+                var sender = recv_in.sender;
                 // try partial decode
                 var summaries = [];
                 greeters.forEach(function(greeter, id) {
                     if (!nextMembers.has(id)) { return; }
                     summaries.push(greeter.partialDecode(
-                        prevMembers, recv_in[0], recv_in[1], channelMembers));
+                        prevMembers, pubtxt, sender, channelMembers));
                     currentPid = ns._makePid(
-                        codec.decodeWirePacket(recv_in[0]).content, recv_in[1], channelMembers);
+                        codec.decodeWirePacket(pubtxt).content, sender, channelMembers);
                 });
                 if (allSummariesAreFinal(summaries, nextPf)) {
                     nextPf = currentPid;
