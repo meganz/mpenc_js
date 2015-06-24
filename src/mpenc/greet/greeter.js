@@ -818,7 +818,8 @@ define([
      */
     var GreetingMetadata = struct.createTupleClass("prevPf", "prevCh", "author", "parents");
 
-    GreetingMetadata.prototype.postInit = function() {
+    GreetingMetadata.prototype._postInit = function() {
+        // hook for createTupleClass constructor
         _assert(typeof this.prevPf === "string");
         _assert(typeof this.prevCh === "string");
         _assert(typeof this.author === "string");
@@ -859,7 +860,8 @@ define([
      */
     var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "members");
 
-    GreetingSummary.prototype.postInit = function() {
+    GreetingSummary.prototype._postInit = function() {
+        // hook for createTupleClass constructor
         _assert(typeof this.pId === "string");
         _assert(this.metadata !== null || this.prevPi !== null);
         _assert(this.metadata === null || this.metadata instanceof GreetingMetadata);

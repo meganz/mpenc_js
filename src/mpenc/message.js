@@ -107,7 +107,8 @@ define([
      */
     var Payload = struct.createTupleClass(MessageBody, "content");
 
-    Payload.prototype.postInit = function() {
+    Payload.prototype._postInit = function() {
+        // hook for createTupleClass constructor
         if (!(typeof this.content === "string" && this.content.length)) {
             throw new Error("Payload content must be non-empty");
         }
@@ -131,7 +132,8 @@ define([
      */
     var ExplicitAck = struct.createTupleClass(MessageBody, "manual");
 
-    ExplicitAck.prototype.postInit = function() {
+    ExplicitAck.prototype._postInit = function() {
+        // hook for createTupleClass constructor
         if (this.manual !== (!!this.manual)) {
             throw new Error("ExplicitAck manual must be boolean");
         }
@@ -160,7 +162,8 @@ define([
         return (obj instanceof Consistency) && obj.close;
     };
 
-    Consistency.prototype.postInit = function() {
+    Consistency.prototype._postInit = function() {
+        // hook for createTupleClass constructor
         if (this.close !== (!!this.close)) {
             throw new Error("Consistency close must be boolean");
         }

@@ -154,10 +154,14 @@ define([
      * 3.605551275463989
      * </pre>
      *
-     * @param baseClass {?object} Optional parent class to extend from; this
+     * @param [baseClass] {object} Optional parent class to extend from; this
      *      itself must be a subclass of Array. If omitted, defaults to Array.
      * @param fieldNames {...string} Names of fields to alias to each numerical
      *      index within the tuple.
+     * @returns {function} A constructor. You may define a 0-arg method on it
+     *      as <code>YourClass.prototype._postInit</code>, which will be
+     *      called automatically by the constructor. This is useful to e.g.
+     *      check inputs, perform further initialisation, etc.
      * @memberOf! module:mpenc/helper/struct
      */
     var createTupleClass = function() {
@@ -180,8 +184,8 @@ define([
             }
             this.length = arguments.length;
             Object.freeze(this);
-            if (this.postInit) {
-                this.postInit();
+            if (this._postInit) {
+                this._postInit();
             }
         };
         cls.prototype = Object.create(baseClass.prototype);
