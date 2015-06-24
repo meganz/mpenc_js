@@ -35,8 +35,8 @@ define([
                 assert.notStrictEqual(ns.codec, undefined);
             });
 
-            it('handler sub-module', function() {
-                assert.notStrictEqual(ns.handler, undefined);
+            it('session sub-module', function() {
+                assert.notStrictEqual(ns.session, undefined);
             });
 
             it('version sub-module', function() {

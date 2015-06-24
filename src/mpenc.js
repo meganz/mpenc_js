@@ -18,10 +18,10 @@
 
 define([
     "mpenc/codec",
-    "mpenc/handler",
+    "mpenc/session",
     "mpenc/version",
     "megalogger",
-], function(codec, handler, version, MegaLogger) {
+], function(codec, session, version, MegaLogger) {
     "use strict";
 
     /**
@@ -44,7 +44,7 @@ define([
     MegaLogger.getLogger('greet', undefined, 'mpenc');
 
     mpenc.codec = codec;
-    mpenc.handler = handler;
+    mpenc.session = session;
     mpenc.version = version;
 
     return mpenc;
