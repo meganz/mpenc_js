@@ -69,6 +69,7 @@ define([
 
     /**
      * @returns {string} Chain hash at the last accepted packet.
+     * @throws If not yet synced.
      */
     ServerOrder.prototype.prevCh = function() {
         return this.chainHash[this.chainHash.length - 1];
@@ -76,6 +77,7 @@ define([
 
     /**
      * @returns {string} Packet id of the latest completed operation.
+     * @throws If not yet synced.
      */
     ServerOrder.prototype.prevPf = function() {
         return this.opFinal[this.opFinal.length - 1];
@@ -90,11 +92,18 @@ define([
 
     /**
      * @returns {boolean} Whether there is an ongoing operation.
+     * @throws If not yet synced.
      */
     ServerOrder.prototype.hasOngoingOp = function() {
         return this.opInitial.length > this.opFinal.length;
     };
 
+    /**
+     * @param prevCh {string} Chain hash at the previous packet.
+     * @param pId {string} Packet id of this packet.
+     * @param [ptype] {string} Optional "packet type".
+     * @returns {string} Chain hash at this packet.
+     */
     ServerOrder.prototype.makeChainHash = function(prevCh, pId, ptype) {
         return utils.sha256(prevCh + pId + ptype);
     };
@@ -147,6 +156,10 @@ define([
 
     /**
      * Sync opportunistically with someone else's claimed previous values.
+     *
+     * @param prevPf {string} Packet id of the previous final packet, before we
+     *      entered the channel.
+     * @param prevCh {string} Chain hash at this final packet.
      */
     ServerOrder.prototype.syncWithPrev = function(prevPf, prevCh) {
         this.seenPrevPf = null;
@@ -170,12 +183,18 @@ define([
     };
 
     ServerOrder.prototype._updateServerOrder = function(pId, ptype, sessionRecipients) {
+        // update our tracking of packet ids and chain hashes, and set
+        // expectations that we'll verify the consistent of them with others
         this.packetId.push(pId);
         this.chainHash.push(this.makeChainHash(this.prevCh(), pId, ptype));
         this.chainUnacked.push(new ImmutableSet([sessionRecipients]));
         _assert(this.packetId.length === this.chainHash.length);
     };
 
+    /**
+     * Note that we have verified the GreetingMetadata of an operation to be
+     * authenticated against its claimed sender.
+     */
     ServerOrder.prototype.setMetadataAuthenticated = function(prevPf) {
         var i = this.opFinal.indexOf(prevPf);
         this.opMetadataAuthenticated[i + 1] = true;
