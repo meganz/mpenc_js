@@ -112,20 +112,6 @@ define([
         return new SessionBase(context, sId, members, dummyMessageSecurity);
     };
 
-    describe("StateMachine test", function() {
-        it('ctor', function() {
-            var s = new StateMachine(SNStateChange, SessionState.JOINED);
-            assert.strictEqual(s.state(), SessionState.JOINED);
-        });
-        it('#setState()', function() {
-            var s = new StateMachine(SNStateChange, SessionState.JOINED);
-            var sns = s.setState(SessionState.PARTED);
-            assert.strictEqual(s.state(), SessionState.PARTED);
-            assert.strictEqual(sns.oldState, SessionState.JOINED);
-            assert.strictEqual(sns.newState, SessionState.PARTED);
-        });
-    });
-
     describe("SessionBase test", function() {
         it('ctor and stop', function() {
             var sess = mkSessionBase();

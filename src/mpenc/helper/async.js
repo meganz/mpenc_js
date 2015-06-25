@@ -629,6 +629,11 @@ define([
      * Subscribe to events; delegates to some underlying internal EventContext.
      *
      * @method
+     * @param evtcls {function} Matching event type.
+     * @param prefix {Array} Matching event prefix.
+     * @param useCapture {boolean} Whether to fire the subscription before
+     *      ones with longer matching prefixes. Default: false, fire after.
+     * @returns {module:mpenc/helper/async~subscriber}
      * @see module:mpenc/helper/async.EventContext#subscribe
      */
     EventSource.prototype.onEvent;

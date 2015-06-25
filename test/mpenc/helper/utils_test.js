@@ -135,4 +135,24 @@ define([
             });
         });
     });
+
+    describe("StateMachine test", function() {
+        var StateChange = function(newState, oldState) {
+            this.newState = newState;
+            this.oldState = oldState;
+        };
+
+        it('ctor', function() {
+            var s = new ns.StateMachine(StateChange, 0);
+            assert.strictEqual(s.state(), 0);
+        });
+        it('#setState()', function() {
+            var s = new ns.StateMachine(StateChange, 0);
+            var sns = s.setState(1);
+            assert.strictEqual(s.state(), 1);
+            assert.strictEqual(sns.oldState, 0);
+            assert.strictEqual(sns.newState, 1);
+        });
+    });
+
 });

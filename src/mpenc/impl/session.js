@@ -69,77 +69,7 @@ define([
     var ImmutableSet = struct.ImmutableSet;
     var TrialTimeoutTarget = struct.TrialTimeoutTarget;
     var TrialBuffer = struct.TrialBuffer;
-
-
-    // TODO(xl): move to another module, i.e. equivalent of "swarch" in the python
-
-    var StateError = function(actual, label, expected) {
-        this._actual    = actual;
-        this._label     = label;
-        this._expected  = expected;
-    };
-
-    StateError.prototype = Object.create(Error.prototype);
-
-    StateError.prototype.toString = function() {
-        return 'StateError: ' +  this._label + ' expected ' +  this._expected + ' actual: ' + this._actual;
-    };
-
-    Object.freeze(StateError.prototype);
-    ns.StateError = StateError;
-
-
-    /**
-     * A general state machine, with states represented as SessionState.
-     * @param changeType {SNStateChange} state change handler.
-     * @param initstate {SessionState} intial state of the state machine, and default state is JOINED.
-     */
-    var StateMachine = function(changeType, initstate) {
-        this._state = initstate;
-        this.ChangeType = changeType;
-    };
-
-    /**
-     * Get the current state.
-     * @returns {SessionState}
-     */
-    StateMachine.prototype.state = function() {
-        return this._state;
-    };
-
-    /**
-     * Set a new state.
-     * @param newState {SessionState} new state to set.
-     * @returns {} Object describing the state transition; the caller
-     *      should publish this in some {@link module:mpenc/helper/async.EventContext}.
-     */
-    StateMachine.prototype.setState = function(newState) {
-        var oldState = this._state;
-        this._state = newState;
-        return new this.ChangeType(newState, oldState);
-    };
-
-    StateMachine.transition = function(preStates, postStates, f) {
-        return function() {
-            try {
-                var preState = this.state();
-                logger.debug("pre state:" + preState);
-                if (preStates.indexOf(preState) < 0) {
-                    throw new StateError(preState, "precondition", preStates);
-                }
-                return f.apply(this, arguments);
-            } finally {
-                var postState = this.state();
-                logger.debug("post state:" + postState);
-                if (postStates.indexOf(postState) < 0) {
-                    throw new StateError(postState, "postcondition", postStates);
-                }
-            }
-        };
-    };
-
-    Object.freeze(StateMachine.prototype);
-    ns.StateMachine = StateMachine;
+    var StateMachine = utils.StateMachine;
 
 
     var SessionContext = struct.createTupleClass("owner", "keepfresh", "timer", "flowctl", "codec", "mk_msglog");
@@ -149,12 +79,26 @@ define([
 
 
     /**
-     * SessionBase; TODO document this
+     * Implementation of roughly the lower (transport-facing) part of Session.
+     *
+     * <p>Manages operations on the causally-ordered transcript data structure,
+     * flow control algorithms, message security, consistency checking, etc.</p>
+     *
+     * The instantiated types for <code>SendingReceiver</code> are:
+     *
+     * <ul>
+     * <li><code>{@link module:mpenc/impl/session.SessionBase#recv|RecvInput}</code>:
+     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     * <li><code>{@link module:mpenc/impl/session.SessionBase#onSend|SendOutput}</code>:
+     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     * </ul>
      *
      * @class
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/liveness.Flow}
      * @implements {module:mpenc/helper/async.EventSource}
+     * @implements {module:mpenc/helper/utils.SendingReceiver}
+     * @see module:mpenc/session.Session
      */
     var SessionBase = function(context, sId, members, msgsec) {
         this.options = {
@@ -289,7 +233,7 @@ define([
         return struct.SET_DIFF_EMPTY;
     };
 
-    // implements StateMachine
+    // "implements" StateMachine
 
     /**
      * Get the current state.
@@ -299,13 +243,9 @@ define([
         return this._stateMachine.state();
     };
 
-    /**
-     * Set a new state.
-     * @param newState {SessionState} new state to set.
-     * @returns {} Object describing the state transition; the caller
-     *      should publish this in some {@link module:mpenc/helper/async.EventContext}.
-     */
     SessionBase.prototype._setState = function(newState) {
+        // set the state of the internal FSM, and return a transition event
+        // object to be published to our subscribers
         var chg = this._stateMachine.setState(newState);
         this._events.publish(chg);
         return chg;
@@ -383,7 +323,7 @@ define([
      */
     SessionBase.prototype.lastOwnMsg = Flow.prototype.lastOwnMsg;
 
-    // implements RawReceiver; also helps to implement Session
+    // implements SendingReceiver; also helps to implement Session
 
     /**
      * @returns {string} Session Id.
@@ -451,7 +391,7 @@ define([
     };
 
     /**
-     * TODO(xl): DOC RawReceiver
+     * @inheritDoc
      */
     SessionBase.prototype.recv = function(recv_in) {
         var pubtxt = recv_in[0], sender = recv_in[1];
@@ -484,7 +424,7 @@ define([
     };
 
     /**
-     * TODO(xl): DOC RawReceiver
+     * @inheritDoc
      */
     SessionBase.prototype.onSend = function(send_out) {
         return this._send.subscribe(send_out);
