@@ -165,6 +165,7 @@ define([
                 maxSize: this._expectedMaxBuf.bind(this),
                 paramId: function(param) { return utils.sha256(param[1]); },
                 tryMe: this._tryAcceptTry.bind(this),
+                cleanup: this._tryAcceptCleanup.bind(this),
             });
         this._tryAccept = new TrialBuffer('try-accept for ' + this._sId, tryAccept);
 

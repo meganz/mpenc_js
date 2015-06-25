@@ -431,7 +431,6 @@ define([
     /**
      * This method performs the actual trial.
      *
-     * @method
      * @param pending {boolean}
      *     Set to `true` if the params are already on the queue (i.e. was seen
      *     before). Note: `false` does not necessarily mean it was *never* seen
@@ -446,7 +445,6 @@ define([
     /**
      * This method determines the buffer capacity. It takes no parameters.
      *
-     * @method
      * @returns {integer}
      *     Number of allowed elements in the buffer.
      */
@@ -455,7 +453,6 @@ define([
     /**
      * This method determines a parameter's identifier.
      *
-     * @method
      * @param param {object}
      *     The parameter to find an identifier for.
      * @returns {string}
@@ -463,6 +460,19 @@ define([
      *     parameters in the buffer, usually a {string}.
      */
     TrialTarget.prototype.paramId;
+
+    /**
+     * Optional method; called when a param object is removed from the queue
+     * without having been accepted by a trial function. For example, to clean
+     * up secrets that were stored in sensitive memory.
+     *
+     * @param replace {boolean} <code>true</code> if the param is being removed
+     *      due to an incoming duplicate, or <code>false</code> if it is being
+     *      removed entirely.
+     * @param param {object}
+     *     The object that was removed or replaced.
+     */
+    TrialTarget.prototype.cleanup;
 
     Object.freeze(TrialTarget.prototype);
     ns.TrialTarget = TrialTarget;
@@ -499,18 +509,14 @@ define([
     var TrialBuffer = function(name, target, drop) {
         this.name = name || '';
         this.target = target;
-        if (drop === undefined) {
-            this.drop = true;
-        } else {
-            this.drop = drop;
-        }
+        this.drop = drop === undefined ? true : drop;
+        this.cleanup = target.cleanup ? target.cleanup.bind(target) : function() {};
         this._buffer = {};
         // We're using this following array to keep the order within the items
         // in the buffer.
         this._bufferIDs = [];
     };
     ns.TrialBuffer = TrialBuffer;
-
 
     /**
      * Size of trial buffer.
@@ -539,11 +545,12 @@ define([
             // Remove entry from _buffer and _paramIDs.
             delete this._buffer[paramID];
             this._bufferIDs.splice(this._bufferIDs.indexOf(paramID), 1);
-            var olddupeID = this.target.paramId(param);
+            var olddupeID = this.target.paramId(olddupeID);
             if ((olddupeID !== paramID)
                     || (this._bufferIDs.indexOf(olddupeID) >= 0)) {
                 throw new Error('Parameter was not removed from buffer.');
             }
+            this.cleanup(true, olddupe);
         }
 
         // Apply `tryMe`.
@@ -579,6 +586,7 @@ define([
                     var droppedID = this._bufferIDs.shift();
                     var dropped = this._buffer[droppedID];
                     delete this._buffer[droppedID];
+                    this.cleanup(false, dropped);
                     logger.warn(this.name + ' DROPPED ' + droppedID +
                                 ' at size ' + maxSize + ', potential data loss.');
                 } else {
@@ -639,6 +647,12 @@ define([
 
     TrialTimeoutTarget.prototype.paramId = function(param) {
         return this._target.paramId(param);
+    };
+
+    TrialTimeoutTarget.prototype.cleanup = function(replace, param) {
+        if (this._target.cleanup) {
+            return this._target.cleanup(replace, param);
+        }
     };
 
     Object.freeze(TrialTimeoutTarget.prototype);
