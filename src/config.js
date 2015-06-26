@@ -11,29 +11,17 @@ var requirejs_config_mpenc =
     shim: {
         // Dependencies that we use directly need to be added here.
         "asmcrypto": {
-            exports: "asmcrypto",
-            init: function() {
-                return asmCrypto;
-            },
+            exports: "asmCrypto",
         },
         "jsbn": {
-            exports: "jsbn",
-            init: function(jsbn) {
-                // first case is for plain jsbn, second case is for jsbn node module
-                return {
-                    BigInteger: (typeof BigInteger !== "undefined") ? BigInteger : module.exports,
-                };
-            },
+            exports: "BigInteger",
         },
         "jodid25519": {
             deps: ["jsbn", "asmcrypto"],
             exports: "jodid25519",
         },
         "lru-cache": {
-            exports: "lru-cache",
-            init: function() {
-                return (typeof LRUCache !== "undefined") ? LRUCache : module.exports;
-            },
+            exports: "LRUCache",
         },
     },
 })

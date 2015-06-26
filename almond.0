@@ -15,3 +15,15 @@
         root.mpenc = factory();
     }
 }(this, function () {
+    if (typeof module === 'object' && module.exports) {
+        // If we're running under CommonJS, our dependencies get confused and
+        // each clobber module.exports which leads to bad behaviour because
+        // almond does asynchronous loading. So just pretend we're in the
+        // browser globals case, and make them write to those values instead.
+        // TODO: ditch requirejs/almond and use browserify or something.
+        var __oldModule = module;
+        var __oldExports = exports;
+        var window = global;
+        module = undefined;
+        exports = undefined;
+    }
