@@ -28,13 +28,14 @@ define([
     "mpenc/codec",
     "asmcrypto",
     "jodid25519",
+    "promise-polyfill",
     "megalogger",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, struct, codec, asmCrypto, jodid25519, MegaLogger,
+], function(ns, utils, struct, codec, asmCrypto, jodid25519, Promise, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -300,6 +301,7 @@ define([
                 assert.ok(participant.askeMember.staticPubKeyDir);
                 assert.ok(participant.cliquesMember);
                 assert.strictEqual(participant._opState, ns.STATE.NULL);
+                assert.notOk(participant._fulfilled);
             });
         });
 
@@ -668,6 +670,7 @@ define([
                                                       _td.ED25519_PUB_KEY,
                                                       _td.STATIC_PUB_KEY_DIR);
                 participant._opState = ns.STATE.INIT_UPFLOW;
+                participant.askeMember.members = message.members;
                 sandbox.spy(participant.cliquesMember, 'upflow');
                 sandbox.stub(participant.cliquesMember, 'downflow');
                 sandbox.spy(participant.askeMember, 'upflow');
@@ -737,7 +740,7 @@ define([
                 assert.strictEqual(participant.cliquesMember.downflow.callCount, 0);
                 sinon_assert.calledOnce(participant._mergeMessages);
                 sinon_assert.calledOnce(participant.askeMember.downflow);
-                sinon_assert.calledOnce(participant.askeMember.isSessionAcknowledged);
+                assert(participant.askeMember.isSessionAcknowledged.callCount > 0);
             });
 
             it('processing for a downflow message after a quit', function() {
@@ -791,6 +794,7 @@ define([
                                 greetType: ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN,
                                 members: ['1', '3', '4', '5'] };
                 participant._opState = ns.STATE.AUX_DOWNFLOW;
+                participant.askeMember.members = message.members;
                 var result = participant._processMessage(new ns.GreetMessage(message));
                 assert.strictEqual(result.decodedMessage, null);
                 assert.strictEqual(result.newState, null);
@@ -1079,8 +1083,8 @@ define([
             return true;
         };
 
-        var runGreetings = function(greeters, initId, prevPf,
-                prevStates, prevMembers, resultStates, nextMembers, channelMembers) {
+        var runGreetings = function(greeters, initId, channelMembers,
+                prevPf, prevStates, prevMembers, resultStates, nextMembers, promises) {
             assert.strictEqual(resultStates.size, 0);
             nextMembers.forEach(function(id) {
                 assert.ok(greeters.has(id), "Greeter not present for id " + id);
@@ -1106,6 +1110,7 @@ define([
                     codec.decodeWirePacket(pubtxt0).content, initId, channelMembers);
                 var greeting = greeter.decode(
                     prevStates.get(id), prevMembers, pubtxt0, initId, channelMembers);
+                assert.notOk(greeting._fulfilled, "greeting somehow fulfilled before due");
                 assert.strictEqual(greeting.id, id, "greeting id mismatch");
                 assert.ok(greeting.getMembers(), nextMembers.toArray(), "members mismatch");
                 greetings.set(id, greeting);
@@ -1157,14 +1162,17 @@ define([
             // Check result state
             greetings.forEach(function(greeting, id) {
                 assert.ok(greeting.getResultState(), "greeting did not complete");
-                assert.deepEqual(greeting.getMembers(), nextMembers.toArray(), "result members mismatch");
+                assert.ok(greeting._fulfilled, "fulfilled flag not set");
+                // JS promises complete asynchronously, it won't be called yet
+                promises.push(greeting.getPromise().then(stub()));
+                assert.deepEqual(greeting.getMembers().toArray(), nextMembers.toArray(), "result members mismatch");
                 resultStates.set(id, greeting.getResultState());
             });
             assert.ok(nextPf, "nextPf was not calculated");
             return nextPf;
         };
 
-        it("for 3 members, 2 joining, 2 others leaving, refresh key", function() {
+        it("for 3 members, 2 joining, 2 others leaving, refresh key", function(done) {
             this.timeout(this.timeout() * 30);
 
             var greeters = new Map();
@@ -1174,33 +1182,36 @@ define([
             };
 
             var channelMembers = new Set(["0", "1", "2"]);
+            var promises = [];
             channelMembers.forEach(makeNewGreeter);
             var prevPf = utils.sha256("dummyPrevPF");
             var state0 = { get: function() { return null; } };
 
             var members1 = channelMembers;
             var state1 = new Map();
-            prevPf = runGreetings(greeters, "0", prevPf,
-                state0, null, state1, members1, channelMembers);
+            prevPf = runGreetings(greeters, "0", channelMembers,
+                prevPf, state0, null, state1, members1, promises);
 
             var includeMembers = new Set(["3", "4"]);
             includeMembers.forEach(makeNewGreeter);
             channelMembers = channelMembers.union(includeMembers);
             var members2 = channelMembers;
             var state2 = new Map();
-            prevPf = runGreetings(greeters, "1", prevPf,
-                state1, members1, state2, members2, channelMembers);
+            prevPf = runGreetings(greeters, "1", channelMembers,
+                prevPf, state1, members1, state2, members2, promises);
 
             var excludeMembers = new Set(["1", "3"]);
             var members3 = members2.subtract(excludeMembers);
             var state3 = new Map();
-            prevPf = runGreetings(greeters, "2", prevPf,
-                state2, members2, state3, members3, channelMembers);
+            prevPf = runGreetings(greeters, "2", channelMembers,
+                prevPf, state2, members2, state3, members3, promises);
 
             var members4 = members3;
             var state4 = new Map();
-            prevPf = runGreetings(greeters, "4", prevPf,
-                state3, members3, state4, members4, channelMembers);
+            prevPf = runGreetings(greeters, "4", channelMembers,
+                prevPf, state3, members3, state4, members4, promises);
+
+            Promise.all(promises).then(function() { done(); });
         });
     });
 

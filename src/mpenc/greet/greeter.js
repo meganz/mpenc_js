@@ -24,8 +24,9 @@ define([
     "mpenc/greet/cliques",
     "mpenc/greet/ske",
     "mpenc/codec",
+    "promise-polyfill",
     "megalogger",
-], function(assert, async, struct, utils, cliques, ske, codec, MegaLogger) {
+], function(assert, async, struct, utils, cliques, ske, codec, Promise, MegaLogger) {
     "use strict";
 
     /**
@@ -1314,6 +1315,13 @@ define([
         this._metadataIsAuthenticated = false;
         this._recvOwnAuthMessage = false;
 
+        var self = this;
+        this._fulfilled = false;
+        this._promise = new Promise(function(resolve, reject) {
+            self._resolve = resolve;
+            self._reject = reject;
+        });
+
         // We can keep the old state around for further use.
         this.prevState = store;
         return this;
@@ -1332,27 +1340,30 @@ define([
     /**
      * Get the members for the previous Greeting.
      *
-     * @returns {array<string>} The members of the previous Greeting.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} The members of the
+     *      previous Greeting.
      */
     Greeting.prototype.getPrevMembers = function() {
-        return this.prevState.members.slice();
+        return new ImmutableSet(this.prevState.members);
     };
 
     /**
      * Get the new members for this Greeting.
      *
-     * @returns {array<string>} The members for this Greeting.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} The members for this
+     *      Greeting.
      */
     Greeting.prototype.getMembers = function() {
-        return this.askeMember.members.slice();
+        return new ImmutableSet(this.askeMember.members);
     };
 
     /**
      * Get the metadata associated with this Greeting.
      *
-     * @returns {module:mpenc/greet/greeter.GreetingMetadata} The metadata for this Greeting.
+     * @returns {module:mpenc/greet/greeter.GreetingMetadata} The metadata for
+     *      this Greeting.
      */
-    Greeting.prototype.getMetadata = function () {
+    Greeting.prototype.getMetadata = function() {
         return this.metadata;
     };
 
@@ -1372,7 +1383,7 @@ define([
      * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultState = function () {
-        if (this._opState !== ns.STATE.READY) {
+        if (!this._fulfilled) {
             throw new Error("Greeting not yet finished");
         }
         return new GreetStore(
@@ -1395,7 +1406,7 @@ define([
     };
 
     Greeting.prototype.getPromise = function () {
-        throw new Error("not implemented");
+        return this._promise;
     };
 
     Greeting.prototype._updateOpState = function(state) {
@@ -1673,7 +1684,7 @@ define([
                 this._recvOwnAuthMessage = true;
             }
 
-            newState = this._maybeSetReady() ? ns.STATE.READY : newState;
+            newState = this._maybeFulfill() ? ns.STATE.READY : newState;
             return { decodedMessage: null,
                      newState: newState };
         }
@@ -1746,7 +1757,7 @@ define([
             }
         }
 
-        newState = this._maybeSetReady() ? ns.STATE.READY : newState;
+        newState = this._maybeFulfill() ? ns.STATE.READY : newState;
         if (outMessage) {
             logger.debug('Sending message of type '
                          + outMessage.getGreetTypeString());
@@ -1758,17 +1769,22 @@ define([
     };
 
 
-    Greeting.prototype._maybeSetReady = function() {
+    Greeting.prototype._maybeFulfill = function() {
         // Check if the operation is complete.
         // If so, set public variables and fire hooks (e.g. promises)
-        if (this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
+        var isRefresh = this.getPrevMembers().equals(this.getMembers());
+        if (isRefresh || this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
             // We have seen and verified all broadcasts from others.
             // Let's update our state information.
             this.sessionId = this.askeMember.sessionId;
             this.members = this.askeMember.members;
             this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
             this.groupKey = this.cliquesMember.groupKey;
-            logger.debug('Reached READY state.');
+
+            _assert(!this._fulfilled);
+            this._resolve(this);
+            this._fulfilled = true;
+
             return true;
         }
         return false;

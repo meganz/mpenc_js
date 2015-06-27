@@ -7,6 +7,7 @@ var requirejs_config_mpenc =
         "jsbn": "../node_modules/jsbn/index",
         "lru-cache": "../node_modules/lru-cache/lib/lru-cache",
         "megalogger": "../node_modules/megalogger/dist/megaLogger",
+        "promise-polyfill": "../node_modules/promise-polyfill/Promise.min",
         },
     shim: {
         // Dependencies that we use directly need to be added here.
@@ -23,5 +24,8 @@ var requirejs_config_mpenc =
         "lru-cache": {
             exports: "LRUCache",
         },
+        "promise-polyfill": {
+            exports: "Promise",
+        }
     },
 })

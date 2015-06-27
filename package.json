@@ -36,7 +36,8 @@
     "es6-collections": "git+https://github.com/WebReflection/es6-collections",
     "jodid25519": "git+https://github.com/meganz/jodid25519",
     "lru-cache": "~2.5.0",
-    "megalogger": "git+https://github.com/meganz/megalogger"
+    "megalogger": "git+https://github.com/meganz/megalogger",
+    "promise-polyfill": "~2.1.0"
   },
   "devDependencies": {
     "almond": "~0.2.9",
