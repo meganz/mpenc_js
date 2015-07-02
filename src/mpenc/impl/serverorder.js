@@ -124,10 +124,15 @@ define([
 
     ServerOrder.prototype._shouldAcceptInitial = function(pId, prevPf) {
         if (this.opInitial.indexOf(pId) !== -1) {
+            logger.info("rejected duplicate packet: " + btoa(pId));
             return false;
         } else if (this.hasOngoingOp()) {
+            logger.info("rejected pI " + btoa(pId) + " due to pending operation " +
+                        btoa(this.opInitial[this.opInitial.length - 1]));
             return false;
         } else if (this.opFinal && prevPf !== this.opFinal[this.opFinal.length - 1]) {
+            logger.info("rejected pI " + btoa(pId) + " because it refers to a pF which is not the " +
+                        "last accepted one " + btoa(prevPf));
             return false;
         } else {
             return true;
@@ -136,10 +141,15 @@ define([
 
     ServerOrder.prototype._shouldAcceptFinal = function(pId, prevPi) {
         if (this.opFinal.indexOf(pId) !== -1) {
+            logger.info("rejected duplicate packet: " + btoa(pId));
             return false;
         } else if (!this.hasOngoingOp()) {
+            logger.info("rejected pF " + btoa(pId) + " due to completed operation " +
+                        btoa(this.opFinal[this.opFinal.length - 1]));
             return false;
         } else if (prevPi !== this.opInitial[this.opInitial.length - 1]) {
+            logger.info("rejected pF " + btoa(pId) + " because it refers to a pI which is not the " +
+                        "last accepted one " + btoa(prevPi));
             return false;
         } else {
             return true;
@@ -216,8 +226,8 @@ define([
      *      a proposal that excludes us.
      * @returns {boolean} Whether the packet was accepted or rejected.
      */
-    ServerOrder.prototype.tryOpPacket = function(owner, op, transportRecipients, postAcceptInitial,
-                                                 postAcceptFinal, seenExcludeUs) {
+    ServerOrder.prototype.tryOpPacket = function(
+            owner, op, transportRecipients, postAcceptInitial, postAcceptFinal  ) {
         var pId = op.pId;
         var prevPf = op.isInitial() ? op.metadata.prevPf : null;
         var prevPi = op.prevPi;
@@ -247,19 +257,17 @@ define([
             if (!this._shouldAcceptInitial(pId, prevPf)) {
                 return false;
             }
-            if (!op.members.has(owner)) {
-                seenExcludeUs();
-            } else {
-                this._acceptInitial(pId, op.metadata);
-                postAcceptInitial(pId, prevPf);
-                accepted = true;
-            }
+            logger.info("accepted pI " + btoa(pId));
+            this._acceptInitial(pId, op.metadata);
+            postAcceptInitial(pId, prevPf);
+            accepted = true;
         }
 
         if (op.isFinal()) {
             if (!this._shouldAcceptFinal(pId, prevPi)) {
                 return false;
             }
+            logger.info("accepted pF " + btoa(pId));
             this._acceptFinal(pId);
             postAcceptFinal(pId, prevPi);
             accepted = true;

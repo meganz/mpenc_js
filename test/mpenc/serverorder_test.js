@@ -39,12 +39,10 @@ define([
 
     var postPf = null;
     var postPi = null;
-    var preShutdown = null;
 
     var resetCallbacks = function() {
         postPf = stub();
         postPi = stub();
-        preShutdown = stub();
     };
 
     beforeEach(function() {
@@ -66,7 +64,7 @@ define([
             var metadata = createDummyMetadata("1");
             var summary = GreetingSummary.create(dummyPid, metadata, null, ["1", "2", "3"]);
             var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
-                    postPi, postPf, preShutdown);
+                    postPi, postPf);
 
             assert.ok(accepted, "Packet should have been accepted by ServerOrder");
             assert.ok(serverOrder.isSynced());
@@ -77,7 +75,6 @@ define([
 
             assert.ok(postPi.calledOnce);
             assert.ok(postPf.notCalled);
-            assert.ok(preShutdown.notCalled);
             assert.strictEqual(postPi.getCall(0).args[0], dummyPid, "pId not correct value.");
             assert.strictEqual(postPi.getCall(0).args[1], metadata.prevPf, "prevPf not correct value.");
 
@@ -100,7 +97,7 @@ define([
             var summary = GreetingSummary.create(dummyPid, null, prevPi, ["1", "2", "3"]);
             var serverOrder = new ServerOrder();
             var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(accepted, "Packet should not have been accepted by ServerOrder");
             assert.notOk(serverOrder.isSynced());
@@ -116,7 +113,7 @@ define([
             var serverOrder = new ServerOrder();
             assert.notOk(serverOrder.isSynced());
             var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.ok(accepted, "Should have accepted pi&pf op");
             assert.ok(serverOrder.isSynced());
@@ -124,7 +121,6 @@ define([
 
             assert.ok(postPf.calledOnce);
             assert.ok(postPi.calledOnce);
-            assert.ok(preShutdown.notCalled);
         });
 
         it("reject not for us, not synced", function() {
@@ -132,27 +128,25 @@ define([
             var summary = GreetingSummary.create(dummyPid, metadata, null, ["1", "3"]);
             var serverOrder = new ServerOrder();
             var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op not for us");
             assert.notOk(serverOrder.isSynced());
 
             assert.ok(postPf.notCalled);
             assert.ok(postPi.notCalled);
-            assert.ok(preShutdown.notCalled);
 
             // see another init pointing to same prev_pF
             var dummyPid2 = h("pId2");
             var summaryTwo = GreetingSummary.create(dummyPid2, metadata, null, ["1", "2", "3"]);
             accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op; we saw an earlier op with the same prevPf not for us");
             assert.notOk(serverOrder.isSynced());
 
             assert.ok(postPf.notCalled);
             assert.ok(postPi.notCalled);
-            assert.ok(preShutdown.notCalled);
         });
 
         it("reject not for us, synced", function() {
@@ -163,14 +157,13 @@ define([
             assert.ok(serverOrder.isSynced());
 
             var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op not for us");
             assert.notOk(serverOrder.hasOngoingOp());
 
             assert.ok(postPf.notCalled);
             assert.ok(postPi.notCalled);
-            assert.ok(preShutdown.notCalled);
         });
 
         it("reject not in channel", function() {
@@ -178,14 +171,13 @@ define([
             var summary = GreetingSummary.create(dummyPid, metadata, null, ["1", "2", "3"]);
             var serverOrder = new ServerOrder();
             var accepted = serverOrder.tryOpPacket("2", summary, new ImmutableSet(["1", "2"]),
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op send when members not in channel");
             assert.notOk(serverOrder.isSynced());
 
             assert.ok(postPf.notCalled);
             assert.ok(postPi.notCalled);
-            assert.ok(preShutdown.notCalled);
 
             // later valid packets get accepted
             acceptOneInitialPacket(serverOrder);
@@ -201,7 +193,7 @@ define([
             var metadataTwo = createDummyMetadata("3");
             var summaryTwo = GreetingSummary.create(dummyPid2, metadataTwo, null, ["4"]);
             var acceptedFail = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.notOk(acceptedFail, "Message should not have been accepted.");
             // Verify that none of the state has been changed.
@@ -213,7 +205,6 @@ define([
 
             assert.ok(postPf.notCalled, "postPf should not have been called.");
             assert.ok(postPi.notCalled, "postPi should not have been called.");
-            assert.ok(preShutdown.notCalled, "preShutdown should not have been called.");
         });
 
         it("full cycle", function() {
@@ -231,7 +222,7 @@ define([
             assert.ok(summaryTwo.isFinal());
             assert.notOk(summaryTwo.isInitial());
             var accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
 
             assert.ok(accepted, "Message should have been accepted.");
             // Verify that the state changed correctly.
@@ -243,13 +234,12 @@ define([
 
             assert.ok(postPf.calledOnce, "postPf should have been called.");
             assert.ok(postPi.notCalled, "postPi should not have been called.");
-            assert.ok(preShutdown.notCalled, "preShutdown should not have been called.");
             assert.strictEqual(postPf.getCall(0).args[0], newPid, "pId not correct value.");
             assert.strictEqual(postPf.getCall(0).args[1], dummyPid, "prevPi not correct value.");
 
             // Check duplicate not accepted
             accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
-                postPi, postPf, preShutdown);
+                postPi, postPf);
             assert.notOk(accepted, "Packet should not be accepted twice");
         });
     });
