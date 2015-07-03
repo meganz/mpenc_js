@@ -175,7 +175,7 @@ define([
         this.seenPrevPf = null;
         this.packetId = [prevPf];
         this.chainHash = [prevCh];
-        this.chainUnacked = [new ImmutableSet()];
+        this.chainUnacked = [ImmutableSet.EMPTY];
         this.opInitial = [0];
         this.opMetadata = [null];
         this.opMetadataAuthenticated = [true];
@@ -197,7 +197,7 @@ define([
         // expectations that we'll verify the consistent of them with others
         this.packetId.push(pId);
         this.chainHash.push(this.makeChainHash(this.prevCh(), pId, ptype));
-        this.chainUnacked.push(new ImmutableSet([sessionRecipients]));
+        this.chainUnacked.push(ImmutableSet.from(sessionRecipients));
         _assert(this.packetId.length === this.chainHash.length);
     };
 

@@ -398,6 +398,17 @@ define([
      */
     ImmutableSet.EMPTY = new ImmutableSet();
 
+    /**
+     * Coerce something into an ImmutableSet if possible.
+     *
+     * If the input is already an ImmutableSet, it is returned. Falsy inputs
+     * return ImmutableSet.EMPTY, otherwise we pass it through the constructor.
+     */
+    ImmutableSet.from = function(v) {
+        return (v instanceof ImmutableSet) ? v :
+            v ? new ImmutableSet(v) : ImmutableSet.EMPTY;
+    };
+
     Object.freeze(ImmutableSet.prototype);
     ns.ImmutableSet = ImmutableSet;
 

@@ -50,10 +50,10 @@ define([
     var BaseTranscript = function() {
         if (!(this instanceof BaseTranscript)) { return new BaseTranscript(); }
 
-        this._uIds = new ImmutableSet();
+        this._uIds = ImmutableSet.EMPTY;
         this._messages = new Map();
-        this._minMessages = new ImmutableSet();
-        this._maxMessages = new ImmutableSet();
+        this._minMessages = ImmutableSet.EMPTY;
+        this._maxMessages = ImmutableSet.EMPTY;
 
         this._successors = new Map(); // mId: Set[mId], successors
 
@@ -69,7 +69,7 @@ define([
         this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
 
         this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
-        this._unacked = new ImmutableSet(); // Set[mId] of not fully-acked messages
+        this._unacked = ImmutableSet.EMPTY; // Set[mId] of not fully-acked messages
 
         var self = this;
         this._merge = graph.createMerger(
@@ -336,7 +336,7 @@ define([
             pmId.forEach(function(m) {
                 self._successors.set(m, self._successors.get(m).union(mIdS));
             });
-            this._successors.set(mId, new ImmutableSet());
+            this._successors.set(mId, ImmutableSet.EMPTY);
 
             // update overall sequences
             this._messageIndex.set(mId, this._length);
@@ -454,7 +454,7 @@ define([
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
         this.push(mId);
-        this._parents.push(new ImmutableSet(parents));
+        this._parents.push(ImmutableSet.from(parents));
         this.__rInsert__(0, mId);
     };
 

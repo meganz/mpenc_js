@@ -63,19 +63,19 @@ define([
             throw new Error("invalid empty recipients");
         }
 
-        parents = new ImmutableSet(parents);
+        parents = ImmutableSet.from(parents);
         if (parents.has(null) || parents.has(undefined)) {
             throw new Error("invalid parents: has empty value");
         }
-        recipients = new ImmutableSet(recipients);
+        recipients = ImmutableSet.from(recipients);
         if (recipients.has(null) || recipients.has(undefined)) {
             throw new Error("invalid recipients: has empty value");
         }
 
         this.mId = mId;
         this.author = author;
-        this.parents = new ImmutableSet(parents);
-        this.recipients = new ImmutableSet(recipients);
+        this.parents = ImmutableSet.from(parents);
+        this.recipients = ImmutableSet.from(recipients);
         this.body = body;
     };
 

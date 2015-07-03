@@ -838,7 +838,7 @@ define([
      * @returns {module:mpenc/greet/greeter.GreetingMetadata}
      */
     GreetingMetadata.create = function(prevPf, prevCh, author, parents) {
-        return new this(prevPf, prevCh, author, new ImmutableSet(parents));
+        return new this(prevPf, prevCh, author, ImmutableSet.from(parents));
     };
 
     ns.GreetingMetadata = GreetingMetadata;
@@ -904,7 +904,7 @@ define([
      * @returns {module:mpenc/greet/greeter.GreetingSummary}
      */
     GreetingSummary.create = function(pId, metadata, prevPi, members) {
-        return new this(pId, metadata || null, prevPi || null, new ImmutableSet(members));
+        return new this(pId, metadata || null, prevPi || null, ImmutableSet.from(members));
     };
 
     ns.GreetingSummary = GreetingSummary;
@@ -1431,8 +1431,7 @@ define([
             message,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
-        var recipients = new ImmutableSet((message.dest)? [message.dest]: this.getMembers());
-        // TODO(xl): use a RawSendT instead of Array[2]
+        var recipients = message.dest ? new ImmutableSet([message.dest]) : this.getMembers();
         this._send.publish({ pubtxt: codec.encodeWirePacket(payload), recipients: recipients });
         if (state !== undefined) {
             this._updateOpState(state);
