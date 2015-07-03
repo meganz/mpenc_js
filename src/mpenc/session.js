@@ -18,8 +18,7 @@
 
 define([
     "mpenc/helper/struct",
-    "megalogger"
-], function(struct, MegaLogger) {
+], function(struct) {
     "use strict";
 
     /**
@@ -37,8 +36,7 @@ define([
      * @memberOf module:mpenc/session
      * @see module:mpenc/session.Session#onRecv
      * @see module:mpenc/session.SNStateChange
-     * @see module:mpenc/session.SNInclude
-     * @see module:mpenc/session.SNExclude
+     * @see module:mpenc/session.SNMembers
      * @see module:mpenc/transcript.MsgReady
      * @see module:mpenc/transcript.MsgFullyAcked
      * @see module:mpenc/session.NotDecrypted
@@ -111,7 +109,7 @@ define([
 
 
     /**
-     * When some users are included into our session.
+     * When the session membership changes.
      *
      * Emitted by {@link module:mpenc/session.Session}.
      *
@@ -119,51 +117,35 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNInclude = struct.createTupleClass(SessionNotice, "us", "others");
+    var SNMembers = struct.createTupleClass(SessionNotice, "remain", "include", "exclude");
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
      */
-    SNInclude.prototype.prevMembers = function() {
-        return this.us;
+    SNMembers.prototype.prevMembers = function() {
+        return this.remain.union(this.exclude);
     };
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet} Current membership set.
      */
-    SNInclude.prototype.members = function() {
-        return this.us.union(this.others);
+    SNMembers.prototype.members = function() {
+        return this.remain.union(this.include);
     };
 
-    ns.SNInclude = SNInclude;
-
-
-    /**
-     * When some users are excluded from our session.
-     *
-     * Emitted by {@link module:mpenc/session.Session}.
-     *
-     * @class
-     * @implements module:mpenc/session.SessionNotice
-     * @memberOf module:mpenc/session
-     */
-    var SNExclude = struct.createTupleClass(SessionNotice, "us", "others");
-
-    /**
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
-     */
-    SNExclude.prototype.prevMembers = function() {
-        return this.us.union(this.others);
+    SNMembers.prototype._postInit = function() {
+        if (!this.remain.size) {
+            throw new Error("tried to create SNMembers without an owner member");
+        }
+        if (!this.include.size && !this.exclude.size) {
+            throw new Error("tried to create SNMembers with empty membership change");
+        }
+        if (!struct.isDisjoint(this.remain, this.include, this.exclude)) {
+            throw new Error("tried to create SNMembers with contradictory membership change");
+        }
     };
 
-    /**
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Current membership set.
-     */
-    SNExclude.prototype.members = function() {
-        return this.us;
-    };
-
-    ns.SNExclude = SNExclude;
+    ns.SNMembers = SNMembers;
 
 
     /**
@@ -196,7 +178,7 @@ define([
      * <p>Hence, <code>this.curMembers().has(this.owner())</code> always returns
      * <code>true</code>. Moreover, joining or parting another session is
      * viewed as the other members being included into or excluded from a local
-     * 1-member session, as reflected in SNInclude or SNExclude.</p>
+     * 1-member session, as reflected in SNMembers.</p>
      *
      * Session has two API "surface areas".
      *

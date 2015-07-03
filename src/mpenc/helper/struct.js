@@ -414,6 +414,27 @@ define([
 
 
     /**
+     * @param iterables {...Object} An Iterable or an object with a
+     *      <code>forEach</code> method.
+     * @returns {boolean} Whether the given iterables are disjoint.
+     */
+    ns.isDisjoint = function() {
+        var args = Array.prototype.slice.call(arguments);
+        var counter = 0;
+        var union = new Set();
+        var add = function(v) { union.add(v); counter++; };
+        for (var i = 0; i < args.length; i++) {
+            var it = args[i];
+            if ("forEach" in it) {
+                it.forEach(add);
+            } else {
+                struct.iteratorForEach(it, add);
+            }
+        }
+        return union.size === counter;
+    };
+
+    /**
      * Difference between a old and new set. Same as (new - old, old - new).
      * @param seta {ImmutableSet} set A
      * @param setb {ImmutableSet} set B
