@@ -28,6 +28,8 @@ define([
      */
     var ns = {};
 
+    var ImmutableSet = struct.ImmutableSet;
+
 
     /**
      * Things that can happen to a Session.
@@ -168,11 +170,75 @@ define([
 
 
     /**
+     * Try to do something to/on the cryptographic logical session.
+     *
+     * <p>One may use {@link module:mpenc/session.checkSessionAction
+     * checkSessionAction} to check valid values.</p>
+     *
+     * @typedef {Object} SessionAction
+     * @property [contents] {string} Message to send, or an explicit ack if
+     *      this is empty. If this is set, other properties must not be set.
+     * @property [join] {boolean} Include all others from our session. This
+     *      is everyone else that is currently in the group transport channel.
+     *      If this is set, other properties must not be set.
+     * @property [part] {boolean} Exclude all others from our session. These
+     *      members will also be made to leave the group transport channel.
+     *      If this is set, other properties must not be set.
+     * @property [include] {module:mpenc/helper/struct.ImmutableSet} Other
+     *      members to try to include into the session. If this is set, only
+     *      <code>exclude</code> may also be set.
+     * @property [exclude] {module:mpenc/helper/struct.ImmutableSet} Other
+     *      members to try to exclude from the session. If this is set, only
+     *      <code>include</code> may also be set.
+     */
+
+    /**
+     * @param act {module:mpenc/session~SessionAction} Action to check.
+     * @return {module:mpenc/session~SessionAction} Validated action, maybe
+     *      with canonicalised values.
+     * @throws If the action was not valid and could not be canonicalised.
+     */
+    ns.checkSessionAction = function(act) {
+        var hasContent = "content" in act;
+        var hasJoin = "join" in act;
+        var hasPart = "part" in act;
+        var hasMemChg = "include" in act || "exclude" in act;
+        if (0 + hasContent + hasMemChg + hasJoin + hasPart !== 1) {
+            throw new Error("tried to create SessionAction with conflicting properties");
+        }
+        if (hasContent) {
+            if (typeof act.content !== "string") {
+                throw new Error("tried to create SessionAction with non-string content");
+            }
+        } else if (hasJoin) {
+            if (act.join !== true) {
+                throw new Error("tried to create SessionAction with non-true join");
+            }
+        } else if (hasPart) {
+            if (act.part !== true) {
+                throw new Error("tried to create SessionAction with non-true part");
+            }
+        } else {
+            var include = ImmutableSet.from(act.include);
+            var exclude = ImmutableSet.from(act.exclude);
+            if (!include.size && !exclude.size) {
+                throw new Error("tried to create SessionAction with empty membership change");
+            }
+            if (!struct.isDisjoint(include, exclude)) {
+                throw new Error("tried to create SessionAction with contradictory membership change");
+            }
+            return { include: include, exclude: exclude };
+        }
+        return act;
+    };
+
+
+    /**
      * An ongoing communication session, from the view of a given member.
      *
      * <p>A session is a logical entity tied to a member ("owner"), who performs
      * operations on their view of the membership set. It has no existence
-     * outside of a member's conception of it - c.f. a MUC transport channel,
+     * outside of a member's conception of it - c.f. a group transport channel,
      * where a server keeps it "existing" even if nobody is in it.</p>
      *
      * <p>Hence, <code>this.curMembers().has(this.owner())</code> always returns
@@ -180,25 +246,13 @@ define([
      * viewed as the other members being included into or excluded from a local
      * 1-member session, as reflected in SNMembers.</p>
      *
-     * Session has two API "surface areas".
+     * The instantiated types for <code>ReceivingExecutor</code> are:
      *
      * <ul>
-     * <li>{@link module:mpenc/helper/utils.SendingReceiver|SendingReceiver},
-     * facing a lower layer, e.g. the transport. Its instantiated types are:
-     * <ul>
-     * <li><code>{@link module:mpenc/session.Session#recv|RecvInput}</code>:
-     *      {@link module:mpenc/session.GroupChannelNotice} (TODO: not yet defined).</li>
-     * <li><code>{@link module:mpenc/session.Session#onSend|SendOutput}</code>:
-     *      {@link module:mpenc/session.GroupChannelAction} (TODO: not yet defined).</li>
-     * </ul></li>
-     * <li>{@link module:mpenc/helper/utils.ReceivingExecutor|ReceivingExecutor},
-     * facing an upper layer, e.g. the user interface. Its instantiated types are:
-     * <ul>
      * <li><code>{@link module:mpenc/session.Session#send|SendInput}</code>:
-     *      {@link module:mpenc/session.SessionAction} (TODO: not yet defined).</li>
+     *      {@link module:mpenc/session~SessionAction}.</li>
      * <li><code>{@link module:mpenc/session.Session#onRecv|RecvOutput}</code>:
      *      {@link module:mpenc/session.SessionNotice}</li>
-     * </ul></li>
      * </ul>
      *
      * Additionally, the upper layer may subscribe to particular subsets of
@@ -206,7 +260,6 @@ define([
      * module:mpenc/session.Session#onEvent|onEvent}</code>.
      *
      * @interface
-     * @augments module:mpenc/helper/utils.SendingReceiver
      * @augments module:mpenc/helper/utils.ReceivingExecutor
      * @augments module:mpenc/helper/async.EventSource
      * @memberOf module:mpenc/session
