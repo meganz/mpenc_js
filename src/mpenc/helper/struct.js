@@ -372,7 +372,6 @@ define([
     /**
      * Apply a difference to an older set.
      *
-     * @param older {module:mpenc/helper/struct.ImmutableSet} Older set
      * @param diff {module:mpenc/helper/struct.ImmutableSet[]} 2-tuple of what to (add, remove).
      * @returns {module:mpenc/helper/struct.ImmutableSet} Newer set
      */
@@ -397,6 +396,11 @@ define([
      * Empty immutable set.
      */
     ImmutableSet.EMPTY = new ImmutableSet();
+
+    /**
+     * Empty diff between immutable sets.
+     */
+    ImmutableSet.EMPTY_DIFF = [ImmutableSet.EMPTY, ImmutableSet.EMPTY];
 
     /**
      * Coerce something into an ImmutableSet if possible.
@@ -433,20 +437,6 @@ define([
         }
         return union.size === counter;
     };
-
-    /**
-     * Difference between a old and new set. Same as (new - old, old - new).
-     * @param seta {ImmutableSet} set A
-     * @param setb {ImmutableSet} set B
-     * @returns diff{array} diff[0] is setb-seta, and diff[1] is seta-setb
-     * @memberOf! module:mpenc/helper/struct
-     */
-    var setDiff = function(seta, setb) {
-        return [setb.subtract(seta), seta.subtract(setb)];
-    };
-    ns.setDiff = setDiff;
-
-    ns.SET_DIFF_EMPTY = [ImmutableSet.EMPTY, ImmutableSet.EMPTY];
 
     /**
      * A TrialTarget is an object implementing some interface methods that a

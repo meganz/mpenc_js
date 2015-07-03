@@ -231,7 +231,7 @@ define([
             throw new Error("msg has unexpected members: expected " + membersBefore +
                             ", actual " + msg.members());
         }
-        return struct.SET_DIFF_EMPTY;
+        return ImmutableSet.EMPTY_DIFF;
     };
 
     // "implements" StateMachine

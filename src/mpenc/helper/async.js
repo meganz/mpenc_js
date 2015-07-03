@@ -20,8 +20,9 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/struct",
     "es6-collections",
+    "promise-polyfill",
     "megalogger"
-], function(assert, struct, es6_shim, MegaLogger) {
+], function(assert, struct, es6_shim, Promise, MegaLogger) {
     "use strict";
 
     /**
@@ -60,6 +61,23 @@ define([
      * @see module:mpenc/helper/async.Observable
      * @see module:mpenc/helper/async.Observable#subscribe
      */
+
+
+    /**
+     * Create a new <code>Promise</code> and return its <code>resolve</code>,
+     * <code>reject</code> write capabilities back to the caller.
+     *
+     * @return {{ promise: Promise, resolve: function, reject: function }}
+     *      The promise together with its write capabilities.
+     */
+    ns.newPromiseAndWriters = function() {
+        var resolve, reject;
+        var p = new Promise(function(rs, rj) {
+            resolve = rs;
+            reject = rj;
+        });
+        return { promise: p, resolve: resolve, reject: reject };
+    };
 
 
     /**
