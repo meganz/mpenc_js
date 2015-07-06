@@ -216,6 +216,26 @@ define([
                 var MyTuple = ns.createTupleClass(Date, "x");
             });
         });
+        it("equals", function() {
+            var MyTuple = ns.createTupleClass("x", "y");
+
+            var a0 = new MyTuple(2, 3);
+            var a1 = new MyTuple(2, 3);
+            var b = new MyTuple(2, 4);
+
+            var b0 = new MyTuple(2, Set([3, 4]));
+            var b1 = new MyTuple(2, Set([4, 3]));
+
+            assert.ok(a0.equals(a1));
+            assert.ok(a1.equals(a0));
+            assert.notOk(b.equals(a1));
+            assert.notOk(b.equals(a0));
+            assert.notOk(a1.equals(b));
+            assert.notOk(a0.equals(b));
+
+            assert.ok(b0.equals(b1));
+            assert.ok(b1.equals(b0));
+        });
     });
 
     describe("TrialBuffer class", function() {

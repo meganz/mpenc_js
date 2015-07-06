@@ -161,7 +161,10 @@ define([
      * @returns {function} A constructor. You may define a 0-arg method on it
      *      as <code>YourClass.prototype._postInit</code>, which will be
      *      called automatically by the constructor. This is useful to e.g.
-     *      check inputs, perform further initialisation, etc.
+     *      check inputs, perform further initialisation, etc. The constructor
+     *      also has a pre-defined <code>equals</code> method which shallow
+     *      compares against another tuple, using <code>item.equals</code>
+     *      where available, otherwise falling back to <code>===</code>.
      * @memberOf! module:mpenc/helper/struct
      */
     var createTupleClass = function() {
@@ -179,7 +182,7 @@ define([
                 var args = Array.prototype.concat.apply([undefined], arguments);
                 return new (Function.prototype.bind.apply(cls, args))();
             }
-            for (var i=0; i<arguments.length; i++) {
+            for (var i = 0; i < arguments.length; i++) {
                 this[i] = arguments[i];
             }
             this.length = arguments.length;
@@ -190,9 +193,24 @@ define([
         };
         cls.prototype = Object.create(baseClass.prototype);
         cls.prototype.constructor = cls;
-        for (var i=0; i<fields.length; i++) {
+        for (var i = 0; i < fields.length; i++) {
             _setPropertyAlias(cls, fields[i], i);
         }
+        cls.prototype.equals = function(other) {
+            if (typeof other !== "object" || other === null ||
+                !(other instanceof cls) && !(this instanceof other.constructor)) {
+                return false;
+            }
+            for (var i = 0; i < fields.length; i++) {
+                var a = this[i];
+                var b = other[i];
+                var eq = (typeof a === "object" && "equals" in a) ? a.equals(b) : a === b;
+                if (!eq) {
+                    return false;
+                }
+            }
+            return true;
+        };
         return cls;
     };
     ns.createTupleClass = createTupleClass;
