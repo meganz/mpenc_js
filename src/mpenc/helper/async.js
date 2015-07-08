@@ -62,6 +62,20 @@ define([
      * @see module:mpenc/helper/async.Observable#subscribe
      */
 
+    /**
+     * Throw an Error, or return a non-Error.
+     *
+     * Useful for Promise callbacks that act like "finally" cleanups, where you
+     * register it as p.then(cb, cb) to call on both fulfillment and rejection.
+     */
+    ns.exitFinally = function(r) {
+        if (r instanceof Error) {
+            throw r;
+        } else {
+            return r;
+        }
+    };
+
 
     /**
      * Create a new <code>Promise</code> and return its <code>resolve</code>,
@@ -574,6 +588,9 @@ define([
 
     EventContext.prototype = Object.create(_AutoNode.prototype);
 
+    /**
+     * Get all event classes that this context supports.
+     */
     EventContext.prototype.evtcls = function() {
         return this._evtcls;
     };

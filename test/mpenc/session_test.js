@@ -27,14 +27,17 @@ define([
     "mpenc/liveness",
     "mpenc/message",
     "mpenc/transcript",
+    "mpenc/impl/transcript",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
     "megalogger",
     "chai",
     "sinon/stub",
-], function(ns, impl, liveness, message, transcript, async, struct, utils,
-            MegaLogger, chai, stub) {
+], function(ns, impl, liveness, message, transcript, transcriptImpl,
+    async, struct, utils,
+    MegaLogger, chai, stub
+) {
     "use strict";
 
     var assert = chai.assert;
@@ -47,6 +50,7 @@ define([
     var Payload = message.Payload;
     var ExplicitAck = message.ExplicitAck;
     var Consistency = message.Consistency;
+    var DefaultMessageLog = transcriptImpl.DefaultMessageLog;
 
     var MsgAccepted   = transcript.MsgAccepted;
     var NotAccepted   = liveness.NotAccepted;
@@ -58,6 +62,7 @@ define([
     var SessionState = ns.SessionState;
     var SessionBase = impl.SessionBase;
     var SessionContext = impl.SessionContext;
+    var HybridSession = impl.HybridSession;
 
     var testTimer;
 
@@ -75,6 +80,9 @@ define([
         },
         getFullAckInterval: function() {
             return 2 * this.getBroadcastLatency() + 5;
+        },
+        asynchronity: function() {
+            return 3;
         },
     };
 
@@ -361,5 +369,24 @@ define([
 
             assert.strictEqual(queue.length, 0);
         });
+    });
+
+    var mkHybridSession = function(owner) {
+        owner = owner || 51;
+        var context = new SessionContext(
+            owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
+
+        var members = new ImmutableSet([50, 51, 52]);
+        var sId = 's01';
+        var dummyChannel = { onRecv: function() {} };
+        var dummyGreeter = {};
+        return new HybridSession(context, sId, dummyChannel, dummyGreeter, dummyMessageSecurity);
+    };
+
+    describe("HybridSession test", function() {
+        it('ctor', function() {
+            var sess = mkHybridSession();
+        });
+
     });
 });
