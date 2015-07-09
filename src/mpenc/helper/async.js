@@ -150,6 +150,28 @@ define([
     };
 
     /**
+     * A subscribe-function that registers until-true subscriptions.
+     *
+     * As soon as a subscription returns <code>true</code>, it is cancelled and
+     * no more items are published to it.
+     *
+     * @member
+     * @type {module:mpenc/helper/async~subscribe}
+     */
+    Subscribe.prototype.untilTrue = function(sub) {
+        var cancel;
+        var wrapped_sub = function(item) {
+            var r = sub(item);
+            if (r === true) {
+                cancel();
+            }
+            return r;
+        };
+        cancel = this(wrapped_sub);
+        return cancel;
+    };
+
+    /**
      * A subscribe-function that registers subscriptions with a secondary
      * backup subscription fired from a different context.
      *

@@ -19,6 +19,7 @@
 define([
     "mpenc/session",
     "mpenc/channel",
+    "mpenc/greet/greeter",
     "mpenc/liveness",
     "mpenc/message",
     "mpenc/transcript",
@@ -29,10 +30,11 @@ define([
     "mpenc/helper/struct",
     "mpenc/helper/async",
     "mpenc/helper/utils",
+    "promise-polyfill",
     "megalogger"
-], function(session, channel, liveness, message, transcript,
+], function(session, channel, greeter, liveness, message, transcript,
     livenessImpl, transcriptImpl, serverorder,
-    assert, struct, async, utils, MegaLogger) {
+    assert, struct, async, utils, Promise, MegaLogger) {
     "use strict";
 
     /**
@@ -67,6 +69,7 @@ define([
     var Payload = message.Payload;
     var ExplicitAck = message.ExplicitAck;
     var Consistency = message.Consistency;
+    var GreetingMetadata = greeter.GreetingMetadata;
 
     // import utils
     var Observable = async.Observable;
@@ -655,6 +658,8 @@ define([
     ns.SessionBase = SessionBase;
 
 
+    var OwnOp = struct.createTupleClass("action", "include", "exclude");
+
     /**
      * A Session with a linear order on its membership operations.
      *
@@ -712,6 +717,7 @@ define([
 
         // global ops
         this._serverOrder = new ServerOrder();
+        this._channelJustSynced = false;
         this._greeting = null;
         this._clearChannelRecords();
         this._greetingCancel = function() {};
@@ -721,6 +727,45 @@ define([
         this._clearOwnOperation();
 
         this._cancel = async.combinedCancel(cancels);
+    };
+
+    /* Summary of the internal state of the session.
+     *
+     * "Unstable" means that we are expecting the state to change automatically
+     * without human intervention e.g. due to timeouts and/or other reactive
+     * behaviours such as key agreement responses. "Stable" means that we don't
+     * have such an expectation.
+     */
+    HybridSession.prototype._internalState = function() {
+        if (!this._channel.curMembers()) {
+            _assert(!this._serverOrder.isSynced());
+            _assert(!this._curSession);
+            // Not in the channel. Stable.
+            return "cos_";
+        } else if (!this._serverOrder.isSynced()) {
+            _assert(!this._curSession);
+            // In the channel, ServerOrder unsynced. Unstable; others should
+            // cause us to be synced later, expecting COsj.
+            return "Cos_";
+        } else if (!this._curSession) {
+            // In the channel, ServerOrder synced, but no session.
+            if (this._channelJustSynced) {
+                _assert(this._channel.curMembers().equals(this._ownSet));
+                // Stable; we just entered the channel and we're the only ones here.
+                return "COsJ";
+            } else {
+                // Unstable; one of:
+                // - (greeting !== null): we were added into the channel, and
+                //   just accepted a greeting, but it's not yet complete -> COS_
+                // - (greeting === null): we just completed a _changeMembership
+                //   that implicitly excluded everyone else, but we haven't yet
+                //   left the channel yet, to wait for consistency -> cos_
+                return "COsj";
+            }
+        } else {
+            // In the channel, ServerOrder synced, with session. Stable.
+            return "COS_";
+        }
     };
 
     HybridSession.prototype._clearChannelRecords = function(r) {
@@ -803,6 +848,7 @@ define([
         _assert(this._channel.curMembers() !== null);
         if (this._channel.curMembers().size === 1) {
             this._serverOrder.syncNew();
+            this._channelJustSynced = true;
         }
         // if someone invites us to a channel, just wait for them to include us
         // TODO(xl): [F] (parallel-op) this may not be the best thing to do; need more data to decide
@@ -1054,6 +1100,7 @@ define([
         // If greeting is null, this means we left the channel and the session.
 
         var ownSet = this._ownSet;
+        this._channelJustSynced = false;
         if (greeting && greeting.getMembers().size === 1) {
             _assert(greeting.getMembers().equals(ownSet));
             greeting = null;
@@ -1214,16 +1261,143 @@ define([
         return p;
     };
 
+    /* Here follow implementations of "actions" to be executed. We try to
+     * follow these general "async" action-flow principles:
+     *
+     * Checks on *arguments*, e.g. for include/exclude, should go in send()
+     * rather than the private functions.
+     *
+     * Checks on state *preconditions* go in the private implementation methods
+     * (_changeMembership, _includeSelf, _excludeSelf) and throw an Error if not
+     * met. If it would be a no-op, we return an already-completed Deferred.
+     *
+     * The primary purpose of these actions are to change the *session*; channel
+     * membership is secondary, and the operation (represented by the returned
+     * Deferred) should not wait for channel operations that occur after the
+     * *session* change completes. (OTOH, channel operation *preconditions* e.g.
+     * entering the channel before a membership operation, must be waited upon,
+     * of course.)
+     *
+     * TODO(xl): [D] (timeout-op) fail these operations after a timeout and/or
+     * retry sub-operations if their failures are probably transitive
+     */
+
     HybridSession.prototype._changeMembership = function(include, exclude) {
-        throw new Error("not implemented");
+        // Expected post-state is:
+        // COS_ || COsj (-> cos by onPrevSessionFin, after promise resolves)
+        var state = this._internalState();
+        if (state === "cos_") {
+            throw new Error("not in channel yet; try { join: true } first");
+        } else if (state === "COsj" || state === "Cos_") {
+            throw new Error("already in the middle of joining or parting");
+        } else {
+            _assert(state === "COS_" || state === "COsJ");
+        }
+
+        var self = this;
+        var p = async.newPromiseAndWriters();
+
+        var p1;
+        if (include.size) {
+            p1 = this._channel.execute({ enter: include });
+        } else {
+            p1 = Promise.resolve(true);
+        }
+        p1.then(
+            this._proposeGreetInit.bind(this, include, exclude)
+        ).catch(p.reject);
+
+        // TODO(xl): [D] this could be resolved more intelligently, e.g. with PromisingSet
+        this._events.subscribe(SNMembers).untilTrue(function(evt) {
+            if (evt.include.equals(include) && evt.exclude.equals(exclude)) {
+                p.resolve(self);
+                return true;
+            }
+        });
+        return p.promise;
     };
 
     HybridSession.prototype._includeSelf = function() {
-        throw new Error("not implemented");
+        // Expected post-state is:
+        // COS_ || COsJ
+        var state = this._internalState();
+        if (state === "COS_" || state === "CosJ") {
+            return Promise.resolve(this);
+        } else if (state === "COsj" || state === "Cos_") {
+            throw new Error("already in the middle of joining or parting");
+        } else {
+            _assert(state === "cos_");
+        }
+
+        var self = this;
+        var p = async.newPromiseAndWriters();
+
+        var p1;
+        if (this._channel.curMembers()) {
+            p1 = Promise.resolve(this._channel.curMembers());
+        } else {
+            p1 = this._channel.execute({ enter: true });
+        }
+        p1.then(function(curMembers) {
+            if (curMembers && curMembers.size > 1) {
+                // if it's not empty, wait for someone to invite us
+                this._events.subscribe(SNMembers).untilTrue(function(evt) {
+                    if (evt.remain.equals(self._ownSet) && evt.include.size) {
+                        p.resolve(self);
+                        return true;
+                    }
+                });
+            } else {
+                // maybeSyncNew should have been called by this stage
+                _assert(self._serverOrder.isSynced());
+                // no session membership change, just finish this operation.
+                p.resolve(self);
+            }
+        }).catch(p.reject);
+
+        return p.promise;
     };
 
     HybridSession.prototype._excludeSelf = function() {
-        throw new Error("not implemented");
+        // Expected post-state is:
+        // cos_ || COsj (-> cos by onPrevSessionFin, after promise resolves)
+        // Here, we are a bit more lenient than the other actions; it should
+        // always be possible to part the session, and have the internal state
+        // remain consistent and be able to continue further from this.
+        var state = this._internalState();
+        if (state === "cos_") {
+            return Promise.resolve(this);
+        } else if (state === "Cos_" || state === "COsJ" || state === "COsj" && this._greeting) {
+            // no session and no local automated process, just leave the channel
+            return this._channel.execute({ leave: true });
+        } else if (state === "COsj" && !this._greeting) {
+            // TODO(xl): [F] (parallel-op) might be able to speed things up a bit...
+            throw new Error("already in the middle of parting");
+        } else {
+            _assert(state === "COS_");
+        }
+
+        var self = this;
+        var p = async.newPromiseAndWriters();
+
+        // send leave-intent, i.e. double-fin. this tells others that we want to leave
+        // the whole HybridSession, as opposed to just the child Session.
+        this._curSession.sendObject(new Consistency(true));
+        this._curSession.fin();
+        // try to reach consistency, then leave the channel
+        this._curSession.onFin(function(mId) {
+            if (self._channel.curMembers()) {
+                self._channel.send({ leave: true });
+            }
+        });
+
+        this._events.subscribe(SNMembers).untilTrue(function(evt) {
+            if (evt.remain.equals(self._ownSet) && evt.exclude.size) {
+                p.resolve(self);
+                return true;
+            }
+        });
+        return p.promise;
     };
 
     HybridSession.prototype._runOwnOperation = function(opParam, run) {
@@ -1254,14 +1428,28 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.execute = function(action) {
+        action = session.checkSessionAction(action);
+
         if ("contents" in action) {
             throw new Error("not implemented");
+
         } else if ("include" in action || "exclude" in action) {
-            throw new Error("not implemented");
-        } else if ("join" in action || "part" in action) {
-            throw new Error("not implemented");
+            var include = action.include;
+            var exclude = action.exclude;
+            if (include.has(this._owner) || exclude.has(this._owner)) {
+                throw new Error("cannot include/exclude yourself");
+            }
+            return this._runOwnOperation(new OwnOp(["m", include, exclude]),
+                this._changeMembership.bind(this, include, exclude));
+
+        } else if ("join" in action && !this._curSession) {
+            return this._runOwnOperation(new OwnOp(["j"]), this._includeSelf.bind(this));
+
+        } else if ("part" in action && this._curSession) {
+            return this._runOwnOperation(new OwnOp(["p"]), this._excludeSelf.bind(this));
+
         } else {
-            throw new Error("invalid action: " + action);
+            return Promise.resolve(true);
         }
     };
 
