@@ -23,9 +23,9 @@ define([
     "mpenc/liveness",
     "mpenc/message",
     "mpenc/transcript",
+    "mpenc/impl/channel",
     "mpenc/impl/liveness",
     "mpenc/impl/transcript",
-    "mpenc/impl/serverorder",
     "mpenc/helper/assert",
     "mpenc/helper/struct",
     "mpenc/helper/async",
@@ -33,7 +33,7 @@ define([
     "promise-polyfill",
     "megalogger"
 ], function(session, channel, greeter, liveness, message, transcript,
-    livenessImpl, transcriptImpl, serverorder,
+    channelImpl, livenessImpl, transcriptImpl,
     assert, struct, async, utils, Promise, MegaLogger) {
     "use strict";
 
@@ -62,7 +62,7 @@ define([
     var Flow = liveness.Flow;
     var BaseTranscript = transcriptImpl.BaseTranscript;
     var DefaultConsistencyMonitor = livenessImpl.DefaultConsistencyMonitor;
-    var ServerOrder = serverorder.ServerOrder;
+    var ServerOrder = channelImpl.ServerOrder;
 
     // import message-types
     var Message = message.Message;

@@ -17,7 +17,7 @@
  */
 
 define([
-    "mpenc/impl/serverorder",
+    "mpenc/impl/channel",
     "mpenc/greet/greeter",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
