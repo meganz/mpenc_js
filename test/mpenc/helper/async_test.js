@@ -176,6 +176,68 @@ define([
         });
     });
 
+    describe("PromisingSet", function() {
+        it('empty', function() {
+            var mem = new ns.PromisingSet();
+            assert.deepEqual(mem.value().toArray(), []);
+        });
+        it('basic', function() {
+            var mem = new ns.PromisingSet([51]);
+            mem.patch([[52, 53], [51]]);
+            assert.deepEqual(mem.value().toArray(), [52, 53]);
+            mem.patch([[51], [52]]);
+            assert.deepEqual(mem.value().toArray(), [51, 53]);
+            assert.throws(mem.patch.bind(mem, [[53], [51]]));
+            assert.throws(mem.patch.bind(mem, [[52], [54]]));
+            assert.throws(mem.patch.bind(mem, [[52], [52]]));
+        });
+        it('awaitDiff', function(done) {
+            var mem = new ns.PromisingSet([51]);
+            mem.awaitDiff([[52], []]).then(function() {
+                assert.deepEqual(mem.value().toArray(), [51, 52]);
+                assert.notOk(mem._expect.length);
+                done();
+            });
+            mem.patch([[52], []]);
+        });
+        it('awaitDiff superset', function(done) {
+            var mem = new ns.PromisingSet([51]);
+            mem.awaitDiff([[52, 53], [51]]).then(function() {
+                assert.deepEqual(mem.value().toArray(), [52, 53]);
+                assert.notOk(mem._expect.length);
+                done();
+            }, console.log);
+            mem.patch([[52], []]);
+            mem.patch([[], [51]]);
+            mem.patch([[53], []]);
+        });
+        it('awaitDiff subset', function(done) {
+            var mem = new ns.PromisingSet([51]);
+            mem.awaitDiff([[53], []]).then(function() {
+                assert.deepEqual(mem.value().toArray(), [52, 53]);
+                assert.notOk(mem._expect.length);
+                done();
+            });
+            mem.patch([[52, 53], [51]]);
+        });
+        it('awaitDiff reject', function(done) {
+            var mem = new ns.PromisingSet([51]);
+            mem.awaitDiff([[53], [51]]).then(function() {
+                throw new Error("didn't fail");
+            }, function() { done(); });
+            mem.patch([[52, 53], []]);
+            mem.patch([[], [53]]);
+        });
+        it('awaitDiff reject precedence', function(done) {
+            var mem = new ns.PromisingSet([51]);
+            mem.awaitDiff([[53], [51]]).then(function() {
+                throw new Error("didn't fail");
+            }, function() { done(); });
+            mem.patch([[53], []]);
+            mem.patch([[], [51, 53]]);
+        });
+    });
+
     describe("events", function() {
         var Evt1 = struct.createTupleClass("x", "y");
         var Evt2 = struct.createTupleClass("x", "y", "z");
