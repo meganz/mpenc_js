@@ -97,6 +97,18 @@ define([
 
 
     /**
+     * @param timer {module:mpenc/helper/async.Timer} To execute the calls.
+     * @param timeout {number} Ticks after which to resolve the Promise.
+     * @returns {Promise} A Promise that resolves after the given timeout.
+     */
+    ns.timeoutPromise = function(timer, timeout) {
+        return new Promise(function(rs, rj) {
+            timer.after(timeout, rs);
+        });
+    };
+
+
+    /**
      * A subscribe-function with child tweaked subscribe-functions.
      *
      * This is not instantiable directly; use Subscribe.wrap() instead.

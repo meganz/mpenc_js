@@ -1003,6 +1003,21 @@ define([
     // Receive handlers
 
     HybridSession.prototype._recv = function(recv_in) {
+        if (this._pendingGreetingPostProcess) {
+            if (this._greeting) {
+                // TODO(xl): [!F] support *non-immediate* asynchronous completion of greeting,
+                // This will be much more complex, since for correctness we must not process
+                // certain packets until this is complete. The easy & safe option is to not
+                // process *all* packets, but this has a UI cost and it is OK to process *some*,
+                // just the logic for identifying these will be a bit annoying.
+                logger.warn("processing remote packet before already-completed-greeting " +
+                    "finished all local processing! some incorrect behaviour may result.");
+            } else {
+                logger.debug("clearing pending-greeting flag");
+                this._pendingGreetingPostProcess = false;
+            }
+        }
+
         if ("pubtxt" in recv_in) {
             if (this._recvGreet(recv_in)) {
                 return true;
@@ -1016,7 +1031,15 @@ define([
 
             if (leave === true) {
                 this._clearChannelRecords();
-                this._changeSubSession(null);
+                this._clearOwnOperation();
+                this._clearOwnProposal();
+                if (this._greeting) {
+                    // TODO(xl): [F] (handle-error) should be done via a Greeting API
+                    this._clearGreeting();
+                }
+                if (this._curSession) {
+                    this._changeSubSession(null);
+                }
             } else if (leave && leave.size) {
                 this._onOthersLeave(leave);
             }
@@ -1057,7 +1080,17 @@ define([
             };
 
             var postAcceptFinal = function(pF, prev_pI) {
-                self._maybeFinishOwnProposal(pHash, pF, prev_pI, self._greeting);
+                if (!op.isInitial()) {
+                    // Don't run the hook if we're an initial+final packet. We only set
+                    // ownProposalPr for non-initial final packets. Whenever it is set
+                    // for initial+final packets, it was for the purpose of it being an
+                    // initial packet. In other languages, ownProposalPr is already null
+                    // when we get here (by postAcceptInitial running clearOwnProposal),
+                    // so we don't need this condition; however JS Promises resolve
+                    // after the current tick, so clearOwnProposal has not yet run, and
+                    //  _maybeFinishOwnProposal complains that prevPi doesn't match.
+                    self._maybeFinishOwnProposal(pHash, pF, prev_pI, self._greeting);
+                }
             };
 
             if (this._serverOrder.tryOpPacket(
@@ -1067,17 +1100,8 @@ define([
                 var r = this._greeting.recv(recv_in);
                 _assert(r);
                 if (!this._serverOrder.hasOngoingOp()) {
-                    // if this was a final packet, greeting should complete next tick
-                    // asynchronous assert; JS promises complete asynchronously
-                    Promise.resolve(true) // 1 + number of ticks that clear takes in _setGreeting
-                        .then(Promise.resolve.bind(Promise, true))
-                        .then(function() { _assert(!self._greeting); })
-                        .catch(logger.warn.bind(logger));
-                    // TODO(xl): [F] support *non-immediate* asynchronous completion of greeting
-                    // This will be much more complex, since for correctness we must not process
-                    // certain packets until this is complete. The easy & safe option is to not
-                    // process *all* packets, but this has a UI cost and it is OK to process *some*,
-                    // just the logic for identifying these will be a bit annoying.
+                    // if this was a final packet, greeting should complete ASAP
+                    this._pendingGreetingPostProcess = true;
                 }
             }
             return true;

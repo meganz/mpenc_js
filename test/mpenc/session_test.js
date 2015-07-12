@@ -24,9 +24,11 @@
 define([
     "mpenc/session",
     "mpenc/impl/session",
+    "mpenc/greet/greeter",
     "mpenc/liveness",
     "mpenc/message",
     "mpenc/transcript",
+    "mpenc/impl/dummy",
     "mpenc/impl/transcript",
     "mpenc/helper/async",
     "mpenc/helper/struct",
@@ -34,7 +36,7 @@ define([
     "megalogger",
     "chai",
     "sinon/stub",
-], function(ns, impl, liveness, message, transcript, transcriptImpl,
+], function(ns, impl, greeter, liveness, message, transcript, dummy, transcriptImpl,
     async, struct, utils,
     MegaLogger, chai, stub
 ) {
@@ -381,21 +383,108 @@ define([
         });
     });
 
-    var mkHybridSession = function(owner) {
-        owner = owner || 51;
+    var mkHybridSession = function(sId, owner, server) {
         var context = new SessionContext(
             owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
-
-        var members = new ImmutableSet([50, 51, 52]);
-        var sId = 's01';
-        var dummyChannel = { onRecv: function() {} };
-        var dummyGreeter = {};
-        return new HybridSession(context, sId, dummyChannel, dummyGreeter, dummyMessageSecurity);
+        // TODO(xl): replace with a dummy greeter so the tests run quicker
+        var dummyGreeter = new greeter.Greeter(owner,
+            _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
+                get: function() { return _td.ED25519_PUB_KEY; }
+            });
+        return new HybridSession(context, sId, server.getChannel(owner),
+            dummyGreeter, makeDummyMessageSecurity);
     };
 
     describe("HybridSession test", function() {
+        var assertSessionStable = function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var sess = arguments[i];
+                assert.strictEqual(sess._ownOperationPr, null);
+                assert.strictEqual(sess._greeting, null);
+                assert.strictEqual(sess._ownProposalPr, null);
+                assert.ok(!sess._serverOrder.isSynced() || !sess._serverOrder.hasOngoingOp());
+            }
+        };
+
+        var assertSessionParted = function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var sess = arguments[i];
+                assertMembers([sess._owner], sess);
+                assert.strictEqual(sess._curSession, null);
+                assert.strictEqual(sess._curGreetState, null);
+            }
+        };
+
+        var assertSessionState = function(state) {
+            for (var i = 1; i < arguments.length; i++) {
+                var sess = arguments[i];
+                var label = sess.owner() + ":" + btoa(sess.sessionId());
+                assert.deepEqual(sess._internalState(), state,
+                    "unexpected state from: " + label);
+            }
+        };
+
+        var assertMembers = function(members) {
+            for (var i = 1; i < arguments.length; i++) {
+                var sess = arguments[i];
+                var label = sess.owner ? sess.owner() + ":" + btoa(sess.sessionId()) : "server";
+                assert.deepEqual(arguments[i].curMembers().toArray(), members,
+                    "unexpected members from: " + label);
+            }
+        };
+
         it('ctor', function() {
-            var sess = mkHybridSession();
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            assertMembers([], server);
+            assertMembers(["51"], s1);
+            assertMembers(["52"], s2);
+        });
+
+        it('basic membership changes', function(done) {
+            this.timeout(this.timeout() * 30);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
+            var exec = function(member, action) {
+                var p = member.execute(action);
+                server.runAsync(16, testTimer);
+                return p;
+            };
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                return exec(s1, { join: true });
+            }).then(function() {
+                assertSessionState("COsJ", s1);
+                assertSessionState("cos_", s2, s3);
+                return exec(s1, { include: ["52", "53"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                return exec(s2, { exclude: ["51"] });
+            }).then(function() {
+                assertMembers(["52", "53"], s2, s3);
+                assertSessionState("COS_", s1, s2, s3);
+                // it takes a bit more time for s1 to be kicked from the channel
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                assertMembers(["52", "53"], server);
+                assertMembers(["51"], s1);
+                assertSessionState("cos_", s1);
+                return exec(s3, { part: true });
+            }).then(function() {
+                // give some time for leave processes to complete
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                assertMembers([], server);
+                assertSessionState("cos_", s1, s2, s3);
+                assertSessionParted(s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
+                done();
+            }).catch(console.log);
         });
 
     });

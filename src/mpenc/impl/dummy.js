@@ -308,6 +308,33 @@ define([
     };
 
     /**
+     * Keep alternately running <code>recvAll</code> and <code>sendAll</code>
+     * until one of them returns zero (i.e. there was nothing to do).
+     *
+     * This works asynchronously, even if things are added onto the server
+     * queues via <code>Promises</code>, which in Javascript runs *after* the
+     * current event tick.
+     */
+    DummyGroupServer.prototype.runAsync = function(graceTicks, timer) {
+        graceTicks = graceTicks === undefined ? 16 : graceTicks;
+        if (!this.recvAll() && !this.sendAll()) {
+            // nothing was done
+            if (!graceTicks) {
+                logger.info("runAsync gave up after some ticks with no activity");
+                return;
+            }
+            graceTicks--;
+        } else {
+            this.run();
+        }
+        // execute ourselves asynchronously in case e.g. a Promise resolves
+        var condition = timer ? async.timeoutPromise(timer, 1) : true;
+        Promise.resolve(condition)
+            .then(this.runAsync.bind(this, graceTicks, timer))
+            .catch(logger.warn.bind(logger));
+    };
+
+    /**
      * Get a GroupChannel object for the given user.
      *
      * @returns {module:mpenc/channel.GroupChannel}
