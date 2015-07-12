@@ -44,7 +44,7 @@ define([
      */
     var ns = {};
 
-    var logger = MegaLogger.getLogger("session");
+    var logger = MegaLogger.getLogger("session", undefined, "mpenc");
     var _assert = assert.assert;
 
     // import events
@@ -151,7 +151,10 @@ define([
         this._owner = context.owner;
         this._sId = sId;
         this._transcript = new BaseTranscript();
-        this._roTranscript = Object.create(this._transcript, { add: {} });
+        this._transcript_add = this._transcript.add.bind(this._transcript);
+        Object.defineProperty(this._transcript, "add", {
+            value: function() { throw new Error("forbidden"); }
+        });
 
         this._timer = context.timer;
         this._ctime = new Map();
@@ -296,7 +299,7 @@ define([
      * @inheritDoc
      */
     SessionBase.prototype.transcript = function() {
-        return this._roTranscript;
+        return this._transcript;
     };
 
     /**
@@ -429,7 +432,7 @@ define([
         } catch (e) {
             return false;
         }
-        _assert(author !== this.owner(), 'received non-duplicate message from owner');
+        _assert(author !== this.owner(), 'received non-duplicate message from self: ' + btoa(mId));
 
         try {
             var body = this._codec.decode(sectxt);
@@ -459,7 +462,7 @@ define([
         // - bad membership change
         // TODO(xl): [F] (invalid-msg) also should emit error message and shutdown the session
         logger.warn('BAD MESSAGE (malicious/buggy peer?) in verified-decrypted msg ' +
-            mId + ' : ' + error);
+            btoa(mId) + ' : ' + error);
     };
 
     SessionBase.prototype._tryAcceptCleanup = function(replace, param) {
@@ -502,7 +505,7 @@ define([
         var membersBefore = this._membersAfter(ts, msg.parents);
         var intendedDiff = this._membersChangedBy(ts, membersBefore, msg);
 
-        var fullAcked = this._transcript.add(msg);
+        var fullAcked = this._transcript_add(msg);
         // from this point onwards, should be no exceptions raised
 
         var mId = msg.mId;
@@ -521,7 +524,7 @@ define([
             var mId = evt.mId;
             self._pubtxt.delete(mId);
             // this._pubtxt.delete(pubtxt);
-            // TODO(xl): this is hard to get right; see python for ideas
+            // TODO(xl): [D] this is hard to get right; see python for ideas
         });
 
         this._events.publish(new MsgAccepted(mId));
@@ -1171,7 +1174,6 @@ define([
         cancels.push(sess.onSend(this._channel.send.bind(this._channel)));
         cancels.push(sess.chainUserEventsTo(this, this._events));
         cancels.push(this._messages.bindSource(sess, sess.transcript()));
-        //cancels.push(sess.onEvent(MsgAccepted)(sess.updateFreshness.bind(sess, this._presence)));
         cancels.push(sess.onEvent(MsgAccepted)(this._onMaybeLeaveIntent.bind(this, sess)));
 
         return {

@@ -609,7 +609,7 @@ define([
                     if (this.target.tryMe(false, item)) {
                         delete this._buffer[itemID];
                         this._bufferIDs.splice(this._bufferIDs.indexOf(itemID), 1);
-                        logger.debug(this.name + ' unstashed ' + itemID);
+                        logger.debug(this.name + ' unstashed ' + btoa(itemID));
                         hadSuccess = true;
                     }
                 }
@@ -627,7 +627,7 @@ define([
                     var dropped = this._buffer[droppedID];
                     delete this._buffer[droppedID];
                     this.cleanup(false, dropped);
-                    logger.warn(this.name + ' DROPPED ' + droppedID +
+                    logger.warn(this.name + ' DROPPED ' + btoa(droppedID) +
                                 ' at size ' + maxSize + ', potential data loss.');
                 } else {
                     logger.info(this.name + ' is '

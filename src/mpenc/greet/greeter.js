@@ -1531,7 +1531,7 @@ define([
         if (message.members.length === 1) {
             // Last-man-standing case,
             // as we won't be able to complete the protocol flow.
-            this.quit();
+            return this.quit();
         } else {
             this._updateOpState(
                 this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);

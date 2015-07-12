@@ -319,7 +319,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(1).args, [false, {'bar': 'baz'}]);
                 assert.strictEqual(result, true);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['Brian unstashed bar']]);
+                assert.deepEqual(log, [0, ['Brian unstashed YmFy']]);
                 assert.deepEqual(myTrialBuffer._buffer, {});
                 assert.deepEqual(myTrialBuffer._bufferIDs, []);
             });
@@ -394,7 +394,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
-                assert.deepEqual(log, [30, ['Brian DROPPED bar at size 1, potential data loss.']]);
+                assert.deepEqual(log, [30, ['Brian DROPPED YmFy at size 1, potential data loss.']]);
                 assert.deepEqual(myTrialBuffer._buffer, {'foo': param});
                 assert.deepEqual(myTrialBuffer._bufferIDs, [paramID]);
             });

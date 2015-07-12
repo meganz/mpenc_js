@@ -34,7 +34,7 @@ define([
 
     var ImmutableSet = struct.ImmutableSet;
 
-    var logger = MegaLogger.getLogger("async");
+    var logger = MegaLogger.getLogger("async", undefined, "helper");
     var _assert = assert.assert;
 
     /**
@@ -388,6 +388,7 @@ define([
      * @memberOf module:mpenc/helper/async
      */
     var combinedCancel = function(cancels) {
+        _assert(cancels.every(function(f) { return typeof f === "function"; }));
         return function() {
             var retval = false;
             var error = null;
@@ -771,7 +772,7 @@ define([
     EventContext.prototype.chainFrom = function(evtctx, evtcls) {
         var self = this;
         return combinedCancel(new ImmutableSet(evtcls).toArray().map(function(ec) {
-            evtctx.subscribe(ec)(self.publish.bind(self));
+            return evtctx.subscribe(ec)(self.publish.bind(self));
         }));
     };
 
