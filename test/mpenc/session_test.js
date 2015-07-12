@@ -86,38 +86,48 @@ define([
         },
     };
 
-    var dummyMessageSecurity = {
-        authEncrypt: function(ts, author, parents, recipients, sectxt) {
-            var pubtxt = JSON.stringify({
-                author: author,
-                parents: parents.toArray(),
-                recipients: recipients.toArray(),
-                sectxt: sectxt
-            });
-            return [pubtxt, {
-                commit: stub(),
-                destroy: stub(),
-                mId: utils.sha256(pubtxt),
-            }];
-        },
-        decryptVerify: function(ts, pubtxt, sender) {
-            var body = JSON.parse(pubtxt);
-            return [body.author, body.parents, body.recipients, body.sectxt, {
-                commit: stub(),
-                destroy: stub(),
-                mId: utils.sha256(pubtxt),
-            }];
-        },
+    var makeDummyMessageSecurity = function(greetState) {
+        var sId = greetState.sessionId;
+        return {
+            authEncrypt: function(ts, author, parents, recipients, sectxt) {
+                var pubtxt = JSON.stringify({
+                    sId: btoa(sId),
+                    author: author,
+                    parents: parents.toArray().map(btoa),
+                    recipients: recipients.toArray().map(btoa),
+                    sectxt: btoa(sectxt)
+                });
+                return [pubtxt, {
+                    commit: stub(),
+                    destroy: stub(),
+                    mId: utils.sha256(pubtxt),
+                }];
+            },
+            decryptVerify: function(ts, pubtxt, sender) {
+                var body = JSON.parse(pubtxt);
+                if (atob(body.sId) !== sId) {
+                    return false;
+                }
+                return [body.author,
+                    body.parents.map(atob),
+                    body.recipients.map(atob),
+                    atob(body.sectxt), {
+                        commit: stub(),
+                        destroy: stub(),
+                        mId: utils.sha256(pubtxt),
+                    }];
+            },
+        };
     };
 
     var mkSessionBase = function(owner) {
-        owner = owner || 51;
+        owner = owner || "51";
         var context = new SessionContext(
             owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, null);
 
-        var members = new ImmutableSet([50, 51, 52]);
+        var members = new ImmutableSet(["50", "51", "52"]);
         var sId = 's01';
-        return new SessionBase(context, sId, members, dummyMessageSecurity);
+        return new SessionBase(context, sId, members, makeDummyMessageSecurity({ sessionId: sId }));
     };
 
     describe("SessionBase test", function() {
@@ -157,34 +167,34 @@ define([
 
             assert(fullyAcked.notCalled);
             assert.strictEqual(sess.isConsistent(), true);
-            sess._add(M(0, 50, [], [51, 52], new Payload("plaintext 0")), 'ciphertext 0');
+            sess._add(M("0", "50", [], ["51", "52"], new Payload("plaintext 0")), 'ciphertext 0');
             assert.strictEqual(sess.isConsistent(), false);
-            sess._add(M(1, 51, [0], [50, 52], new ExplicitAck(true)), 'ciphertext 1');
+            sess._add(M("1", "51", ["0"], ["50", "52"], new ExplicitAck(true)), 'ciphertext 1');
             assert(fullyAcked.notCalled);
-            sess._add(M(2, 52, [1], [50, 51], new ExplicitAck(false)), 'ciphertext 2');
+            sess._add(M("2", "52", ["1"], ["50", "51"], new ExplicitAck(false)), 'ciphertext 2');
             assert(fullyAcked.calledOnce);
             assert.strictEqual(sess.isConsistent(), true);
         });
         it('consistency monitor auto-acks others\' messges', function(done) {
-            var sess = mkSessionBase(51);
+            var sess = mkSessionBase("51");
             var timer = sess._timer;
             var ts = sess._transcript;
             var notAcked = stub();
-            sess._add(M(0, 50, [], [51, 52], new Payload("plaintext 0")), 'ciphertext 0');
+            sess._add(M("0", "50", [], ["51", "52"], new Payload("plaintext 0")), 'ciphertext 0');
             sess.onEvent(NotFullyAcked)(notAcked);
             sess.onSend(stub().returns(true)); // suppress "no subscriber" warnings
 
             assert(notAcked.notCalled);
             assert.strictEqual(ts.size(), 1);
             assert.strictEqual(sess.isConsistent(), false);
-            assert(sess.needAckmon(0));
-            assert.deepEqual(ts.unackby(0).toArray(), [51, 52]);
-            assert.deepEqual(sess._consistency.active(), [0]);
+            assert(sess.needAckmon("0"));
+            assert.deepEqual(ts.unackby("0").toArray(), ["51", "52"]);
+            assert.deepEqual(sess._consistency.active(), ["0"]);
 
             timer.after(dummyFlowControl.getFullAckInterval(), function() {
                 assert.strictEqual(ts.size(), 2);
                 var last = ts.get(ts.max().toArray()[0]);
-                assert.strictEqual(last.author, 51);
+                assert.strictEqual(last.author, "51");
                 assert(last.body instanceof ExplicitAck);
                 assert(notAcked.calledOnce);
                 timer.after(dummyFlowControl.getFullAckInterval(), function() {
@@ -204,12 +214,12 @@ define([
             assert.equal(sendSub.callCount, 2);
         });
         it('send-recv round trip', function() {
-            var sess0 = mkSessionBase(50), sess1 = mkSessionBase(51);
+            var sess0 = mkSessionBase("50"), sess1 = mkSessionBase("51");
             var sub0 = stub();
             sess0.onEvent(MsgAccepted)(sub0);
             sess0.onSend(stub().returns(true)); // suppress "no subscriber" warnings
             sess1.onSend(function(send_out) {
-                var status = sess0.recv({ pubtxt: send_out.pubtxt, sender: 51 });
+                var status = sess0.recv({ pubtxt: send_out.pubtxt, sender: "51" });
                 assert.ok(status);
                 return true;
             });
@@ -218,23 +228,23 @@ define([
             assert(sub0.calledOnce);
         });
         it('send-recv multiple out-of-order packets with dupes', function() {
-            var sess0 = mkSessionBase(50),
-                sess1 = mkSessionBase(51),
-                sess2 = mkSessionBase(52);
+            var sess0 = mkSessionBase("50"),
+                sess1 = mkSessionBase("51"),
+                sess2 = mkSessionBase("52");
 
             var forSess0 = [];
 
             sess0.onSend(stub().returns(true)); // suppress "no subscriber" warnings
             sess1.onSend(function(send_out) {
                 // send to 52, withhold from 50
-                var recv_in = { pubtxt: send_out.pubtxt, sender: 51 };
+                var recv_in = { pubtxt: send_out.pubtxt, sender: "51" };
                 sess2.recv(recv_in);
                 forSess0.push(recv_in);
                 return true;
             });
             sess2.onSend(function(send_out) {
                 // send to 51, withhold from 50
-                var recv_in = { pubtxt: send_out.pubtxt, sender: 52 };
+                var recv_in = { pubtxt: send_out.pubtxt, sender: "52" };
                 sess1.recv(recv_in);
                 forSess0.push(recv_in);
                 return true;
@@ -297,7 +307,7 @@ define([
         it('#fin() on inconsistent session', function(done) {
             var sess = mkSessionBase();
             var timer = sess._timer;
-            sess._add(M(0, 50, [], [51, 52], new Payload("plaintext 0")), 'ciphertext 0');
+            sess._add(M("0", "50", [], ["51", "52"], new Payload("plaintext 0")), 'ciphertext 0');
             assert.strictEqual(sess.isConsistent(), false);
 
             sess.onSend(stub().returns(true));
@@ -315,7 +325,7 @@ define([
         it('#fin() on consistent non-empty session', function(done) {
             var sess = mkSessionBase();
             var timer = sess._timer;
-            sess._add(M(0, 50, [], [51, 52], new Payload("plaintext 0")), 'ciphertext 0');
+            sess._add(M("0", "50", [], ["51", "52"], new Payload("plaintext 0")), 'ciphertext 0');
             assert.strictEqual(sess.isConsistent(), false);
 
             sess.onSend(stub().returns(true));
@@ -329,7 +339,7 @@ define([
             });
             sess.fin();
             assert.strictEqual(sess.state(), SessionState.PARTING);
-            sess._add(M(2, 52, [0], [50, 51], new ExplicitAck(false)), 'ciphertext 2');
+            sess._add(M("2", "52", ["0"], ["50", "51"], new ExplicitAck(false)), 'ciphertext 2');
         });
         /*it('#updateFreshness()', function() {
             // TODO(xl): do this when we actually implement a PresenceTracker
@@ -338,7 +348,7 @@ define([
             var base = mkSessionBase();
             var types = SessionBase.EventTypes;
             var evtctx = new async.EventContext(types);
-            var realMessages = new ImmutableSet([0, 3, 4]);
+            var realMessages = new ImmutableSet(["0", "3", "4"]);
             var sess = { messages: stub().returns(realMessages) };
 
             var queue = [];
@@ -357,15 +367,15 @@ define([
 
             assert.ok(chained(new SNStateChange(SessionState.PARTING, SessionState.JOIN)));
 
-            assert.notOk(chained(new MsgAccepted(0)));
-            assert.notOk(chained(new MsgAccepted(1)));
-            assert.ok(chained(new NotAccepted(0)));
-            assert.ok(chained(new NotAccepted(1)));
+            assert.notOk(chained(new MsgAccepted("0")));
+            assert.notOk(chained(new MsgAccepted("1")));
+            assert.ok(chained(new NotAccepted("0")));
+            assert.ok(chained(new NotAccepted("1")));
 
-            assert.ok(chained(new MsgFullyAcked(0)));
-            assert.notOk(chained(new MsgFullyAcked(1)));
-            assert.ok(chained(new NotFullyAcked(0)));
-            assert.notOk(chained(new NotFullyAcked(1)));
+            assert.ok(chained(new MsgFullyAcked("0")));
+            assert.notOk(chained(new MsgFullyAcked("1")));
+            assert.ok(chained(new NotFullyAcked("0")));
+            assert.notOk(chained(new NotFullyAcked("1")));
 
             assert.strictEqual(queue.length, 0);
         });
