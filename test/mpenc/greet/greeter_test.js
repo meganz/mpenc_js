@@ -1073,41 +1073,64 @@ define([
     });
 
     describe("Multiple Greeter instances with complete operation flows", function() {
-        var allSummariesAreFinal = function(summaries, nextPf) {
-            var allIsFinal = summaries.every(function(s) { return s && s.prevPi !== null; });
-            if (!allIsFinal) { return false; }
-            assert.strictEqual(
-                1, new Set(summaries.map(function(s) { return s.prevPi; })).size,
-                "got different values for prevPi");
+        var maybeExtractNextPf = function(summaries, targetMembers, nextPf) {
+            // check if the summaries represent a final packet. if so, it must
+            // be identified correctly in the same way by all the target members.
+            var targetSummaries = [];
+            summaries.forEach(function(summary, id) {
+                if (targetMembers.has(id)) {
+                    targetSummaries.push(summary);
+                }
+            });
+            var allIsFinal = targetSummaries.every(function(s) { return s && s.prevPi !== null; });
+            if (!allIsFinal) { return undefined; }
+            var values = new Set(targetSummaries.map(function(s) { return s.prevPi; }));
+            assert.strictEqual(1, values.size, "got different values for prevPi");
             assert.strictEqual(nextPf, undefined, "nextPf set twice");
-            return true;
+            return values.values().next().value;
+        };
+
+        var initOutput = {
+            prevPf: utils.sha256("dummyPrevPF"),
+            states: { get: function() { return null; } },
+            members: null,
         };
 
         var runGreetings = function(greeters, initId, channelMembers,
-                prevPf, prevStates, prevMembers, resultStates, nextMembers, promises) {
-            assert.strictEqual(resultStates.size, 0);
-            nextMembers.forEach(function(id) {
+                prevOutput, nextMembers) {
+            var prevPf = prevOutput.prevPf;
+            var prevStates = prevOutput.states;
+            var prevMembers = prevOutput.members;
+
+            var expectSuccess = true; // TODO(xl): test operations failing too
+            var affectedMembers = prevMembers ? nextMembers.union(prevMembers) : nextMembers;
+            affectedMembers.forEach(function(id) {
                 assert.ok(greeters.has(id), "Greeter not present for id " + id);
             });
+            // as per our assumptions of the abstract GKA (see msg-notes Appendix 5),
+            // everyone can identify a failed operation, but only relevant members
+            // can identify a successful operation.
+            var targetMembers = (expectSuccess) ? nextMembers : affectedMembers;
+
             var pubtxt0 = greeters.get(initId).encode(
                 prevStates.get(initId), prevMembers, nextMembers,
                 ns.GreetingMetadata.create(
                     prevPf, utils.sha256("chainHash"), initId, []));
 
+            var promises = [];
+            var resultStates = new Map();
             var sendQueue = [];
             var greetings = new Map();
-            var currentPid, nextPf;
-            var summaries = [];
+            var nextPf;
 
+            var summaries = new Map();
             // Start the operation
             greeters.forEach(function(greeter, id) {
-                if (!nextMembers.has(id)) { return; }
+                if (!affectedMembers.has(id)) { return; }
                 assert.strictEqual(greeter.id, id, "greeter id mismatch");
                 var summary = greeter.partialDecode(prevMembers, pubtxt0, initId, channelMembers);
                 assert.strictEqual(summary.metadata.prevPf, prevPf, "metadata prevPf mismatch");
-                summaries.push(summary);
-                currentPid = ns._makePid(
-                    codec.decodeWirePacket(pubtxt0).content, initId, channelMembers);
+                summaries.set(id, summary);
                 var greeting = greeter.decode(
                     prevStates.get(id), prevMembers, pubtxt0, initId, channelMembers);
                 assert.notOk(greeting._fulfilled, "greeting somehow fulfilled before due");
@@ -1124,13 +1147,14 @@ define([
                 var status = greeting.recv({ pubtxt: pubtxt0, sender: initId });
                 assert.ok(status, "initial packet not accepted by receive handler");
             });
-            if (allSummariesAreFinal(summaries, nextPf)) {
-                nextPf = currentPid;
-                assert.strictEqual(0, sendQueue.length);
-            }
-            nextMembers.forEach(function(id) {
+            affectedMembers.forEach(function(id) {
                 assert.ok(greetings.has(id), "Greeting not created for id " + id);
             });
+
+            nextPf = maybeExtractNextPf(summaries, targetMembers, nextPf);
+            if (nextPf) {
+                assert.strictEqual(0, sendQueue.length);
+            }
 
             // While there's pending sends, keep delivering them
             while (sendQueue.length) {
@@ -1138,80 +1162,93 @@ define([
                 var pubtxt = recv_in.pubtxt;
                 var sender = recv_in.sender;
                 // try partial decode
-                var summaries = [];
+                var summaries = new Map();
                 greeters.forEach(function(greeter, id) {
-                    if (!nextMembers.has(id)) { return; }
-                    summaries.push(greeter.partialDecode(
-                        prevMembers, pubtxt, sender, channelMembers));
-                    currentPid = ns._makePid(
-                        codec.decodeWirePacket(pubtxt).content, sender, channelMembers);
+                    if (!affectedMembers.has(id)) { return; }
+                    var summary = greeter.partialDecode(
+                        prevMembers, pubtxt, sender, channelMembers);
+                    summaries.set(id, summary);
                 });
-                if (allSummariesAreFinal(summaries, nextPf)) {
-                    nextPf = currentPid;
-                } else {
-                    var allIsNull = summaries.every(function(v) { return v === null; });
-                    assert.ok(allIsNull, "members got different results for partialDecode");
+                // if this is a final packet that was identified the same way by all target members
+                // otherwise, everyone must identify it as non-initial/non-final
+                nextPf = maybeExtractNextPf(summaries, targetMembers, nextPf);
+                if (!nextPf) {
+                    var allIsNull = struct.iteratorToArray(summaries.values()).every(
+                        function(v) { return v === null; });
+                    assert.ok(allIsNull, "members got different results for partialDecode: ");
                 }
                 // try greeting recv
                 greetings.forEach(function(greeting, id) {
                     var status = greeting.recv(recv_in);
-                    assert.ok(status, "medial/final packet not accepted by receive handler");
+                    if (nextPf && targetMembers.has(id)) {
+                        assert.ok(status, "medial/final packet not accepted by receive handler");
+                    }
                 });
             }
 
             // Check result state
             greetings.forEach(function(greeting, id) {
-                assert.ok(greeting.getResultState(), "greeting did not complete");
-                assert.ok(greeting._fulfilled, "fulfilled flag not set");
-                // JS promises complete asynchronously, it won't be called yet
-                promises.push(greeting.getPromise().then(stub()));
-                assert.deepEqual(greeting.getMembers().toArray(), nextMembers.toArray(), "result members mismatch");
-                resultStates.set(id, greeting.getResultState());
+                if (targetMembers.has(id)) {
+                    assert.ok(greeting.getResultState(), "greeting did not complete");
+                    assert.ok(greeting._fulfilled, "fulfilled flag not set");
+                    promises.push(greeting.getPromise());
+                    assert.deepEqual(greeting.getMembers().toArray(), nextMembers.toArray(), "result members mismatch");
+                    resultStates.set(id, greeting.getResultState());
+                } else {
+                    assert.notOk(greeting._fulfilled, "old member fulfilled greeting not for them");
+                }
             });
-            assert.ok(nextPf, "nextPf was not calculated");
-            return nextPf;
+            assert.strictEqual(targetMembers.size, promises.length);
+            if (expectSuccess) {
+                assert.ok(nextPf, "nextPf was not calculated");
+                return Promise.all(promises).then(function(greetings) {
+                    return {
+                        prevPf: nextPf,
+                        states: resultStates,
+                        members: nextMembers,
+                    };
+                });
+            } else {
+                throw new Error("not implemented");
+            }
+        };
+
+        var makeNewGreeter = function(id) {
+            return new ns.Greeter(id, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
         };
 
         it("for 3 members, 2 joining, 2 others leaving, refresh key", function(done) {
             this.timeout(this.timeout() * 30);
-
             var greeters = new Map();
-            var makeNewGreeter = function(id) {
-                greeters.set(id,
-                    new ns.Greeter(id, _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir));
-            };
+            var setNewGreeter = function(id) { greeters.set(id, makeNewGreeter(id)); };
 
-            var channelMembers = new Set(["0", "1", "2"]);
-            var promises = [];
-            channelMembers.forEach(makeNewGreeter);
-            var prevPf = utils.sha256("dummyPrevPF");
-            var state0 = { get: function() { return null; } };
-
-            var members1 = channelMembers;
-            var state1 = new Map();
-            prevPf = runGreetings(greeters, "0", channelMembers,
-                prevPf, state0, null, state1, members1, promises);
-
-            var includeMembers = new Set(["3", "4"]);
-            includeMembers.forEach(makeNewGreeter);
-            channelMembers = channelMembers.union(includeMembers);
-            var members2 = channelMembers;
-            var state2 = new Map();
-            prevPf = runGreetings(greeters, "1", channelMembers,
-                prevPf, state1, members1, state2, members2, promises);
-
-            var excludeMembers = new Set(["1", "3"]);
-            var members3 = members2.subtract(excludeMembers);
-            var state3 = new Map();
-            prevPf = runGreetings(greeters, "2", channelMembers,
-                prevPf, state2, members2, state3, members3, promises);
-
-            var members4 = members3;
-            var state4 = new Map();
-            prevPf = runGreetings(greeters, "4", channelMembers,
-                prevPf, state3, members3, state4, members4, promises);
-
-            Promise.all(promises).then(function() { done(); });
+            Promise.resolve(initOutput).then(function(prev) {
+                // join
+                var channelMembers = new Set(["0", "1", "2"]);
+                channelMembers.forEach(setNewGreeter);
+                var members1 = channelMembers;
+                return runGreetings(greeters, "0", channelMembers, prev, members1);
+            }).then(function(prev) {
+                // include
+                var includeMembers = new Set(["3", "4"]);
+                includeMembers.forEach(setNewGreeter);
+                var channelMembers = prev.members.union(includeMembers);
+                var members2 = channelMembers;
+                return runGreetings(greeters, "1", channelMembers, prev, members2);
+            }).then(function(prev) {
+                // exclude
+                var channelMembers = prev.members;
+                var excludeMembers = new Set(["1", "3"]);
+                var members3 = channelMembers.subtract(excludeMembers);
+                return runGreetings(greeters, "2", channelMembers, prev, members3);
+            }).then(function(prev) {
+                // refresh
+                var channelMembers = prev.members;
+                var members4 = prev.members;
+                return runGreetings(greeters, "4", channelMembers, prev, members4);
+            }).then(function(prev) {
+                done();
+            }).catch(console.log);
         });
     });
 
