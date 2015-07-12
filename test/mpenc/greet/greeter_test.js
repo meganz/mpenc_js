@@ -1250,6 +1250,28 @@ define([
                 done();
             }).catch(console.log);
         });
+
+        it("exclude all except self", function(done) {
+            this.timeout(this.timeout() * 15);
+            var greeters = new Map();
+            var setNewGreeter = function(id) { greeters.set(id, makeNewGreeter(id)); };
+
+            Promise.resolve(initOutput).then(function(prev) {
+                // join
+                var channelMembers = new Set(["0", "1", "2"]);
+                channelMembers.forEach(setNewGreeter);
+                var members1 = channelMembers;
+                return runGreetings(greeters, "0", channelMembers, prev, members1);
+            }).then(function(prev) {
+                // exclude, 1 person left
+                var channelMembers = prev.members;
+                var excludeMembers = new Set(["1", "2"]);
+                var members3 = channelMembers.subtract(excludeMembers);
+                return runGreetings(greeters, "0", channelMembers, prev, members3);
+            }).then(function(prev) {
+                done();
+            }).catch(console.log);
+        });
     });
 
 });

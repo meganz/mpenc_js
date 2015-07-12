@@ -997,7 +997,7 @@ define([
         // Initial type messages need to have their metadata extracted.
         if (mType === ns.GREET_TYPE.INIT_INITIATOR_UP ||
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
-           mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN) {
+           mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length > 1) {
             ns._popTLVMetadata(rest, source, true, function(value) {
                 greetingSummary = GreetingSummary.create(pId, value, null, members);
             });
@@ -1015,11 +1015,20 @@ define([
                 greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
             }
         }
-        // Refresh message need special attention.
-        else if (mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN) {
+        // Refresh and exclude-everyone-except-self messages are initial+final packets.
+        else if (mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length === 1 ||
+           mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN) {
             ns._popTLVMetadata(rest, source, true, function(value) {
                 greetingSummary = GreetingSummary.create(pId, value, pId, members);
             });
+        }
+        // TODO(xl): QUIT is pending removal from the spec, we shouldn't ever see this
+        else if (mType === ns.GREET_TYPE.QUIT_DOWN) {
+            throw new Error("unsupported greet type: QUIT_DOWN");
+        }
+        // Not an initial or final greeter packet
+        else {
+            return null;
         }
 
         if (greetingSummary && greetingSummary.metadata && (from === this.id || source === this.id)) {
@@ -1465,14 +1474,8 @@ define([
         var message = this._mergeMessages(cliquesMessage, askeMessage);
         message.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
 
-        if (message.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            return this.quit();
-        } else {
-            this._updateOpState(ns.STATE.INIT_UPFLOW);
-            return message;
-        }
+        this._updateOpState(ns.STATE.INIT_UPFLOW);
+        return message;
     };
 
 
@@ -1528,15 +1531,11 @@ define([
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
-        if (message.members.length === 1) {
-            // Last-man-standing case,
-            // as we won't be able to complete the protocol flow.
-            return this.quit();
-        } else {
-            this._updateOpState(
-                this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
-            return message;
-        }
+        // this used to redirect to quit() if there was 1 remaining member,
+        // but now this case is handled better by Greeter.partialDecode
+        this._updateOpState(
+            this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
+        return message;
     };
 
 
