@@ -1353,7 +1353,8 @@ define([
      *      previous Greeting.
      */
     Greeting.prototype.getPrevMembers = function() {
-        return new ImmutableSet(this.prevState.members);
+        var prevMembers = this.prevState.members;
+        return new ImmutableSet(prevMembers && prevMembers.length ? prevMembers : [this.id]);
     };
 
     /**

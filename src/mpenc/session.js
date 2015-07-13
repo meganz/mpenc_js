@@ -147,7 +147,8 @@ define([
             throw new Error("tried to create SNMembers without an owner member");
         }
         if (!this.include.size && !this.exclude.size) {
-            throw new Error("tried to create SNMembers with empty membership change");
+            throw new Error("tried to create SNMembers with empty membership change; remain: " +
+                this.remain.toArray());
         }
         if (!struct.isDisjoint(this.remain, this.include, this.exclude)) {
             throw new Error("tried to create SNMembers with contradictory membership change");

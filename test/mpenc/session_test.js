@@ -396,6 +396,8 @@ define([
     };
 
     describe("HybridSession test", function() {
+        // TODO(xl): [!] try-decrypt is dropping lots of things, yet all tests pass. figure out why.
+
         var assertSessionStable = function() {
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
@@ -487,5 +489,45 @@ define([
             }).catch(console.log);
         });
 
+        it('quick reinclude', function(done) {
+            this.timeout(this.timeout() * 40);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
+            var exec = function(member, action) {
+                var p = member.execute(action);
+                server.runAsync(16, testTimer);
+                return p;
+            };
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                return exec(s1, { join: true });
+            }).then(function() {
+                return exec(s1, { include: ["52", "53"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
+                return exec(s1, { exclude: ["52"] });
+            }).then(function() {
+                assertMembers(["51", "53"], s1, s3);
+                assertSessionState("COS_", s1, s3);
+                return exec(s1, { include: ["52"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
+                return exec(s3, { part: true });
+            }).then(function() {
+                return exec(s1, { include: ["53"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
+                done();
+            }).catch(console.log);
+        });
     });
 });
