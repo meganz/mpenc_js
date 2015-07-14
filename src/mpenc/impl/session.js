@@ -1000,8 +1000,13 @@ define([
     HybridSession.prototype._onOthersEnter = function(others) {
         this._assertConsistentTasks();
         _assert(!others.intersect(this._taskLeave).size);
+        var selfOp = this._ownOperationParam;
+        var opInc = (selfOp && selfOp.action === "m") ? selfOp.include : ImmutableSet.EMPTY;
         var taskExc = others.intersect(this._taskExclude);
-        var taskNone = others.subtract(taskExc);
+        var unexpected = others.subtract(taskExc).subtract(opInc);
+        if (opInc.size) {
+            // _change_membership should already be handling this
+        }
         if (taskExc.size) {
             // we still haven't excluded them cryptographically, and can't
             // allow them to rejoin until we've done this. auto-kick them ASAP.
@@ -1013,10 +1018,9 @@ define([
                 " because they were previously in the channel and we haven't excluded them yet");
             this._channel.send({ leave: taskExc });
         }
-        if (taskNone.size) {
-            // TODO(xl): [!] currently this has false positives, implement taskInclude
+        if (unexpected.size) {
             // TODO(xl): [D] add a SessionNotice event for this
-            logger.info("unexpected users entered the channel: " + taskNone.toArray() +
+            logger.info("unexpected users entered the channel: " + unexpected.toArray() +
                 "; maybe someone else is including them, or they want to be invited?");
         }
         this._assertConsistentTasks();
@@ -1164,7 +1168,8 @@ define([
     HybridSession.prototype._changeSubSession = function(greeting) {
         // Rotate to a new sub session with a different membership.
         // If greeting is null, this means we left the channel and the session.
-        _assert(greeting === null || this.curMembers().equals(greeting.getPrevMembers()));
+        _assert(greeting === null || !this._curSession ||
+            this.curMembers().equals(greeting.getPrevMembers()));
 
         var ownSet = this._ownSet;
         this._channelJustSynced = false;
@@ -1501,14 +1506,14 @@ define([
             if (include.has(this._owner) || exclude.has(this._owner)) {
                 throw new Error("cannot include/exclude yourself");
             }
-            return this._runOwnOperation(new OwnOp(["m", include, exclude]),
+            return this._runOwnOperation(new OwnOp("m", include, exclude),
                 this._changeMembership.bind(this, include, exclude));
 
         } else if ("join" in action && !this._curSession) {
-            return this._runOwnOperation(new OwnOp(["j"]), this._includeSelf.bind(this));
+            return this._runOwnOperation(new OwnOp("j"), this._includeSelf.bind(this));
 
         } else if ("part" in action && this._curSession) {
-            return this._runOwnOperation(new OwnOp(["p"]), this._excludeSelf.bind(this));
+            return this._runOwnOperation(new OwnOp("p"), this._excludeSelf.bind(this));
 
         } else {
             return Promise.resolve(true);
