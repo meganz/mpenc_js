@@ -1323,13 +1323,14 @@ define([
         this.metadata = null;
         this._metadataIsAuthenticated = false;
         this._recvOwnAuthMessage = false;
+        this._nextMembers = null;
 
         var self = this;
-        this._fulfilled = false;
-        this._promise = new Promise(function(resolve, reject) {
-            self._resolve = resolve;
-            self._reject = reject;
-        });
+        this._finished = 0; // 0 = pending,
+        // 1 = completed (finished with success, or fulfilled in JS-Promise terminology)
+        // -1 = failed (finished with failure, or rejected in JS-Promise terminology)
+        this._abortReason = null;
+        this._promise = async.newPromiseAndWriters();
 
         // We can keep the old state around for further use.
         this.prevState = store;
@@ -1347,7 +1348,7 @@ define([
     };
 
     /**
-     * Get the members for the previous Greeting.
+     * Members in the previous sub-session that this Greeting was started from.
      *
      * @returns {module:mpenc/helper/struct.ImmutableSet} The members of the
      *      previous Greeting.
@@ -1358,13 +1359,15 @@ define([
     };
 
     /**
-     * Get the new members for this Greeting.
+     * Members in the next session that this Greeting is trying to reach.
      *
      * @returns {module:mpenc/helper/struct.ImmutableSet} The members for this
      *      Greeting.
+     * @throws If called before recv() has accepted the initial packet.
      */
-    Greeting.prototype.getMembers = function() {
-        return new ImmutableSet(this.askeMember.members);
+    Greeting.prototype.getNextMembers = function() {
+        _assert(this._nextMembers); // not set until we got first packet
+        return this._nextMembers;
     };
 
     /**
@@ -1393,9 +1396,7 @@ define([
      * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultState = function () {
-        if (!this._fulfilled) {
-            throw new Error("Greeting not yet finished");
-        }
+        this._checkComplete();
         return new GreetStore(
             this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
@@ -1409,14 +1410,20 @@ define([
      * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultSId = function () {
-        if (this._opState !== ns.STATE.READY) {
-            throw new Error("Greeting not yet finished");
-        }
+        this._checkComplete();
         return this.askeMember.sessionId;
     };
 
+    Greeting.prototype._checkComplete = function() {
+        if (!this._finished) {
+            throw new Error("OperationInProgress");
+        } else if (this._finished === -1) {
+            throw new Error("OperationFailed: caused by " + this._abortReason.stack + "\nre-thrown at: ");
+        }
+    };
+
     Greeting.prototype.getPromise = function () {
-        return this._promise;
+        return this._promise.promise;
     };
 
     Greeting.prototype._updateOpState = function(state) {
@@ -1426,7 +1433,8 @@ define([
         this._opState = state;
     };
 
-    Greeting.prototype._assertState = function(valid, message) {
+    Greeting.prototype._assertStartState = function(valid, message) {
+        _assert(!this._finished);
         // Check the operation state against an array of valid values.
         var state = this._opState;
         _assert(valid.some(function(v) {
@@ -1441,7 +1449,7 @@ define([
             message,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
-        var recipients = message.dest ? new ImmutableSet([message.dest]) : this.getMembers();
+        var recipients = message.dest ? new ImmutableSet([message.dest]) : this.getNextMembers();
         this._send.publish({ pubtxt: codec.encodeWirePacket(payload), recipients: recipients });
         if (state !== undefined) {
             this._updateOpState(state);
@@ -1465,7 +1473,7 @@ define([
      *      The message to commence the intial key exchange.
      */
     Greeting.prototype.start = function(otherMembers) {
-        this._assertState([ns.STATE.NULL],
+        this._assertStartState([ns.STATE.NULL],
                 'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
@@ -1476,6 +1484,7 @@ define([
         message.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
 
         this._updateOpState(ns.STATE.INIT_UPFLOW);
+        this._nextMembers = new ImmutableSet(otherMembers.concat([this.id]));
         return message;
     };
 
@@ -1490,16 +1499,16 @@ define([
      *      The message to commence inclusion.
      */
     Greeting.prototype.include = function(includeMembers) {
-        this._assertState([ns.STATE.READY],
+        this._assertStartState([ns.STATE.READY],
                 'include() can only be called from a ready state.');
         _assert(includeMembers && includeMembers.length !== 0, 'No members to add.');
-        this.includeMembers = includeMembers;
         var cliquesMessage = this.cliquesMember.akaJoin(includeMembers);
         var askeMessage = this.askeMember.join(includeMembers);
 
         var message = this._mergeMessages(cliquesMessage, askeMessage);
         message.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateOpState(ns.STATE.AUX_UPFLOW);
+        this._nextMembers = new ImmutableSet(this.prevState.members.concat(includeMembers));
         return message;
     };
 
@@ -1514,7 +1523,7 @@ define([
      *      The message to commence exclusion.
      */
     Greeting.prototype.exclude = function(excludeMembers) {
-        this._assertState([ns.STATE.READY],
+        this._assertStartState([ns.STATE.READY],
                 'exclude() can only be called from a ready state.');
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
@@ -1528,7 +1537,6 @@ define([
 
         // We need to update the session state.
         this.sessionId = this.askeMember.sessionId;
-        this.members = this.askeMember.members;
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
@@ -1536,6 +1544,7 @@ define([
         // but now this case is handled better by Greeter.partialDecode
         this._updateOpState(
             this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
+        this._nextMembers = new ImmutableSet(this.prevState.members).subtract(new ImmutableSet(excludeMembers));
         return message;
     };
 
@@ -1574,7 +1583,7 @@ define([
      *
      */
     Greeting.prototype.refresh = function() {
-        this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
+        this._assertStartState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
@@ -1582,6 +1591,7 @@ define([
         message.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
+        this._nextMembers = new ImmutableSet(this.prevState.members);
         return message;
     };
 
@@ -1590,6 +1600,7 @@ define([
      * @inheritDoc
      */
     Greeting.prototype.recv = function(recv_in) {
+        _assert(!this._finished);
         var pubtxt = recv_in.pubtxt;
         var from = recv_in.sender;
         var message = codec.decodeWirePacket(pubtxt);
@@ -1660,6 +1671,10 @@ define([
             // We're not par of this session, get out of here.
             logger.debug("Ignoring message as we're in state QUIT.");
             return null;
+        }
+
+        if (!this._nextMembers) {
+            this._nextMembers = new ImmutableSet(message.members);
         }
 
         // State transitions.
@@ -1771,22 +1786,42 @@ define([
     Greeting.prototype._maybeFulfill = function() {
         // Check if the operation is complete.
         // If so, set public variables and fire hooks (e.g. promises)
-        var isRefresh = this.getPrevMembers().equals(this.getMembers());
+        var isRefresh = this.getPrevMembers().equals(this.getNextMembers());
         if (isRefresh || this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
+            // check that we got where we wanted to go
+            _assert(this.getNextMembers().equals(new ImmutableSet(this.askeMember.members)));
+
             // We have seen and verified all broadcasts from others.
             // Let's update our state information.
             this.sessionId = this.askeMember.sessionId;
-            this.members = this.askeMember.members;
             this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
             this.groupKey = this.cliquesMember.groupKey;
 
-            _assert(!this._fulfilled);
-            this._resolve(this);
-            this._fulfilled = true;
+            _assert(!this._finished);
+            this._promise.resolve(this);
+            this._finished = 1;
 
             return true;
         }
         return false;
+    };
+
+
+    /**
+     * Fail the greeting, and errback any Deferreds passed to clients.
+     *
+     * This is a response method, and should *not* send out any packets.
+     *
+     * This provides a way for an external component that manages this one,
+     * to fail the operation for reasons that are external to the specifics of
+     * the membership operation. For example, if we have left the channel, or
+     * if another member has also left the channel.
+     */
+    Greeting.prototype.fail = function(reason) {
+        _assert(!this._finished);
+        this._promise.reject(reason);
+        this._abortReason = reason;
+        this._finished = -1;
     };
 
 

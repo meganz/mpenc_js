@@ -877,7 +877,7 @@ define([
                 this._ownOperationParam.slice());
         } else if (this._greeting) {
             logger.info("ignored tasks due to ongoing operation: " +
-                this._greeting.getMembers().toArray());
+                this._greeting.getNextMembers().toArray());
         } else if (this._ownProposalPr) {
             logger.info("ignored tasks due to ongoing own proposal: " +
                 btoa(this._ownProposalHash));
@@ -957,7 +957,7 @@ define([
             } else {
                 // we/someone is already trying to re-include us
                 // (we may or may not have left in the meantime)
-                _assert(this._greeting.getMembers().has(this._owner));
+                _assert(this._greeting.getNextMembers().has(this._owner));
             }
         }
     };
@@ -965,7 +965,7 @@ define([
     HybridSession.prototype._onGreetingComplete = function(greeting) {
         _assert(greeting === this._greeting);
         var prevMembers = greeting.getPrevMembers();
-        var newMembers = greeting.getMembers();
+        var newMembers = greeting.getNextMembers();
         var channelMembers = this._channel.curMembers();
 
         if (!newMembers.has(this._owner)) {
@@ -1119,7 +1119,6 @@ define([
                 var greeting = self._greeter.decode(
                     self._curGreetState, self.curMembers(), pubtxt, sender,
                     self._channel.curMembers());
-                greeting.getMembers().forEach(self._taskLeave.delete.bind(self._taskLeave));
                 self._setGreeting(greeting);
                 self._maybeFinishOwnProposal(pHash, pI, prev_pF, greeting);
             };
@@ -1144,6 +1143,7 @@ define([
                 // accepted greeting packet, deliver it and maybe complete the operation
                 var r = this._greeting.recv(recv_in);
                 _assert(r);
+                this._greeting.getNextMembers().forEach(this._taskLeave.delete.bind(this._taskLeave));
                 if (!this._serverOrder.hasOngoingOp()) {
                     // if this was a final packet, greeting should complete ASAP
                     this._pendingGreetingPostProcess = true;
@@ -1175,8 +1175,8 @@ define([
 
         var ownSet = this._ownSet;
         this._channelJustSynced = false;
-        if (greeting && greeting.getMembers().size === 1) {
-            _assert(greeting.getMembers().equals(ownSet));
+        if (greeting && greeting.getNextMembers().size === 1) {
+            _assert(greeting.getNextMembers().equals(ownSet));
             greeting = null;
         }
 
@@ -1220,7 +1220,7 @@ define([
         logger.info("changed session: " + (this._prevSession ? this._prevSession.toString() : null) +
             " -> " + (this._curSession ? this._curSession.toString() : null));
         var oldMembers = this._prevSession ? this._prevSession.curMembers() : ownSet;
-        var newMembers = greeting ? greeting.getMembers() : ownSet;
+        var newMembers = greeting ? greeting.getNextMembers() : ownSet;
         var diff = oldMembers.diff(newMembers);
         this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1]));
 
@@ -1230,7 +1230,7 @@ define([
     HybridSession.prototype._makeSubSession = function(greeting) {
         var subSId = greeting.getResultSId();
         var greetState = greeting.getResultState();
-        var members = greeting.getMembers();
+        var members = greeting.getNextMembers();
         var msgSecurity = this._makeMessageSecurity(greetState);
 
         var sess = new SessionBase(this._context, subSId, members, msgSecurity);

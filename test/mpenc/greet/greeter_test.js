@@ -301,7 +301,7 @@ define([
                 assert.ok(participant.askeMember.staticPubKeyDir);
                 assert.ok(participant.cliquesMember);
                 assert.strictEqual(participant._opState, ns.STATE.NULL);
-                assert.notOk(participant._fulfilled);
+                assert.notOk(participant._finished);
             });
         });
 
@@ -1133,9 +1133,8 @@ define([
                 summaries.set(id, summary);
                 var greeting = greeter.decode(
                     prevStates.get(id), prevMembers, pubtxt0, initId, channelMembers);
-                assert.notOk(greeting._fulfilled, "greeting somehow fulfilled before due");
+                assert.notOk(greeting._finished, "greeting somehow fulfilled before due");
                 assert.strictEqual(greeting.id, id, "greeting id mismatch");
-                assert.ok(greeting.getMembers(), nextMembers.toArray(), "members mismatch");
                 greetings.set(id, greeting);
                 greeting.onSend(function(send_out) {
                     var pubtxt = send_out.pubtxt;
@@ -1145,6 +1144,8 @@ define([
                     sendQueue.push({ pubtxt: pubtxt, sender: id });
                 });
                 var status = greeting.recv({ pubtxt: pubtxt0, sender: initId });
+                assert.deepEqual(greeting.getNextMembers().toArray(), nextMembers.toArray(),
+                    "result members mismatch");
                 assert.ok(status, "initial packet not accepted by receive handler");
             });
             affectedMembers.forEach(function(id) {
@@ -1190,12 +1191,13 @@ define([
             greetings.forEach(function(greeting, id) {
                 if (targetMembers.has(id)) {
                     assert.ok(greeting.getResultState(), "greeting did not complete");
-                    assert.ok(greeting._fulfilled, "fulfilled flag not set");
+                    assert.strictEqual(greeting._finished, expectSuccess ? 1 : -1,
+                        "_finished flag not set correctly");
                     promises.push(greeting.getPromise());
-                    assert.deepEqual(greeting.getMembers().toArray(), nextMembers.toArray(), "result members mismatch");
+                    assert.deepEqual(greeting.getNextMembers().toArray(), nextMembers.toArray(), "result members mismatch");
                     resultStates.set(id, greeting.getResultState());
                 } else {
-                    assert.notOk(greeting._fulfilled, "old member fulfilled greeting not for them");
+                    assert.notOk(greeting._finished, "old member finished greeting not for them");
                 }
             });
             assert.strictEqual(targetMembers.size, promises.length);
