@@ -109,6 +109,20 @@ define([
 
 
     /**
+     * @param promise {Promise} Original promise.
+     * @returns {Promise} A Promise that fulfills when the original one is
+     *      rejected, and rejects when the original one is fulfilled.
+     */
+    ns.reversePromise = function(promise) {
+        return promise.then(function(result) {
+            throw new Error("UnexpectedSuccess: " + result);
+        }, function(reason) {
+            return reason;
+        });
+    };
+
+
+    /**
      * A subscribe-function with child tweaked subscribe-functions.
      *
      * This is not instantiable directly; use Subscribe.wrap() instead.

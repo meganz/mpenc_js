@@ -1818,6 +1818,7 @@ define([
      * if another member has also left the channel.
      */
     Greeting.prototype.fail = function(reason) {
+        _assert(reason instanceof Error);
         _assert(!this._finished);
         this._promise.reject(reason);
         this._abortReason = reason;

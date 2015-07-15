@@ -23,6 +23,7 @@
 
 define([
     "mpenc/greet/greeter",
+    "mpenc/helper/async",
     "mpenc/helper/utils",
     "mpenc/helper/struct",
     "mpenc/codec",
@@ -35,7 +36,7 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, utils, struct, codec, asmCrypto, jodid25519, Promise, MegaLogger,
+], function(ns, async, utils, struct, codec, asmCrypto, jodid25519, Promise, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -1097,12 +1098,13 @@ define([
         };
 
         var runGreetings = function(greeters, initId, channelMembers,
-                prevOutput, nextMembers) {
+                prevOutput, nextMembers, packetInterceptHook, expectFailure) {
             var prevPf = prevOutput.prevPf;
             var prevStates = prevOutput.states;
             var prevMembers = prevOutput.members;
 
-            var expectSuccess = true; // TODO(xl): test operations failing too
+            packetInterceptHook = packetInterceptHook || function() {};
+            var expectSuccess = !expectFailure;
             var affectedMembers = prevMembers ? nextMembers.union(prevMembers) : nextMembers;
             affectedMembers.forEach(function(id) {
                 assert.ok(greeters.has(id), "Greeter not present for id " + id);
@@ -1153,6 +1155,9 @@ define([
             });
 
             nextPf = maybeExtractNextPf(summaries, targetMembers, nextPf);
+            // nextPf is a "sentinel" to say when we should stop. if it's not set, then try
+            // the packet intercept hook, which could also set it.
+            nextPf = nextPf || packetInterceptHook(greetings, sendQueue);
             if (nextPf) {
                 assert.strictEqual(0, sendQueue.length);
             }
@@ -1169,6 +1174,10 @@ define([
                     var summary = greeter.partialDecode(
                         prevMembers, pubtxt, sender, channelMembers);
                     summaries.set(id, summary);
+                    var status = greetings.get(id).recv(recv_in);
+                    if (nextPf && targetMembers.has(id)) {
+                        assert.ok(status, "medial/final packet not accepted by receive handler");
+                    }
                 });
                 // if this is a final packet that was identified the same way by all target members
                 // otherwise, everyone must identify it as non-initial/non-final
@@ -1178,31 +1187,34 @@ define([
                         function(v) { return v === null; });
                     assert.ok(allIsNull, "members got different results for partialDecode: ");
                 }
-                // try greeting recv
-                greetings.forEach(function(greeting, id) {
-                    var status = greeting.recv(recv_in);
-                    if (nextPf && targetMembers.has(id)) {
-                        assert.ok(status, "medial/final packet not accepted by receive handler");
-                    }
-                });
+                // same deal with the "sentinel" as before.
+                nextPf = nextPf || packetInterceptHook(greetings, sendQueue);
+                if (nextPf) {
+                    assert.strictEqual(0, sendQueue.length);
+                }
             }
 
             // Check result state
             greetings.forEach(function(greeting, id) {
-                if (targetMembers.has(id)) {
+                if (!targetMembers.has(id)) {
+                    assert.notOk(greeting._finished, "old member finished greeting not for them");
+                    return;
+                }
+                if (expectSuccess) {
                     assert.ok(greeting.getResultState(), "greeting did not complete");
-                    assert.strictEqual(greeting._finished, expectSuccess ? 1 : -1,
-                        "_finished flag not set correctly");
-                    promises.push(greeting.getPromise());
-                    assert.deepEqual(greeting.getNextMembers().toArray(), nextMembers.toArray(), "result members mismatch");
+                    assert.strictEqual(greeting._finished, 1, "_finished flag not complete");
                     resultStates.set(id, greeting.getResultState());
                 } else {
-                    assert.notOk(greeting._finished, "old member finished greeting not for them");
+                    assert.throws(greeting.getResultState.bind(greeting), "OperationFailed");
+                    assert.strictEqual(greeting._finished, -1, "_finished flag not failed");
                 }
+                promises.push(greeting.getPromise());
+                assert.deepEqual(greeting.getNextMembers().toArray(), nextMembers.toArray(),
+                    "result members mismatch");
             });
             assert.strictEqual(targetMembers.size, promises.length);
+            assert.ok(nextPf, "nextPf was not calculated");
             if (expectSuccess) {
-                assert.ok(nextPf, "nextPf was not calculated");
                 return Promise.all(promises).then(function(greetings) {
                     return {
                         prevPf: nextPf,
@@ -1211,7 +1223,14 @@ define([
                     };
                 });
             } else {
-                throw new Error("not implemented");
+                return Promise.all(promises.map(async.reversePromise)).then(function(reasons) {
+                    return {
+                        prevPf: nextPf,
+                        states: prevStates,
+                        members: prevMembers,
+                        rejected: reasons,
+                    };
+                });
             }
         };
 
@@ -1274,6 +1293,31 @@ define([
                 done();
             }).catch(console.log);
         });
+
+        it("simple fail start", function(done) {
+            this.timeout(this.timeout() * 15);
+            var greeters = new Map();
+            var setNewGreeter = function(id) { greeters.set(id, makeNewGreeter(id)); };
+
+            Promise.resolve(initOutput).then(function(prev) {
+                var channelMembers = new Set(["0", "1", "2"]);
+                channelMembers.forEach(setNewGreeter);
+                var members1 = channelMembers;
+                return runGreetings(greeters, "0", channelMembers, prev, members1, function(greetings, sendQueue) {
+                    greetings.forEach(function(greeting, id) {
+                        greeting.fail(new Error("test expected failure"));
+                    });
+                    sendQueue.splice(0, sendQueue.length);
+                    // with an external fail(), nextPf is also calculated externally
+                    // outside of partialDecode
+                    return "dummyPrevPf";
+                }, true);
+            }).then(function(prev) {
+                assert.strictEqual(prev.rejected.length, 3);
+                done();
+            }).catch(console.log);
+        });
+
     });
 
 });
