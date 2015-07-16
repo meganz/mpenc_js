@@ -401,9 +401,9 @@ define([
         var assertSessionStable = function() {
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
-                assert.strictEqual(sess._ownOperationPr, null);
-                assert.strictEqual(sess._greeting, null);
-                assert.strictEqual(sess._ownProposalPr, null);
+                assert.strictEqual(sess._ownOperationPr, null, sess._owner + " should not have own operation");
+                assert.strictEqual(sess._greeting, null, sess._owner + " should not have greeting");
+                assert.strictEqual(sess._ownProposalPr, null, sess._owner + " should not have own proposal");
                 assert.ok(!sess._serverOrder.isSynced() || !sess._serverOrder.hasOngoingOp());
             }
         };

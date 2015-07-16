@@ -1030,10 +1030,13 @@ define([
 
     HybridSession.prototype._onOthersLeave = function(others) {
         this._assertConsistentTasks();
-        // TODO(xl): [!] (parallel-op) if there is an ongoing operation and any
-        // leavers are in greeting.new_members then abort the operation, with the
-        // "pseudo packet id" definition as mentioned in msg-notes. still put them
-        // in pending_exclude, though.
+        if (this._greeting && this._greeting.getNextMembers().intersect(others).size) {
+            // if there is an ongoing operation, and anyone from it leaves, then abort
+            // it, with the "pseudo packet id" definition as mentioned in msg-notes.
+            _assert(this.curMembers().equals(this._greeting.getPrevMembers()));
+            this._serverOrder.acceptLeavePacket(others, this._channel.curMembers(), this.curMembers());
+            this._greeting.fail(new Error("OperationAborted: others left the channel: " + others.toArray()));
+        }
         others.forEach(this._taskLeave.delete.bind(this._taskLeave));
         var toExclude = this.curMembers().intersect(others);
         if (toExclude.size) {
@@ -1078,8 +1081,11 @@ define([
                 this._clearOwnOperation();
                 this._clearOwnProposal();
                 if (this._greeting) {
-                    // TODO(xl): [F] (handle-error) should be done via a Greeting API
-                    this._clearGreeting();
+                    if (this._greeting.getNextMembers().has(this._owner)) {
+                        this._greeting.fail(new Error("OperationAborted: we left the channel"));
+                    } else {
+                        this._greeting.fail(new Error("OperationIgnored: we left the channel during a greeting to exclude us; assuming it succeeded"));
+                    }
                 }
                 if (this._curSession) {
                     this._changeSubSession(null);
