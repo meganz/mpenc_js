@@ -59,6 +59,7 @@ define([
     var doNothing = function() {};
     var dummyPubKeyDir = { get: function() { return _td.ED25519_PUB_KEY; } };
     var prevMem = "UNUSED"; // partialDecode doesn't do anything with prevMembers, just pass in a dummy value
+    var fakePid = function() { return "fakePid"; };
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -887,7 +888,7 @@ define([
                 t = acceptedTypes[x];
                 decodeMembers = channelMembers.toArray();
                 var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
-                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
+                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", fakePid);
                 assert.ok(greetSummary, "Failed to accept on: " + ns.GREET_TYPE_MAPPING[t]);
             }
         });
@@ -913,7 +914,7 @@ define([
                 t = acceptedTypes[x];
                 decodeMembers = channelMembers.toArray();
                 var gtr = new ns.Greeter("1", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
-                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", channelMembers);
+                var greetSummary = gtr.partialDecode(prevMem, "random message", "1", fakePid);
                 assert.notOk(greetSummary, "Failed to reject on: " + ns.GREET_TYPE_MAPPING[t]);
             }
         });
@@ -926,8 +927,7 @@ define([
                 }
             });
             var gtr = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
-            assert.strictEqual(gtr.partialDecode(
-                prevMem, "random message", "1", new Set(["1", "2"])), null);
+            assert.strictEqual(gtr.partialDecode(prevMem, "random message", "1", fakePid), null);
 
         });
 
@@ -945,7 +945,7 @@ define([
             dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentPi = prevPi;
             gtr.currentGreeting = dummyGreeting;
-            var summary = gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"]));
+            var summary = gtr.partialDecode(prevMem, "random message", "2", fakePid);
             assert.ok(summary);
             assert.notOk(summary.metadata);
             assert.strictEqual(summary.prevPi, prevPi);
@@ -964,7 +964,7 @@ define([
             dummyGreeting._recvOwnAuthMessage = true;
             gtr.currentGreeting = dummyGreeting;
             assert.deepEqual(
-                gtr.partialDecode(prevMem, "random message", "2", new Set(["1", "2"])), null,
+                gtr.partialDecode(prevMem, "random message", "2", fakePid), null,
                 "Final received message is not from expected source.");
         });
 
@@ -996,7 +996,7 @@ define([
             gtr.proposedGreeting = dummyGreeting;
             var decMessage = codec.decodeWirePacket(pubtxt);
             assert.strictEqual(gtr.proposalHash, ns._makePacketHash(decMessage.content));
-            var retGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", channelMembers);
+            var retGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", "fakePid");
             assert.deepEqual(dummyGreeting, retGreeting);
         });
 
@@ -1015,7 +1015,7 @@ define([
             var nextMembers = channelMembers;
             var pubtxt = gtr.encode(dummyGreetStore, initMembers, nextMembers, metadata);
             assert.ok(pubtxt, "pubtxt not ok.");
-            var m = gtr.partialDecode(prevMem, pubtxt, "1", channelMembers);
+            var m = gtr.partialDecode(prevMem, pubtxt, "1", fakePid);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, "chainHash", "chainHash not equal");
             assert.strictEqual(m.metadata.prevPf, "prevPf");
@@ -1043,7 +1043,7 @@ define([
 
             // Check the message with the other user.
             var gtrTwo = new ns.Greeter("2", _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, dummyPubKeyDir);
-            var m = gtrTwo.partialDecode(prevMem, pubtxt, "1", channelMembers);
+            var m = gtrTwo.partialDecode(prevMem, pubtxt, "1", fakePid);
             assert.ok(m, "message not ok.");
             assert.strictEqual(m.metadata.prevCh, chainHash, "chainHash not equal.");
             assert.strictEqual(m.metadata.prevPf, prevPf, "prevPf not equal.");
@@ -1053,7 +1053,7 @@ define([
                 _opState : ns.STATE.NULL
             };
 
-            var nGreeting = gtrTwo.decode(dummyGreetStoreTwo, prevMem, pubtxt, "1", channelMembers);
+            var nGreeting = gtrTwo.decode(dummyGreetStoreTwo, prevMem, pubtxt, "1", "fakePid");
             var dest;
             nGreeting.onSend(function(send_out) { dest = send_out.recipients; return true; });
             var status = nGreeting.recv({ pubtxt: pubtxt, sender: "1" });
@@ -1067,7 +1067,7 @@ define([
 
             // Check the message with ourselves.Save a backup to ensure it is ours.
             var savedGreeting = gtr.proposedGreeting;
-            var ourGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", channelMembers);
+            var ourGreeting = gtr.decode(dummyGreetStore, prevMem, pubtxt, "1", "fakePid");
             assert.ok(ourGreeting);
             assert.deepEqual(ourGreeting, savedGreeting);
         });
@@ -1130,11 +1130,12 @@ define([
             greeters.forEach(function(greeter, id) {
                 if (!affectedMembers.has(id)) { return; }
                 assert.strictEqual(greeter.id, id, "greeter id mismatch");
-                var summary = greeter.partialDecode(prevMembers, pubtxt0, initId, channelMembers);
+                var summary = greeter.partialDecode(
+                    prevMembers, pubtxt0, initId, utils.sha256.bind(null, pubtxt0));
                 assert.strictEqual(summary.metadata.prevPf, prevPf, "metadata prevPf mismatch");
                 summaries.set(id, summary);
                 var greeting = greeter.decode(
-                    prevStates.get(id), prevMembers, pubtxt0, initId, channelMembers);
+                    prevStates.get(id), prevMembers, pubtxt0, initId, utils.sha256(pubtxt0));
                 assert.notOk(greeting._finished, "greeting somehow fulfilled before due");
                 assert.strictEqual(greeting.id, id, "greeting id mismatch");
                 greetings.set(id, greeting);
@@ -1172,7 +1173,7 @@ define([
                 greeters.forEach(function(greeter, id) {
                     if (!affectedMembers.has(id)) { return; }
                     var summary = greeter.partialDecode(
-                        prevMembers, pubtxt, sender, channelMembers);
+                        prevMembers, pubtxt, sender, utils.sha256.bind(null, pubtxt));
                     summaries.set(id, summary);
                     var status = greetings.get(id).recv(recv_in);
                     if (nextPf && targetMembers.has(id)) {

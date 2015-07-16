@@ -783,18 +783,6 @@ define([
     };
 
 
-    ns._makePid = function(packet, sender, channelMembers) {
-        // Calculate the "packet-id" of a packet received from the server. The
-        // reasoning behind this definition is given in msg-notes, appendix 5
-        // "Hybrid ordering".
-        _assert(typeof sender === "string");
-        _assert(channelMembers instanceof ImmutableSet);
-        _assert(channelMembers.has(sender));
-        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
-        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
-    };
-
-
     /**
      * Metadata about the context of a greeting.
      *
@@ -962,18 +950,18 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
-     *      The unauthenticated membership of the group transport channel at
-     *      the time that the message was received.
+     * @param makePacketId {string}
+     *      0-arg factory to generate the packet-id for this packet. Should
+     *      only be called if absolutely necessary, for efficiency, e.g. not
+     *      called in most cases when returning <code>null</code>.
      * @returns {?module:mpenc/greet/greeter.GreetingSummary}
      */
-    Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, channelMembers) {
+    Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, makePacketId) {
         var message = codec.decodeWirePacket(pubtxt);
         if (message.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
             return null;
         }
         var rest = message.content;
-        var pId = ns._makePid(rest, from, channelMembers);
 
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
         rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE);
@@ -999,7 +987,7 @@ define([
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
            mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length > 1) {
             ns._popTLVMetadata(rest, source, true, function(value) {
-                greetingSummary = GreetingSummary.create(pId, value, null, members);
+                greetingSummary = GreetingSummary.create(makePacketId(), value, null, members);
             });
         }
         // Downflow confirm messages require testing for final messages.
@@ -1007,18 +995,19 @@ define([
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
-                _logIgnored(this.id, pId, "it is a downflow message but there is no current Greeting");
+                _logIgnored(this.id, makePacketId(), "it is a downflow message but there is no current Greeting");
                 return null;
             }
             // Test if this is the final message.
-            if (this.currentGreeting._expectsFinalMessage(pId, source)) {
-                greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
+            if (this.currentGreeting._expectsFinalMessage(makePacketId, source)) {
+                greetingSummary = GreetingSummary.create(makePacketId(), null, this.currentPi, members);
             }
         }
         // Refresh and exclude-everyone-except-self messages are initial+final packets.
         else if (mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length === 1 ||
            mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN) {
             ns._popTLVMetadata(rest, source, true, function(value) {
+                var pId = makePacketId();
                 greetingSummary = GreetingSummary.create(pId, value, pId, members);
             });
         }
@@ -1125,19 +1114,17 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
-     *      The unauthenticated membership of the group transport channel at
-     *      the time that the message was received.
+     * @param pId {string}
+     *      Packet-id of this packet, already calculated earlier.
      * @returns {module:mpenc/greet/greeter.Greeting}
      * @throws This method (and future versions of it) tries to avoid throwing
      *      an error here, and instead these are detected during partialDecode.
      *      However, if this does need to occur for whatever reason, then the
      *      caller will treat this as an *immediate failure* of the operation.
      */
-    Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, channelMembers) {
+    Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, pId) {
         var message = codec.decodeWirePacket(pubtxt);
         var pHash = ns._makePacketHash(message.content);
-        var pId = ns._makePid(message.content, from, channelMembers);
 
         // This is our message, so reuse the already-created greeting.
         if (this.proposedGreeting && this.proposalHash === pHash) {
@@ -1826,7 +1813,7 @@ define([
     };
 
 
-    Greeting.prototype._expectsFinalMessage = function(pId, source) {
+    Greeting.prototype._expectsFinalMessage = function(makePacketId, source) {
         // check to see if message matches what the current greeting is expecting
         var yetToAuthenticate = this.askeMember.yetToAuthenticate();
         _assert(yetToAuthenticate.length > 0 || !this._recvOwnAuthMessage,
@@ -1840,7 +1827,7 @@ define([
             if (source === yetToAuthenticate[0]) {
                 return true;
             }
-            _logIgnored(this.id, pId, "looks-like final message but not from expected source: " + source + " vs expected " + yetToAuthenticate[0]);
+            _logIgnored(this.id, makePacketId(), "looks-like final message but not from expected source: " + source + " vs expected " + yetToAuthenticate[0]);
         }
 
         return false;

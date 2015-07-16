@@ -1101,26 +1101,27 @@ define([
     HybridSession.prototype._recvGreet = function(recv_in) {
         var pubtxt = recv_in.pubtxt;
         var sender = recv_in.sender;
-        var op = this._greeter.partialDecode(
-            this.curMembers(), pubtxt, sender, this._channel.curMembers());
+        var channelMembers = this._channel.curMembers();
+        var makePacketId = this._serverOrder.makePacketId.bind(this._serverOrder,
+            pubtxt, sender, channelMembers);
+        var op = this._greeter.partialDecode(this.curMembers(), pubtxt, sender, makePacketId);
         var self = this;
 
         if (op !== null) {
             if (this._serverOrder.isSynced() &&
                 op.metadata && !this.curMembers().has(op.metadata.author)) {
                 logger.info("ignored GKA request from outside of group");
-                return false;
+                return true;
             }
 
-            var pHash = utils.sha256(pubtxt);
+            var makePacketHash = utils.sha256.bind(null, pubtxt);
 
             var postAcceptInitial = function(pI, prev_pF) {
-                // TODO: [F] (handle-error) this may return null, e.g. with malicious packets
+                // TODO: [F] (handle-error) this may return null or throw, if partialDecode is too lenient
                 var greeting = self._greeter.decode(
-                    self._curGreetState, self.curMembers(), pubtxt, sender,
-                    self._channel.curMembers());
+                    self._curGreetState, self.curMembers(), pubtxt, sender, op.pId);
                 self._setGreeting(greeting);
-                self._maybeFinishOwnProposal(pHash, pI, prev_pF, greeting);
+                self._maybeFinishOwnProposal(makePacketHash(), pI, prev_pF, greeting);
             };
 
             var postAcceptFinal = function(pF, prev_pI) {
@@ -1133,16 +1134,16 @@ define([
                     // so we don't need this condition; however JS Promises resolve
                     // after the current tick, so clearOwnProposal has not yet run, and
                     //  _maybeFinishOwnProposal complains that prevPi doesn't match.
-                    self._maybeFinishOwnProposal(pHash, pF, prev_pI, self._greeting);
+                    self._maybeFinishOwnProposal(makePacketHash(), pF, prev_pI, self._greeting);
                 }
             };
 
             if (this._serverOrder.tryOpPacket(
-                    this._owner, op, this._channel.curMembers(), postAcceptInitial, postAcceptFinal)) {
+                    this._owner, op, channelMembers, postAcceptInitial, postAcceptFinal)) {
                 _assert(this._greeting);
                 // accepted greeting packet, deliver it and maybe complete the operation
                 var r = this._greeting.recv(recv_in);
-                _assert(r);
+                _assert(r); // TODO: [F] (handle-error) this may be false, if partialDecode is too lenient
                 this._greeting.getNextMembers().forEach(this._taskLeave.delete.bind(this._taskLeave));
                 if (!this._serverOrder.hasOngoingOp()) {
                     // if this was a final packet, greeting should complete ASAP
