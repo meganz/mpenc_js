@@ -939,8 +939,10 @@ define([
             return;
         }
 
-        // TODO(xl): [F] (parallel-op) only do the below if we didn't start an operation to
-        // reverse their effects in the meantime.
+        // assume that we didn't start an operation to re-include these guys
+        // in the meantime; this is forbidden by protocol anyways; we have to
+        // kick users that were excluded, before they can be included, see
+        // checks in _changeMembership for details
         var pendingLeave = this._channel.curMembers().intersect(this._taskLeave);
         if (pendingLeave.size) {
             this._channel.send({ leave: pendingLeave });
@@ -1295,6 +1297,8 @@ define([
 
     HybridSession.prototype._proposeGreetInit = function(include, exclude) {
         _assert(!this._ownProposalHash);
+        _assert(!include.intersect(this._taskLeave).size);
+        _assert(!include.intersect(this._taskExclude).size);
 
         if (!this._serverOrder.isSynced()) {
             throw new Error("proposal not appropriate now: need to wait for someone to include you");
@@ -1362,6 +1366,13 @@ define([
 
         var self = this;
         var p = async.newPromiseAndWriters();
+
+        if (include.intersect(this._taskLeave).size || include.intersect(this._taskExclude).size) {
+            // members ignore being excluded until we kick them from the channel. so
+            // we can't reinclude them until we have done so; otherwise they don't
+            // clear their own cryptographic state.
+            throw new Error("cannot include someone that we must (by protocol) exclude/leave first");
+        }
 
         var p1;
         if (include.size) {
