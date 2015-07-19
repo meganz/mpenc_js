@@ -17,8 +17,10 @@
  */
 
 define([
+    "mpenc/liveness",
+    "mpenc/transcript",
     "mpenc/helper/struct",
-], function(struct) {
+], function(liveness, transcript, struct) {
     "use strict";
 
     /**
@@ -27,6 +29,11 @@ define([
      * Session processing and management.
      */
     var ns = {};
+
+    var MsgReady      = transcript.MsgReady;
+    var MsgFullyAcked = transcript.MsgFullyAcked;
+    var NotAccepted   = liveness.NotAccepted;
+    var NotFullyAcked = liveness.NotFullyAcked;
 
     var ImmutableSet = struct.ImmutableSet;
 
@@ -140,7 +147,8 @@ define([
             throw new Error("tried to create SNMembers without an owner member");
         }
         if (!this.include.size && !this.exclude.size) {
-            throw new Error("tried to create SNMembers with empty membership change");
+            throw new Error("tried to create SNMembers with empty membership change; remain: " +
+                this.remain.toArray());
         }
         if (!struct.isDisjoint(this.remain, this.include, this.exclude)) {
             throw new Error("tried to create SNMembers with contradictory membership change");
@@ -268,6 +276,15 @@ define([
         throw new Error("cannot instantiate an interface");
     };
     // jshint -W030
+
+    /**
+     * Array containing the types of events that this EventSource can publish.
+     *
+     * @memberOf module:mpenc/session.Session
+     */
+    Session.EventTypes = [SNStateChange, SNMembers,
+                          MsgReady, MsgFullyAcked,
+                          NotDecrypted, NotAccepted, NotFullyAcked];
 
     /**
      * @method

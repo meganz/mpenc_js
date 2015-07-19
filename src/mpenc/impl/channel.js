@@ -28,7 +28,7 @@ define([
 
     /**
      *
-     * @exports mpenc/impl/serverorder
+     * @exports mpenc/impl/channel
      * @description
      * <p>Implementation of the ServerOrder class from mpenc_py.</p>
      */
@@ -37,7 +37,7 @@ define([
     var ImmutableSet = struct.ImmutableSet;
     var _assert = assert.assert;
 
-    var logger = MegaLogger.getLogger('serverorder', undefined, 'greet');
+    var logger = MegaLogger.getLogger('channel', undefined, 'mpenc');
 
     /**
      * Total order on membership operations using a server to break ties.
@@ -45,7 +45,7 @@ define([
      * See "Appendix 5: Hybrid Order" in [msg-notes] for more details.
      *
      * @class
-     * @memberOf mpenc/impl/serverorder
+     * @memberOf mpenc/impl/channel
      */
     var ServerOrder = function() {
         this.clear();
@@ -222,12 +222,10 @@ define([
      *      packet is accepted, taking (pI, prev_pF) packet-ids.
      * @param postAcceptFinal {function} 2-arg function called when a final
      *      packet is accepted, taking (pF, prev_pI) packet-ids.
-     * @param seenExcludeUs {function} 0-arg function called if we're accepting
-     *      a proposal that excludes us.
      * @returns {boolean} Whether the packet was accepted or rejected.
      */
     ServerOrder.prototype.tryOpPacket = function(
-            owner, op, transportRecipients, postAcceptInitial, postAcceptFinal  ) {
+            owner, op, transportRecipients, postAcceptInitial, postAcceptFinal) {
         var pId = op.pId;
         var prevPf = op.isInitial() ? op.metadata.prevPf : null;
         var prevPi = op.prevPi;
@@ -279,6 +277,7 @@ define([
     };
 
     ns.ServerOrder = ServerOrder;
+
 
     return ns;
 });

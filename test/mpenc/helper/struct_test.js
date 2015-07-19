@@ -41,7 +41,6 @@ define([
     var assert = chai.assert;
     var Set = ns.ImmutableSet;
     var diff = ns.setDiff;
-    var patch = ns.Set_patch;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -171,7 +170,7 @@ define([
             });
             it("set diff", function() {
                 var a = Set([1, 2, 3]), b = Set([3, 4, 5]);
-                var diffs = diff(a, b);
+                var diffs = a.diff(b);
                 assert.sameMembers(diffs[0].toArray(), [4, 5]);
                 assert.sameMembers(diffs[1].toArray(), [1, 2]);
             });
@@ -216,6 +215,26 @@ define([
             assert.throws(function() {
                 var MyTuple = ns.createTupleClass(Date, "x");
             });
+        });
+        it("equals", function() {
+            var MyTuple = ns.createTupleClass("x", "y");
+
+            var a0 = new MyTuple(2, 3);
+            var a1 = new MyTuple(2, 3);
+            var b = new MyTuple(2, 4);
+
+            var b0 = new MyTuple(2, Set([3, 4]));
+            var b1 = new MyTuple(2, Set([4, 3]));
+
+            assert.ok(a0.equals(a1));
+            assert.ok(a1.equals(a0));
+            assert.notOk(b.equals(a1));
+            assert.notOk(b.equals(a0));
+            assert.notOk(a1.equals(b));
+            assert.notOk(a0.equals(b));
+
+            assert.ok(b0.equals(b1));
+            assert.ok(b1.equals(b0));
         });
     });
 
@@ -300,7 +319,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(1).args, [false, {'bar': 'baz'}]);
                 assert.strictEqual(result, true);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['Brian unstashed bar']]);
+                assert.deepEqual(log, [0, ['Brian unstashed YmFy']]);
                 assert.deepEqual(myTrialBuffer._buffer, {});
                 assert.deepEqual(myTrialBuffer._bufferIDs, []);
             });
@@ -375,7 +394,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
-                assert.deepEqual(log, [30, ['Brian DROPPED bar at size 1, potential data loss.']]);
+                assert.deepEqual(log, [30, ['Brian DROPPED YmFy at size 1, potential data loss.']]);
                 assert.deepEqual(myTrialBuffer._buffer, {'foo': param});
                 assert.deepEqual(myTrialBuffer._bufferIDs, [paramID]);
             });

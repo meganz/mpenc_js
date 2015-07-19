@@ -81,8 +81,6 @@ define([
             function(p, a, b) { return p.merge(a, b); });
         this._fubar = false;
 
-        this._cacheBy = new Map();
-        this._cacheUnacked = null;
         this._invalidateCaches();
     };
 
@@ -264,11 +262,11 @@ define([
         }
 
         if (pmId.has(mId)) {
-            throw new Error("message references itself: " + mId + " in " + pmId);
+            throw new Error("message references itself: " + btoa(mId) + " in " + pmIdArr.map(btoa));
         }
 
         if (this._messages.has(mId)) {
-            throw new Error("message already added: " + mId);
+            throw new Error("message already added: " + btoa(mId));
         }
 
         if (uId === null) {
@@ -281,13 +279,13 @@ define([
 
         if (ruId.size === 0) {
             // in principle, can support empty room talking to yourself
-            logger.warn("message has no recipients: " + mId);
+            logger.warn("message has no recipients: " + btoa(mId));
         }
 
         // ensure graph is complete, also preventing cycles
         var pmId404 = pmId.subtract(this._messages);
         if (pmId404.size > 0) {
-            throw new Error("parents not found: " + pmId404);
+            throw new Error("parents not found: " + pmId404.toArray().map(btoa));
         }
 
         // check sender is actually allowed to read the parents
@@ -295,7 +293,7 @@ define([
             return !self._messages.get(pm).members().has(uId);
         });
         if (pmId403.length > 0) {
-            throw new Error("secret parents referenced: " + pmId403);
+            throw new Error("secret parents referenced: " + pmId403.toArray().map(btoa));
         }
 
         // check sanity of parents
@@ -308,7 +306,7 @@ define([
         // can't check mId directly since it's not in the graph yet, so check parents
         if (pumId !== null) {
             if (!pmIdArr.some(function(m) { return self.le(pumId, m); })) {
-                throw new Error("" + mId + " does not reference prev-sent " + pumId);
+                throw new Error("" + btoa(mId) + " does not reference prev-sent " + pumId);
             }
         }
 
@@ -445,7 +443,7 @@ define([
 
     DefaultMessageLog.prototype.add = function(tr, mId, parents) {
         if (this._messageIndex.has(mId)) {
-            throw new Error("already added: " + mId);
+            throw new Error("already added: " + btoa(mId));
         }
         var msg = tr.get(mId);
         if (!(msg.body instanceof message.Payload)) {
@@ -468,7 +466,7 @@ define([
         if (targetTranscript) {
             return targetTranscript;
         } else {
-            throw new Error("transcript not found for mId:" + mId);
+            throw new Error("transcript not found for mId:" + btoa(mId));
         }
     };
 

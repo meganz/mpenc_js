@@ -20,8 +20,9 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/struct",
     "es6-collections",
+    "promise-polyfill",
     "megalogger"
-], function(assert, struct, es6_shim, MegaLogger) {
+], function(assert, struct, es6_shim, Promise, MegaLogger) {
     "use strict";
 
     /**
@@ -31,7 +32,9 @@ define([
      */
     var ns = {};
 
-    var logger = MegaLogger.getLogger("async");
+    var ImmutableSet = struct.ImmutableSet;
+
+    var logger = MegaLogger.getLogger("async", undefined, "helper");
     var _assert = assert.assert;
 
     /**
@@ -60,6 +63,49 @@ define([
      * @see module:mpenc/helper/async.Observable
      * @see module:mpenc/helper/async.Observable#subscribe
      */
+
+    /**
+     * Throw an Error, or return a non-Error.
+     *
+     * Useful for Promise callbacks that act like "finally" cleanups, where you
+     * register it as p.then(cb, cb) to call on both fulfillment and rejection.
+     */
+    ns.exitFinally = function(r) {
+        if (r instanceof Error) {
+            throw r;
+        } else {
+            return r;
+        }
+    };
+
+
+    /**
+     * Create a new <code>Promise</code> and return its <code>resolve</code>,
+     * <code>reject</code> write capabilities back to the caller.
+     *
+     * @return {{ promise: Promise, resolve: function, reject: function }}
+     *      The promise together with its write capabilities.
+     */
+    ns.newPromiseAndWriters = function() {
+        var resolve, reject;
+        var p = new Promise(function(rs, rj) {
+            resolve = rs;
+            reject = rj;
+        });
+        return { promise: p, resolve: resolve, reject: reject };
+    };
+
+
+    /**
+     * @param timer {module:mpenc/helper/async.Timer} To execute the calls.
+     * @param timeout {number} Ticks after which to resolve the Promise.
+     * @returns {Promise} A Promise that resolves after the given timeout.
+     */
+    ns.timeoutPromise = function(timer, timeout) {
+        return new Promise(function(rs, rj) {
+            timer.after(timeout, rs);
+        });
+    };
 
 
     /**
@@ -112,6 +158,28 @@ define([
         var wrapped_sub = function(item) {
             cancel();
             return sub(item);
+        };
+        cancel = this(wrapped_sub);
+        return cancel;
+    };
+
+    /**
+     * A subscribe-function that registers until-true subscriptions.
+     *
+     * As soon as a subscription returns <code>true</code>, it is cancelled and
+     * no more items are published to it.
+     *
+     * @member
+     * @type {module:mpenc/helper/async~subscribe}
+     */
+    Subscribe.prototype.untilTrue = function(sub) {
+        var cancel;
+        var wrapped_sub = function(item) {
+            var r = sub(item);
+            if (r === true) {
+                cancel();
+            }
+            return r;
         };
         cancel = this(wrapped_sub);
         return cancel;
@@ -332,6 +400,7 @@ define([
      * @memberOf module:mpenc/helper/async
      */
     var combinedCancel = function(cancels) {
+        _assert(cancels.every(function(f) { return typeof f === "function"; }));
         return function() {
             var retval = false;
             var error = null;
@@ -405,6 +474,115 @@ define([
 
     Object.freeze(ObservableSequence.prototype);
     ns.ObservableSequence = ObservableSequence;
+
+
+    /**
+     * A set that clients can watch for events on.
+     *
+     * <p>Provide Promises that resolve after a given diff occurs, even if it
+     * is spread out over multiple distinct events, or if it occurs as part of
+     * a strictly-larger diff.</p>
+     *
+     * <p>Useful for tracking e.g. memberships of a session or channel.</p>
+     *
+     * @class
+     * @param init {module:mpenc/helper/struct.ImmutableSet} Initial value
+     * @memberOf module:mpenc/helper/async
+     */
+    var PromisingSet = function(init) {
+        if (!(this instanceof PromisingSet)) {
+            return new PromisingSet(init);
+        }
+
+        this._value = ImmutableSet.from(init);
+        this._expect = []; // { type, resolve, reject, <extra args> }
+    };
+
+    /**
+     * @method
+     * @returns {?module:mpenc/helper/struct.ImmutableSet} Current value
+     */
+    PromisingSet.prototype.value = function() {
+        return this._value;
+    };
+
+    /**
+     * If any member in <code>include</code> is included but later excluded
+     * before the Promise fulfills, we reject it instead; and vice-versa for
+     * <code>exclude</code>.
+     *
+     * TODO(xl): add "timeout" auto-reject functionality, using Promise.race
+     *
+     * @param diff {module:mpenc/helper/struct.ImmutableSet[]} 2-tuple of what
+     *      to (<code>include</code>, <code>exclude</code>).
+     * @returns {Promise} A promise that resolves when the given diff has taken
+     *      place on the set.
+     */
+    PromisingSet.prototype.awaitDiff = function(diff) {
+        var include = ImmutableSet.from(diff[0]);
+        var exclude = ImmutableSet.from(diff[1]);
+        _assert(!include.intersect(this._value).size);
+        _assert(!exclude.subtract(this._value).size);
+
+        var promise = ns.newPromiseAndWriters();
+        this._expect.push({
+            type: "diff",
+            resolve: promise.resolve,
+            reject: promise.reject,
+            include: include,
+            exclude: exclude,
+            to_include: include,
+            to_exclude: exclude,
+        });
+        return promise.promise;
+    };
+
+    PromisingSet.prototype._checkExpectation = function(entry, include, exclude) {
+        switch (entry.type) {
+        case "diff":
+            if (entry.include.intersect(exclude).size) {
+                throw new Error("OperationAborted: excluded wait-to-include members: " +
+                    entry.include.intersect(exclude).toArray());
+            }
+            if (entry.exclude.intersect(include).size) {
+                throw new Error("OperationAborted: included wait-to-exclude members: " +
+                    entry.exclude.intersect(include).toArray());
+            }
+            entry.to_include = entry.to_include.subtract(include);
+            entry.to_exclude = entry.to_exclude.subtract(exclude);
+            return (!entry.to_include.size && !entry.to_exclude.size);
+        default:
+            throw new Error("unexpected expectation");
+        }
+        return false;
+    };
+
+    /**
+     * Note that a given change has occured on the set.
+     */
+    PromisingSet.prototype.patch = function(diff) {
+        var include = ImmutableSet.from(diff[0]);
+        var exclude = ImmutableSet.from(diff[1]);
+        _assert(!include.intersect(this._value).size);
+        _assert(!exclude.subtract(this._value).size);
+
+        this._value = this._value.patch([include, exclude]);
+        var self = this;
+        this._expect = this._expect.filter(function(entry) {
+            try {
+                var matched = self._checkExpectation(entry, include, exclude);
+                if (matched) {
+                    entry.resolve(self._value);
+                }
+                return !matched;
+            } catch (e) {
+                entry.reject(e);
+                return false;
+            }
+        });
+    };
+
+    ns.PromisingSet = PromisingSet;
 
 
     // jshint -W055
@@ -534,7 +712,7 @@ define([
             return new EventContext(evtcls);
         }
         _AutoNode.call(this, function(c) { return new _ObservableNode(); });
-        evtcls = new struct.ImmutableSet(evtcls);
+        evtcls = new ImmutableSet(evtcls);
         var non_evtcls = evtcls.toArray().filter(function(ec) {
             return (typeof ec.prototype.length !== "number");
         });
@@ -547,7 +725,7 @@ define([
     EventContext.maybeInject = function(evtctx, evtcls) {
         if (!evtctx) {
             return new EventContext(evtcls);
-        } else if (new struct.ImmutableSet(evtcls).subtract(evtctx.evtcls()).size() === 0) {
+        } else if (new ImmutableSet(evtcls).subtract(evtctx.evtcls()).size() === 0) {
             return evtctx;
         } else {
             throw new Error("inject evt does not support " + evtcls);
@@ -556,6 +734,9 @@ define([
 
     EventContext.prototype = Object.create(_AutoNode.prototype);
 
+    /**
+     * Get all event classes that this context supports.
+     */
     EventContext.prototype.evtcls = function() {
         return this._evtcls;
     };
@@ -602,8 +783,8 @@ define([
      */
     EventContext.prototype.chainFrom = function(evtctx, evtcls) {
         var self = this;
-        return combinedCancel(new struct.ImmutableSet(evtcls).toArray().map(function(ec) {
-            evtctx.subscribe(ec)(self.publish.bind(self));
+        return combinedCancel(new ImmutableSet(evtcls).toArray().map(function(ec) {
+            return evtctx.subscribe(ec)(self.publish.bind(self));
         }));
     };
 
