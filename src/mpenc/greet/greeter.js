@@ -1611,13 +1611,13 @@ define([
             if (decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
                 _logIgnored(this.id, pHash, "(pHash) it has metadata but greeting is already started");
-                return false;
+                return true; // TODO(xl): tweak as per "identify" comment
             }
         } else {
             if (!decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
                 _logIgnored(this.id, pHash, "(pHash) it has no metadata but greeting not yet started");
-                return false;
+                return true; // TODO(xl): tweak as per "identify" comment
             }
             this.metadata = decodedMessage.metadata;
             // TODO(xl): #2350 need to tweak ske to verify metadata, e.g. by hashing
@@ -1627,7 +1627,7 @@ define([
         var prevState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
-            return false;
+            return true; // TODO(xl): tweak as per "identify" comment
         }
         if (result.decodedMessage) {
             this._encodeAndPublish(result.decodedMessage);
@@ -1657,6 +1657,8 @@ define([
         if (this._opState === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
             logger.debug("Ignoring message as we're in state QUIT.");
+            // TODO(xl): identify if this message belongs to this greeting or not
+            // and in recv(), distinguish between these two cases (return true vs false)
             return null;
         }
 
@@ -1670,12 +1672,18 @@ define([
         // If I'm not part of it any more, go and quit.
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
-            if (this._opState !== ns.STATE.QUIT) {
-                return { decodedMessage: null,
-                         newState: ns.STATE.QUIT };
-            } else {
-                return null;
+            _assert(this._opState !== ns.STATE.QUIT);
+            if (message.members.length === 1) {
+                // 1-member exclude-operations complete in 1 packet; we know this even
+                // if we're the one being excluded - partialDecode recognises this and
+                // sets the packet as "final", so we must be consistent here and resolve
+                // the Greeting too. otherwise HybridSession gets confused (rightly so)
+                _assert(!this._finished);
+                this._promise.resolve(this);
+                this._finished = 1;
             }
+            return { decodedMessage: null,
+                     newState: ns.STATE.QUIT };
         }
 
         // Ignore the message if it is from me.

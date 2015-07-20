@@ -1198,7 +1198,11 @@ define([
             // Check result state
             greetings.forEach(function(greeting, id) {
                 if (!targetMembers.has(id)) {
-                    assert.notOk(greeting._finished, "old member finished greeting not for them");
+                    if (targetMembers.size > 1) {
+                        assert.notOk(greeting._finished, "old member finished greeting not for them");
+                    } else {
+                        assert.ok(greeting._finished, "old member did not finish 1-member greeting to exclude them");
+                    }
                     return;
                 }
                 if (expectSuccess) {
