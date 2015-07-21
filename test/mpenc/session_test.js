@@ -106,9 +106,12 @@ define([
                 }];
             },
             decryptVerify: function(ts, pubtxt, sender) {
+                if (pubtxt.charAt(0) !== "{") {
+                    throw new Error("PacketRejected");
+                }
                 var body = JSON.parse(pubtxt);
                 if (atob(body.sId) !== sId) {
-                    return false;
+                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
                 }
                 return [body.author,
                     body.parents.map(atob),

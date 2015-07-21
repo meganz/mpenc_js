@@ -714,16 +714,19 @@ define([
 
         // sub-session send/recv logic
         cancels.push(this._channel.onRecv(this._recv.bind(this)));
-        this._sessionRecv = new Observable(); // for sub-sessions to listen on, filters out greeting packets
+        this._sessionRecv = new Observable(); // for sub-sessions to listen on; filters out greeter/control packets
         var tryDecrypt = new TrialTimeoutTarget(
             this._timer, this._flowctl.getBroadcastLatency(),
             this._tryDecryptTimeout.bind(this),
             {
                 maxSize: this._flowctl.asynchronity.bind(this._flowctl, this),
-                paramId: function(recv_in) { return utils.sha256(recv_in.pubtxt); },
+                paramId: function(recv_in) {
+                    return "ccId" in recv_in ? String(recv_in.ccId) : utils.sha256(recv_in.pubtxt);
+                },
                 tryMe: this._tryDecryptTry.bind(this)
             });
-        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this.sId, tryDecrypt);
+        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this._sId, tryDecrypt);
+        this._ccId = 0;
 
         // global ops
         this._serverOrder = new ServerOrder();
@@ -793,6 +796,8 @@ define([
         this._greetingCancel();
         this._greetingCancel = null;
         this._greeting = null;
+        this._pendingGreetPP = false;
+        this._tryDecrypt.retryAll();
         if (r instanceof Error && typeof r.message === "string" &&
             r.message.indexOf("OperationIgnored:") === 0) {
             logger.info(r.message);
@@ -1050,26 +1055,28 @@ define([
     // Receive handlers
 
     HybridSession.prototype._recv = function(recv_in) {
-        if (this._pendingGreetingPostProcess) {
-            if (this._greeting) {
-                // TODO(xl): [!] support *non-immediate* asynchronous completion of greeting,
-                // This will be much more complex, since for correctness we must not process
-                // certain packets until this is complete. The easy & safe option is to not
-                // process *all* packets, but this has a UI cost and it is OK to process *some*,
-                // just the logic for identifying these will be a bit annoying.
-                logger.warn("processing remote packet before already-completed-greeting " +
-                    "finished all local processing! some incorrect behaviour may result.");
-            } else {
-                logger.debug("clearing pending-greeting flag");
-                this._pendingGreetingPostProcess = false;
+        if (this._pendingGreetPP) {
+            if (!("pubtxt" in recv_in)) {
+                // Tag the packet with a unique channel-control-id so trialBuffer can identify it.
+                // We don't attempt to deduplicate these messages; server is supposed to be well-behaved.
+                // We'll detect any misbehaviour later via the TODO ServerOrder consistency checks.
+                recv_in.ccId = this._ccId++;
             }
+            // TrialBuffer should not re-order greeter/control packets
+            return this._tryDecrypt.trial(recv_in, true);
+        } else {
+            return this._recvMain(recv_in, true);
         }
+    };
 
+    HybridSession.prototype._recvMain = function(recv_in, useQueue) {
         if ("pubtxt" in recv_in) {
             if (this._recvGreet(recv_in)) {
                 return true;
-            } else {
+            } else if (useQueue) {
                 return this._tryDecrypt.trial(recv_in);
+            } else {
+                return this._sessionRecv.publish(recv_in).some(Boolean);
             }
         } else {
             recv_in = channel.checkChannelControl(recv_in);
@@ -1153,7 +1160,7 @@ define([
                 this._greeting.getNextMembers().forEach(this._taskLeave.delete.bind(this._taskLeave));
                 if (!this._serverOrder.hasOngoingOp()) {
                     // if this was a final packet, greeting should complete ASAP
-                    this._pendingGreetingPostProcess = true;
+                    this._pendingGreetPP = true;
                 }
             }
             return true;
@@ -1166,12 +1173,37 @@ define([
     };
 
     HybridSession.prototype._tryDecryptTimeout = function(recv_in) {
+        // in unit tests, this sometimes throws a harmless stack trace due to
+        // recv_in actually being a ChannelControl packet; in real code this
+        // probably won't happen because the timeout should be set to a much
+        // higher value than it takes for greeting post-processing to complete.
         this._events.publish(new NotDecrypted(this.sId, recv_in.sender, recv_in.pubtxt.length));
         // TODO(xl): [D/R] maybe drop the packet too. though we already got maxsize
     };
 
-    HybridSession.prototype._tryDecryptTry = function(_, recv_in) {
-        return this._sessionRecv.publish(recv_in).some(Boolean);
+    HybridSession.prototype._tryDecryptTry = function(pending, recv_in) {
+        // control flow paths this can be called under:
+        // [1] pendingGreetPP==T: recv() -> tryDecrypt.trial()
+        // [2] pendingGreetPP==F: recv() -> recvMain(_, true) -> tryDecrypt.trial()
+        // [3] pendingGreetPP==F: clearGreeting() -> tryDecrypt.retryAll()
+        if (this._pendingGreetPP) {
+            // [1] if we're waiting for a completed greeting to finish post-processing,
+            // then only process session packets, which don't interfere with that.
+            if ("pubtxt" in recv_in) {
+                return this._sessionRecv.publish(recv_in).some(Boolean);
+            } else {
+                return false;
+            }
+        } else if (pending) {
+            // [2, 3] we might be acting on queued greeter/control packets.
+            // for [2] this is inefficient (but correct). we should do else{}
+            // instead, but detecting that would add too much complexity
+            return this._recvMain(recv_in, false);
+        } else {
+            // [2] only session packets should reach this code path
+            _assert("pubtxt" in recv_in);
+            return this._sessionRecv.publish(recv_in).some(Boolean);
+        }
     };
 
     HybridSession.prototype._changeSubSession = function(greeting) {
