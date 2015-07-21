@@ -189,7 +189,7 @@ define([
                 tryMe: this._tryAcceptTry.bind(this),
                 cleanup: this._tryAcceptCleanup.bind(this),
             });
-        this._tryAccept = new TrialBuffer('try-accept for ' + this._sId, tryAccept);
+        this._tryAccept = new TrialBuffer('try-accept for ' + this.toString(true), tryAccept);
 
         this._fin = new Observable();
         this._pubtxt = new Map(); /* ciphertxt cache, mId->pubtxt and pubtxt->mId*/
@@ -259,8 +259,9 @@ define([
     /**
      * @returns {string} A short summary of this session.
      */
-    SessionBase.prototype.toString = function() {
-        return this._owner + ":" + btoa(this._sId.substring(0, 3)) + ":[" + this.curMembers().toArray() + "]";
+    SessionBase.prototype.toString = function(short) {
+        return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
+            (short ? "" : ":[" + this.curMembers().toArray() + "]");
     };
 
     // "implements" StateMachine
@@ -725,7 +726,7 @@ define([
                 },
                 tryMe: this._tryDecryptTry.bind(this)
             });
-        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this._sId, tryDecrypt);
+        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this.toString(true), tryDecrypt);
         this._ccId = 0;
 
         // global ops
@@ -740,6 +741,14 @@ define([
         this._clearOwnOperation();
 
         this._cancel = async.combinedCancel(cancels);
+    };
+
+    /**
+     * @returns {string} A short summary of this session.
+     */
+    HybridSession.prototype.toString = function(short) {
+        return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
+            (short ? "" : ":[" + this.curMembers().toArray() + "]");
     };
 
     /* Summary of the internal state of the session.
