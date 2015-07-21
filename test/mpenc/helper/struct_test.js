@@ -310,7 +310,7 @@ define([
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
-                assert.deepEqual(target.tryMe.getCall(1).args, [false, {'bar': 'baz'}]);
+                assert.deepEqual(target.tryMe.getCall(1).args, [true, {'bar': 'baz'}]);
                 assert.strictEqual(result, true);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['Brian unstashed YmFy']]);
@@ -330,7 +330,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
-                assert.deepEqual(log, [0, ['Brian stashed foo']]);
+                assert.deepEqual(log, [0, ['Brian stashed Zm9v']]);
                 assert.deepEqual(myTrialBuffer.queue(), [param]);
             });
 

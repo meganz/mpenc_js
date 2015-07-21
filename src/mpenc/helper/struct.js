@@ -593,7 +593,7 @@ define([
         var hadSuccess = true;
         var self = this;
         var tryAndDelete = function(item, id) {
-            if (self.target.tryMe(false, item)) {
+            if (self.target.tryMe(true, item)) {
                 self._buffer.delete(id);
                 logger.debug(self.name + ' unstashed ' + btoa(id));
                 hadSuccess = true;
@@ -659,11 +659,11 @@ define([
                     this._buffer.delete(paramID);
                     this._cleanup(true, olddupe);
                     this._buffer.set(paramID, param);
-                    logger.debug(this.name + ' restashed ' + paramID);
+                    logger.debug(this.name + ' restashed ' + btoa(paramID));
                 }
             } else {
                 this._buffer.set(paramID, param);
-                logger.debug(this.name + ' stashed ' + paramID);
+                logger.debug(this.name + ' stashed ' + btoa(paramID));
                 this._dropExtra();
             }
             return false;
