@@ -762,10 +762,12 @@ define([
         if (!this._channel.curMembers()) {
             _assert(!this._serverOrder.isSynced());
             _assert(!this._curSession);
+            //_assert(!this._greeting); // fails because _clearGreeting is called asynchronously >:[
             // Not in the channel. Stable.
             return "cos_";
         } else if (!this._serverOrder.isSynced()) {
             _assert(!this._curSession);
+            _assert(!this._greeting);
             // In the channel, ServerOrder unsynced. Unstable; others should
             // cause us to be synced later, expecting COsj.
             return "Cos_";
@@ -773,18 +775,16 @@ define([
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
                 _assert(this._channel.curMembers().equals(this._ownSet));
+                _assert(!this._greeting);
                 // Stable; we just entered the channel and we're the only ones here.
                 return "COsJ";
             } else {
                 // Unstable; one of:
                 // - (greeting !== null): we entered the channel, and just
                 //   accepted a greeting, but it's not yet complete -> COS_
-                // - (greeting === null &! serverOrder.isSynced()): we entered
-                //   the channel, and have not yet synced with others -> COsJ
-                // - (greeting === null && serverOrder.isSynced()): we just
-                //   completed a _changeMembership that implicitly excluded
-                //   everyone else, but we haven't yet left the channel, so as
-                //   to wait for consistency -> cos_
+                // - (greeting === null): we just completed a _changeMembership
+                //   that implicitly excluded everyone else, but we haven't yet
+                //   left the channel, so as to wait for consistency -> cos_
                 return "COsj";
             }
         } else {
@@ -964,8 +964,8 @@ define([
         }
 
         // if we didn't leave the channel already, leave it
-        if (this._curSession === null && this._serverOrder.isSynced()) {
-            if (this._greeting === null) {
+        if (!this._curSession && this._serverOrder.isSynced()) {
+            if (!this._greeting) {
                 this._channel.send({ leave: true });
                 logger.info("requested channel leave self: " + this._owner);
             } else {
@@ -1218,7 +1218,7 @@ define([
     HybridSession.prototype._changeSubSession = function(greeting) {
         // Rotate to a new sub session with a different membership.
         // If greeting is null, this means we left the channel and the session.
-        _assert(greeting === null || !this._curSession ||
+        _assert(!greeting || !this._curSession ||
             this.curMembers().equals(greeting.getPrevMembers()));
 
         var ownSet = this._ownSet;
