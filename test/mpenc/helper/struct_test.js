@@ -251,8 +251,7 @@ define([
                 sinon_assert.calledOnce(target.paramId);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, true);
-                assert.deepEqual(myTrialBuffer._buffer, {});
-                assert.deepEqual(myTrialBuffer._bufferIDs, []);
+                assert.strictEqual(myTrialBuffer.length(), 0);
             });
 
             it("param in buffer, tryMe succeeds", function() {
@@ -262,27 +261,24 @@ define([
                                maxSize: stub(),
                                paramId: stub().returns(paramID) };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'foo': param};
-                myTrialBuffer._bufferIDs = [paramID];
+                myTrialBuffer._buffer = new Map([['foo', param]]);
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 2);
                 assert.deepEqual(target.tryMe.getCall(0).args, [true, param]);
                 assert.strictEqual(result, true);
-                assert.deepEqual(myTrialBuffer._buffer, {});
-                assert.deepEqual(myTrialBuffer._bufferIDs, []);
+                assert.strictEqual(myTrialBuffer.length(), 0);
             });
 
             it("param in buffer, tryMe succeeds, error on dupe key", function() {
                 var param = {'foo': 'bar'};
-                var paramID = 'foo';
+                var paramIDs = ['foo', 'foo2'];
                 var target = { tryMe: stub().returns(true),
                                maxSize: stub(),
-                               paramId: stub().returns(paramID) };
+                               paramId: function() { return paramIDs.shift(); } };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'foo': param};
-                myTrialBuffer._bufferIDs = [paramID, paramID];
+                myTrialBuffer._buffer = new Map([['foo', param]]);
                 assert.throws(function() { myTrialBuffer.trial(param); },
-                              'Parameter was not removed from buffer.');
+                              'paramId gave inconsistent results');
             });
 
             it("other param in buffer, tryMe succeeds", function() {
@@ -294,14 +290,12 @@ define([
                 target.tryMe.onCall(0).returns(true);
                 target.tryMe.returns(false); // For every following invocation.
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'bar': {'bar': 'baz'}};
-                myTrialBuffer._bufferIDs = ['bar'];
+                myTrialBuffer._buffer = new Map([['bar', {'bar': 'baz'}]]);
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, true);
-                assert.deepEqual(myTrialBuffer._buffer, {'bar': {'bar': 'baz'}});
-                assert.deepEqual(myTrialBuffer._bufferIDs, ['bar']);
+                assert.deepEqual(myTrialBuffer.queue(), [{'bar': 'baz'}]);
             });
 
             it("other param in buffer, tryMe succeeds, old param works", function() {
@@ -311,7 +305,7 @@ define([
                                maxSize: stub(),
                                paramId: stub().returns(paramID) };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'bar': {'bar': 'baz'}};
+                myTrialBuffer._buffer = new Map([['bar', {'bar': 'baz'}]]);
                 myTrialBuffer._bufferIDs = ['bar'];
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
@@ -320,8 +314,7 @@ define([
                 assert.strictEqual(result, true);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['Brian unstashed YmFy']]);
-                assert.deepEqual(myTrialBuffer._buffer, {});
-                assert.deepEqual(myTrialBuffer._bufferIDs, []);
+                assert.strictEqual(myTrialBuffer.length(), 0);
             });
 
             it("empty buffer, tryMe fails", function() {
@@ -338,8 +331,7 @@ define([
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['Brian stashed foo']]);
-                assert.deepEqual(myTrialBuffer._buffer, {'foo': param});
-                assert.deepEqual(myTrialBuffer._bufferIDs, [paramID]);
+                assert.deepEqual(myTrialBuffer.queue(), [param]);
             });
 
             it("other param in buffer, tryMe fails", function() {
@@ -349,15 +341,12 @@ define([
                                maxSize: stub().returns(42),
                                paramId: stub().returns(paramID) };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'bar': {'bar': 'baz'}};
-                myTrialBuffer._bufferIDs = ['bar'];
+                myTrialBuffer._buffer = new Map([['bar', {'bar': 'baz'}]]);
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
-                assert.deepEqual(myTrialBuffer._buffer, {'bar': {'bar': 'baz'},
-                                                         'foo': param});
-                assert.deepEqual(myTrialBuffer._bufferIDs, ['bar', paramID]);
+                assert.deepEqual(myTrialBuffer.queue(), [{'bar': 'baz'}, param]);
             });
 
             it("other param in buffer, tryMe fails, buffer exceeds, no drop", function() {
@@ -367,17 +356,14 @@ define([
                                maxSize: stub().returns(1),
                                paramId: stub().returns(paramID) };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target, false);
-                myTrialBuffer._buffer = {'bar': {'bar': 'baz'}};
-                myTrialBuffer._bufferIDs = ['bar'];
+                myTrialBuffer._buffer = new Map([['bar', {'bar': 'baz'}]]);
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
                 assert.deepEqual(log, [20, ['Brian is 1 items over expected capacity.']]);
-                assert.deepEqual(myTrialBuffer._buffer, {'bar': {'bar': 'baz'},
-                                                         'foo': param});
-                assert.deepEqual(myTrialBuffer._bufferIDs, ['bar', paramID]);
+                assert.deepEqual(myTrialBuffer.queue(), [{'bar': 'baz'}, param]);
             });
 
             it("other param in buffer, tryMe fails, buffer exceeds, dropping", function() {
@@ -387,16 +373,14 @@ define([
                                maxSize: stub().returns(1),
                                paramId: stub().returns(paramID) };
                 var myTrialBuffer = new ns.TrialBuffer('Brian', target);
-                myTrialBuffer._buffer = {'bar': {'bar': 'baz'}};
-                myTrialBuffer._bufferIDs = ['bar'];
+                myTrialBuffer._buffer = new Map([['bar', {'bar': 'baz'}]]);
                 var result = myTrialBuffer.trial(param);
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
                 var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
                 assert.deepEqual(log, [30, ['Brian DROPPED YmFy at size 1, potential data loss.']]);
-                assert.deepEqual(myTrialBuffer._buffer, {'foo': param});
-                assert.deepEqual(myTrialBuffer._bufferIDs, [paramID]);
+                assert.deepEqual(myTrialBuffer.queue(), [param]);
             });
         });
     });
