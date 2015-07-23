@@ -794,7 +794,21 @@ define([
     HybridSession.prototype._clearChannelRecords = function(r) {
         this._serverOrder.clear();
         this._channelJustSynced = false;
+        /* Members we'll try to exclude from the session. We add someone when:
+         *
+         * - they send a leave-intent (2x Consistency(close=true) messages)
+         * - they leave the channel (e.g. are disconnected)
+         *
+         * By protocol, users in this set are prevented from re-entering the
+         * channel [#ALX] until the exclude operation completes. */
         this._taskExclude = new Set();
+        /* Members we'll try to kick from the channel. We add someone when:
+         *
+         * - a greeting to exclude them from the session completes, but they
+         *   haven't left the channel yet.
+         *
+         * By protocol, users in this set are prevented from being re-included
+         * into the session [#ALV], until they've left. */
         this._taskLeave = new Set();
         return async.exitFinally(r);
     };
@@ -882,7 +896,7 @@ define([
     };
 
     HybridSession.prototype._maybeHandleTasks = function() {
-        this._assertConsistentTasks();
+        this._assertConsistentTasks(true);
 
         if (this._ownOperationCb) {
             logger.info("ignored tasks due to ongoing own operation: " +
@@ -912,7 +926,11 @@ define([
             "; --" + ImmutableSet.from(this._taskLeave).toArray());
     };
 
-    HybridSession.prototype._assertConsistentTasks = function() {
+    HybridSession.prototype._assertConsistentTasks = function(checkAgainstCurrentState) {
+        if (checkAgainstCurrentState) {
+            _assert(!ImmutableSet.from(this._taskExclude).subtract(this.curMembers()).size);
+            _assert(!ImmutableSet.from(this._taskLeave).subtract(this._channel.curMembers()).size);
+        }
         _assert(struct.isDisjoint(this._taskExclude, this._taskLeave));
     };
 
@@ -1007,7 +1025,7 @@ define([
             }
         }
 
-        this._assertConsistentTasks();
+        this._assertConsistentTasks(true);
         return greeting;
     };
 
@@ -1022,7 +1040,7 @@ define([
             // _change_membership should already be handling this
         }
         if (taskExc.size) {
-            // we still haven't excluded them cryptographically, and can't
+            // [#ALX] we still haven't excluded them cryptographically, and can't
             // allow them to rejoin until we've done this. auto-kick them ASAP.
             // some GKAs allow computation of subgroup keys, but in that case we
             // can model it as a 1-packet membership operation (we need >= 1
@@ -1037,7 +1055,7 @@ define([
             logger.info("unexpected users entered the channel: " + unexpected.toArray() +
                 "; maybe someone else is including them, or they want to be invited?");
         }
-        this._assertConsistentTasks();
+        this._assertConsistentTasks(true);
     };
 
     HybridSession.prototype._onOthersLeave = function(others) {
@@ -1056,7 +1074,7 @@ define([
             logger.info("added to taskExclude because they left the channel: " + toExclude.toArray());
             this._maybeHandleTasks();
         }
-        this._assertConsistentTasks();
+        this._assertConsistentTasks(true);
     };
 
     // Receive handlers
@@ -1165,9 +1183,22 @@ define([
                 // accepted greeting packet, deliver it and maybe complete the operation
                 var r = this._greeting.recv(recv_in);
                 _assert(r); // TODO: [F] (handle-error) this may be false, if partialDecode is too lenient
-                this._greeting.getNextMembers().forEach(this._taskLeave.delete.bind(this._taskLeave));
-                if (!this._serverOrder.hasOngoingOp()) {
-                    // if this was a final packet, greeting should complete ASAP
+                if (op.isInitial() && this._taskLeave.size) {
+                    // [#ALV] Members haven't left the channel after being excluded, but
+                    // someone is trying to re-include them. This is against protocol and
+                    // probably won't end well, so kick them now. If not a final packet,
+                    // kicking will make the greeting fail; if final, onOthersLeave will
+                    // set them to be automatically excluded again.
+                    var toLeave = ImmutableSet.from(this._taskLeave).intersect(this._greeting.getNextMembers());
+                    if (toLeave.size) {
+                        logger.info("automatically kicking: " + toLeave.toArray() +
+                            " because they were excluded from the session and we haven't kicked them yet");
+                        this._channel.send({ leave: toLeave });
+                    }
+                }
+                if (op.isFinal()) {
+                    _assert(!this._serverOrder.hasOngoingOp());
+                    // wait for greeting to complete before processing other packets
                     this._pendingGreetPP = true;
                 }
             }
@@ -1352,6 +1383,8 @@ define([
         }
 
         var curMembers = this.curMembers();
+        _assert(!include.intersect(curMembers).size);
+        _assert(!exclude.subtract(curMembers).size && !exclude.has(this._owner));
         var newMembers = curMembers.patch([include, exclude]);
         _assert(!curMembers.equals(newMembers));
 
@@ -1412,24 +1445,23 @@ define([
         }
 
         var self = this;
+        var ch = this._channel;
         var p = async.newPromiseAndWriters();
+        var p1 = Promise.resolve(ch);
 
-        if (include.intersect(this._taskLeave).size || include.intersect(this._taskExclude).size) {
-            // members ignore being excluded until we kick them from the channel. so
-            // we can't reinclude them until we have done so; otherwise they don't
-            // clear their own cryptographic state.
-            throw new Error("cannot include someone that we must (by protocol) exclude/leave first");
+        // By protocol, leave users in taskLeave before trying to re-include them
+        _assert(!include.intersect(this._taskExclude).size);
+        var to_leave = include.intersect(this._taskLeave);
+        if (to_leave.size) {
+            p1 = p1.then(ch.execute.bind(ch, { leave: to_leave }));
         }
 
-        var p1;
+        // By protocol, enter users before trying to include them
         if (include.size) {
-            p1 = this._channel.execute({ enter: include });
-        } else {
-            p1 = Promise.resolve(true);
+            p1 = p1.then(ch.execute.bind(ch, { enter: include }));
         }
-        p1.then(
-            this._proposeGreetInit.bind(this, include, exclude)
-        ).catch(p.reject);
+
+        p1 = p1.then(this._proposeGreetInit.bind(this, include, exclude));
 
         // TODO(xl): [D] this could be resolved more intelligently, e.g. with PromisingSet
         this._events.subscribe(SNMembers).untilTrue(function(evt) {
@@ -1438,6 +1470,8 @@ define([
                 return true;
             }
         });
+
+        p1.catch(p.reject);
         return p.promise;
     };
 
@@ -1454,15 +1488,15 @@ define([
         }
 
         var self = this;
+        var ch = this._channel;
         var p = async.newPromiseAndWriters();
+        var p1 = Promise.resolve(ch);
 
-        var p1;
-        if (this._channel.curMembers()) {
-            p1 = Promise.resolve(this._channel.curMembers());
-        } else {
-            p1 = this._channel.execute({ enter: true });
+        if (!this._channel.curMembers()) {
+            p1 = p1.then(ch.execute.bind(ch, { enter: true }));
         }
-        p1.then(function() {
+
+        p1 = p1.then(function() {
             var curMembers = self._channel.curMembers();
             if (curMembers && curMembers.size > 1) {
                 // if it's not empty, wait for someone to invite us
@@ -1478,8 +1512,9 @@ define([
                 // no session membership change, just finish this operation.
                 p.resolve(self);
             }
-        }).catch(p.reject);
+        });
 
+        p1.catch(p.reject);
         return p.promise;
     };
 
@@ -1559,10 +1594,13 @@ define([
             throw new Error("not implemented");
 
         } else if ("include" in action || "exclude" in action) {
-            var include = action.include;
-            var exclude = action.exclude;
-            if (include.has(this._owner) || exclude.has(this._owner)) {
-                throw new Error("cannot include/exclude yourself");
+            var curMembers = this.curMembers();
+            var diff = curMembers.diff(curMembers.patch([action.include, action.exclude]));
+            var include = diff[0], exclude = diff[1];
+            if (exclude.has(this._owner)) {
+                throw new Error("cannot exclude yourself");
+            } else if (!include.size && !exclude.size) {
+                return Promise.resolve(true);
             }
             return this._runOwnOperation(new OwnOp("m", include, exclude),
                 this._changeMembership.bind(this, include, exclude));

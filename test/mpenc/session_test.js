@@ -515,16 +515,6 @@ define([
             }).then(function() {
                 assertMembers(["51", "53"], s1, s3);
                 assertSessionState("COS_", s1, s3);
-                if (s1._channel.curMembers().has("52")) {
-                    // wait for 52 to be kicked from the channel; otherwise we can't include them
-                    // according to restrictions mentioned in msg-notes.
-                    // at time of writing, only some browsers follow this code path
-                    assert.throws(exec.bind(null, s1, { include: ["52"] }));
-                    return async.timeoutPromise(testTimer, 100);
-                } else {
-                    return Promise.resolve(true);
-                }
-            }).then(function() {
                 return exec(s1, { include: ["52"] });
             }).then(function() {
                 assertMembers(["51", "52", "53"], s1, s2, s3, server);
