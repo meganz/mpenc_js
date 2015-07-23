@@ -189,7 +189,7 @@ define([
                 tryMe: this._tryAcceptTry.bind(this),
                 cleanup: this._tryAcceptCleanup.bind(this),
             });
-        this._tryAccept = new TrialBuffer('try-accept for ' + this._sId, tryAccept);
+        this._tryAccept = new TrialBuffer('try-accept for ' + this.toString(true), tryAccept);
 
         this._fin = new Observable();
         this._pubtxt = new Map(); /* ciphertxt cache, mId->pubtxt and pubtxt->mId*/
@@ -259,8 +259,9 @@ define([
     /**
      * @returns {string} A short summary of this session.
      */
-    SessionBase.prototype.toString = function() {
-        return this._owner + ":" + btoa(this._sId.substring(0, 3)) + ":[" + this.curMembers().toArray() + "]";
+    SessionBase.prototype.toString = function(short) {
+        return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
+            (short ? "" : ":[" + this.curMembers().toArray() + "]");
     };
 
     // "implements" StateMachine
@@ -714,16 +715,19 @@ define([
 
         // sub-session send/recv logic
         cancels.push(this._channel.onRecv(this._recv.bind(this)));
-        this._sessionRecv = new Observable(); // for sub-sessions to listen on, filters out greeting packets
+        this._sessionRecv = new Observable(); // for sub-sessions to listen on; filters out greeter/control packets
         var tryDecrypt = new TrialTimeoutTarget(
             this._timer, this._flowctl.getBroadcastLatency(),
             this._tryDecryptTimeout.bind(this),
             {
                 maxSize: this._flowctl.asynchronity.bind(this._flowctl, this),
-                paramId: function(recv_in) { return utils.sha256(recv_in.pubtxt); },
+                paramId: function(recv_in) {
+                    return "ccId" in recv_in ? String(recv_in.ccId) : utils.sha256(recv_in.pubtxt);
+                },
                 tryMe: this._tryDecryptTry.bind(this)
             });
-        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this.sId, tryDecrypt);
+        this._tryDecrypt = new TrialBuffer('try-decrypt for ' + this.toString(true), tryDecrypt);
+        this._ccId = 0;
 
         // global ops
         this._serverOrder = new ServerOrder();
@@ -739,6 +743,14 @@ define([
         this._cancel = async.combinedCancel(cancels);
     };
 
+    /**
+     * @returns {string} A short summary of this session.
+     */
+    HybridSession.prototype.toString = function(short) {
+        return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
+            (short ? "" : ":[" + this.curMembers().toArray() + "]");
+    };
+
     /* Summary of the internal state of the session.
      *
      * "Unstable" means that we are expecting the state to change automatically
@@ -750,10 +762,12 @@ define([
         if (!this._channel.curMembers()) {
             _assert(!this._serverOrder.isSynced());
             _assert(!this._curSession);
+            //_assert(!this._greeting); // fails because _clearGreeting is called asynchronously >:[
             // Not in the channel. Stable.
             return "cos_";
         } else if (!this._serverOrder.isSynced()) {
             _assert(!this._curSession);
+            _assert(!this._greeting);
             // In the channel, ServerOrder unsynced. Unstable; others should
             // cause us to be synced later, expecting COsj.
             return "Cos_";
@@ -761,18 +775,16 @@ define([
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
                 _assert(this._channel.curMembers().equals(this._ownSet));
+                _assert(!this._greeting);
                 // Stable; we just entered the channel and we're the only ones here.
                 return "COsJ";
             } else {
                 // Unstable; one of:
                 // - (greeting !== null): we entered the channel, and just
                 //   accepted a greeting, but it's not yet complete -> COS_
-                // - (greeting === null &! serverOrder.isSynced()): we entered
-                //   the channel, and have not yet synced with others -> COsJ
-                // - (greeting === null && serverOrder.isSynced()): we just
-                //   completed a _changeMembership that implicitly excluded
-                //   everyone else, but we haven't yet left the channel, so as
-                //   to wait for consistency -> cos_
+                // - (greeting === null): we just completed a _changeMembership
+                //   that implicitly excluded everyone else, but we haven't yet
+                //   left the channel, so as to wait for consistency -> cos_
                 return "COsj";
             }
         } else {
@@ -793,6 +805,8 @@ define([
         this._greetingCancel();
         this._greetingCancel = null;
         this._greeting = null;
+        this._pendingGreetPP = false;
+        this._tryDecrypt.retryAll();
         if (r instanceof Error && typeof r.message === "string" &&
             r.message.indexOf("OperationIgnored:") === 0) {
             logger.info(r.message);
@@ -877,7 +891,7 @@ define([
                 this._ownOperationParam.slice());
         } else if (this._greeting) {
             logger.info("ignored tasks due to ongoing operation: " +
-                this._greeting.getMembers().toArray());
+                this._greeting.getNextMembers().toArray());
         } else if (this._ownProposalPr) {
             logger.info("ignored tasks due to ongoing own proposal: " +
                 btoa(this._ownProposalHash));
@@ -950,14 +964,14 @@ define([
         }
 
         // if we didn't leave the channel already, leave it
-        if (this._curSession === null && this._serverOrder.isSynced()) {
-            if (this._greeting === null) {
+        if (!this._curSession && this._serverOrder.isSynced()) {
+            if (!this._greeting) {
                 this._channel.send({ leave: true });
                 logger.info("requested channel leave self: " + this._owner);
             } else {
                 // we/someone is already trying to re-include us
                 // (we may or may not have left in the meantime)
-                _assert(this._greeting.getMembers().has(this._owner));
+                _assert(this._greeting.getNextMembers().has(this._owner));
             }
         }
     };
@@ -965,7 +979,7 @@ define([
     HybridSession.prototype._onGreetingComplete = function(greeting) {
         _assert(greeting === this._greeting);
         var prevMembers = greeting.getPrevMembers();
-        var newMembers = greeting.getMembers();
+        var newMembers = greeting.getNextMembers();
         var channelMembers = this._channel.curMembers();
 
         if (!newMembers.has(this._owner)) {
@@ -1030,10 +1044,13 @@ define([
 
     HybridSession.prototype._onOthersLeave = function(others) {
         this._assertConsistentTasks();
-        // TODO(xl): [!] (parallel-op) if there is an ongoing operation and any
-        // leavers are in greeting.new_members then abort the operation, with the
-        // "pseudo packet id" definition as mentioned in msg-notes. still put them
-        // in pending_exclude, though.
+        if (this._greeting && this._greeting.getNextMembers().intersect(others).size) {
+            // if there is an ongoing operation, and anyone from it leaves, then abort
+            // it, with the "pseudo packet id" definition as mentioned in msg-notes.
+            _assert(this.curMembers().equals(this._greeting.getPrevMembers()));
+            this._serverOrder.acceptLeavePacket(others, this._channel.curMembers(), this.curMembers());
+            this._greeting.fail(new Error("OperationAborted: others left the channel: " + others.toArray()));
+        }
         others.forEach(this._taskLeave.delete.bind(this._taskLeave));
         var toExclude = this.curMembers().intersect(others);
         if (toExclude.size) {
@@ -1047,26 +1064,28 @@ define([
     // Receive handlers
 
     HybridSession.prototype._recv = function(recv_in) {
-        if (this._pendingGreetingPostProcess) {
-            if (this._greeting) {
-                // TODO(xl): [!] support *non-immediate* asynchronous completion of greeting,
-                // This will be much more complex, since for correctness we must not process
-                // certain packets until this is complete. The easy & safe option is to not
-                // process *all* packets, but this has a UI cost and it is OK to process *some*,
-                // just the logic for identifying these will be a bit annoying.
-                logger.warn("processing remote packet before already-completed-greeting " +
-                    "finished all local processing! some incorrect behaviour may result.");
-            } else {
-                logger.debug("clearing pending-greeting flag");
-                this._pendingGreetingPostProcess = false;
+        if (this._pendingGreetPP) {
+            if (!("pubtxt" in recv_in)) {
+                // Tag the packet with a unique channel-control-id so trialBuffer can identify it.
+                // We don't attempt to deduplicate these messages; server is supposed to be well-behaved.
+                // We'll detect any misbehaviour later via the TODO ServerOrder consistency checks.
+                recv_in.ccId = this._ccId++;
             }
+            // TrialBuffer should not re-order greeter/control packets
+            return this._tryDecrypt.trial(recv_in, true);
+        } else {
+            return this._recvMain(recv_in, true);
         }
+    };
 
+    HybridSession.prototype._recvMain = function(recv_in, useQueue) {
         if ("pubtxt" in recv_in) {
             if (this._recvGreet(recv_in)) {
                 return true;
-            } else {
+            } else if (useQueue) {
                 return this._tryDecrypt.trial(recv_in);
+            } else {
+                return this._sessionRecv.publish(recv_in).some(Boolean);
             }
         } else {
             recv_in = channel.checkChannelControl(recv_in);
@@ -1078,8 +1097,12 @@ define([
                 this._clearOwnOperation();
                 this._clearOwnProposal();
                 if (this._greeting) {
-                    // TODO(xl): [F] (handle-error) should be done via a Greeting API
-                    this._clearGreeting();
+                    if (this._greeting.getNextMembers().has(this._owner)) {
+                        this._greeting.fail(new Error("OperationAborted: we left the channel"));
+                    } else {
+                        this._greeting.fail(new Error("OperationIgnored: we left the channel "
+                            + "during a greeting to exclude us; assuming it succeeded"));
+                    }
                 }
                 if (this._curSession) {
                     this._changeSubSession(null);
@@ -1101,27 +1124,27 @@ define([
     HybridSession.prototype._recvGreet = function(recv_in) {
         var pubtxt = recv_in.pubtxt;
         var sender = recv_in.sender;
-        var op = this._greeter.partialDecode(
-            this.curMembers(), pubtxt, sender, this._channel.curMembers());
+        var channelMembers = this._channel.curMembers();
+        var makePacketId = this._serverOrder.makePacketId.bind(this._serverOrder,
+            pubtxt, sender, channelMembers);
+        var op = this._greeter.partialDecode(this.curMembers(), pubtxt, sender, makePacketId);
         var self = this;
 
         if (op !== null) {
             if (this._serverOrder.isSynced() &&
                 op.metadata && !this.curMembers().has(op.metadata.author)) {
                 logger.info("ignored GKA request from outside of group");
-                return false;
+                return true;
             }
 
-            var pHash = utils.sha256(pubtxt);
+            var makePacketHash = utils.sha256.bind(null, pubtxt);
 
             var postAcceptInitial = function(pI, prev_pF) {
-                // TODO: [F] (handle-error) this may return null, e.g. with malicious packets
+                // TODO: [F] (handle-error) this may return null or throw, if partialDecode is too lenient
                 var greeting = self._greeter.decode(
-                    self._curGreetState, self.curMembers(), pubtxt, sender,
-                    self._channel.curMembers());
-                greeting.getMembers().forEach(self._taskLeave.delete.bind(self._taskLeave));
+                    self._curGreetState, self.curMembers(), pubtxt, sender, op.pId);
                 self._setGreeting(greeting);
-                self._maybeFinishOwnProposal(pHash, pI, prev_pF, greeting);
+                self._maybeFinishOwnProposal(makePacketHash(), pI, prev_pF, greeting);
             };
 
             var postAcceptFinal = function(pF, prev_pI) {
@@ -1134,19 +1157,20 @@ define([
                     // so we don't need this condition; however JS Promises resolve
                     // after the current tick, so clearOwnProposal has not yet run, and
                     //  _maybeFinishOwnProposal complains that prevPi doesn't match.
-                    self._maybeFinishOwnProposal(pHash, pF, prev_pI, self._greeting);
+                    self._maybeFinishOwnProposal(makePacketHash(), pF, prev_pI, self._greeting);
                 }
             };
 
             if (this._serverOrder.tryOpPacket(
-                    this._owner, op, this._channel.curMembers(), postAcceptInitial, postAcceptFinal)) {
+                    this._owner, op, channelMembers, postAcceptInitial, postAcceptFinal)) {
                 _assert(this._greeting);
                 // accepted greeting packet, deliver it and maybe complete the operation
                 var r = this._greeting.recv(recv_in);
-                _assert(r);
+                _assert(r); // TODO: [F] (handle-error) this may be false, if partialDecode is too lenient
+                this._greeting.getNextMembers().forEach(this._taskLeave.delete.bind(this._taskLeave));
                 if (!this._serverOrder.hasOngoingOp()) {
                     // if this was a final packet, greeting should complete ASAP
-                    this._pendingGreetingPostProcess = true;
+                    this._pendingGreetPP = true;
                 }
             }
             return true;
@@ -1159,24 +1183,49 @@ define([
     };
 
     HybridSession.prototype._tryDecryptTimeout = function(recv_in) {
+        // in unit tests, this sometimes throws a harmless stack trace due to
+        // recv_in actually being a ChannelControl packet; in real code this
+        // probably won't happen because the timeout should be set to a much
+        // higher value than it takes for greeting post-processing to complete.
         this._events.publish(new NotDecrypted(this.sId, recv_in.sender, recv_in.pubtxt.length));
         // TODO(xl): [D/R] maybe drop the packet too. though we already got maxsize
     };
 
-    HybridSession.prototype._tryDecryptTry = function(_, recv_in) {
-        return this._sessionRecv.publish(recv_in).some(Boolean);
+    HybridSession.prototype._tryDecryptTry = function(pending, recv_in) {
+        // control flow paths this can be called under:
+        // [1] pendingGreetPP==T: recv() -> tryDecrypt.trial()
+        // [2] pendingGreetPP==F: recv() -> recvMain(_, true) -> tryDecrypt.trial()
+        // [3] pendingGreetPP==F: clearGreeting() -> tryDecrypt.retryAll()
+        if (this._pendingGreetPP) {
+            // [1] if we're waiting for a completed greeting to finish post-processing,
+            // then only process session packets, which don't interfere with that.
+            if ("pubtxt" in recv_in) {
+                return this._sessionRecv.publish(recv_in).some(Boolean);
+            } else {
+                return false;
+            }
+        } else if (pending) {
+            // [2, 3] we might be acting on queued greeter/control packets.
+            // for [2] this is inefficient (but correct). we should do else{}
+            // instead, but detecting that would add too much complexity
+            return this._recvMain(recv_in, false);
+        } else {
+            // [2] only session packets should reach this code path
+            _assert("pubtxt" in recv_in);
+            return this._sessionRecv.publish(recv_in).some(Boolean);
+        }
     };
 
     HybridSession.prototype._changeSubSession = function(greeting) {
         // Rotate to a new sub session with a different membership.
         // If greeting is null, this means we left the channel and the session.
-        _assert(greeting === null || !this._curSession ||
+        _assert(!greeting || !this._curSession ||
             this.curMembers().equals(greeting.getPrevMembers()));
 
         var ownSet = this._ownSet;
         this._channelJustSynced = false;
-        if (greeting && greeting.getMembers().size === 1) {
-            _assert(greeting.getMembers().equals(ownSet));
+        if (greeting && greeting.getNextMembers().size === 1) {
+            _assert(greeting.getNextMembers().equals(ownSet));
             greeting = null;
         }
 
@@ -1220,7 +1269,7 @@ define([
         logger.info("changed session: " + (this._prevSession ? this._prevSession.toString() : null) +
             " -> " + (this._curSession ? this._curSession.toString() : null));
         var oldMembers = this._prevSession ? this._prevSession.curMembers() : ownSet;
-        var newMembers = greeting ? greeting.getMembers() : ownSet;
+        var newMembers = greeting ? greeting.getNextMembers() : ownSet;
         var diff = oldMembers.diff(newMembers);
         this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1]));
 
@@ -1230,7 +1279,7 @@ define([
     HybridSession.prototype._makeSubSession = function(greeting) {
         var subSId = greeting.getResultSId();
         var greetState = greeting.getResultState();
-        var members = greeting.getMembers();
+        var members = greeting.getNextMembers();
         var msgSecurity = this._makeMessageSecurity(greetState);
 
         var sess = new SessionBase(this._context, subSId, members, msgSecurity);

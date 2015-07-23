@@ -506,9 +506,12 @@ define([
      * without having been accepted by a trial function. For example, to clean
      * up secrets that were stored in sensitive memory.
      *
+     * If a param object is removed from the queue after being accepted by
+     * a trial function, this method is <b>not</b> called.
+     *
      * @param replace {boolean} <code>true</code> if the param is being removed
-     *      due to an incoming duplicate, or <code>false</code> if it is being
-     *      removed entirely.
+     *      due to an incoming duplicate (which may be stored in another part
+     *      of memory), or <code>false</code> if it is being removed entirely.
      * @param param {object}
      *     The object that was removed or replaced.
      */
@@ -550,11 +553,8 @@ define([
         this.name = name || '';
         this.target = target;
         this.drop = drop === undefined ? true : drop;
-        this.cleanup = target.cleanup ? target.cleanup.bind(target) : function() {};
-        this._buffer = {};
-        // We're using this following array to keep the order within the items
-        // in the buffer.
-        this._bufferIDs = [];
+        this._cleanup = target.cleanup ? target.cleanup.bind(target) : function() {};
+        this._buffer = new Map();
     };
     ns.TrialBuffer = TrialBuffer;
 
@@ -564,7 +564,64 @@ define([
      * @returns {integer}
      */
     TrialBuffer.prototype.length = function() {
-        return this._bufferIDs.length;
+        return this._buffer.size;
+    };
+
+    /**
+     * Get the currently queued items.
+     *
+     * @returns {Array}
+     */
+    TrialBuffer.prototype.queue = function() {
+        return iteratorToArray(this._buffer.values());
+    };
+
+    /**
+     * Retry all the currently queued items.
+     *
+     * <p>One should not need to call this in most circumstances, unless state
+     * changes can happen outside of <code>trial()</code>, that could make
+     * previously queued items acceptable by the trial function even though
+     * they weren't accepted before.</p>
+     */
+    TrialBuffer.prototype.retryAll = function() {
+        // This is a bit inefficient when params have a known dependency
+        // structure such as in the try-accept buffer; however we think the
+        // additional complexity is not worth the minor performance gain.
+        // Also, the try-decrypt buffer does not have such structure and
+        // there we *have* to brute-force it.
+        var hadSuccess = true;
+        var self = this;
+        var tryAndDelete = function(item, id) {
+            if (self.target.tryMe(true, item)) {
+                self._buffer.delete(id);
+                logger.debug(self.name + ' unstashed ' + btoa(id));
+                hadSuccess = true;
+            }
+        };
+        while (hadSuccess) {
+            hadSuccess = false;
+            this._buffer.forEach(tryAndDelete);
+        }
+    };
+
+    TrialBuffer.prototype._dropExtra = function() {
+        var maxSize = this.target.maxSize();
+        if (this._buffer.size > maxSize) {
+            if (this.drop) {
+                var droppedID = this._buffer.keys().next().value;
+                var dropped = this._buffer.get(droppedID);
+                this._buffer.delete(droppedID);
+                this._cleanup(false, dropped);
+                logger.warn(this.name + ' DROPPED ' + btoa(droppedID) +
+                            ' at size ' + maxSize + ', potential data loss.');
+                logger.warn(dropped);
+            } else {
+                logger.info(this.name + ' is '
+                            + (this._buffer.size - maxSize)
+                            + ' items over expected capacity.');
+            }
+        }
     };
 
     /**
@@ -572,68 +629,42 @@ define([
      * If it succeeds, also try to accept previously-stashed parameters.
      *
      * @param param {object}
-     *     Parameter to be tried.
+     *      Parameter to be tried.
+     * @param [keepCurrent] {boolean}
+     *      Whether to keep it at its current place in the queue (if it is
+     *      already there). Default: <code>false</code>, i.e. move to front.
      * @returns {boolean}
-     *     `true` if the processing succeeded.
+     *      Whether the processing succeeded.
      */
-    TrialBuffer.prototype.trial = function(param) {
+    TrialBuffer.prototype.trial = function(param, keepCurrent) {
+        keepCurrent = keepCurrent || false;
         var paramID = this.target.paramId(param);
-        var pending = this._buffer.hasOwnProperty(paramID);
-        // Remove from buffer, if already there.
+        var pending = this._buffer.has(paramID);
+        var olddupe = undefined;
         if (pending === true) {
-            var olddupe = this._buffer[paramID];
-            // Remove entry from _buffer and _paramIDs.
-            delete this._buffer[paramID];
-            this._bufferIDs.splice(this._bufferIDs.indexOf(paramID), 1);
-            var olddupeID = this.target.paramId(olddupeID);
-            if ((olddupeID !== paramID)
-                    || (this._bufferIDs.indexOf(olddupeID) >= 0)) {
-                throw new Error('Parameter was not removed from buffer.');
+            olddupe = this._buffer.get(paramID);
+            var olddupeID = this.target.paramId(olddupe);
+            if (olddupeID !== paramID) {
+                throw new Error('paramId gave inconsistent results');
             }
-            this.cleanup(true, olddupe);
         }
 
-        // Apply `tryMe`.
         if (this.target.tryMe(pending, param)) {
-            // This is a bit inefficient when params have a known dependency
-            // structure such as in the try-accept buffer; however we think the
-            // additional complexity is not worth the minor performance gain.
-            // Also, the try-decrypt buffer does not have such structure and
-            // there we *have* to brute-force it.
-            var hadSuccess;
-            while (hadSuccess !== false) {
-                hadSuccess = false;
-                for (var i in this._bufferIDs) {
-                    var itemID = this._bufferIDs[i];
-                    var item = this._buffer[itemID];
-                    if (this.target.tryMe(false, item)) {
-                        delete this._buffer[itemID];
-                        this._bufferIDs.splice(this._bufferIDs.indexOf(itemID), 1);
-                        logger.debug(this.name + ' unstashed ' + btoa(itemID));
-                        hadSuccess = true;
-                    }
-                }
-            }
+            this._buffer.delete(paramID);
+            this.retryAll();
             return true;
         } else {
-            var verb = pending ? ' restashed ' : ' stashed ';
-            this._buffer[paramID] = param;
-            this._bufferIDs.push(paramID);
-            logger.debug(this.name + verb + paramID);
-            var maxSize = this.target.maxSize();
-            if (this._bufferIDs.length > maxSize) {
-                if (this.drop) {
-                    var droppedID = this._bufferIDs.shift();
-                    var dropped = this._buffer[droppedID];
-                    delete this._buffer[droppedID];
-                    this.cleanup(false, dropped);
-                    logger.warn(this.name + ' DROPPED ' + btoa(droppedID) +
-                                ' at size ' + maxSize + ', potential data loss.');
-                } else {
-                    logger.info(this.name + ' is '
-                                + (this._bufferIDs.length - maxSize)
-                                + ' items over expected capacity.');
+            if (pending) {
+                if (!keepCurrent) {
+                    this._buffer.delete(paramID);
+                    this._cleanup(true, olddupe);
+                    this._buffer.set(paramID, param);
+                    logger.debug(this.name + ' restashed ' + btoa(paramID));
                 }
+            } else {
+                this._buffer.set(paramID, param);
+                logger.debug(this.name + ' stashed ' + btoa(paramID));
+                this._dropExtra();
             }
             return false;
         }

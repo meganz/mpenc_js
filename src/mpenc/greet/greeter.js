@@ -783,18 +783,6 @@ define([
     };
 
 
-    ns._makePid = function(packet, sender, channelMembers) {
-        // Calculate the "packet-id" of a packet received from the server. The
-        // reasoning behind this definition is given in msg-notes, appendix 5
-        // "Hybrid ordering".
-        _assert(typeof sender === "string");
-        _assert(channelMembers instanceof ImmutableSet);
-        _assert(channelMembers.has(sender));
-        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
-        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
-    };
-
-
     /**
      * Metadata about the context of a greeting.
      *
@@ -962,18 +950,18 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
-     *      The unauthenticated membership of the group transport channel at
-     *      the time that the message was received.
+     * @param makePacketId {string}
+     *      0-arg factory to generate the packet-id for this packet. Should
+     *      only be called if absolutely necessary, for efficiency, e.g. not
+     *      called in most cases when returning <code>null</code>.
      * @returns {?module:mpenc/greet/greeter.GreetingSummary}
      */
-    Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, channelMembers) {
+    Greeter.prototype.partialDecode = function(prevMembers, pubtxt, from, makePacketId) {
         var message = codec.decodeWirePacket(pubtxt);
         if (message.type !== codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE) {
             return null;
         }
         var rest = message.content;
-        var pId = ns._makePid(rest, from, channelMembers);
 
         rest = codec.popTLVMaybe(rest, codec.TLV_TYPE.MESSAGE_SIGNATURE, function() {});
         rest = codec.popStandardFields(rest, codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE);
@@ -999,7 +987,7 @@ define([
            mType === ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP ||
            mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length > 1) {
             ns._popTLVMetadata(rest, source, true, function(value) {
-                greetingSummary = GreetingSummary.create(pId, value, null, members);
+                greetingSummary = GreetingSummary.create(makePacketId(), value, null, members);
             });
         }
         // Downflow confirm messages require testing for final messages.
@@ -1007,18 +995,19 @@ define([
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
-                _logIgnored(this.id, pId, "it is a downflow message but there is no current Greeting");
+                _logIgnored(this.id, makePacketId(), "it is a downflow message but there is no current Greeting");
                 return null;
             }
             // Test if this is the final message.
-            if (this.currentGreeting._expectsFinalMessage(pId, source)) {
-                greetingSummary = GreetingSummary.create(pId, null, this.currentPi, members);
+            if (this.currentGreeting._expectsFinalMessage(makePacketId, source)) {
+                greetingSummary = GreetingSummary.create(makePacketId(), null, this.currentPi, members);
             }
         }
         // Refresh and exclude-everyone-except-self messages are initial+final packets.
         else if (mType === ns.GREET_TYPE.EXCLUDE_AUX_INITIATOR_DOWN && members.length === 1 ||
            mType === ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN) {
             ns._popTLVMetadata(rest, source, true, function(value) {
+                var pId = makePacketId();
                 greetingSummary = GreetingSummary.create(pId, value, pId, members);
             });
         }
@@ -1125,19 +1114,17 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
-     *      The unauthenticated membership of the group transport channel at
-     *      the time that the message was received.
+     * @param pId {string}
+     *      Packet-id of this packet, already calculated earlier.
      * @returns {module:mpenc/greet/greeter.Greeting}
      * @throws This method (and future versions of it) tries to avoid throwing
      *      an error here, and instead these are detected during partialDecode.
      *      However, if this does need to occur for whatever reason, then the
      *      caller will treat this as an *immediate failure* of the operation.
      */
-    Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, channelMembers) {
+    Greeter.prototype.decode = function(prevGreetStore, prevMembers, pubtxt, from, pId) {
         var message = codec.decodeWirePacket(pubtxt);
         var pHash = ns._makePacketHash(message.content);
-        var pId = ns._makePid(message.content, from, channelMembers);
 
         // This is our message, so reuse the already-created greeting.
         if (this.proposedGreeting && this.proposalHash === pHash) {
@@ -1323,13 +1310,14 @@ define([
         this.metadata = null;
         this._metadataIsAuthenticated = false;
         this._recvOwnAuthMessage = false;
+        this._nextMembers = null;
 
         var self = this;
-        this._fulfilled = false;
-        this._promise = new Promise(function(resolve, reject) {
-            self._resolve = resolve;
-            self._reject = reject;
-        });
+        this._finished = 0; // 0 = pending,
+        // 1 = completed (finished with success, or fulfilled in JS-Promise terminology)
+        // -1 = failed (finished with failure, or rejected in JS-Promise terminology)
+        this._abortReason = null;
+        this._promise = async.newPromiseAndWriters();
 
         // We can keep the old state around for further use.
         this.prevState = store;
@@ -1347,7 +1335,7 @@ define([
     };
 
     /**
-     * Get the members for the previous Greeting.
+     * Members in the previous sub-session that this Greeting was started from.
      *
      * @returns {module:mpenc/helper/struct.ImmutableSet} The members of the
      *      previous Greeting.
@@ -1358,13 +1346,15 @@ define([
     };
 
     /**
-     * Get the new members for this Greeting.
+     * Members in the next session that this Greeting is trying to reach.
      *
      * @returns {module:mpenc/helper/struct.ImmutableSet} The members for this
      *      Greeting.
+     * @throws If called before recv() has accepted the initial packet.
      */
-    Greeting.prototype.getMembers = function() {
-        return new ImmutableSet(this.askeMember.members);
+    Greeting.prototype.getNextMembers = function() {
+        _assert(this._nextMembers); // not set until we got first packet
+        return this._nextMembers;
     };
 
     /**
@@ -1393,9 +1383,7 @@ define([
      * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultState = function () {
-        if (!this._fulfilled) {
-            throw new Error("Greeting not yet finished");
-        }
+        this._checkComplete();
         return new GreetStore(
             this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
@@ -1409,14 +1397,20 @@ define([
      * @throws If the operation is not yet complete.
      */
     Greeting.prototype.getResultSId = function () {
-        if (this._opState !== ns.STATE.READY) {
-            throw new Error("Greeting not yet finished");
-        }
+        this._checkComplete();
         return this.askeMember.sessionId;
     };
 
+    Greeting.prototype._checkComplete = function() {
+        if (!this._finished) {
+            throw new Error("OperationInProgress");
+        } else if (this._finished === -1) {
+            throw new Error("OperationFailed: caused by " + this._abortReason.stack + "\nre-thrown at: ");
+        }
+    };
+
     Greeting.prototype.getPromise = function () {
-        return this._promise;
+        return this._promise.promise;
     };
 
     Greeting.prototype._updateOpState = function(state) {
@@ -1426,7 +1420,8 @@ define([
         this._opState = state;
     };
 
-    Greeting.prototype._assertState = function(valid, message) {
+    Greeting.prototype._assertStartState = function(valid, message) {
+        _assert(!this._finished);
         // Check the operation state against an array of valid values.
         var state = this._opState;
         _assert(valid.some(function(v) {
@@ -1441,7 +1436,7 @@ define([
             message,
             this.getEphemeralPrivKey(),
             this.getEphemeralPubKey());
-        var recipients = message.dest ? new ImmutableSet([message.dest]) : this.getMembers();
+        var recipients = message.dest ? new ImmutableSet([message.dest]) : this.getNextMembers();
         this._send.publish({ pubtxt: codec.encodeWirePacket(payload), recipients: recipients });
         if (state !== undefined) {
             this._updateOpState(state);
@@ -1465,7 +1460,7 @@ define([
      *      The message to commence the intial key exchange.
      */
     Greeting.prototype.start = function(otherMembers) {
-        this._assertState([ns.STATE.NULL],
+        this._assertStartState([ns.STATE.NULL],
                 'start() can only be called from an uninitialised state.');
         _assert(otherMembers && otherMembers.length !== 0, 'No members to add.');
 
@@ -1476,6 +1471,7 @@ define([
         message.greetType = ns.GREET_TYPE.INIT_INITIATOR_UP;
 
         this._updateOpState(ns.STATE.INIT_UPFLOW);
+        this._nextMembers = new ImmutableSet(otherMembers.concat([this.id]));
         return message;
     };
 
@@ -1490,16 +1486,16 @@ define([
      *      The message to commence inclusion.
      */
     Greeting.prototype.include = function(includeMembers) {
-        this._assertState([ns.STATE.READY],
+        this._assertStartState([ns.STATE.READY],
                 'include() can only be called from a ready state.');
         _assert(includeMembers && includeMembers.length !== 0, 'No members to add.');
-        this.includeMembers = includeMembers;
         var cliquesMessage = this.cliquesMember.akaJoin(includeMembers);
         var askeMessage = this.askeMember.join(includeMembers);
 
         var message = this._mergeMessages(cliquesMessage, askeMessage);
         message.greetType = ns.GREET_TYPE.INCLUDE_AUX_INITIATOR_UP;
         this._updateOpState(ns.STATE.AUX_UPFLOW);
+        this._nextMembers = new ImmutableSet(this.prevState.members.concat(includeMembers));
         return message;
     };
 
@@ -1514,7 +1510,7 @@ define([
      *      The message to commence exclusion.
      */
     Greeting.prototype.exclude = function(excludeMembers) {
-        this._assertState([ns.STATE.READY],
+        this._assertStartState([ns.STATE.READY],
                 'exclude() can only be called from a ready state.');
         _assert(excludeMembers && excludeMembers.length !== 0, 'No members to exclude.');
         _assert(excludeMembers.indexOf(this.id) < 0,
@@ -1528,7 +1524,6 @@ define([
 
         // We need to update the session state.
         this.sessionId = this.askeMember.sessionId;
-        this.members = this.askeMember.members;
         this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
         this.groupKey = this.cliquesMember.groupKey;
 
@@ -1536,6 +1531,7 @@ define([
         // but now this case is handled better by Greeter.partialDecode
         this._updateOpState(
             this.askeMember.isSessionAcknowledged() ? ns.STATE.READY : ns.STATE.AUX_DOWNFLOW);
+        this._nextMembers = new ImmutableSet(this.prevState.members).subtract(new ImmutableSet(excludeMembers));
         return message;
     };
 
@@ -1574,7 +1570,7 @@ define([
      *
      */
     Greeting.prototype.refresh = function() {
-        this._assertState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
+        this._assertStartState([ns.STATE.READY, ns.STATE.INIT_DOWNFLOW, ns.STATE.AUX_DOWNFLOW],
                 'refresh() can only be called from a ready or downflow states.');
         var cliquesMessage = this.cliquesMember.akaRefresh();
 
@@ -1582,6 +1578,7 @@ define([
         message.greetType = ns.GREET_TYPE.REFRESH_AUX_INITIATOR_DOWN;
         // We need to update the group key.
         this.groupKey = this.cliquesMember.groupKey;
+        this._nextMembers = new ImmutableSet(this.prevState.members);
         return message;
     };
 
@@ -1590,6 +1587,7 @@ define([
      * @inheritDoc
      */
     Greeting.prototype.recv = function(recv_in) {
+        _assert(!this._finished);
         var pubtxt = recv_in.pubtxt;
         var from = recv_in.sender;
         var message = codec.decodeWirePacket(pubtxt);
@@ -1613,13 +1611,13 @@ define([
             if (decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
                 _logIgnored(this.id, pHash, "(pHash) it has metadata but greeting is already started");
-                return false;
+                return true; // TODO(xl): tweak as per "identify" comment
             }
         } else {
             if (!decodedMessage.metadata) {
                 var pHash = ns._makePacketHash(content);
                 _logIgnored(this.id, pHash, "(pHash) it has no metadata but greeting not yet started");
-                return false;
+                return true; // TODO(xl): tweak as per "identify" comment
             }
             this.metadata = decodedMessage.metadata;
             // TODO(xl): #2350 need to tweak ske to verify metadata, e.g. by hashing
@@ -1629,7 +1627,7 @@ define([
         var prevState = this._opState;
         var result = this._processMessage(decodedMessage);
         if (result === null) {
-            return false;
+            return true; // TODO(xl): tweak as per "identify" comment
         }
         if (result.decodedMessage) {
             this._encodeAndPublish(result.decodedMessage);
@@ -1659,7 +1657,13 @@ define([
         if (this._opState === ns.STATE.QUIT) {
             // We're not par of this session, get out of here.
             logger.debug("Ignoring message as we're in state QUIT.");
+            // TODO(xl): identify if this message belongs to this greeting or not
+            // and in recv(), distinguish between these two cases (return true vs false)
             return null;
+        }
+
+        if (!this._nextMembers) {
+            this._nextMembers = new ImmutableSet(message.members);
         }
 
         // State transitions.
@@ -1668,12 +1672,18 @@ define([
         // If I'm not part of it any more, go and quit.
         if (message.members && (message.members.length > 0)
                 && (message.members.indexOf(this.id) === -1)) {
-            if (this._opState !== ns.STATE.QUIT) {
-                return { decodedMessage: null,
-                         newState: ns.STATE.QUIT };
-            } else {
-                return null;
+            _assert(this._opState !== ns.STATE.QUIT);
+            if (message.members.length === 1) {
+                // 1-member exclude-operations complete in 1 packet; we know this even
+                // if we're the one being excluded - partialDecode recognises this and
+                // sets the packet as "final", so we must be consistent here and resolve
+                // the Greeting too. otherwise HybridSession gets confused (rightly so)
+                _assert(!this._finished);
+                this._promise.resolve(this);
+                this._finished = 1;
             }
+            return { decodedMessage: null,
+                     newState: ns.STATE.QUIT };
         }
 
         // Ignore the message if it is from me.
@@ -1771,18 +1781,20 @@ define([
     Greeting.prototype._maybeFulfill = function() {
         // Check if the operation is complete.
         // If so, set public variables and fire hooks (e.g. promises)
-        var isRefresh = this.getPrevMembers().equals(this.getMembers());
+        var isRefresh = this.getPrevMembers().equals(this.getNextMembers());
         if (isRefresh || this.askeMember.isSessionAcknowledged() && this._recvOwnAuthMessage) {
+            // check that we got where we wanted to go
+            _assert(this.getNextMembers().equals(new ImmutableSet(this.askeMember.members)));
+
             // We have seen and verified all broadcasts from others.
             // Let's update our state information.
             this.sessionId = this.askeMember.sessionId;
-            this.members = this.askeMember.members;
             this.ephemeralPubKeys = this.askeMember.ephemeralPubKeys;
             this.groupKey = this.cliquesMember.groupKey;
 
-            _assert(!this._fulfilled);
-            this._resolve(this);
-            this._fulfilled = true;
+            _assert(!this._finished);
+            this._promise.resolve(this);
+            this._finished = 1;
 
             return true;
         }
@@ -1790,7 +1802,26 @@ define([
     };
 
 
-    Greeting.prototype._expectsFinalMessage = function(pId, source) {
+    /**
+     * Fail the greeting, and errback any Deferreds passed to clients.
+     *
+     * This is a response method, and should *not* send out any packets.
+     *
+     * This provides a way for an external component that manages this one,
+     * to fail the operation for reasons that are external to the specifics of
+     * the membership operation. For example, if we have left the channel, or
+     * if another member has also left the channel.
+     */
+    Greeting.prototype.fail = function(reason) {
+        _assert(reason instanceof Error);
+        _assert(!this._finished);
+        this._promise.reject(reason);
+        this._abortReason = reason;
+        this._finished = -1;
+    };
+
+
+    Greeting.prototype._expectsFinalMessage = function(makePacketId, source) {
         // check to see if message matches what the current greeting is expecting
         var yetToAuthenticate = this.askeMember.yetToAuthenticate();
         _assert(yetToAuthenticate.length > 0 || !this._recvOwnAuthMessage,
@@ -1804,7 +1835,8 @@ define([
             if (source === yetToAuthenticate[0]) {
                 return true;
             }
-            _logIgnored(this.id, pId, "looks-like final message but not from expected source: " + source + " vs expected " + yetToAuthenticate[0]);
+            _logIgnored(this.id, makePacketId(), "looks like final message but not from expected source: "
+                + source + " vs expected " + yetToAuthenticate[0]);
         }
 
         return false;

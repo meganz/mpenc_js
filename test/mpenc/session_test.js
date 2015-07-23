@@ -96,7 +96,7 @@ define([
                     sId: btoa(sId),
                     author: author,
                     parents: parents.toArray().map(btoa),
-                    recipients: recipients.toArray().map(btoa),
+                    recipients: recipients.toArray(),
                     sectxt: btoa(sectxt)
                 });
                 return [pubtxt, {
@@ -106,13 +106,16 @@ define([
                 }];
             },
             decryptVerify: function(ts, pubtxt, sender) {
+                if (pubtxt.charAt(0) !== "{") {
+                    throw new Error("PacketRejected");
+                }
                 var body = JSON.parse(pubtxt);
                 if (atob(body.sId) !== sId) {
-                    return false;
+                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
                 }
                 return [body.author,
                     body.parents.map(atob),
-                    body.recipients.map(atob),
+                    body.recipients,
                     atob(body.sectxt), {
                         commit: stub(),
                         destroy: stub(),
@@ -396,14 +399,12 @@ define([
     };
 
     describe("HybridSession test", function() {
-        // TODO(xl): [!] try-decrypt is dropping lots of things, yet all tests pass. figure out why.
-
         var assertSessionStable = function() {
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
-                assert.strictEqual(sess._ownOperationPr, null);
-                assert.strictEqual(sess._greeting, null);
-                assert.strictEqual(sess._ownProposalPr, null);
+                assert.strictEqual(sess._ownOperationPr, null, sess._owner + " should not have own operation");
+                assert.strictEqual(sess._greeting, null, sess._owner + " should not have greeting");
+                assert.strictEqual(sess._ownProposalPr, null, sess._owner + " should not have own proposal");
                 assert.ok(!sess._serverOrder.isSynced() || !sess._serverOrder.hasOngoingOp());
             }
         };

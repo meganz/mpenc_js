@@ -83,6 +83,10 @@ define([
         return this.opFinal[this.opFinal.length - 1];
     };
 
+    ServerOrder.prototype.prevPi = function() {
+        return this.opInitial[this.opInitial.length - 1];
+    };
+
     /**
      * @returns {boolean} Whether we have synced with the existing server order.
      */
@@ -108,6 +112,28 @@ define([
         return utils.sha256(prevCh + pId + ptype);
     };
 
+    /**
+     * Calculate the packet-id of a packet received from the server.
+     *
+     * @param packet {string} Unauthenticated data received from the transport.
+     * @param sender {string} Unauthenticated sender of the message.
+     * @param channelMembers {module:mpenc/helper/struct.ImmutableSet}
+     *      Unauthenticated membership of the group transport channel at the
+     *      time that the message was received, i.e. everyone that is expected
+     *      to have received this message.
+     * @returns {string} packet id.
+     */
+    ServerOrder.prototype.makePacketId = function(packet, sender, channelMembers) {
+        // Calculate the "packet-id" of a packet received from the server. The
+        // reasoning behind this definition is given in msg-notes, appendix 5
+        // "Hybrid ordering".
+        _assert(typeof sender === "string");
+        _assert(channelMembers instanceof ImmutableSet);
+        _assert(channelMembers.has(sender));
+        var otherRecipients = channelMembers.subtract(new ImmutableSet([sender]));
+        return utils.sha256(sender + "\n" + otherRecipients.toArray().join("\n") + "\n\n" + packet);
+    };
+
     ServerOrder.prototype._shouldSyncWith = function(pI, prevPf, forUs) {
         // whether we can accept this as the first packet for our chain
         if (!forUs) {
@@ -128,9 +154,9 @@ define([
             return false;
         } else if (this.hasOngoingOp()) {
             logger.info("rejected pI " + btoa(pId) + " due to pending operation " +
-                        btoa(this.opInitial[this.opInitial.length - 1]));
+                        btoa(this.prevPi()));
             return false;
-        } else if (this.opFinal && prevPf !== this.opFinal[this.opFinal.length - 1]) {
+        } else if (this.opFinal && prevPf !== this.prevPf()) {
             logger.info("rejected pI " + btoa(pId) + " because it refers to a pF which is not the " +
                         "last accepted one " + btoa(prevPf));
             return false;
@@ -145,9 +171,9 @@ define([
             return false;
         } else if (!this.hasOngoingOp()) {
             logger.info("rejected pF " + btoa(pId) + " due to completed operation " +
-                        btoa(this.opFinal[this.opFinal.length - 1]));
+                        btoa(this.prevPf()));
             return false;
-        } else if (prevPi !== this.opInitial[this.opInitial.length - 1]) {
+        } else if (prevPi !== this.prevPi()) {
             logger.info("rejected pF " + btoa(pId) + " because it refers to a pI which is not the " +
                         "last accepted one " + btoa(prevPi));
             return false;
@@ -192,12 +218,12 @@ define([
         this.opFinal.push(pId);
     };
 
-    ServerOrder.prototype._updateServerOrder = function(pId, ptype, sessionRecipients) {
+    ServerOrder.prototype._updateServerOrder = function(pId, ptype, expectToAck) {
         // update our tracking of packet ids and chain hashes, and set
         // expectations that we'll verify the consistent of them with others
         this.packetId.push(pId);
         this.chainHash.push(this.makeChainHash(this.prevCh(), pId, ptype));
-        this.chainUnacked.push(ImmutableSet.from(sessionRecipients));
+        this.chainUnacked.push(ImmutableSet.from(expectToAck));
         _assert(this.packetId.length === this.chainHash.length);
     };
 
@@ -274,6 +300,17 @@ define([
         _assert(this.hasOngoingOp() === (op.prevPi === null));
         this._updateServerOrder(pId, op.packetType(), op.members);
         return accepted;
+    };
+
+    ServerOrder.prototype.acceptLeavePacket = function(leavers, channelMembers, sessionMembers) {
+        _assert(this.hasOngoingOp());
+        // fake packet-id as defined by msg-notes, appendix 5
+        var pId = this._serverOrder.makePacketId(
+            "\xffleave " + this._serverOrder.prevPi() + "\n" + leavers.toArray(),
+            "__server__", channelMembers.union(new ImmutableSet(["__server__"])));
+        logger.info("accepted pF " + btoa(pId) + ", a pseudo-packet for members leaving: " + leavers.toArray());
+        this._acceptFinal(pId);
+        this._updateServerOrder(pId, "\xffleave", sessionMembers.subtract(leavers));
     };
 
     ns.ServerOrder = ServerOrder;
