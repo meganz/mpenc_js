@@ -560,14 +560,16 @@ define([
     /**
      * Execute an action, initated by an initial SendInput.
      *
-     * The exact conditions on when the action finishes is defined by the
-     * implementation.
+     * <p>The exact conditions on when the action finishes must be specified
+     * on by the particular implementation, ideally on the class or interface
+     * docstring. Unless otherwise specified, the fulfillment value for the
+     * <code>Promise</code> returned by this method, is this object itself.</p>
      *
-     * This may not be implemented for all inputs; the implementation should
-     * specify exactly which ones. If this is implemented for a given input,
+     * <p>This may not be defined for all inputs; the implementation should
+     * specify exactly which ones. If this is defined for a given input,
      * <code>send()</code> for that input should behave exactly the same as
-     * <code>return this.execute(input) !== null</code>; if not implemented
-     * then this should throw a "not implemented" error.
+     * <code>return this.execute(input) !== null</code>; if not defined
+     * then this should throw a "not implemented" error.</p>
      *
      * @method
      * @param input {SendInput} input to be handled for sending

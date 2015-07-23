@@ -267,6 +267,11 @@ define([
      * what <code>onRecv()</code> publishes, using <code>{@link
      * module:mpenc/session.Session#onEvent|onEvent}</code>.
      *
+     * <p>Implementations <em>need not</em> define <code>execute()</code> for
+     * when the input has a <code>content</code> property, but they <strong>
+     * must</strong> define it for {@link module:mpenc/session~SessionAction
+     * all other values}.</p>
+     *
      * @interface
      * @augments module:mpenc/helper/utils.ReceivingExecutor
      * @augments module:mpenc/helper/async.EventSource

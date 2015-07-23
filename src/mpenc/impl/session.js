@@ -1600,7 +1600,7 @@ define([
             if (exclude.has(this._owner)) {
                 throw new Error("cannot exclude yourself");
             } else if (!include.size && !exclude.size) {
-                return Promise.resolve(true);
+                return Promise.resolve(this);
             }
             return this._runOwnOperation(new OwnOp("m", include, exclude),
                 this._changeMembership.bind(this, include, exclude));
@@ -1612,7 +1612,7 @@ define([
             return this._runOwnOperation(new OwnOp("p"), this._excludeSelf.bind(this));
 
         } else {
-            return Promise.resolve(true);
+            return Promise.resolve(this);
         }
     };
 

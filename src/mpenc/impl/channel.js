@@ -45,7 +45,7 @@ define([
      * See "Appendix 5: Hybrid Order" in [msg-notes] for more details.
      *
      * @class
-     * @memberOf mpenc/impl/channel
+     * @memberOf module:mpenc/impl/channel
      */
     var ServerOrder = function() {
         this.clear();

@@ -436,6 +436,15 @@ define([
             }
         };
 
+        var execute = function(server, member, action) {
+            var p = member.execute(action);
+            server.runAsync(16, testTimer);
+            return !p ? p : p.then(function(result) {
+                assert.strictEqual(result, member);
+                return result;
+            });
+        };
+
         it('ctor', function() {
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server);
@@ -451,11 +460,7 @@ define([
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
             var s3 = mkHybridSession('myTestSession', "53", server);
-            var exec = function(member, action) {
-                var p = member.execute(action);
-                server.runAsync(16, testTimer);
-                return p;
-            };
+            var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);
@@ -496,11 +501,7 @@ define([
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
             var s3 = mkHybridSession('myTestSession', "53", server);
-            var exec = function(member, action) {
-                var p = member.execute(action);
-                server.runAsync(16, testTimer);
-                return p;
-            };
+            var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);

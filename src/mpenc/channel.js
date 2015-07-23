@@ -54,9 +54,9 @@ define([
     /**
      * A channel control message.
      *
-     * <p>In the context of a ChannelNotice, this means the event has already
-     * happened. In the context of a ChannelAction, this means we're trying to
-     * make the event happen. Valid values are:</p>
+     * <p>In the context of a <code>ChannelNotice</code>, this means the event
+     * has already happened. In the context of a <code>ChannelAction</code>,
+     * this means we're trying to make the event happen. Valid values are:</p>
      *
      * <dl>
      * <dt><code>{ enter: true }</code></dt><dd>We enter the channel.</dd>
@@ -113,15 +113,32 @@ define([
      * A group transport channel.
      *
      * <p>Represents a group that has an existence outside of its membership. That
-     * is, unlike Session, "not in the channel" and "the channel has one member,
-     * i.e. myself" are distinct states. This is represented by cur_members()
-     * returning None for the former, and frozenset([owner]) for the latter.</p>
+     * is, unlike {@link module:mpenc/session.Session}, "not in the channel" and
+     * "the channel has one member, i.e. us" are distinct states. We expect that
+     * the group protocol does not allow non-members to query the membership of the
+     * channel, nor receive updates about the membership. In code terms:</p>
      *
-     * <p>We also assume that the group protocol does not allow non-members to query
-     * the membership of the channel nor receive updates about the membership.
-     * Therefore, curMembers() should never return an empty ImmutableSet.</p>
+     * <ul>
+     * <li><code>curMembers()</code><ul>
+     *   <li>returns <code>null</code> for "not in the channel"</li>
+     *   <li>returns <code>ImmutableSet([owner])</code> for "the channel has one member"</li>
+     *   <li>never returns an empty <code>ImmutableSet</code>.</li>
+     * </ul></li>
+     * <li>The first event received (i.e. published to subscribers of
+     * <code>onRecv</code>) must be a <code>{ enter: true }</code>.</li>
+     * <li>The event immediately after a <code>{ leave: true }</code> event, if
+     * any, must be a <code>{ enter: true }</code>.</li>
+     * </ul>
      *
-     * The instantiated types for <code>ReceivingExecutor</code> are:
+     * <p>We expect that everyone receives the same events in the same order.
+     * This is checked by {@link module:mpenc/impl/channel.ServerOrder}. Other
+     * than this, implementations are free to choose how to order, e.g.
+     * messages sent concurrently at the same time by different members. In
+     * particular, there is no guarantee that an event <code>E</code> sent at
+     * time <code>T</code> when the channel membership was <code>M</code>, will
+     * be emitted back when the channel still has members <code>M</code>.</p>
+     *
+     * <p>The instantiated types for <code>ReceivingExecutor</code> are:</p>
      *
      * <ul>
      * <li><code>{@link module:mpenc/channel.GroupChannel#onRecv|RecvOutput}</code>:
@@ -130,9 +147,12 @@ define([
      *      {@link module:mpenc/channel~ChannelAction}</li>
      * </ul>
      *
-     * Implementations are responsible for defining how concurrent conflicting
-     * operations are to be resolved. For example, "whichever the server
-     * receives first", if there is a server.
+     * <p>Implementations <em>need not</em> define <code>execute()</code> when
+     * the input is a {@link module:mpenc/helper/utils~RawSend}, but they
+     * <strong>must</strong> define it when the input is a {@link
+     * module:mpenc/channel~ChannelControl}.</p>
+     *
+     * <p>See {@link module:mpenc/impl/dummy.DummyGroupChannel} for an example.</p>
      *
      * @interface
      * @augments module:mpenc/helper/utils.ReceivingExecutor
