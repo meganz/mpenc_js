@@ -94,6 +94,29 @@ define([
 
 
     /**
+     * Ratio of heartbeat interval to the full-ack-interval
+     * How long to wait when we are idle, before sending a heartbeat.
+     */
+    var HEARTBEAT_RATIO = 4;
+
+    /**
+     * Ratio of fin consistency timeout to the broadcast-latency
+     * How long to wait for consistency, before we publish that fin() completed with inconsistency.
+     */
+    var FIN_TIMEOUT_RATIO = 16;
+
+    /**
+     * Ratio of fin consistency grace-wait to the broadcast-latency
+     * How long to wait after consistency is reached, before we publish that fin() completed with consistency.
+     */
+    var FIN_CONSISTENT_RATIO = 1;
+
+    /**
+     * Give others a little bit longer than ourselves to expire freshness.
+     */
+    var EXPIRE_GRACE_RATIO = 1.0625;
+
+    /**
      * Implementation of roughly the lower (transport-facing) part of Session.
      *
      * <p>Manages operations on the causally-ordered transcript data structure,
@@ -120,31 +143,6 @@ define([
      * @see module:mpenc/session.Session
      */
     var SessionBase = function(context, sId, members, msgsec) {
-        this.options = {
-            /**
-             * Ratio of heartbeat interval to the full-ack-interval
-             * How long to wait when we are idle, before sending a heartbeat.
-             */
-            HEARTBEAT_RATIO : 4,
-
-            /**
-             * Ratio of fin consistency timeout to the broadcast-latency
-             * How long to wait for consistency, before we publish that fin() completed with inconsistency.
-             */
-            FIN_TIMEOUT_RATIO : 16,
-
-            /**
-             * Ratio of fin consistency grace-wait to the broadcast-latency
-             * How long to wait after consistency is reached, before we publish that fin() completed with consistency.
-             */
-            FIN_CONSISTENT_RATIO : 1,
-
-            /**
-             * Give others a little bit longer than ourselves to expire freshness.
-             */
-            EXPIRE_GRACE_RATIO : 1.0625
-        };
-
         this._stateMachine = new StateMachine(SNStateChange, SessionState.JOINED);
         this._events = new EventContext(SessionBase.EventTypes);
 
@@ -576,8 +574,8 @@ define([
                 self._setState(SessionState.PART_FAILED);
             }
         };
-        var finTimeout = this._broadcastLatency(this.options.FIN_TIMEOUT_RATIO);
-        var finConsistent = this._broadcastLatency(this.options.FIN_CONSISTENT_RATIO);
+        var finTimeout = this._broadcastLatency(FIN_TIMEOUT_RATIO);
+        var finConsistent = this._broadcastLatency(FIN_CONSISTENT_RATIO);
         this._events.subscribe(MsgFullyAcked, [mId]).withBackup(
             this._timer.after(finTimeout), _pubFin)(function(evt) {
             self._timer.after(finConsistent, _pubFin);
@@ -620,9 +618,9 @@ define([
         var lastOwn = own ? mId : this._transcript.pre_ruId(mId, this.owner());
         // TODO(xl): [F/D] need some other mechanism to determine known_ts if there is no own last message
         var knownTs = lastOwn ? this.ctime.get(lastOwn) : 0;
-        var expireAfter = this._fullAckInterval(mId, this.options.HEARTBEAT_RATIO);
+        var expireAfter = this._fullAckInterval(mId, HEARTBEAT_RATIO);
         presence.renew(uId, knownTs,
-                       own ? expireAfter : expireAfter * this.options.EXPIRE_GRACE_RATIO);
+                       own ? expireAfter : expireAfter * EXPIRE_GRACE_RATIO);
         // if message is Consistency(close=True) then set UserAbsent(intend=True) on full-ack
         if (Consistency.isFin(msg.body)) {
             this._events.subscribe(MsgFullyAcked, [mId])(function() {
@@ -635,7 +633,7 @@ define([
      * Ticks after which we should assume others expire our own presence.
      */
     SessionBase.prototype.ownExpiry = function() {
-        return this._fullAckInterval(this.lastOwnMsg(), this.options.HEARTBEAT_RATIO);
+        return this._fullAckInterval(this.lastOwnMsg(), HEARTBEAT_RATIO);
     };
 
     /**
@@ -681,7 +679,8 @@ define([
      * @param sId {string} Session id, shared between all members.
      * @param channel {module:mpenc/channel.GroupChannel} Group transport channel.
      * @param greeter {module:mpenc/greet/greeter.Greeter} Membership operation component.
-     * @param makeMessageSecurity {function} 1-arg factory function for a
+     * @param makeMessageSecurity {function} 1-arg factory function, that takes
+     *      a {@link module:mpenc/greet/greeter.GreetStore} and creates a new
      *      {@link module:mpenc/message.MessageSecurity}.
      */
     var HybridSession = function(context, sId, channel, greeter, makeMessageSecurity) {
@@ -731,12 +730,11 @@ define([
 
         // global ops
         this._serverOrder = new ServerOrder();
-        this._channelJustSynced = false;
-        this._greeting = null;
-        this._clearChannelRecords();
         this._greetingCancel = function() {};
+        this._clearChannelRecords();
         this._clearGreeting();
 
+        // own ops
         this._clearOwnProposal();
         this._clearOwnOperation();
 

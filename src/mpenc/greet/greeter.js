@@ -910,7 +910,7 @@ define([
      *      The static private key for this member.
      * @param pubKey {string}
      *      The static public key for this member.
-     * @param staticPubKeyDir {function}
+     * @param staticPubKeyDir {{get: function}}
      *      Object with a 1-arg "get" method for obtaining static public keys
      *      for other members.
      * @memberOf module:mpenc/greet/greeter
