@@ -1100,7 +1100,8 @@ define([
                     if (this._greeting.getNextMembers().has(this._owner)) {
                         this._greeting.fail(new Error("OperationAborted: we left the channel"));
                     } else {
-                        this._greeting.fail(new Error("OperationIgnored: we left the channel during a greeting to exclude us; assuming it succeeded"));
+                        this._greeting.fail(new Error("OperationIgnored: we left the channel "
+                            + "during a greeting to exclude us; assuming it succeeded"));
                     }
                 }
                 if (this._curSession) {

@@ -1835,7 +1835,8 @@ define([
             if (source === yetToAuthenticate[0]) {
                 return true;
             }
-            _logIgnored(this.id, makePacketId(), "looks-like final message but not from expected source: " + source + " vs expected " + yetToAuthenticate[0]);
+            _logIgnored(this.id, makePacketId(), "looks like final message but not from expected source: "
+                + source + " vs expected " + yetToAuthenticate[0]);
         }
 
         return false;
