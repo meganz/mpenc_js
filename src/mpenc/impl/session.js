@@ -910,11 +910,11 @@ define([
         } else {
             // taskLeave is handled in onPrevSessionFin
             if (this._taskExclude.size) {
-                var to_exclude = ImmutableSet.from(this._taskExclude);
-                var p = this._proposeGreetInit(ImmutableSet.EMPTY, to_exclude);
+                var toExclude = ImmutableSet.from(this._taskExclude);
+                var p = this._proposeGreetInit(ImmutableSet.EMPTY, toExclude);
                 p.catch(function(e) {
                     // TODO(xl): [D] maybe re-schedule
-                    logger.info("proposal to exclude: " + to_exclude + " failed, hopefully not a problem");
+                    logger.info("proposal to exclude: " + toExclude + " failed, hopefully not a problem");
                 });
             }
             return;
@@ -1451,9 +1451,9 @@ define([
 
         // By protocol, leave users in taskLeave before trying to re-include them
         _assert(!include.intersect(this._taskExclude).size);
-        var to_leave = include.intersect(this._taskLeave);
-        if (to_leave.size) {
-            p1 = p1.then(ch.execute.bind(ch, { leave: to_leave }));
+        var toLeave = include.intersect(this._taskLeave);
+        if (toLeave.size) {
+            p1 = p1.then(ch.execute.bind(ch, { leave: toLeave }));
         }
 
         // By protocol, enter users before trying to include them
