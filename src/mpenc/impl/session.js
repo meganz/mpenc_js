@@ -1542,11 +1542,12 @@ define([
 
         // send leave-intent, i.e. double-fin. this tells others that we want to leave
         // the whole HybridSession, as opposed to just the child Session.
-        this._curSession.sendObject(new Consistency(true));
-        this._curSession.fin();
+        var sess = this._curSession;
+        sess.sendObject(new Consistency(true));
+        sess.fin();
         // try to reach consistency, then leave the channel
-        this._curSession.onFin(function(mId) {
-            if (self._channel.curMembers()) {
+        sess.onFin(function(mId) {
+            if (sess === self._curSession && self._channel.curMembers()) {
                 self._channel.send({ leave: true });
             }
         });
