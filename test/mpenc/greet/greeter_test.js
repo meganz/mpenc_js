@@ -121,7 +121,7 @@ define([
             });
 
             it('on silenced invalid transitions', function() {
-                sandbox.stub(MegaLogger._logRegistry.greeter, '_log');
+                sandbox.stub(MegaLogger.getLogger("greeter"), '_log');
                 var message = new ns.GreetMessage();
                 var tests = [[ns.GREET_TYPE.INIT_PARTICIPANT_DOWN, ns._DOWN_INIT, true],
                              [ns.GREET_TYPE.INIT_PARTICIPANT_CONFIRM_DOWN, ns._DOWN_BIT, false]];
@@ -130,7 +130,7 @@ define([
                     var bit = tests[i][1];
                     var targetValue = tests[i][2];
                     message._setBit(bit, targetValue, true);
-                    assert.match(MegaLogger._logRegistry.greeter._log.getCall(i).args[1],
+                    assert.match(MegaLogger.getLogger("greeter")._log.getCall(i).args[1],
                                  /^Arrived at an illegal message type, but was told to ignore it:/);
                     assert.notStrictEqual(message.greetType, tests[i][0]);
                 }
@@ -254,10 +254,10 @@ define([
         });
 
         it('upflow message, debug on', function() {
-            sandbox.stub(MegaLogger._logRegistry.greeter, '_log');
+            sandbox.stub(MegaLogger.getLogger("greeter"), '_log');
             ns.decodeGreetMessage(_td.UPFLOW_MESSAGE_STRING,
                                     _td.ED25519_PUB_KEY);
-            var log = MegaLogger._logRegistry.greeter._log.getCall(0).args;
+            var log = MegaLogger.getLogger("greeter")._log.getCall(0).args;
             assert.deepEqual(log, [0, ['mpENC decoded message debug: ',
                                        ['messageSignature: FOZgJa4GtQwNsqvtR7y8qVrSUcjMn50ZK8E92oZFYU/1Y4LNTG191DUfpUugi6pE0m1iFam2CXNzIKStziNcBw==',
                                         'protocol: 1',

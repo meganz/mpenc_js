@@ -47,7 +47,8 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
-        sandbox.stub(MegaLogger._logRegistry.struct, '_log');
+        var structLogger = MegaLogger.getLogger("struct");
+        sandbox.stub(structLogger, '_log');
     });
 
     afterEach(function() {
@@ -312,7 +313,7 @@ define([
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.deepEqual(target.tryMe.getCall(1).args, [true, {'bar': 'baz'}]);
                 assert.strictEqual(result, true);
-                var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
+                var log = MegaLogger.getLogger("struct")._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['Brian unstashed YmFy']]);
                 assert.strictEqual(myTrialBuffer.length(), 0);
             });
@@ -329,7 +330,7 @@ define([
                 sinon_assert.calledOnce(target.maxSize);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
-                var log = MegaLogger._logRegistry.struct._log.getCall(0).args;
+                var log = MegaLogger.getLogger("struct")._log.getCall(0).args;
                 assert.deepEqual(log, [0, ['Brian stashed Zm9v']]);
                 assert.deepEqual(myTrialBuffer.queue(), [param]);
             });
@@ -361,7 +362,7 @@ define([
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
-                var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
+                var log = MegaLogger.getLogger("struct")._log.getCall(1).args;
                 assert.deepEqual(log, [20, ['Brian is 1 items over expected capacity.']]);
                 assert.deepEqual(myTrialBuffer.queue(), [{'bar': 'baz'}, param]);
             });
@@ -378,7 +379,7 @@ define([
                 assert.strictEqual(target.paramId.callCount, 1);
                 assert.deepEqual(target.tryMe.getCall(0).args, [false, param]);
                 assert.strictEqual(result, false);
-                var log = MegaLogger._logRegistry.struct._log.getCall(1).args;
+                var log = MegaLogger.getLogger("struct")._log.getCall(1).args;
                 assert.deepEqual(log, [30, ['Brian DROPPED YmFy at size 1, potential data loss.']]);
                 assert.deepEqual(myTrialBuffer.queue(), [param]);
             });

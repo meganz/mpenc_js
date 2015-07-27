@@ -49,7 +49,8 @@ define([
 
     beforeEach(function() {
         sandbox = sinon_sandbox.create();
-        sandbox.stub(MegaLogger._logRegistry.transcript, '_log');
+        var transcriptLogger = MegaLogger.getLogger("transcript");
+        sandbox.stub(transcriptLogger, '_log');
     });
 
     afterEach(function() {

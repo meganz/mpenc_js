@@ -20,15 +20,17 @@ define([
     "mpenc/version",
     "mpenc/session",
     "mpenc/message",
+    "mpenc/channel",
     "mpenc/greet/greeter",
     "mpenc/impl/session",
     "mpenc/impl/transcript",
     "mpenc/helper/async",
-    "megalogger",
+    "mpenc/helper/struct",
+    "megalogger"
 ], function(
-    version, session, message,
+    version, session, message, channel,
     greeter, sessionImpl, transcriptImpl,
-    async, MegaLogger
+    async, struct, MegaLogger
 ) {
     "use strict";
 
@@ -132,6 +134,15 @@ define([
             message.MessageSecurity);
     };
     mpenc.createSession = createSession;
+
+
+	// expose some utilities to help external implementations of GroupChannel
+    mpenc.helper = {
+        'async': async,
+        'struct': struct
+    };
+    mpenc.channel = channel;
+
 
     return mpenc;
 });
