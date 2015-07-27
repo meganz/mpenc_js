@@ -436,6 +436,15 @@ define([
             }
         };
 
+        var execute = function(server, member, action) {
+            var p = member.execute(action);
+            server.runAsync(16, testTimer);
+            return !p ? p : p.then(function(result) {
+                assert.strictEqual(result, member);
+                return result;
+            });
+        };
+
         it('ctor', function() {
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server);
@@ -451,11 +460,7 @@ define([
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
             var s3 = mkHybridSession('myTestSession', "53", server);
-            var exec = function(member, action) {
-                var p = member.execute(action);
-                server.runAsync(16, testTimer);
-                return p;
-            };
+            var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);
@@ -496,11 +501,7 @@ define([
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
             var s3 = mkHybridSession('myTestSession', "53", server);
-            var exec = function(member, action) {
-                var p = member.execute(action);
-                server.runAsync(16, testTimer);
-                return p;
-            };
+            var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);
@@ -515,16 +516,6 @@ define([
             }).then(function() {
                 assertMembers(["51", "53"], s1, s3);
                 assertSessionState("COS_", s1, s3);
-                if (s1._channel.curMembers().has("52")) {
-                    // wait for 52 to be kicked from the channel; otherwise we can't include them
-                    // according to restrictions mentioned in msg-notes.
-                    // at time of writing, only some browsers follow this code path
-                    assert.throws(exec.bind(null, s1, { include: ["52"] }));
-                    return async.timeoutPromise(testTimer, 100);
-                } else {
-                    return Promise.resolve(true);
-                }
-            }).then(function() {
                 return exec(s1, { include: ["52"] });
             }).then(function() {
                 assertMembers(["51", "52", "53"], s1, s2, s3, server);

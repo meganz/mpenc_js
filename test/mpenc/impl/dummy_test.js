@@ -140,9 +140,13 @@ define([
         it("execute() Promise resolution", function(done) {
             var server = new ns.DummyGroupServer();
             var exec = function(id, action) {
-                var p = server.getChannel(id).execute(action);
+                var ch = server.getChannel(id);
+                var p = ch.execute(action);
                 server.run(); // run the dummy-server, promise should resolve in next tick
-                return p;
+                return !p ? p : p.then(function(result) {
+                    assert.strictEqual(result, ch);
+                    return result;
+                });
             };
             var all = [0, 1, 2];
 
@@ -171,7 +175,7 @@ define([
             }).then(function() {
                 assertMembersConsistent(server, all, [1]);
                 done();
-            });
+            }).catch(console.log);
         });
     });
 });

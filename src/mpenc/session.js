@@ -184,9 +184,9 @@ define([
      * checkSessionAction} to check valid values.</p>
      *
      * @typedef {Object} SessionAction
-     * @property [contents] {string} Message to send, or an explicit ack if
-     *      this is empty. If this is set, other properties must not be set.
-     * @property [join] {boolean} Include all others from our session. This
+     * @property [contents] {string} Message to send, or if empty then send
+     *      an explicit ack. If this is set, other properties must not be set.
+     * @property [join] {boolean} Include all others into our session. This
      *      is everyone else that is currently in the group transport channel.
      *      If this is set, other properties must not be set.
      * @property [part] {boolean} Exclude all others from our session. These
@@ -266,6 +266,11 @@ define([
      * Additionally, the upper layer may subscribe to particular subsets of
      * what <code>onRecv()</code> publishes, using <code>{@link
      * module:mpenc/session.Session#onEvent|onEvent}</code>.
+     *
+     * <p>Implementations <em>need not</em> define <code>execute()</code> for
+     * when the input has a <code>content</code> property, but they <strong>
+     * must</strong> define it for {@link module:mpenc/session~SessionAction
+     * all other values}.</p>
      *
      * @interface
      * @augments module:mpenc/helper/utils.ReceivingExecutor

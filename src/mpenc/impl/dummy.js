@@ -42,6 +42,17 @@ define([
 
     var logger = MegaLogger.getLogger('dummy', undefined, 'mpenc');
 
+    /**
+     * A dummy implementation of {@link module:mpenc/channel.GroupChannel},
+     * using {@link module:mpenc/impl/dummy.DummyGroupServer} as the transport
+     * mechanism.
+     *
+     * <p>Users should not instantiate this class directly, but instead use
+     * {@link module:mpenc/impl/dummy.DummyGroupServer#getChannel}.</p>
+     *
+     * @class
+     * @memberOf module:mpenc/impl/dummy
+     */
     var DummyGroupChannel = function() {
         this._members = null;
         this._send = new Observable();
@@ -61,13 +72,13 @@ define([
             if (enter === true) {
                 this._members = new PromisingSet(recv_in.members);
                 if (this._onEnter) {
-                    this._onEnter.resolve(true);
+                    this._onEnter.resolve(this);
                     this._onEnter = null;
                 }
             } else if (leave === true) {
                 this._members = null;
                 if (this._onLeave) {
-                    this._onLeave.resolve(true);
+                    this._onLeave.resolve(this);
                     this._onLeave = null;
                 }
             } else {
@@ -102,7 +113,7 @@ define([
             var leave = send_out.leave;
             if (enter === true) {
                 if (this._members) { // already in channel
-                    return Promise.resolve(true);
+                    return Promise.resolve(this);
                 }
                 if (!this._onEnter) {
                     this._onEnter = async.newPromiseAndWriters();
@@ -110,7 +121,7 @@ define([
                 return this._onEnter.promise;
             } else if (leave === true) {
                 if (!this._members) { // already out of channel
-                    return Promise.resolve(true);
+                    return Promise.resolve(this);
                 }
                 if (!this._onLeave) {
                     this._onLeave = async.newPromiseAndWriters();
@@ -123,9 +134,11 @@ define([
                 var to_enter = enter.subtract(this._members.value());
                 var to_leave = leave.intersect(this._members.value());
                 if (!to_enter.size && !to_leave.size) {
-                    return Promise.resolve(true);
+                    return Promise.resolve(this);
                 }
-                return this._members.awaitDiff([to_enter, to_leave]);
+                var self = this;
+                return this._members.awaitDiff([to_enter, to_leave])
+                    .then(function() { return self; });
             }
         }
     };
