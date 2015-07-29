@@ -222,6 +222,7 @@ define([
      * @memberOf module:mpenc/message
      */
     var MessageSecurity = function(greetStore) {
+        if (!(this instanceof MessageSecurity)) { return new MessageSecurity(greetStore); }
         this.owner = greetStore.id;
         this._greetStore = greetStore;
     };

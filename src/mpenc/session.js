@@ -207,7 +207,7 @@ define([
      * @throws If the action was not valid and could not be canonicalised.
      */
     ns.checkSessionAction = function(act) {
-        var hasContent = "content" in act;
+        var hasContent = "contents" in act;
         var hasJoin = "join" in act;
         var hasPart = "part" in act;
         var hasMemChg = "include" in act || "exclude" in act;
@@ -215,8 +215,8 @@ define([
             throw new Error("tried to create SessionAction with conflicting properties");
         }
         if (hasContent) {
-            if (typeof act.content !== "string") {
-                throw new Error("tried to create SessionAction with non-string content");
+            if (typeof act.contents !== "string") {
+                throw new Error("tried to create SessionAction with non-string contents");
             }
         } else if (hasJoin) {
             if (act.join !== true) {
@@ -268,7 +268,7 @@ define([
      * module:mpenc/session.Session#onEvent|onEvent}</code>.
      *
      * <p>Implementations <em>need not</em> define <code>execute()</code> for
-     * when the input has a <code>content</code> property, but they <strong>
+     * when the input has a <code>contents</code> property, but they <strong>
      * must</strong> define it for {@link module:mpenc/session~SessionAction
      * all other values}.</p>
      *
