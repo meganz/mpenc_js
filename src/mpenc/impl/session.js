@@ -399,10 +399,13 @@ define([
         var parents = ts.max();
         var recipients = this.curMembers().subtract(new ImmutableSet([author]));
 
-        // function(body, recipients, parents, paddingSize)
-        var sectxt = this._codec.encode(body);
-        var enc = this._msgsec.authEncrypt(ts, author, parents, recipients, sectxt);
-        var pubtxt = enc[0], secret = enc[1];
+        var enc = this._msgsec.authEncrypt(ts, {
+            author: author,
+            parents: parents,
+            recipients: recipients,
+            body: this._codec.encode(body),
+        });
+        var pubtxt = enc.pubtxt, secret = enc.secrets;
 
         var mId = secret.mId;
         var msg = new Message(mId, author, parents, recipients, body);
@@ -432,23 +435,23 @@ define([
         }
         try {
             var dec = this._msgsec.decryptVerify(this._transcript, pubtxt, sender);
-            var author = dec[0], parents = dec[1], recipients = dec[2],
-                sectxt = dec[3], secret = dec[4];
+            var message = dec.message, secret = dec.secrets;
             mId = secret.mId;
         } catch (e) {
+            logger.debug("SessionBase.recv rejected packet: " + e);
             return false;
         }
-        _assert(author !== this.owner(), 'received non-duplicate message from self: ' + btoa(mId));
+        _assert(message.author !== this.owner(), 'received non-duplicate message from self: ' + btoa(mId));
 
         try {
-            var body = this._codec.decode(sectxt);
+            var body = this._codec.decode(message.body);
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(mId, author, parents, recipients, e);
+            this._handleInvalidMessage(mId, message.author, message.parents, message.recipients, e);
             return true; // decrypt succeeded so message was indeed properly part of the session
         }
 
-        var msg = new Message(mId, author, parents, recipients, body);
+        var msg = new Message(mId, message.author, message.parents, message.recipients, body);
         this._tryAccept.trial([msg, pubtxt, secret]);
         return true;
     };

@@ -37,6 +37,7 @@ define([
     "use strict";
 
     var assert = chai.assert;
+    var ImmutableSet = struct.ImmutableSet;
 
     // Create/restore Sinon stub/spy/mock sandboxes.
     var sandbox = null;
@@ -49,7 +50,7 @@ define([
         sandbox.restore();
     });
 
-    function _dummyMessageSecurity() {
+    function _dummyMessageSecurity(paddingSize) {
         return new ns.MessageSecurity({
             id: 'Moe',
             sessionId: _td.SESSION_ID,
@@ -58,10 +59,10 @@ define([
             ephemeralPrivKey : _td.ED25519_PRIV_KEY,
             ephemeralPubKey : _td.ED25519_PUB_KEY,
             pubKeyMap : { 'Moe': _td.ED25519_PUB_KEY },
-        });
+        }, paddingSize);
     }
 
-    var defaultRecipients = new struct.ImmutableSet(['Larry', 'Curly']);
+    var defaultRecipients = new ImmutableSet(['Larry', 'Curly']);
 
     describe("DefaultMessageCodec", function() {
         var codec = ns.DefaultMessageCodec;
@@ -106,53 +107,69 @@ define([
     });
 
 
-    describe("MessageSecurity.encrypt()", function() {
+    describe("MessageSecurity.authEncrypt()", function() {
         it('data message', function() {
-            var result = _dummyMessageSecurity().encrypt(
-                'foo', defaultRecipients);
+            var result = _dummyMessageSecurity().authEncrypt(null, {
+                author: 'Moe',
+                parents: null,
+                recipients: defaultRecipients,
+                body: "foo"
+            });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
-            assert.lengthOf(result.ciphertext, 112);
+            assert.lengthOf(result.pubtxt, 112);
         });
 
         it('data message with exponential padding', function() {
-            var result = _dummyMessageSecurity().encrypt(
-                'foo', defaultRecipients, null, 32);
+            var result = _dummyMessageSecurity(32).authEncrypt(null, {
+                author: 'Moe',
+                parents: null,
+                recipients: defaultRecipients,
+                body: "foo"
+            });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(result.ciphertext, 135);
+            assert.lengthOf(result.pubtxt, 135);
         });
 
         it('data message with parents', function() {
-            var result = _dummyMessageSecurity().encrypt(
-                'foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]));
+            var result = _dummyMessageSecurity().authEncrypt(null, {
+                author: 'Moe',
+                parents: new ImmutableSet(["abcd", "1234"]),
+                recipients: defaultRecipients,
+                body: "foo"
+            });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5 + parents (4 + 4) * 2))
-            assert.lengthOf(result.ciphertext, 128);
+            assert.lengthOf(result.pubtxt, 128);
         });
 
         it('data message with parents and padding', function() {
-            var result = _dummyMessageSecurity().encrypt(
-                'foo', defaultRecipients, new struct.ImmutableSet(["abcd", "1234"]), 32);
+            var result = _dummyMessageSecurity(32).authEncrypt(null, {
+                author: 'Moe',
+                parents: new ImmutableSet(["abcd", "1234"]),
+                recipients: defaultRecipients,
+                body: "foo"
+            });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(result.ciphertext, 135);
+            assert.lengthOf(result.pubtxt, 135);
         });
     });
 
     describe("MessageSecurity.decrypt()", function() {
         it('data message', function() {
-            var result = _dummyMessageSecurity().decrypt(_td.DATA_MESSAGE_STRING, 'Moe');
+            var result = _dummyMessageSecurity().decryptVerify(null, _td.DATA_MESSAGE_STRING, 'Moe');
 
-            assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.message.author, 'Moe');
+            assert.strictEqual(result.message.body, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with exponential padding', function() {
-            var result = _dummyMessageSecurity().decrypt(_td.DATA_MESSAGE_STRING32, 'Moe');
+            var result = _dummyMessageSecurity().decryptVerify(null, _td.DATA_MESSAGE_STRING32, 'Moe');
 
-            assert.strictEqual(result.author, 'Moe');
-            assert.strictEqual(result.body.content, _td.DATA_MESSAGE_CONTENT.data);
+            assert.strictEqual(result.message.author, 'Moe');
+            assert.strictEqual(result.message.body, _td.DATA_MESSAGE_CONTENT.data);
         });
     });
 
@@ -165,21 +182,31 @@ define([
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
                 var mSecurity = _dummyMessageSecurity();
-                var encrypted = mSecurity.encrypt(tests[i], defaultRecipients).ciphertext;
-                var result = mSecurity.decrypt(encrypted, 'Moe');
-                assert.strictEqual(result.author, 'Moe');
-                assert.strictEqual(result.body.content, tests[i]);
+                var encrypted = mSecurity.authEncrypt(null, {
+                    author: "Moe",
+                    parents: null,
+                    recipients: defaultRecipients,
+                    body: tests[i],
+                }).pubtxt;
+                var result = mSecurity.decryptVerify(null, encrypted, 'Moe');
+                assert.strictEqual(result.message.author, 'Moe');
+                assert.strictEqual(result.message.body, tests[i]);
             }
         });
 
         it('data messages with exponential padding', function() {
             this.timeout(this.timeout() * 2);
             for (var i = 0; i < tests.length; i++) {
-                var mSecurity = _dummyMessageSecurity();
-                var encrypted = mSecurity.encrypt(tests[i], defaultRecipients, null, 32).ciphertext;
-                var result = mSecurity.decrypt(encrypted, 'Moe');
-                assert.strictEqual(result.author, 'Moe');
-                assert.strictEqual(result.body.content, tests[i]);
+                var mSecurity = _dummyMessageSecurity(32);
+                var encrypted = mSecurity.authEncrypt(null, {
+                    author: "Moe",
+                    parents: null,
+                    recipients: defaultRecipients,
+                    body: tests[i],
+                }).pubtxt;
+                var result = mSecurity.decryptVerify(null, encrypted, 'Moe');
+                assert.strictEqual(result.message.author, 'Moe');
+                assert.strictEqual(result.message.body, tests[i]);
                 assert(encrypted.length === 135 || encrypted.length === 135 + 32);
             }
         });

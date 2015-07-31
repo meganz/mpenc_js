@@ -91,19 +91,22 @@ define([
     var makeDummyMessageSecurity = function(greetState) {
         var sId = greetState.sessionId;
         return {
-            authEncrypt: function(ts, author, parents, recipients, sectxt) {
+            authEncrypt: function(ts, message) {
                 var pubtxt = JSON.stringify({
                     sId: btoa(sId),
-                    author: author,
-                    parents: parents.toArray().map(btoa),
-                    recipients: recipients.toArray(),
-                    sectxt: btoa(sectxt)
+                    author: message.author,
+                    parents: message.parents.toArray().map(btoa),
+                    recipients: message.recipients.toArray(),
+                    sectxt: btoa(message.body)
                 });
-                return [pubtxt, {
-                    commit: stub(),
-                    destroy: stub(),
-                    mId: utils.sha256(pubtxt),
-                }];
+                return {
+                    pubtxt: pubtxt,
+                    secrets: {
+                        commit: stub(),
+                        destroy: stub(),
+                        mId: btoa(utils.sha256(pubtxt)),
+                    },
+                };
             },
             decryptVerify: function(ts, pubtxt, sender) {
                 if (pubtxt.charAt(0) !== "{") {
@@ -113,14 +116,16 @@ define([
                 if (atob(body.sId) !== sId) {
                     throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
                 }
-                return [body.author,
-                    body.parents.map(atob),
-                    body.recipients,
-                    atob(body.sectxt), {
+                body.parents = body.parents.map(atob);
+                body.body = atob(body.sectxt);
+                return {
+                    message: body,
+                    secrets: {
                         commit: stub(),
                         destroy: stub(),
-                        mId: utils.sha256(pubtxt),
-                    }];
+                        mId: btoa(utils.sha256(pubtxt)),
+                    },
+                };
             },
         };
     };

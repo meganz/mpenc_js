@@ -209,55 +209,88 @@ define([
     ns.DefaultMessageCodec = DefaultMessageCodec;
 
 
-    var _createMessageId = function(signature, content) {
-        // ignore sidkeyHint since that's unauthenticated
-        return utils.sha256(signature + content).slice(0, 20);
+    var _dummyMessageSecrets = function(signature, content) {
+        return {
+            // ignore sidkeyHint since that's unauthenticated
+            mId: utils.sha256(signature + content).slice(0, 20),
+            commit: function() {},
+            destroy: function() {},
+        };
     };
+
+    /**
+     * Secret application-layer data and metadata of a message.
+     *
+     * @typedef {Object} PendingMessage
+     * @property author {string}
+     *     Author of the message.
+     * @property parents {?module:mpenc/helper/struct.ImmutableSet}
+     *     Parent message ids.
+     * @property recipients {module:mpenc/helper/struct.ImmutableSet}
+     *     Recipients of the message.
+     * @property body {string}
+     *     MessageBody object encoded as a byte string.
+     */
+
+    /**
+     * Security-related data associated with a message.
+     *
+     * @typedef {Object} PendingMessageSecrets
+     * @property mId {string}
+     *     Message identifier.
+     * @property commit {function}
+     *     0-arg function, called when the message is accepted into the
+     *     transcript, to commit the secrets to more permanent memory.
+     * @property destroy {function}
+     *     0-arg function, called when the message is rejected from the
+     *     transcript, to destroy the secrets.
+     */
 
     /**
      * Component that holds cryptographic state needed to encrypt/decrypt
      * messages that are part of a session.
      *
      * @class
+     * @param greetStore {module:mpenc/greet/greeter.GreetStore}
+     * @param [paddingSize] {number}
+     *     Number of bytes to pad the cipher text to come out as (default: 0
+     *     to turn off padding). If the clear text will result in a larger
+     *     cipher text than paddingSize, power of two exponential padding sizes
+     *     will be used.
      * @memberOf module:mpenc/message
      */
-    var MessageSecurity = function(greetStore) {
+    var MessageSecurity = function(greetStore, paddingSize) {
         if (!(this instanceof MessageSecurity)) { return new MessageSecurity(greetStore); }
         this.owner = greetStore.id;
         this._greetStore = greetStore;
+        this._paddingSize = paddingSize || 0;
     };
 
     /**
      * Encodes a given data message ready to be put onto the wire, using
      * base64 encoding for the binary message pay load.
      *
-     * @param author {string}
-     *     Author of the message.
-     * @param recipients {module:mpenc/helper/struct.ImmutableSet}
-     *     Recipients of the message.
-     * @param parents {?module:mpenc/helper/struct.ImmutableSet}
-     *     Parent message ids.
-     * @param body {string}
-     *     Message body as byte string.
-     * @param paddingSize {integer}
-     *     Number of bytes to pad the cipher text to come out as (default: 0
-     *     to turn off padding). If the clear text will result in a larger
-     *     cipher text than paddingSize, power of two exponential padding sizes
-     *     will be used.
-     * @returns {{ mId: string, ciphertext: string}}
-     *     Message id and ciphertext.
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *     Context transcript of the message.
+     * @param message {module:mpenc/message.PendingMessage}
+     *     Message to authenticate and encrypt.
+     * @returns {{
+     *     pubtxt: string,
+     *     secrets: module:mpenc/message.PendingMessageSecrets
+     * }}
+     *     Authenticated ciphertext and message secrets.
      */
-    MessageSecurity.prototype.encrypt = function(body, recipients, parents, paddingSize) {
+    MessageSecurity.prototype.authEncrypt = function(transcript, message) {
+        _assert(message.author === this.owner);
         var privKey = this._greetStore.ephemeralPrivKey;
         var pubKey = this._greetStore.ephemeralPubKey;
-        paddingSize = paddingSize | 0;
 
         // We want message attributes in this order:
         // sid/key hint, message signature, protocol version, message type,
         // iv, message data
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
-        var members = recipients.union(new ImmutableSet([this.owner]));
+        var members = message.recipients.union(new ImmutableSet([this.owner]));
         _assert(members.equals(new ImmutableSet(this._greetStore.members)),
                 'Recipients not members of session: ' + members +
                 '; current members: ' + this._greetStore.members);
@@ -271,16 +304,16 @@ define([
 
         // Encryption payload
         var rawBody = "";
-        if (parents && parents.forEach) {
-            parents.forEach(function(pmId) {
+        if (message.parents) {
+            message.parents.forEach(function(pmId) {
                 rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PARENT, pmId);
             });
         }
         // Protect multi-byte characters
-        body = unescape(encodeURIComponent(body));
+        var body = unescape(encodeURIComponent(message.body));
         rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, body);
 
-        var encrypted = ns._encryptRaw(rawBody, groupKey, paddingSize);
+        var encrypted = ns._encryptRaw(rawBody, groupKey, this._paddingSize);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_IV, encrypted.iv);
         content += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PAYLOAD, encrypted.data);
 
@@ -293,7 +326,10 @@ define([
         out += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature);
         out += content;
 
-        return { mId: _createMessageId(signature, content), ciphertext: out };
+        return {
+            pubtxt: out,
+            secrets: _dummyMessageSecrets(signature, content),
+        };
     };
 
     /**
@@ -340,26 +376,31 @@ define([
     /**
      * Decodes a given TLV encoded data message into an object.
      *
-     * @param message {string}
-     *     A TLV string for the message.
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *     Context transcript of the message.
+     * @param pubtxt {string}
+     *     A TLV protocol string, that represents ciphertext received from the
+     *     transport and assumed to be public knowledge, to decrypt and verify.
      * @param authorHint {string}
      *     Claimed (unverified) author for the message.
-     * @returns {mpenc.message.Message}
-     *     Message as JavaScript object.
+     * @returns {{
+     *      message: module:mpenc/message.PendingMessage,
+     *      secrets: module:mpenc/message.PendingMessageSecrets
+     * }}
+     *     Verified message data and message secrets.
      */
-    MessageSecurity.prototype.decrypt = function(message, authorHint) {
+    MessageSecurity.prototype.decryptVerify = function(transcript, pubtxt, authorHint) {
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
 
         if (!authorHint) {
             logger.warn('No message author for message available, '
-                        + 'will not be able to decrypt: ' + message);
+                        + 'will not be able to decrypt: ' + pubtxt);
             return null;
         }
 
         var signingPubKey = this._greetStore.pubKeyMap[authorHint];
-        var inspected = _inspectMessage(message);
-        var decoded = null;
+        var inspected = _inspectMessage(pubtxt);
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
         var verifySig = codec.verifyMessageSignature(
@@ -369,16 +410,13 @@ define([
             signingPubKey,
             sidkeyHash);
 
-        if (verifySig === true) {
-            decoded = _decrypt(inspected, groupKey, authorHint, this._greetStore.members);
+        if (!verifySig) {
+            throw new Error("bad signature");
         }
 
-        if (!decoded) {
-            return null;
-        }
-
+        var decrypted = _decrypt(inspected, groupKey, authorHint, this._greetStore.members);
         logger.debug('Message from "' + authorHint + '" successfully decrypted.');
-        return decoded;
+        return decrypted;
     };
 
     var _decrypt = function(inspected, groupKey, author, members) {
@@ -397,10 +435,10 @@ define([
             debugOutput.push('parent: ' + btoa(value));
         });
 
-        var data;
+        var body;
         rest = codec.popTLV(rest, _T.MESSAGE_BODY, function(value) {
             // Undo protection for multi-byte characters.
-            data = decodeURIComponent(escape(value));
+            body = decodeURIComponent(escape(value));
             debugOutput.push('body: ' + value);
         });
 
@@ -411,8 +449,15 @@ define([
         var recipients = members.slice();
         recipients.splice(idx, 1);
 
-        var mId = _createMessageId(inspected.signature, inspected.rawMessage);
-        return new Message(mId, author, parents, recipients, new Payload(data));
+        return {
+            secrets: _dummyMessageSecrets(inspected.signature, inspected.rawMessage),
+            message: {
+                author: author,
+                parents: parents,
+                recipients: recipients,
+                body: body,
+            },
+        };
     };
 
     var _decodeMessage = function(rawMessage) {

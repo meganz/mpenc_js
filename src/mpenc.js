@@ -57,6 +57,36 @@ define([
 
 
     /**
+     * Default flow control.
+     *
+     * Contains various parameters that control timing for auto-acks, trial
+     * decryption buffer sizes, consistency warning events, etc.
+     *
+     * TODO(xl): FlowControl will be defined "properly" as per python in a
+     * later release.
+     */
+    var DEFAULT_FLOW_CONTROL = {
+        // Estimated 95-percentile values; TODO: research/tweak these later
+        getBroadcastLatency: function() {
+            // 5 seconds to broadcast (half-round-trip) to *everyone*
+            return 5000;
+        },
+        getFullAckInterval: function() {
+            // 16 seconds to reply to a message
+            return 16000 + 2 * this.getBroadcastLatency();
+        },
+        asynchronity: function() {
+            // 4 messages "in transit" on the wire
+            return 4;
+        },
+    };
+
+
+    /** Default size in bytes for the exponential padding to pad to. */
+    var DEFAULT_EXPONENTIAL_PADDING = 128;
+
+
+    /**
      * Create a new timer to run scheduled tasks.
      *
      * There should only be one of these in the entire application.
@@ -84,23 +114,8 @@ define([
      * @memberOf module:mpenc
      */
     var createContext = function(userId, timer) {
-        // TODO: estimated 95-percentile values, tweak these later
-        var flowControl = {
-            getBroadcastLatency: function() {
-                // 5 seconds to broadcast (half-round-trip) to *everyone*
-                return 5000;
-            },
-            getFullAckInterval: function() {
-                // 16 seconds to reply to a message
-                return 16000 + 2 * this.getBroadcastLatency();
-            },
-            asynchronity: function() {
-                // 4 messages "in transit" on the wire
-                return 4;
-            },
-        };
         return new sessionImpl.SessionContext(
-            userId, false, timer, flowControl,
+            userId, false, timer, DEFAULT_FLOW_CONTROL,
             message.DefaultMessageCodec,
             transcriptImpl.DefaultMessageLog);
     };
@@ -131,7 +146,9 @@ define([
         return new sessionImpl.HybridSession(
             context, sessionId, groupChannel,
             new greeter.Greeter(context.owner, privKey, pubKey, pubKeyDir),
-            message.MessageSecurity);
+            function(greetState) {
+                return new message.MessageSecurity(greetState, DEFAULT_EXPONENTIAL_PADDING);
+            });
     };
     mpenc.createSession = createSession;
 
