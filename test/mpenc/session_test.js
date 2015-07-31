@@ -56,6 +56,7 @@ define([
 
     var MsgAccepted   = transcript.MsgAccepted;
     var NotAccepted   = liveness.NotAccepted;
+    var MsgReady      = transcript.MsgReady;
     var MsgFullyAcked = transcript.MsgFullyAcked;
     var NotFullyAcked = liveness.NotFullyAcked;
     var SNStateChange = ns.SNStateChange;
@@ -75,6 +76,8 @@ define([
     afterEach(function() {
         testTimer.stop();
     });
+
+    var logError = function(e) { console.log(e.stack); };
 
     var dummyFlowControl = {
         getBroadcastLatency: function() {
@@ -497,7 +500,36 @@ define([
                 assertSessionParted(s1, s2, s3);
                 assertSessionStable(s1, s2, s3);
                 done();
-            }).catch(console.log);
+            }).catch(logError);
+        });
+
+        it('sending messages', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                return exec(s1, { join: true });
+            }).then(function() {
+                return exec(s1, { include: ["52"] });
+            }).then(function() {
+                var testBody = "test message 1230583";
+                s1.send({ content: testBody });
+                var mId = s1.messages().slice(-1)[0];
+                var p = async.newPromiseAndWriters();
+                // resolve when other person gets it
+                s2.onEvent(MsgReady, [mId])(function(evt) {
+                    assert.strictEqual(s2.messages().get(evt.mId).body.content, testBody);
+                    p.resolve(evt);
+                });
+                server.runAsync(16, testTimer);
+                return p.promise;
+            }).then(function() {
+                done();
+            }).catch(logError);
         });
 
         it('quick reinclude', function(done) {
@@ -534,7 +566,7 @@ define([
                 assertSessionState("COS_", s1, s2, s3);
                 assertSessionStable(s1, s2, s3);
                 done();
-            }).catch(console.log);
+            }).catch(logError);
         });
     });
 });

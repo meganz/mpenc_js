@@ -1632,6 +1632,13 @@ define([
             }));
     };
 
+    /**
+     * @method
+     * @inheritDoc
+     */
+    HybridSession.prototype.onEvent = function(evtcls, prefix, useCapture) {
+        return this._events.subscribe(evtcls, prefix, useCapture);
+    };
 
     ns.HybridSession = HybridSession;
 
