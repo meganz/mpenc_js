@@ -184,7 +184,7 @@ define([
      * checkSessionAction} to check valid values.</p>
      *
      * @typedef {Object} SessionAction
-     * @property [contents] {string} Message to send, or if empty then send
+     * @property [content] {string} Message to send, or if empty then send
      *      an explicit ack. If this is set, other properties must not be set.
      * @property [join] {boolean} Include all others into our session. This
      *      is everyone else that is currently in the group transport channel.
@@ -207,7 +207,7 @@ define([
      * @throws If the action was not valid and could not be canonicalised.
      */
     ns.checkSessionAction = function(act) {
-        var hasContent = "contents" in act;
+        var hasContent = "content" in act;
         var hasJoin = "join" in act;
         var hasPart = "part" in act;
         var hasMemChg = "include" in act || "exclude" in act;
@@ -215,8 +215,8 @@ define([
             throw new Error("tried to create SessionAction with conflicting properties");
         }
         if (hasContent) {
-            if (typeof act.contents !== "string") {
-                throw new Error("tried to create SessionAction with non-string contents");
+            if (typeof act.content !== "string") {
+                throw new Error("tried to create SessionAction with non-string content");
             }
         } else if (hasJoin) {
             if (act.join !== true) {
@@ -268,7 +268,7 @@ define([
      * module:mpenc/session.Session#onEvent|onEvent}</code>.
      *
      * <p>Implementations <em>need not</em> define <code>execute()</code> for
-     * when the input has a <code>contents</code> property, but they <strong>
+     * when the input has a <code>content</code> property, but they <strong>
      * must</strong> define it for {@link module:mpenc/session~SessionAction
      * all other values}.</p>
      *

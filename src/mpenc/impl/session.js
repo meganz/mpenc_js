@@ -375,14 +375,14 @@ define([
     /**
      * Send application-level data.
      *
-     * @param contents {?string}
-     * @returns {boolean} Whether the contents were accepted to be sent.
+     * @param content {?string}
+     * @returns {boolean} Whether the content were accepted to be sent.
      */
-    SessionBase.prototype.sendData = function(contents) {
+    SessionBase.prototype.sendData = function(content) {
         // TODO(xl): [F] if we "recently" (e.g. <1s ago) accepted a message, the
         // user is unlikely to have fully-understood it. so perhaps we should
         // actually only point to non-recent messages as the "parent" messages.
-        return this.sendObject((contents) ? new Payload(contents) : new ExplicitAck(true));
+        return this.sendObject((content) ? new Payload(content) : new ExplicitAck(true));
     };
 
     /**
@@ -1581,8 +1581,8 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.send = function(action) {
-        if ("contents" in action) {
-            return this._curSession ? this._curSession.sendData(action.contents) : false;
+        if ("content" in action) {
+            return this._curSession ? this._curSession.sendData(action.content) : false;
         } else {
             return this.execute(action) !== null;
         }
@@ -1594,7 +1594,7 @@ define([
     HybridSession.prototype.execute = function(action) {
         action = session.checkSessionAction(action);
 
-        if ("contents" in action) {
+        if ("content" in action) {
             throw new Error("not implemented");
 
         } else if ("include" in action || "exclude" in action) {
