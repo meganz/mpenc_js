@@ -427,8 +427,6 @@ define([
         // Data message signatures were already verified through trial decryption.
         var rest = ns._decryptRaw(out.data, groupKey, out.iv);
 
-        var encrypted = ns._encryptRaw(codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, rest), groupKey, 0);
-
         var parents = [];
         rest = codec.popTLVAll(rest, _T.MESSAGE_PARENT, function(value) {
             parents.push(value);

@@ -580,9 +580,7 @@ define([
      *     Binary string representation of the signature.
      */
     ns.signMessage = function(type, data, privKey, pubKey, sidkeyHash) {
-        if (data === null || data === undefined) {
-            return null;
-        }
+        _assert(data);
         var prefix = _MAGIC_NUMBERS[type];
         if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
@@ -612,9 +610,7 @@ define([
      *     True if the signature verifies, false otherwise.
      */
     ns.verifyMessageSignature = function(type, data, signature, pubKey, sidkeyHash) {
-        if (data === null || data === undefined) {
-            return null;
-        }
+        _assert(data);
         var prefix = _MAGIC_NUMBERS[type];
         if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
