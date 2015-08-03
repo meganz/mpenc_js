@@ -397,10 +397,10 @@ define([
      * Stop logging all subscriber failures in the entire program.
      */
     SubscriberFailure.cancelGlobalLog = __SubscriberFailure_global.subscribe(function(f) {
-        logger.warn("subscriber (" + f.sub +
+        logger.error("subscriber (" + f.sub +
             ") failed on (" + _toString(f.item) + "): " + f.error +
             "; stack trace: ");
-        logger.warn(f.error.stack);
+        logger.error(f.error.stack);
     });
 
     ns.SubscriberFailure = SubscriberFailure;
