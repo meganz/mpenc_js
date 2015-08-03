@@ -117,7 +117,7 @@ define([
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5))
-            assert.lengthOf(result.pubtxt, 112);
+            assert.lengthOf(codec.decodeWirePacket(result.pubtxt).content, 112);
         });
 
         it('data message with exponential padding', function() {
@@ -129,7 +129,7 @@ define([
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(result.pubtxt, 135);
+            assert.lengthOf(codec.decodeWirePacket(result.pubtxt).content, 135);
         });
 
         it('data message with parents', function() {
@@ -141,7 +141,7 @@ define([
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + (4 + 5 + parents (4 + 4) * 2))
-            assert.lengthOf(result.pubtxt, 128);
+            assert.lengthOf(codec.decodeWirePacket(result.pubtxt).content, 128);
         });
 
         it('data message with parents and padding', function() {
@@ -153,20 +153,20 @@ define([
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
             // msg. type (4 + 1), IV (4 + 12), encr. message (4 + 32)
-            assert.lengthOf(result.pubtxt, 135);
+            assert.lengthOf(codec.decodeWirePacket(result.pubtxt).content, 135);
         });
     });
 
     describe("MessageSecurity.decrypt()", function() {
         it('data message', function() {
-            var result = _dummyMessageSecurity().decryptVerify(null, _td.DATA_MESSAGE_STRING, 'Moe');
+            var result = _dummyMessageSecurity().decryptVerify(null, codec.encodeWirePacket(_td.DATA_MESSAGE_STRING), 'Moe');
 
             assert.strictEqual(result.message.author, 'Moe');
             assert.strictEqual(result.message.body, _td.DATA_MESSAGE_CONTENT.data);
         });
 
         it('data message with exponential padding', function() {
-            var result = _dummyMessageSecurity().decryptVerify(null, _td.DATA_MESSAGE_STRING32, 'Moe');
+            var result = _dummyMessageSecurity().decryptVerify(null, codec.encodeWirePacket(_td.DATA_MESSAGE_STRING32), 'Moe');
 
             assert.strictEqual(result.message.author, 'Moe');
             assert.strictEqual(result.message.body, _td.DATA_MESSAGE_CONTENT.data);
@@ -207,7 +207,8 @@ define([
                 var result = mSecurity.decryptVerify(null, encrypted, 'Moe');
                 assert.strictEqual(result.message.author, 'Moe');
                 assert.strictEqual(result.message.body, tests[i]);
-                assert(encrypted.length === 135 || encrypted.length === 135 + 32);
+                var tlv = codec.decodeWirePacket(encrypted).content;
+                assert(tlv.length === 135 || tlv.length === 135 + 32);
             }
         });
     });

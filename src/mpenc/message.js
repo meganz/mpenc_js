@@ -327,7 +327,7 @@ define([
         out += content;
 
         return {
-            pubtxt: out,
+            pubtxt: codec.encodeWirePacket(out),
             secrets: _dummyMessageSecrets(signature, content),
         };
     };
@@ -379,7 +379,7 @@ define([
      * @param transcript {module:mpenc/transcript.Transcript}
      *     Context transcript of the message.
      * @param pubtxt {string}
-     *     A TLV protocol string, that represents ciphertext received from the
+     *     An encoded wire string, that represents ciphertext received from the
      *     transport and assumed to be public knowledge, to decrypt and verify.
      * @param authorHint {string}
      *     Claimed (unverified) author for the message.
@@ -399,8 +399,9 @@ define([
             return null;
         }
 
+        var decoded = codec.decodeWirePacket(pubtxt);
         var signingPubKey = this._greetStore.pubKeyMap[authorHint];
-        var inspected = _inspectMessage(pubtxt);
+        var inspected = _inspectMessage(decoded.content);
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
         var verifySig = codec.verifyMessageSignature(
