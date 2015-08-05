@@ -52,7 +52,7 @@ define([
     var NotAccepted   = liveness.NotAccepted;
     var MsgFullyAcked = transcript.MsgFullyAcked;
     var NotFullyAcked = liveness.NotFullyAcked;
-    var SNStateChange = session.SNStateChange;
+    var SNState = session.SNState;
     var SessionState = session.SessionState;
     var SNMembers = session.SNMembers;
     var NotDecrypted = session.NotDecrypted;
@@ -143,7 +143,7 @@ define([
      * @see module:mpenc/session.Session
      */
     var SessionBase = function(context, sId, members, msgsec) {
-        this._stateMachine = new StateMachine(SNStateChange, SessionState.JOINED);
+        this._stateMachine = new StateMachine(SNState, SessionState.JOINED);
         this._events = new EventContext(SessionBase.EventTypes);
 
         this._owner = context.owner;
@@ -195,7 +195,7 @@ define([
         this._cancels = async.combinedCancel(cancels);
     };
 
-    SessionBase.EventTypes = [SNStateChange, MsgAccepted, MsgFullyAcked, NotAccepted, NotFullyAcked];
+    SessionBase.EventTypes = [SNState, MsgAccepted, MsgFullyAcked, NotAccepted, NotFullyAcked];
 
     SessionBase.prototype._expectedMaxBuf = function() {
         return 4 * Math.max(16, Math.sqrt(this.curMembers().size) * 8);
@@ -753,7 +753,7 @@ define([
      */
     HybridSession.prototype.toString = function(short) {
         return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
-            (short ? "" : ":" + this._internalState() + ":[" + this.curMembers().toArray() + "]");
+            (short ? "" : ":" + this.state() + ":" + this._internalState() + ":[" + this.curMembers().toArray() + "]");
     };
 
     /* Summary of the internal state of the session.
@@ -1387,7 +1387,20 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.state = function() {
-        return this._curSession ? this._curSession.state() : SessionState.PARTED;
+        var state = this._internalState();
+        var greeting = this._greeting;
+        if (state === "COS_" || state === "COsJ") {
+            return greeting && !greeting.getNextMembers().has(this._owner)
+                ? SessionState.PARTING : SessionState.JOINED;
+        } else if (state === "COsj") {
+            return greeting ? SessionState.JOINING : SessionState.PARTING;
+        } else if (state === "Cos_") {
+            return SessionState.JOINING;
+        } else if (state === "cos_") {
+            return SessionState.PARTED;
+        } else {
+            _assert(false);
+        }
     };
 
     /**

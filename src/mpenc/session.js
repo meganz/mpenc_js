@@ -44,7 +44,7 @@ define([
      * @interface
      * @memberOf module:mpenc/session
      * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session.SNStateChange
+     * @see module:mpenc/session.SNState
      * @see module:mpenc/session.SNMembers
      * @see module:mpenc/transcript.MsgReady
      * @see module:mpenc/transcript.MsgFullyAcked
@@ -112,9 +112,9 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNStateChange = struct.createTupleClass(SessionNotice, "newState", "oldState");
+    var SNState = struct.createTupleClass(SessionNotice, "newState", "oldState");
 
-    ns.SNStateChange = SNStateChange;
+    ns.SNState = SNState;
 
 
     /**
@@ -287,7 +287,7 @@ define([
      *
      * @memberOf module:mpenc/session.Session
      */
-    Session.EventTypes = [SNStateChange, SNMembers,
+    Session.EventTypes = [SNState, SNMembers,
                           MsgReady, MsgFullyAcked,
                           NotDecrypted, NotAccepted, NotFullyAcked];
 

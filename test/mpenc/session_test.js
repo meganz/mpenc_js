@@ -60,7 +60,7 @@ define([
     var MsgReady      = transcript.MsgReady;
     var MsgFullyAcked = transcript.MsgFullyAcked;
     var NotFullyAcked = liveness.NotFullyAcked;
-    var SNStateChange = ns.SNStateChange;
+    var SNState       = ns.SNState;
 
     var StateMachine = impl.StateMachine;
     var SessionState = ns.SessionState;
@@ -379,7 +379,7 @@ define([
                 return (old === queue.length) ? false : queue.shift() === evt;
             };
 
-            assert.ok(chained(new SNStateChange(SessionState.PARTING, SessionState.JOIN)));
+            assert.ok(chained(new SNState(SessionState.PARTING, SessionState.JOIN)));
 
             assert.notOk(chained(new MsgAccepted("0")));
             assert.notOk(chained(new MsgAccepted("1")));
