@@ -156,7 +156,7 @@ define([
     mpenc.createSession = createSession;
 
 
-	// expose some utilities to help external implementations of GroupChannel
+    // expose some utilities to help external implementations of GroupChannel
     mpenc.helper = {
         'async': async,
         'struct': struct

@@ -53,6 +53,7 @@ define([
     var ExplicitAck = message.ExplicitAck;
     var Consistency = message.Consistency;
     var DefaultMessageLog = transcriptImpl.DefaultMessageLog;
+    var MessageSecurity = message.MessageSecurity;
 
     var MsgAccepted   = transcript.MsgAccepted;
     var NotAccepted   = liveness.NotAccepted;
@@ -403,7 +404,7 @@ define([
                 get: function() { return _td.ED25519_PUB_KEY; }
             });
         return new HybridSession(context, sId, server.getChannel(owner),
-            dummyGreeter, makeDummyMessageSecurity, autoIncludeExtra);
+            dummyGreeter, MessageSecurity, autoIncludeExtra);
     };
 
     describe("HybridSession test", function() {

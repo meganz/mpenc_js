@@ -260,8 +260,9 @@ define([
      * @memberOf module:mpenc/message
      */
     var MessageSecurity = function(greetStore, paddingSize) {
-        if (!(this instanceof MessageSecurity)) { return new MessageSecurity(greetStore); }
-        this.owner = greetStore.id;
+        if (!(this instanceof MessageSecurity)) {
+            return new MessageSecurity(greetStore, paddingSize);
+        }
         this._greetStore = greetStore;
         this._paddingSize = paddingSize || 0;
     };
@@ -281,7 +282,7 @@ define([
      *     Authenticated ciphertext and message secrets.
      */
     MessageSecurity.prototype.authEncrypt = function(transcript, message) {
-        _assert(message.author === this.owner);
+        _assert(message.author === this._greetStore.id);
         var privKey = this._greetStore.ephemeralPrivKey;
         var pubKey = this._greetStore.ephemeralPubKey;
 
@@ -290,7 +291,7 @@ define([
         // iv, message data
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
-        var members = message.recipients.union(new ImmutableSet([this.owner]));
+        var members = message.recipients.union(new ImmutableSet([this._greetStore.id]));
         _assert(members.equals(new ImmutableSet(this._greetStore.members)),
                 'Recipients not members of session: ' + members +
                 '; current members: ' + this._greetStore.members);
