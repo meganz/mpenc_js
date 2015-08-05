@@ -685,10 +685,14 @@ define([
      * @param makeMessageSecurity {function} 1-arg factory function, that takes
      *      a {@link module:mpenc/greet/greeter.GreetStore} and creates a new
      *      {@link module:mpenc/message.MessageSecurity}.
+     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     *      new members that enter the transport channel. Default: false.
      */
-    var HybridSession = function(context, sId, channel, greeter, makeMessageSecurity) {
+    var HybridSession = function(context, sId, channel,
+        greeter, makeMessageSecurity, autoIncludeExtra) {
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
+        this._autoIncludeExtra = autoIncludeExtra || false;
 
         this._owner = context.owner;
         this._ownSet = new ImmutableSet([this._owner]);
@@ -749,7 +753,7 @@ define([
      */
     HybridSession.prototype.toString = function(short) {
         return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
-            (short ? "" : ":[" + this.curMembers().toArray() + "]");
+            (short ? "" : ":" + this._internalState() + ":[" + this.curMembers().toArray() + "]");
     };
 
     /* Summary of the internal state of the session.
@@ -775,7 +779,6 @@ define([
         } else if (!this._curSession) {
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
-                _assert(this._channel.curMembers().equals(this._ownSet));
                 _assert(!this._greeting);
                 // Stable; we just entered the channel and we're the only ones here.
                 return "COsJ";
@@ -797,6 +800,8 @@ define([
     HybridSession.prototype._clearChannelRecords = function(r) {
         this._serverOrder.clear();
         this._channelJustSynced = false;
+        // Members already present when we entered, that have not yet left.
+        this._moreSeniorThanUs = new Set();
         /* Members we'll try to exclude from the session. We add someone when:
          *
          * - they send a leave-intent (2x Consistency(close=true) messages)
@@ -890,12 +895,33 @@ define([
 
     HybridSession.prototype._maybeSyncNew = function(members) {
         _assert(this._channel.curMembers() !== null);
-        if (this._channel.curMembers().size === 1) {
-            this._serverOrder.syncNew();
-            this._channelJustSynced = true;
+        _assert(!this._serverOrder.isSynced());
+        if (this._moreSeniorThanUs.size) {
+            // Members more senior than us are still in the channel. Assume that they
+            // have an exising session so wait for them to include us. If this isn't
+            // true, hopefully they will eventually leave and trigger the below path.
+            return;
         }
-        // if someone invites us to a channel, just wait for them to include us
-        // TODO(xl): [F] (parallel-op) this may not be the best thing to do; need more data to decide
+        // All seniors have left but we're still not synced, so take responsibility
+        // for creating a new session and including the less senior members.
+        this._serverOrder.syncNew();
+        this._channelJustSynced = true;
+        logger.info("created new session: " + this.toString());
+        if (this._channel.curMembers().size > 1) {
+            var others = this._channel.curMembers().subtract(this._ownSet);
+            this._maybeHandleExtra("extra channel users after syncing serverOrder", others);
+        }
+    };
+
+    HybridSession.prototype._maybeHandleExtra = function(preamble, extras) {
+        if (this._autoIncludeExtra) {
+            logger.info(preamble + ": " + extras.toArray() +
+                "; auto-include them as per autoIncludeExtra=true");
+            this._proposeGreetInit(extras, ImmutableSet.EMPTY);
+        } else {
+            logger.info(preamble + ": " + extras.toArray() +
+                "; ignored, assuming that someone else is responsible for them");
+        }
     };
 
     HybridSession.prototype._maybeHandleTasks = function() {
@@ -917,7 +943,7 @@ define([
                 var p = this._proposeGreetInit(ImmutableSet.EMPTY, toExclude);
                 p.catch(function(e) {
                     // TODO(xl): [D] maybe re-schedule
-                    logger.info("proposal to exclude: " + toExclude + " failed, hopefully not a problem");
+                    logger.info("proposal to exclude: " + toExclude.toArray() + " failed, hopefully not a problem");
                 });
             }
             return;
@@ -1054,15 +1080,18 @@ define([
             this._channel.send({ leave: taskExc });
         }
         if (unexpected.size) {
-            // TODO(xl): [D] add a SessionNotice event for this
-            logger.info("unexpected users entered the channel: " + unexpected.toArray() +
-                "; maybe someone else is including them, or they want to be invited?");
+            this._maybeHandleExtra("unexpected users entered the channel", unexpected);
         }
         this._assertConsistentTasks(true);
     };
 
     HybridSession.prototype._onOthersLeave = function(others) {
         this._assertConsistentTasks();
+        // if others left and we're still not synced, try to sync again
+        others.forEach(this._moreSeniorThanUs.delete.bind(this._moreSeniorThanUs));
+        if (!this._serverOrder.isSynced()) {
+            this._maybeSyncNew();
+        }
         if (this._greeting && this._greeting.getNextMembers().intersect(others).size) {
             // if there is an ongoing operation, and anyone from it leaves, then abort
             // it, with the "pseudo packet id" definition as mentioned in msg-notes.
@@ -1131,7 +1160,8 @@ define([
             }
 
             if (enter === true) {
-                this._maybeSyncNew(recv_in);
+                this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
+                this._maybeSyncNew();
             } else if (enter && enter.size) {
                 this._onOthersEnter(enter);
             }
@@ -1495,25 +1525,27 @@ define([
         var p = async.newPromiseAndWriters();
         var p1 = Promise.resolve(ch);
 
+        var cancelEvtWait;
         if (!this._channel.curMembers()) {
             p1 = p1.then(ch.execute.bind(ch, { enter: true }));
         }
 
         p1 = p1.then(function() {
-            var curMembers = self._channel.curMembers();
-            if (curMembers && curMembers.size > 1) {
-                // if it's not empty, wait for someone to invite us
-                self._events.subscribe(SNMembers).untilTrue(function(evt) {
-                    if (evt.remain.equals(self._ownSet) && evt.include.size) {
-                        p.resolve(self);
-                        return true;
-                    }
-                });
+            if (self._channel.curMembers().size > 1) {
+                // if it's not empty, just wait for someone to invite us
+                // TODO(xl): set a timeout here and reenter if no-one tries to include us
             } else {
-                // maybeSyncNew should have been called by this stage
+                // no session membership change expected, just finish this operation.
                 _assert(self._serverOrder.isSynced());
-                // no session membership change, just finish this operation.
+                cancelEvtWait();
                 p.resolve(self);
+            }
+        });
+
+        cancelEvtWait = self._events.subscribe(SNMembers).untilTrue(function(evt) {
+            if (evt.remain.equals(self._ownSet) && evt.include.size) {
+                p.resolve(self);
+                return true;
             }
         });
 
