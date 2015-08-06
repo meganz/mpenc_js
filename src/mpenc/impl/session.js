@@ -808,7 +808,7 @@ define([
          * - they leave the channel (e.g. are disconnected)
          *
          * By protocol, users in this set are prevented from re-entering the
-         * channel [#ALX] until the exclude operation completes. */
+         * channel [rule EAL] until the exclude operation completes. */
         this._taskExclude = new Set();
         /* Members we'll try to kick from the channel. We add someone when:
          *
@@ -816,7 +816,7 @@ define([
          *   haven't left the channel yet.
          *
          * By protocol, users in this set are prevented from being re-included
-         * into the session [#ALV], until they've left. */
+         * into the session [rule IAL], until they've left. */
         this._taskLeave = new Set();
         return async.exitFinally(r);
     };
@@ -919,6 +919,8 @@ define([
                 "; auto-include them as per autoIncludeExtra=true");
             this._proposeGreetInit(extras, ImmutableSet.EMPTY);
         } else {
+            // TODO(xl): distinguish "X entered themselves" vs "Y made X enter"
+            // and use this to implement UI notifications as per [rule ES]
             logger.info(preamble + ": " + extras.toArray() +
                 "; ignored, assuming that someone else is responsible for them");
         }
@@ -1069,18 +1071,26 @@ define([
             // _change_membership should already be handling this
         }
         if (taskExc.size) {
-            // [#ALX] we still haven't excluded them cryptographically, and can't
-            // allow them to rejoin until we've done this. auto-kick them ASAP.
-            // some GKAs allow computation of subgroup keys, but in that case we
-            // can model it as a 1-packet membership operation (we need >= 1
-            // packet for the ServerOrder accept/reject mechanism) and avoid
-            // this code path entirely.
+            // [rule EAL] we still haven't excluded them cryptographically, and can't
+            // allow them to rejoin until we've done this; auto-kick them ASAP. some
+            // GKAs allow computation of subgroup keys, but in that case we can model
+            // it as a 1-packet membership operation (we need >= 1 packet for the
+            // accept/reject mechanism anyways) and avoid this code path entirely.
             logger.info("automatically kicking: " + taskExc.toArray() +
                 " because they were previously in the channel and we haven't excluded them yet");
             this._channel.send({ leave: taskExc });
         }
         if (unexpected.size) {
-            this._maybeHandleExtra("unexpected users entered the channel", unexpected);
+            if (this._greeting) {
+                // [rule EO]
+                _assert(!unexpected.intersect(this._greeting.getNextMembers()).size);
+                logger.info("automatically kicking: " + unexpected.toArray() +
+                    " because a greeting is in progress");
+                this._channel.send({ leave: unexpected });
+            } else {
+                // [rule ES]
+                this._maybeHandleExtra("unexpected users entered the channel", unexpected);
+            }
         }
         this._assertConsistentTasks(true);
     };
@@ -1093,8 +1103,8 @@ define([
             this._maybeSyncNew();
         }
         if (this._greeting && this._greeting.getNextMembers().intersect(others).size) {
-            // if there is an ongoing operation, and anyone from it leaves, then abort
-            // it, with the "pseudo packet id" definition as mentioned in msg-notes.
+            // [rule LOI] if there is an ongoing operation, and anyone from it leaves, then
+            // abort it, with the "pseudo packet id" definition as mentioned in msg-notes.
             _assert(this.curMembers().equals(this._greeting.getPrevMembers()));
             this._serverOrder.acceptLeavePacket(others, this._channel.curMembers(), this.curMembers());
             this._greeting.fail(new Error("OperationAborted: others left the channel: " + others.toArray()));
@@ -1102,6 +1112,7 @@ define([
         others.forEach(this._taskLeave.delete.bind(this._taskLeave));
         var toExclude = this.curMembers().intersect(others);
         if (toExclude.size) {
+            // [rule LS, LOX]
             toExclude.forEach(this._taskExclude.add.bind(this._taskExclude));
             logger.info("added to taskExclude because they left the channel: " + toExclude.toArray());
             this._maybeHandleTasks();
@@ -1141,6 +1152,7 @@ define([
             var leave = recv_in.leave;
 
             if (leave === true) {
+                // [rule LI]
                 this._clearChannelRecords();
                 this._clearOwnOperation();
                 this._clearOwnProposal();
@@ -1217,7 +1229,7 @@ define([
                 var r = this._greeting.recv(recv_in);
                 _assert(r); // TODO: [F] (handle-error) this may be false, if partialDecode is too lenient
                 if (op.isInitial() && this._taskLeave.size) {
-                    // [#ALV] Members haven't left the channel after being excluded, but
+                    // [rule IAL] Members haven't left the channel after being excluded, but
                     // someone is trying to re-include them. This is against protocol and
                     // probably won't end well, so kick them now. If not a final packet,
                     // kicking will make the greeting fail; if final, onOthersLeave will
