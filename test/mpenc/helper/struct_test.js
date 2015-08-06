@@ -187,7 +187,7 @@ define([
 
     describe("createTupleClass", function() {
         it("standard usage", function() {
-            var MyTuple = ns.createTupleClass("x", "y");
+            var MyTuple = ns.createTupleClass("MyTuple", "x y");
             var tup = new MyTuple(2, 3);
 
             assert.strictEqual(tup.x, 2);
@@ -201,7 +201,7 @@ define([
             var BaseType = function() {};
             BaseType.prototype = Object.create(Array.prototype);
 
-            var MyTuple = ns.createTupleClass(BaseType, "x", "y");
+            var MyTuple = ns.createTupleClass("MyTuple", "x y", BaseType);
             var tup = new MyTuple(2, 3);
 
             assert.strictEqual(tup.x, 2);
@@ -214,11 +214,11 @@ define([
         });
         it("with invalid base class", function() {
             assert.throws(function() {
-                var MyTuple = ns.createTupleClass(Date, "x");
+                var MyTuple = ns.createTupleClass("MyTuple", "x", Date);
             });
         });
         it("equals", function() {
-            var MyTuple = ns.createTupleClass("x", "y");
+            var MyTuple = ns.createTupleClass("MyTuple", "x y");
 
             var a0 = new MyTuple(2, 3);
             var a1 = new MyTuple(2, 3);

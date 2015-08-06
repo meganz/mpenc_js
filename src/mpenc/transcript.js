@@ -181,7 +181,7 @@ define([
      * @property mId {string} The message id.
      * @memberOf module:mpenc/transcript
      */
-    var MsgAccepted = struct.createTupleClass("mId");
+    var MsgAccepted = struct.createTupleClass("MsgAccepted", "mId");
 
     Object.freeze(MsgAccepted.prototype);
     ns.MsgAccepted = MsgAccepted;
@@ -194,7 +194,7 @@ define([
      * @property mId {string} The message id.
      * @memberOf module:mpenc/transcript
      */
-    var MsgFullyAcked = struct.createTupleClass("mId");
+    var MsgFullyAcked = struct.createTupleClass("MsgFullyAcked", "mId");
 
     Object.freeze(MsgFullyAcked.prototype);
     ns.MsgFullyAcked = MsgFullyAcked;
@@ -229,7 +229,7 @@ define([
      *      messages, the UI should distinguish messages where this is not {1}.
      * @memberOf module:mpenc/transcript
      */
-    var MsgReady = struct.createTupleClass("mId", "rIdx", "parents");
+    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parents");
 
     Object.freeze(MsgReady.prototype);
     ns.MsgReady = MsgReady;

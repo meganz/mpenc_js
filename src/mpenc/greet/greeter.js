@@ -805,7 +805,7 @@ define([
      * @see module:mpenc/greet/greeter.GreetingMetadata.create
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingMetadata = struct.createTupleClass("prevPf", "prevCh", "author", "parents");
+    var GreetingMetadata = struct.createTupleClass("GreetingMetadata", "prevPf prevCh author parents");
 
     GreetingMetadata.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -847,7 +847,7 @@ define([
      * @see module:mpenc/greet/greeter.GreetingSummary.create
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "members");
+    var GreetingSummary = struct.createTupleClass("GreetingSummary", "pId metadata prevPi members");
 
     GreetingSummary.prototype._postInit = function() {
         // hook for createTupleClass constructor

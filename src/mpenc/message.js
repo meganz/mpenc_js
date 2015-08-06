@@ -105,7 +105,7 @@ define([
      *
      * @property body {string} Body of the message.
      */
-    var Payload = struct.createTupleClass(MessageBody, "content");
+    var Payload = struct.createTupleClass("Payload", "content", MessageBody);
 
     Payload.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -130,7 +130,7 @@ define([
      *
      * @property manual {boolean} Whether this was sent with conscious user oversight.
      */
-    var ExplicitAck = struct.createTupleClass(MessageBody, "manual");
+    var ExplicitAck = struct.createTupleClass("ExplicitAck", "manual", MessageBody);
 
     ExplicitAck.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -156,7 +156,7 @@ define([
      *      other members should formally exclude the author from the session,
      *      e.g. by running a greeting protocol.
      */
-    var Consistency = struct.createTupleClass(MessageBody, "close");
+    var Consistency = struct.createTupleClass("Consistency", "close", MessageBody);
 
     Consistency.isFin = function(obj) {
         return (obj instanceof Consistency) && obj.close;

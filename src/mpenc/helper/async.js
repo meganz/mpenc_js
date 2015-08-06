@@ -448,7 +448,7 @@ define([
      * @property elem {} The element that was inserted.
      * @memberOf module:mpenc/helper/async
      */
-    var SequenceInsert = struct.createTupleClass("rIdx", "elem");
+    var SequenceInsert = struct.createTupleClass("SequenceInsert", "rIdx elem");
     ns.SequenceInsert = SequenceInsert;
 
     /**

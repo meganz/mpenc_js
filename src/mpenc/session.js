@@ -112,7 +112,7 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNState = struct.createTupleClass(SessionNotice, "newState", "oldState");
+    var SNState = struct.createTupleClass("SNState", "newState oldState");
 
     ns.SNState = SNState;
 
@@ -126,7 +126,7 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNMembers = struct.createTupleClass(SessionNotice, "remain", "include", "exclude");
+    var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude");
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
@@ -172,7 +172,7 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var NotDecrypted = struct.createTupleClass(NotDecrypted, "context", "sender", "size");
+    var NotDecrypted = struct.createTupleClass("NotDecrypted", "context sender size");
 
     ns.NotDecrypted = NotDecrypted;
 

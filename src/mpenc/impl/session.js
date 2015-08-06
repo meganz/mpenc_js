@@ -87,7 +87,8 @@ define([
      * @class
      * @memberOf module:mpenc/impl/session
      */
-    var SessionContext = struct.createTupleClass("owner", "keepfresh", "timer", "flowctl", "codec", "makeMessageLog");
+    var SessionContext = struct.createTupleClass("SessionContext",
+        "owner keepfresh timer flowctl codec makeMessageLog");
 
     Object.freeze(SessionContext.prototype);
     ns.SessionContext = SessionContext;
@@ -670,7 +671,7 @@ define([
     ns.SessionBase = SessionBase;
 
 
-    var OwnOp = struct.createTupleClass("action", "include", "exclude");
+    var OwnOp = struct.createTupleClass("OwnOp", "action include exclude");
 
     /**
      * A Session with a linear order on its membership operations.
