@@ -950,7 +950,7 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param makePacketId {string}
+     * @param makePacketId {function}
      *      0-arg factory to generate the packet-id for this packet. Should
      *      only be called if absolutely necessary, for efficiency, e.g. not
      *      called in most cases when returning <code>null</code>.

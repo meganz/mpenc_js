@@ -308,8 +308,8 @@ define([
     ServerOrder.prototype.acceptLeavePacket = function(leavers, channelMembers, sessionMembers) {
         _assert(this.hasOngoingOp());
         // fake packet-id as defined by msg-notes, appendix 5
-        var pId = this._serverOrder.makePacketId(
-            "\xffleave " + this._serverOrder.prevPi() + "\n" + leavers.toArray(),
+        var pId = this.makePacketId(
+            "\xffleave " + this.prevPi() + "\n" + leavers.toArray(),
             "__server__", channelMembers.union(new ImmutableSet(["__server__"])));
         logger.info("accepted pF " + btoa(pId) + ", a pseudo-packet for members leaving: " + leavers.toArray());
         this._acceptFinal(pId);
