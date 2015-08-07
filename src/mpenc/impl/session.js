@@ -842,10 +842,16 @@ define([
         var p = greeting.getPromise();
         var clear = this._clearGreeting.bind(this);
         var self = this;
-        // JS promises resolve asynchronously; if we split this into two .then()s then things break
-        p.then(function(greeting) { return self._changeSubSession(self._onGreetingComplete(greeting)); })
-         .then(clear, clear)
-         .catch(logger.warn.bind(logger));
+        // it would be cleaner to chain a bunch of then()s here; but unfortunately
+        // JS promises resolve in the next tick, which means clear() would run too
+        // late and break some other stuff that depends on it
+        p.then(function(greeting) {
+            try {
+                return self._changeSubSession(self._onGreetingComplete(greeting));
+            } finally {
+                clear();
+            }
+        }, clear).catch(logger.warn.bind(logger));
         // greeting accepted, try to achieve consistency in case this succeeds
         // and we need to rotate the sub-session
         if (this._curSession && this._curSession.state() === SessionState.JOINED) {

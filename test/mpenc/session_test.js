@@ -484,7 +484,7 @@ define([
                 return exec(s2, { exclude: ["51"] });
             }).then(function() {
                 assertMembers(["52", "53"], s2, s3);
-                assertSessionState("COS_", s1, s2, s3);
+                assertSessionState("COS_", s2, s3);
                 // it takes a bit more time for s1 to be kicked from the channel
                 return async.timeoutPromise(testTimer, 100);
             }).then(function() {
