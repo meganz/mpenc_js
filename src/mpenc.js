@@ -156,12 +156,15 @@ define([
     mpenc.createSession = createSession;
 
 
-    // expose some utilities to help external implementations of GroupChannel
+    // expose some internals to help external implementations
+
     mpenc.helper = {
-        'async': async,
-        'struct': struct
+        async: async,
+        struct: struct
     };
+
     mpenc.channel = channel;
+    mpenc.session = session;
 
 
     return mpenc;

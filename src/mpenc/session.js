@@ -39,29 +39,6 @@ define([
 
 
     /**
-     * Things that can happen to a Session.
-     *
-     * @interface
-     * @memberOf module:mpenc/session
-     * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session.SNState
-     * @see module:mpenc/session.SNMembers
-     * @see module:mpenc/transcript.MsgReady
-     * @see module:mpenc/transcript.MsgFullyAcked
-     * @see module:mpenc/session.NotDecrypted
-     * @see module:mpenc/liveness.NotAccepted
-     * @see module:mpenc/liveness.NotFullyAcked
-     */
-    var SessionNotice = function() {
-        throw new Error("cannot instantiate an interface");
-    };
-
-    SessionNotice.prototype = Object.create(Array.prototype);
-
-    ns.SessionNotice = SessionNotice;
-
-
-    /**
      * State of the logical session.
      *
      * <p>Logical means based on the logical cryptographic membership operations
@@ -102,6 +79,29 @@ define([
         /** A fatal error was detected and added to the transcript. */
         ERROR        : 7
     };
+
+    /**
+     * Things that can happen to a Session.
+     *
+     * @interface
+     * @memberOf module:mpenc/session
+     * @see module:mpenc/session.Session#onRecv
+     * @see module:mpenc/session.SNState
+     * @see module:mpenc/session.SNMembers
+     * @see module:mpenc/transcript.MsgReady
+     * @see module:mpenc/transcript.MsgFullyAcked
+     * @see module:mpenc/session.NotDecrypted
+     * @see module:mpenc/liveness.NotAccepted
+     * @see module:mpenc/liveness.NotFullyAcked
+     */
+    var SessionNotice = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    SessionNotice.prototype = Object.create(Array.prototype);
+
+    ns.SessionNotice = SessionNotice;
+
 
     /**
      * When the session state changes.
@@ -157,6 +157,11 @@ define([
 
     ns.SNMembers = SNMembers;
 
+    /** @alias module:mpenc/transcript.MsgReady */
+    ns.MsgReady = transcript.MsgReady;
+
+    /** @alias module:mpenc/transcript.MsgFullyAcked */
+    ns.MsgFullyAcked = transcript.MsgFullyAcked;
 
     /**
      * A packet has not yet been verify-decrypted, even after a grace period.
@@ -175,6 +180,12 @@ define([
     var NotDecrypted = struct.createTupleClass("NotDecrypted", "context sender size");
 
     ns.NotDecrypted = NotDecrypted;
+
+    /** @alias module:mpenc/liveness.NotAccepted */
+    ns.NotAccepted = liveness.NotAccepted;
+
+    /** @alias module:mpenc/liveness.NotFullyAcked */
+    ns.NotFullyAcked = liveness.NotFullyAcked;
 
 
     /**
