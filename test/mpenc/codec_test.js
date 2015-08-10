@@ -256,24 +256,13 @@ define([
     });
 
     describe("signMessage()", function() {
-        it('null equivalents', function() {
-            var tests = [null, undefined];
-            for (var i = 0; i < tests.length; i++) {
-                assert.strictEqual(ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                                                  tests[i],
-                                                  _td.ED25519_PRIV_KEY,
-                                                  _td.ED25519_PUB_KEY), null);
-            }
-        });
-
         it('greet messages', function() {
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+            var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
-            var expected = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
-                            'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
+            var expected = ['tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
                             'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
                             'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
                             'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
@@ -286,13 +275,12 @@ define([
         });
 
         it('data messages', function() {
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+            var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
-            var expected = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
-                            'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
+            var expected = ['YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
                             'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
                             'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
                             '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
@@ -309,13 +297,12 @@ define([
 
     describe("verifyMessageSignature()", function() {
         it('verifies greet message', function() {
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+            var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
-            var signatures = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
-                              'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
+            var signatures = ['tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
                               'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
                               'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
                               'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
@@ -332,13 +319,12 @@ define([
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
-                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS', ''];
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
             var signatures = ['euj54DQbUVg0SyWlce5MYDowHU6j84FLY26VGap0ZxRJdVKzHOEpSLqrnB6XyaMSPJfi2LEJPYgbqhcPK86ZBg==',
                               'tSkjLPe/o3LaK4z7ISbgJ5kaB9Uur2b1udT/ExWyEKJ8u6XrHt0rHXeA+pCWsMBLFX5Z65s68AoG0SwuxxfZBQ==',
                               'r2k2hjt17F+h3auY3CepMTtfN+9Ypqbnzd6ECFTWEgaGLjxT6cM5KC8z41PvgTQrVxPbBDKgFq8sA9zyH8r2Cw==',
                               'CcjivUm4ukFsau8okpUdbszVCtE637KaMlxq5556VAJhBJvUSE4efM7aR4Q4D3Nv9vmvaKfd0jFn6Scz4lOkDg==',
-                              'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ==',
-                              'uGXHKElm/jKenaSxDsoK+CN5zsL4DNPCvYCjtWq35PuvgWFCPWR+dDMn/XwA6xeVGq+gQnYp88AH3WnH/04wCA=='];
+                              'Ndvyun9LRBs0i3n/D3QK/GlIulvKOYpJOTlfc67+/UEf+7T+osZCdqbB3NErLJeq/jU3TnTqlkIbmIOSRw2pBQ=='];
             for (var i = 0; i < tests.length; i++) {
                 assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
                                                        tests[i], atob(signatures[i]), _td.ED25519_PUB_KEY),
@@ -347,13 +333,12 @@ define([
         });
 
         it('verifies data message', function() {
-            var tests = ['', '42', "Don't panic!", 'Flying Spaghetti Monster',
+            var tests = ['42', "Don't panic!", 'Flying Spaghetti Monster',
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
                          + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS']; // <-- this should verify!!!
-            var signatures = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
-                              'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
+            var signatures = ['YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
                               'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
                               'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
                               '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
@@ -372,13 +357,13 @@ define([
                          "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
                          'AAEAAQEBAAABMQEBAAEyAQIAAQABAwABMQEDAAEyAQMAATMBAwABNAEDAAE1AQMAATYBBAAAAQQAIGqZijjD8YntW2RjY'
                          + 'FEqE5V8TYffk+00sztfGH6hUQlNAQUAIGqZijjD8YntW2RjYFEqE5V8TYffk+00sztfGH6hUQlNAQYAIFYm6SFboX/g'
-                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS', ''];
+                         + 'zyP1xo6X6WLt1w7JkFt1PasFeVnvhgcS'];
             var signatures = ['H8r5iOernxktNJEE7cOyKGrfzHDg0JzyKXW275H6ScKdyyzG4TnaxO8qN8WmOrt7DNfRcjjmQ75FJz9kU1JcDg==',
                               'YnqS5BCXee/AGrIiswWsdCC2ghGRQjH5X8+fr6Izk10eAW4d6O4BKJa7CPrQRjFtYxqPR0DGG+pH1IM/wqy2Cw==',
                               'EK33UQGC6uMd5vsJzA8uPdXpfBsXbQtR+RusoDwA5r3V3ezOMldElxj2E2JPzFPtetWsM5iRWETkbqJVLJdPAg==',
                               'wezAkC2t4r1itjhj2CnLFSsHFqSQd4o3inyBsZpFUTSI7ntyTArYOUP5Va9oF77maxmGTLOnzDprGeTH9nutBA==',
-                              '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw==',
-                              'bydUAaMI8sTat+8krksNVkbyRvkYmmJh3M1D+i9PCW72JbTmEuYforlNzgriDeDSunRRc4ZhdihW1uMpTVg8AQ=='];
+                              '0nMt3jmAnyWCpZPBIk+x8rrb2xzIonKnOwvCJnXlT/6Ea7jXE+MWE4jdbHJyteWLs6C8pjSkFDpqSmcSzQaxDw=='
+                              ];
             var sidkeyHash = utils.sha256(_td.SESSION_ID + _td.GROUP_KEY);
             for (var i = 0; i < tests.length; i++) {
                 assert.notOk(ns.verifyMessageSignature(ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE,

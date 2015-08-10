@@ -135,7 +135,7 @@ define([
     };
 
     ServerOrder.prototype._shouldSyncWith = function(pI, prevPf, forUs) {
-        // whether we can accept this as the first packet for our chain
+        // [rule EIO] whether we can accept this as the first packet for our chain
         if (!forUs) {
             logger.info("ignored " + btoa(pI) + " because it's not for us");
             return false;
@@ -260,6 +260,7 @@ define([
 
         if (op.members.subtract(transportRecipients).size) {
             _assert(op.isInitial());
+            // [rule XP]
             logger.info("rejected " + btoa(pId) + " because it was not echoed to some members");
             return false;
         }
@@ -267,8 +268,10 @@ define([
         if (!this.isSynced()) {
             if (op.isInitial()) {
                 if (this._shouldSyncWith(pId, prevPf, op.members.has(owner))) {
+                    // [rule EII] accept this opportunistically
                     this.syncWithPrev(prevPf, op.metadata.prevCh);
                 } else {
+                    // [rule EIO] populate the blacklist
                     this.seenPrevPf.add(prevPf);
                     return false;
                 }
@@ -305,8 +308,8 @@ define([
     ServerOrder.prototype.acceptLeavePacket = function(leavers, channelMembers, sessionMembers) {
         _assert(this.hasOngoingOp());
         // fake packet-id as defined by msg-notes, appendix 5
-        var pId = this._serverOrder.makePacketId(
-            "\xffleave " + this._serverOrder.prevPi() + "\n" + leavers.toArray(),
+        var pId = this.makePacketId(
+            "\xffleave " + this.prevPi() + "\n" + leavers.toArray(),
             "__server__", channelMembers.union(new ImmutableSet(["__server__"])));
         logger.info("accepted pF " + btoa(pId) + ", a pseudo-packet for members leaving: " + leavers.toArray());
         this._acceptFinal(pId);

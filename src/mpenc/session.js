@@ -39,29 +39,6 @@ define([
 
 
     /**
-     * Things that can happen to a Session.
-     *
-     * @interface
-     * @memberOf module:mpenc/session
-     * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session.SNStateChange
-     * @see module:mpenc/session.SNMembers
-     * @see module:mpenc/transcript.MsgReady
-     * @see module:mpenc/transcript.MsgFullyAcked
-     * @see module:mpenc/session.NotDecrypted
-     * @see module:mpenc/liveness.NotAccepted
-     * @see module:mpenc/liveness.NotFullyAcked
-     */
-    var SessionNotice = function() {
-        throw new Error("cannot instantiate an interface");
-    };
-
-    SessionNotice.prototype = Object.create(Array.prototype);
-
-    ns.SessionNotice = SessionNotice;
-
-
-    /**
      * State of the logical session.
      *
      * <p>Logical means based on the logical cryptographic membership operations
@@ -104,6 +81,29 @@ define([
     };
 
     /**
+     * Things that can happen to a Session.
+     *
+     * @interface
+     * @memberOf module:mpenc/session
+     * @see module:mpenc/session.Session#onRecv
+     * @see module:mpenc/session.SNState
+     * @see module:mpenc/session.SNMembers
+     * @see module:mpenc/transcript.MsgReady
+     * @see module:mpenc/transcript.MsgFullyAcked
+     * @see module:mpenc/session.NotDecrypted
+     * @see module:mpenc/liveness.NotAccepted
+     * @see module:mpenc/liveness.NotFullyAcked
+     */
+    var SessionNotice = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+
+    SessionNotice.prototype = Object.create(Array.prototype);
+
+    ns.SessionNotice = SessionNotice;
+
+
+    /**
      * When the session state changes.
      *
      * Emitted by {@link module:mpenc/session.Session}.
@@ -112,9 +112,9 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNStateChange = struct.createTupleClass(SessionNotice, "newState", "oldState");
+    var SNState = struct.createTupleClass("SNState", "newState oldState");
 
-    ns.SNStateChange = SNStateChange;
+    ns.SNState = SNState;
 
 
     /**
@@ -126,7 +126,7 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNMembers = struct.createTupleClass(SessionNotice, "remain", "include", "exclude");
+    var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude");
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
@@ -157,6 +157,11 @@ define([
 
     ns.SNMembers = SNMembers;
 
+    /** @alias module:mpenc/transcript.MsgReady */
+    ns.MsgReady = transcript.MsgReady;
+
+    /** @alias module:mpenc/transcript.MsgFullyAcked */
+    ns.MsgFullyAcked = transcript.MsgFullyAcked;
 
     /**
      * A packet has not yet been verify-decrypted, even after a grace period.
@@ -172,9 +177,15 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var NotDecrypted = struct.createTupleClass(NotDecrypted, "context", "sender", "size");
+    var NotDecrypted = struct.createTupleClass("NotDecrypted", "context sender size");
 
     ns.NotDecrypted = NotDecrypted;
+
+    /** @alias module:mpenc/liveness.NotAccepted */
+    ns.NotAccepted = liveness.NotAccepted;
+
+    /** @alias module:mpenc/liveness.NotFullyAcked */
+    ns.NotFullyAcked = liveness.NotFullyAcked;
 
 
     /**
@@ -287,7 +298,7 @@ define([
      *
      * @memberOf module:mpenc/session.Session
      */
-    Session.EventTypes = [SNStateChange, SNMembers,
+    Session.EventTypes = [SNState, SNMembers,
                           MsgReady, MsgFullyAcked,
                           NotDecrypted, NotAccepted, NotFullyAcked];
 

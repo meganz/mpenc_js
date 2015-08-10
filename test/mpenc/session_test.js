@@ -53,13 +53,14 @@ define([
     var ExplicitAck = message.ExplicitAck;
     var Consistency = message.Consistency;
     var DefaultMessageLog = transcriptImpl.DefaultMessageLog;
+    var MessageSecurity = message.MessageSecurity;
 
     var MsgAccepted   = transcript.MsgAccepted;
     var NotAccepted   = liveness.NotAccepted;
     var MsgReady      = transcript.MsgReady;
     var MsgFullyAcked = transcript.MsgFullyAcked;
     var NotFullyAcked = liveness.NotFullyAcked;
-    var SNStateChange = ns.SNStateChange;
+    var SNState       = ns.SNState;
 
     var StateMachine = impl.StateMachine;
     var SessionState = ns.SessionState;
@@ -378,7 +379,7 @@ define([
                 return (old === queue.length) ? false : queue.shift() === evt;
             };
 
-            assert.ok(chained(new SNStateChange(SessionState.PARTING, SessionState.JOIN)));
+            assert.ok(chained(new SNState(SessionState.PARTING, SessionState.JOIN)));
 
             assert.notOk(chained(new MsgAccepted("0")));
             assert.notOk(chained(new MsgAccepted("1")));
@@ -394,7 +395,7 @@ define([
         });
     });
 
-    var mkHybridSession = function(sId, owner, server) {
+    var mkHybridSession = function(sId, owner, server, autoIncludeExtra) {
         var context = new SessionContext(
             owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
         // TODO(xl): replace with a dummy greeter so the tests run quicker
@@ -403,7 +404,7 @@ define([
                 get: function() { return _td.ED25519_PUB_KEY; }
             });
         return new HybridSession(context, sId, server.getChannel(owner),
-            dummyGreeter, makeDummyMessageSecurity);
+            dummyGreeter, MessageSecurity, autoIncludeExtra);
     };
 
     describe("HybridSession test", function() {
@@ -483,7 +484,7 @@ define([
                 return exec(s2, { exclude: ["51"] });
             }).then(function() {
                 assertMembers(["52", "53"], s2, s3);
-                assertSessionState("COS_", s1, s2, s3);
+                assertSessionState("COS_", s2, s3);
                 // it takes a bit more time for s1 to be kicked from the channel
                 return async.timeoutPromise(testTimer, 100);
             }).then(function() {
@@ -528,6 +529,53 @@ define([
                 server.runAsync(16, testTimer);
                 return p.promise;
             }).then(function() {
+                done();
+            }).catch(logError);
+        });
+
+        it('concurrent join', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                return exec(s1, { join: true });
+            }).then(function() {
+                return exec(s2, { join: true });
+            }).then(function() {
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                done();
+            }).catch(logError);
+        });
+
+        it('concurrent join with idle initial users', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server); // effectively unresponsive
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var s3 = mkHybridSession('myTestSession', "53", server, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                return exec(s1, { join: true });
+            }).then(function() {
+                exec(s2, { join: true });
+                exec(s3, { join: true });
+                // unresponsive user eventually "times out"
+                return s1._channel.execute({ leave: true });
+            }).then(function() {
+                server.runAsync(16, testTimer);
+                return s3._ownOperationPr;
+            }).then(function() {
+                assertMembers(["52", "53"], server, s2, s3);
+                assertSessionState("COS_", s2, s3);
+                assertSessionStable(s2, s3);
                 done();
             }).catch(logError);
         });

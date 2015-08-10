@@ -139,26 +139,32 @@ define([
      * @param pubKeyDir {{get: function}}
      *      Object with a 1-arg "get" method for obtaining long-term Ed25519
      *      public keys for other members.
+     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     *      new members that enter the transport channel. Default: false.
      * @returns {module:mpenc/impl/session.HybridSession}
      * @memberOf module:mpenc
      */
-    var createSession = function(context, sessionId, groupChannel, privKey, pubKey, pubKeyDir) {
+    var createSession = function(context, sessionId, groupChannel,
+        privKey, pubKey, pubKeyDir, autoIncludeExtra) {
         return new sessionImpl.HybridSession(
             context, sessionId, groupChannel,
             new greeter.Greeter(context.owner, privKey, pubKey, pubKeyDir),
             function(greetState) {
                 return new message.MessageSecurity(greetState, DEFAULT_EXPONENTIAL_PADDING);
-            });
+            }, autoIncludeExtra);
     };
     mpenc.createSession = createSession;
 
 
-	// expose some utilities to help external implementations of GroupChannel
+    // expose some internals to help external implementations
+
     mpenc.helper = {
-        'async': async,
-        'struct': struct
+        async: async,
+        struct: struct
     };
+
     mpenc.channel = channel;
+    mpenc.session = session;
 
 
     return mpenc;

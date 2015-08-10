@@ -133,14 +133,12 @@ define([
      * either by name or by numerical index.
      *
      * <pre>
-     * > var Point = createTupleClass("x", "y");
-     * undefined
+     * > var Point = createTupleClass("Point", "x y");
+     * > "created class " + Point
+     * "created class Point [x, y]"
      * > var treasure = Point(2, 3);
-     * undefined
-     * > treasure
-     * { '0': 2,
-     *   '1': 3,
-     *   length: 2 }
+     * > "created instance " + treasure
+     * "created instance Point { x: 2, y: 3 }"
      * > treasure.x
      * 2
      * > treasure.y
@@ -154,10 +152,12 @@ define([
      * 3.605551275463989
      * </pre>
      *
+     * @param name {string} Name of the tuple class.
+     * @param fields {(string|Array)} Fields to alias to each numerical index,
+     *      within the tuple, either an array of names, or a space-separated
+     *      string list of names.
      * @param [baseClass] {object} Optional parent class to extend from; this
      *      itself must be a subclass of Array. If omitted, defaults to Array.
-     * @param fieldNames {...string} Names of fields to alias to each numerical
-     *      index within the tuple.
      * @returns {function} A constructor. You may define a 0-arg method on it
      *      as <code>YourClass.prototype._postInit</code>, which will be
      *      called automatically by the constructor. This is useful to e.g.
@@ -167,15 +167,12 @@ define([
      *      where available, otherwise falling back to <code>===</code>.
      * @memberOf! module:mpenc/helper/struct
      */
-    var createTupleClass = function() {
-        var fields = Array.prototype.slice.call(arguments);
-        var baseClass = Array;
-        if (fields[0] && typeof fields[0] !== "string") {
-            if (fields[0].prototype instanceof Array) {
-                baseClass = fields.shift();
-            } else {
-                throw new Error("first arg must be string or subclass of Array");
-            }
+    var createTupleClass = function(name, fields, baseClass) {
+        fields = (typeof fields === "string") ? fields.split(" ")
+                                              : Array.prototype.slice.call(fields);
+        baseClass = baseClass || Array;
+        if (baseClass !== Array && !(baseClass.prototype instanceof Array)) {
+            throw new Error("baseClass must be subclass of Array");
         }
         var cls = function() {
             if (!(this instanceof cls)) {
@@ -190,6 +187,9 @@ define([
             if (this._postInit) {
                 this._postInit();
             }
+        };
+        cls.toString = function() {
+            return name + " [" + fields.join(", ") + "]";
         };
         cls.prototype = Object.create(baseClass.prototype);
         cls.prototype.constructor = cls;
@@ -210,6 +210,11 @@ define([
                 }
             }
             return true;
+        };
+        cls.prototype.toString = function() {
+            return name + " { " + this.map(function(v, i, a) {
+                return fields[i] + ": " + v.toString();
+            }).join(", ") + " }";
         };
         return cls;
     };

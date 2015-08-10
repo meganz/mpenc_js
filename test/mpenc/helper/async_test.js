@@ -239,8 +239,8 @@ define([
     });
 
     describe("events", function() {
-        var Evt1 = struct.createTupleClass("x", "y");
-        var Evt2 = struct.createTupleClass("x", "y", "z");
+        var Evt1 = struct.createTupleClass("Evt1", "x y");
+        var Evt2 = struct.createTupleClass("Evt2", "x y z");
 
         it("fail fast for bad args", function() {
             var events = new ns.EventContext([Evt1]);

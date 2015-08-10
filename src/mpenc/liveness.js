@@ -180,7 +180,7 @@ define([
      *      messages that we timed out waiting for.
      * @memberOf module:mpenc/liveness
      */
-    var NotAccepted = struct.createTupleClass("uId", "pmId");
+    var NotAccepted = struct.createTupleClass("NotAccepted", "uId pmId");
 
     Object.freeze(NotAccepted.prototype);
     ns.NotAccepted = NotAccepted;
@@ -204,7 +204,7 @@ define([
      * @property mId {string} Message ID.
      * @memberOf module:mpenc/liveness
      */
-    var NotFullyAcked = struct.createTupleClass("mId");
+    var NotFullyAcked = struct.createTupleClass("NotFullyAcked", "mId");
 
     Object.freeze(NotFullyAcked.prototype);
     ns.NotFullyAcked = NotFullyAcked;

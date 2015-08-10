@@ -52,7 +52,7 @@ define([
     var NotAccepted   = liveness.NotAccepted;
     var MsgFullyAcked = transcript.MsgFullyAcked;
     var NotFullyAcked = liveness.NotFullyAcked;
-    var SNStateChange = session.SNStateChange;
+    var SNState = session.SNState;
     var SessionState = session.SessionState;
     var SNMembers = session.SNMembers;
     var NotDecrypted = session.NotDecrypted;
@@ -87,7 +87,8 @@ define([
      * @class
      * @memberOf module:mpenc/impl/session
      */
-    var SessionContext = struct.createTupleClass("owner", "keepfresh", "timer", "flowctl", "codec", "makeMessageLog");
+    var SessionContext = struct.createTupleClass("SessionContext",
+        "owner keepfresh timer flowctl codec makeMessageLog");
 
     Object.freeze(SessionContext.prototype);
     ns.SessionContext = SessionContext;
@@ -143,7 +144,7 @@ define([
      * @see module:mpenc/session.Session
      */
     var SessionBase = function(context, sId, members, msgsec) {
-        this._stateMachine = new StateMachine(SNStateChange, SessionState.JOINED);
+        this._stateMachine = new StateMachine(SNState, SessionState.JOINED);
         this._events = new EventContext(SessionBase.EventTypes);
 
         this._owner = context.owner;
@@ -195,7 +196,7 @@ define([
         this._cancels = async.combinedCancel(cancels);
     };
 
-    SessionBase.EventTypes = [SNStateChange, MsgAccepted, MsgFullyAcked, NotAccepted, NotFullyAcked];
+    SessionBase.EventTypes = [SNState, MsgAccepted, MsgFullyAcked, NotAccepted, NotFullyAcked];
 
     SessionBase.prototype._expectedMaxBuf = function() {
         return 4 * Math.max(16, Math.sqrt(this.curMembers().size) * 8);
@@ -670,7 +671,7 @@ define([
     ns.SessionBase = SessionBase;
 
 
-    var OwnOp = struct.createTupleClass("action", "include", "exclude");
+    var OwnOp = struct.createTupleClass("OwnOp", "action include exclude");
 
     /**
      * A Session with a linear order on its membership operations.
@@ -685,10 +686,14 @@ define([
      * @param makeMessageSecurity {function} 1-arg factory function, that takes
      *      a {@link module:mpenc/greet/greeter.GreetStore} and creates a new
      *      {@link module:mpenc/message.MessageSecurity}.
+     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     *      new members that enter the transport channel. Default: false.
      */
-    var HybridSession = function(context, sId, channel, greeter, makeMessageSecurity) {
+    var HybridSession = function(context, sId, channel,
+        greeter, makeMessageSecurity, autoIncludeExtra) {
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
+        this._autoIncludeExtra = autoIncludeExtra || false;
 
         this._owner = context.owner;
         this._ownSet = new ImmutableSet([this._owner]);
@@ -749,7 +754,7 @@ define([
      */
     HybridSession.prototype.toString = function(short) {
         return this._owner + ":" + btoa(this._sId.substring(0, 3)) +
-            (short ? "" : ":[" + this.curMembers().toArray() + "]");
+            (short ? "" : ":" + this.state() + ":" + this._internalState() + ":[" + this.curMembers().toArray() + "]");
     };
 
     /* Summary of the internal state of the session.
@@ -775,7 +780,6 @@ define([
         } else if (!this._curSession) {
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
-                _assert(this._channel.curMembers().equals(this._ownSet));
                 _assert(!this._greeting);
                 // Stable; we just entered the channel and we're the only ones here.
                 return "COsJ";
@@ -797,13 +801,15 @@ define([
     HybridSession.prototype._clearChannelRecords = function(r) {
         this._serverOrder.clear();
         this._channelJustSynced = false;
+        // Members already present when we entered, that have not yet left.
+        this._moreSeniorThanUs = new Set();
         /* Members we'll try to exclude from the session. We add someone when:
          *
          * - they send a leave-intent (2x Consistency(close=true) messages)
          * - they leave the channel (e.g. are disconnected)
          *
          * By protocol, users in this set are prevented from re-entering the
-         * channel [#ALX] until the exclude operation completes. */
+         * channel [rule EAL] until the exclude operation completes. */
         this._taskExclude = new Set();
         /* Members we'll try to kick from the channel. We add someone when:
          *
@@ -811,7 +817,7 @@ define([
          *   haven't left the channel yet.
          *
          * By protocol, users in this set are prevented from being re-included
-         * into the session [#ALV], until they've left. */
+         * into the session [rule IAL], until they've left. */
         this._taskLeave = new Set();
         return async.exitFinally(r);
     };
@@ -836,10 +842,16 @@ define([
         var p = greeting.getPromise();
         var clear = this._clearGreeting.bind(this);
         var self = this;
-        // JS promises resolve asynchronously; if we split this into two .then()s then things break
-        p.then(function(greeting) { return self._changeSubSession(self._onGreetingComplete(greeting)); })
-         .then(clear, clear)
-         .catch(logger.warn.bind(logger));
+        // it would be cleaner to chain a bunch of then()s here; but unfortunately
+        // JS promises resolve in the next tick, which means clear() would run too
+        // late and break some other stuff that depends on it
+        p.then(function(greeting) {
+            try {
+                return self._changeSubSession(self._onGreetingComplete(greeting));
+            } finally {
+                clear();
+            }
+        }, clear).catch(logger.warn.bind(logger));
         // greeting accepted, try to achieve consistency in case this succeeds
         // and we need to rotate the sub-session
         if (this._curSession && this._curSession.state() === SessionState.JOINED) {
@@ -890,12 +902,35 @@ define([
 
     HybridSession.prototype._maybeSyncNew = function(members) {
         _assert(this._channel.curMembers() !== null);
-        if (this._channel.curMembers().size === 1) {
-            this._serverOrder.syncNew();
-            this._channelJustSynced = true;
+        _assert(!this._serverOrder.isSynced());
+        if (this._moreSeniorThanUs.size) {
+            // Members more senior than us are still in the channel. Assume that they
+            // have an exising session so wait for them to include us. If this isn't
+            // true, hopefully they will eventually leave and trigger the below path.
+            return;
         }
-        // if someone invites us to a channel, just wait for them to include us
-        // TODO(xl): [F] (parallel-op) this may not be the best thing to do; need more data to decide
+        // All seniors have left but we're still not synced, so take responsibility
+        // for creating a new session and including the less senior members.
+        this._serverOrder.syncNew();
+        this._channelJustSynced = true;
+        logger.info("created new session: " + this.toString());
+        if (this._channel.curMembers().size > 1) {
+            var others = this._channel.curMembers().subtract(this._ownSet);
+            this._maybeHandleExtra("extra channel users after syncing serverOrder", others);
+        }
+    };
+
+    HybridSession.prototype._maybeHandleExtra = function(preamble, extras) {
+        if (this._autoIncludeExtra) {
+            logger.info(preamble + ": " + extras.toArray() +
+                "; auto-include them as per autoIncludeExtra=true");
+            this._proposeGreetInit(extras, ImmutableSet.EMPTY);
+        } else {
+            // TODO(xl): distinguish "X entered themselves" vs "Y made X enter"
+            // and use this to implement UI notifications as per [rule ES]
+            logger.info(preamble + ": " + extras.toArray() +
+                "; ignored, assuming that someone else is responsible for them");
+        }
     };
 
     HybridSession.prototype._maybeHandleTasks = function() {
@@ -917,7 +952,7 @@ define([
                 var p = this._proposeGreetInit(ImmutableSet.EMPTY, toExclude);
                 p.catch(function(e) {
                     // TODO(xl): [D] maybe re-schedule
-                    logger.info("proposal to exclude: " + toExclude + " failed, hopefully not a problem");
+                    logger.info("proposal to exclude: " + toExclude.toArray() + " failed, hopefully not a problem");
                 });
             }
             return;
@@ -1043,29 +1078,40 @@ define([
             // _change_membership should already be handling this
         }
         if (taskExc.size) {
-            // [#ALX] we still haven't excluded them cryptographically, and can't
-            // allow them to rejoin until we've done this. auto-kick them ASAP.
-            // some GKAs allow computation of subgroup keys, but in that case we
-            // can model it as a 1-packet membership operation (we need >= 1
-            // packet for the ServerOrder accept/reject mechanism) and avoid
-            // this code path entirely.
+            // [rule EAL] we still haven't excluded them cryptographically, and can't
+            // allow them to rejoin until we've done this; auto-kick them ASAP. some
+            // GKAs allow computation of subgroup keys, but in that case we can model
+            // it as a 1-packet membership operation (we need >= 1 packet for the
+            // accept/reject mechanism anyways) and avoid this code path entirely.
             logger.info("automatically kicking: " + taskExc.toArray() +
                 " because they were previously in the channel and we haven't excluded them yet");
             this._channel.send({ leave: taskExc });
         }
         if (unexpected.size) {
-            // TODO(xl): [D] add a SessionNotice event for this
-            logger.info("unexpected users entered the channel: " + unexpected.toArray() +
-                "; maybe someone else is including them, or they want to be invited?");
+            if (this._greeting) {
+                // [rule EO]
+                _assert(!unexpected.intersect(this._greeting.getNextMembers()).size);
+                logger.info("automatically kicking: " + unexpected.toArray() +
+                    " because a greeting is in progress");
+                this._channel.send({ leave: unexpected });
+            } else {
+                // [rule ES]
+                this._maybeHandleExtra("unexpected users entered the channel", unexpected);
+            }
         }
         this._assertConsistentTasks(true);
     };
 
     HybridSession.prototype._onOthersLeave = function(others) {
         this._assertConsistentTasks();
+        // if others left and we're still not synced, try to sync again
+        others.forEach(this._moreSeniorThanUs.delete.bind(this._moreSeniorThanUs));
+        if (!this._serverOrder.isSynced()) {
+            this._maybeSyncNew();
+        }
         if (this._greeting && this._greeting.getNextMembers().intersect(others).size) {
-            // if there is an ongoing operation, and anyone from it leaves, then abort
-            // it, with the "pseudo packet id" definition as mentioned in msg-notes.
+            // [rule LOI] if there is an ongoing operation, and anyone from it leaves, then
+            // abort it, with the "pseudo packet id" definition as mentioned in msg-notes.
             _assert(this.curMembers().equals(this._greeting.getPrevMembers()));
             this._serverOrder.acceptLeavePacket(others, this._channel.curMembers(), this.curMembers());
             this._greeting.fail(new Error("OperationAborted: others left the channel: " + others.toArray()));
@@ -1073,6 +1119,7 @@ define([
         others.forEach(this._taskLeave.delete.bind(this._taskLeave));
         var toExclude = this.curMembers().intersect(others);
         if (toExclude.size) {
+            // [rule LS, LOX]
             toExclude.forEach(this._taskExclude.add.bind(this._taskExclude));
             logger.info("added to taskExclude because they left the channel: " + toExclude.toArray());
             this._maybeHandleTasks();
@@ -1112,6 +1159,7 @@ define([
             var leave = recv_in.leave;
 
             if (leave === true) {
+                // [rule LI]
                 this._clearChannelRecords();
                 this._clearOwnOperation();
                 this._clearOwnProposal();
@@ -1131,7 +1179,8 @@ define([
             }
 
             if (enter === true) {
-                this._maybeSyncNew(recv_in);
+                this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
+                this._maybeSyncNew();
             } else if (enter && enter.size) {
                 this._onOthersEnter(enter);
             }
@@ -1187,7 +1236,7 @@ define([
                 var r = this._greeting.recv(recv_in);
                 _assert(r); // TODO: [F] (handle-error) this may be false, if partialDecode is too lenient
                 if (op.isInitial() && this._taskLeave.size) {
-                    // [#ALV] Members haven't left the channel after being excluded, but
+                    // [rule IAL] Members haven't left the channel after being excluded, but
                     // someone is trying to re-include them. This is against protocol and
                     // probably won't end well, so kick them now. If not a final packet,
                     // kicking will make the greeting fail; if final, onOthersLeave will
@@ -1357,7 +1406,20 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.state = function() {
-        return this._curSession ? this._curSession.state() : SessionState.PARTED;
+        var state = this._internalState();
+        var greeting = this._greeting;
+        if (state === "COS_" || state === "COsJ") {
+            return greeting && !greeting.getNextMembers().has(this._owner)
+                ? SessionState.PARTING : SessionState.JOINED;
+        } else if (state === "COsj") {
+            return greeting ? SessionState.JOINING : SessionState.PARTING;
+        } else if (state === "Cos_") {
+            return SessionState.JOINING;
+        } else if (state === "cos_") {
+            return SessionState.PARTED;
+        } else {
+            _assert(false);
+        }
     };
 
     /**
@@ -1495,25 +1557,27 @@ define([
         var p = async.newPromiseAndWriters();
         var p1 = Promise.resolve(ch);
 
+        var cancelEvtWait;
         if (!this._channel.curMembers()) {
             p1 = p1.then(ch.execute.bind(ch, { enter: true }));
         }
 
         p1 = p1.then(function() {
-            var curMembers = self._channel.curMembers();
-            if (curMembers && curMembers.size > 1) {
-                // if it's not empty, wait for someone to invite us
-                self._events.subscribe(SNMembers).untilTrue(function(evt) {
-                    if (evt.remain.equals(self._ownSet) && evt.include.size) {
-                        p.resolve(self);
-                        return true;
-                    }
-                });
+            if (self._channel.curMembers().size > 1) {
+                // if it's not empty, just wait for someone to invite us
+                // TODO(xl): set a timeout here and reenter if no-one tries to include us
             } else {
-                // maybeSyncNew should have been called by this stage
+                // no session membership change expected, just finish this operation.
                 _assert(self._serverOrder.isSynced());
-                // no session membership change, just finish this operation.
+                cancelEvtWait();
                 p.resolve(self);
+            }
+        });
+
+        cancelEvtWait = self._events.subscribe(SNMembers).untilTrue(function(evt) {
+            if (evt.remain.equals(self._ownSet) && evt.include.size) {
+                p.resolve(self);
+                return true;
             }
         });
 

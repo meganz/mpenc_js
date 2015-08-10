@@ -105,7 +105,7 @@ define([
      *
      * @property body {string} Body of the message.
      */
-    var Payload = struct.createTupleClass(MessageBody, "content");
+    var Payload = struct.createTupleClass("Payload", "content", MessageBody);
 
     Payload.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -130,7 +130,7 @@ define([
      *
      * @property manual {boolean} Whether this was sent with conscious user oversight.
      */
-    var ExplicitAck = struct.createTupleClass(MessageBody, "manual");
+    var ExplicitAck = struct.createTupleClass("ExplicitAck", "manual", MessageBody);
 
     ExplicitAck.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -156,7 +156,7 @@ define([
      *      other members should formally exclude the author from the session,
      *      e.g. by running a greeting protocol.
      */
-    var Consistency = struct.createTupleClass(MessageBody, "close");
+    var Consistency = struct.createTupleClass("Consistency", "close", MessageBody);
 
     Consistency.isFin = function(obj) {
         return (obj instanceof Consistency) && obj.close;
@@ -260,8 +260,9 @@ define([
      * @memberOf module:mpenc/message
      */
     var MessageSecurity = function(greetStore, paddingSize) {
-        if (!(this instanceof MessageSecurity)) { return new MessageSecurity(greetStore); }
-        this.owner = greetStore.id;
+        if (!(this instanceof MessageSecurity)) {
+            return new MessageSecurity(greetStore, paddingSize);
+        }
         this._greetStore = greetStore;
         this._paddingSize = paddingSize || 0;
     };
@@ -281,7 +282,7 @@ define([
      *     Authenticated ciphertext and message secrets.
      */
     MessageSecurity.prototype.authEncrypt = function(transcript, message) {
-        _assert(message.author === this.owner);
+        _assert(message.author === this._greetStore.id);
         var privKey = this._greetStore.ephemeralPrivKey;
         var pubKey = this._greetStore.ephemeralPubKey;
 
@@ -290,7 +291,7 @@ define([
         // iv, message data
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
-        var members = message.recipients.union(new ImmutableSet([this.owner]));
+        var members = message.recipients.union(new ImmutableSet([this._greetStore.id]));
         _assert(members.equals(new ImmutableSet(this._greetStore.members)),
                 'Recipients not members of session: ' + members +
                 '; current members: ' + this._greetStore.members);
@@ -327,7 +328,7 @@ define([
         out += content;
 
         return {
-            pubtxt: out,
+            pubtxt: codec.encodeWirePacket(out),
             secrets: _dummyMessageSecrets(signature, content),
         };
     };
@@ -379,7 +380,7 @@ define([
      * @param transcript {module:mpenc/transcript.Transcript}
      *     Context transcript of the message.
      * @param pubtxt {string}
-     *     A TLV protocol string, that represents ciphertext received from the
+     *     An encoded wire string, that represents ciphertext received from the
      *     transport and assumed to be public knowledge, to decrypt and verify.
      * @param authorHint {string}
      *     Claimed (unverified) author for the message.
@@ -399,8 +400,9 @@ define([
             return null;
         }
 
+        var decoded = codec.decodeWirePacket(pubtxt);
         var signingPubKey = this._greetStore.pubKeyMap[authorHint];
-        var inspected = _inspectMessage(pubtxt);
+        var inspected = _inspectMessage(decoded.content);
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
         var verifySig = codec.verifyMessageSignature(
@@ -426,8 +428,6 @@ define([
 
         // Data message signatures were already verified through trial decryption.
         var rest = ns._decryptRaw(out.data, groupKey, out.iv);
-
-        var encrypted = ns._encryptRaw(codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, rest), groupKey, 0);
 
         var parents = [];
         rest = codec.popTLVAll(rest, _T.MESSAGE_PARENT, function(value) {

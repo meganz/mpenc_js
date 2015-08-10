@@ -805,7 +805,7 @@ define([
      * @see module:mpenc/greet/greeter.GreetingMetadata.create
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingMetadata = struct.createTupleClass("prevPf", "prevCh", "author", "parents");
+    var GreetingMetadata = struct.createTupleClass("GreetingMetadata", "prevPf prevCh author parents");
 
     GreetingMetadata.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -847,7 +847,7 @@ define([
      * @see module:mpenc/greet/greeter.GreetingSummary.create
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetingSummary = struct.createTupleClass("pId", "metadata", "prevPi", "members");
+    var GreetingSummary = struct.createTupleClass("GreetingSummary", "pId metadata prevPi members");
 
     GreetingSummary.prototype._postInit = function() {
         // hook for createTupleClass constructor
@@ -950,7 +950,7 @@ define([
      *      The original data received from the transport.
      * @param from {string}
      *      The unauthenticated (transport) sender of the message.
-     * @param makePacketId {string}
+     * @param makePacketId {function}
      *      0-arg factory to generate the packet-id for this packet. Should
      *      only be called if absolutely necessary, for efficiency, e.g. not
      *      called in most cases when returning <code>null</code>.
@@ -1191,6 +1191,8 @@ define([
      * completed operations.
      *
      * @constructor
+     * @param id {string}
+     *      The owner of this greeter.
      * @param [opState] {number}
      *      The state of the last Greeting; must be NULL or READY.
      * @param [members] {array<string>}
@@ -1217,9 +1219,10 @@ define([
      *      The list of previous initial keys for all members.
      * @memberOf module:mpenc/greet/greeter
      */
-    var GreetStore = function(opState, members,
+    var GreetStore = function(id, opState, members,
             sessionId, ephemeralPrivKey, ephemeralPubKey, nonce, ephemeralPubKeys, nonces,
             groupKey, privKeyList, intKeys) {
+        this.id = id;
         this._opState = opState || ns.STATE.NULL;
         this.members = utils.clone(members) || [];
         _assert(this._opState === ns.STATE.READY || this._opState === ns.STATE.NULL,
@@ -1278,7 +1281,7 @@ define([
      * @implements module:mpenc/helper/utils.SendingReceiver
      */
     var Greeting = function(greeter, store) {
-        store = store || new GreetStore();
+        store = store || new GreetStore(greeter.id);
         this.id = greeter.id;
         this.privKey = greeter.privKey;
         this.pubKey = greeter.pubKey;
@@ -1385,7 +1388,7 @@ define([
     Greeting.prototype.getResultState = function () {
         this._checkComplete();
         return new GreetStore(
-            this._opState, this.askeMember.members, this.askeMember.sessionId,
+            this.id, this._opState, this.askeMember.members, this.askeMember.sessionId,
             this.askeMember.ephemeralPrivKey, this.askeMember.ephemeralPubKey, this.askeMember.nonce,
             this.askeMember.ephemeralPubKeys, this.askeMember.nonces,
             this.cliquesMember.groupKey, this.cliquesMember.privKeyList, this.cliquesMember.intKeys);
