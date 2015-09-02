@@ -1268,7 +1268,7 @@ define([
         // recv_in actually being a ChannelControl packet; in real code this
         // probably won't happen because the timeout should be set to a much
         // higher value than it takes for greeting post-processing to complete.
-        this._events.publish(new NotDecrypted(this.sId, recv_in.sender, recv_in.pubtxt.length));
+        this._events.publish(new NotDecrypted(this._sId, recv_in.sender, recv_in.pubtxt.length));
         // TODO(xl): [D/R] maybe drop the packet too. though we already got maxsize
     };
 
