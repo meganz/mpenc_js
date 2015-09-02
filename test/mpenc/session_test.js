@@ -395,7 +395,7 @@ define([
         });
     });
 
-    var mkHybridSession = function(sId, owner, server, autoIncludeExtra) {
+    var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
         var context = new SessionContext(
             owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
         // TODO(xl): replace with a dummy greeter so the tests run quicker
@@ -404,7 +404,7 @@ define([
                 get: function() { return _td.ED25519_PUB_KEY; }
             });
         return new HybridSession(context, sId, server.getChannel(owner),
-            dummyGreeter, MessageSecurity, autoIncludeExtra);
+            dummyGreeter, MessageSecurity, autoIncludeExtra, stayIfLastMember);
     };
 
     describe("HybridSession test", function() {
@@ -533,7 +533,71 @@ define([
             }).catch(logError);
         });
 
-        it('concurrent join', function(done) {
+        it('concurrent join and auto-leave', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                s1.execute({ join: true });
+                return exec(s2, { join: true });
+            }).then(function() {
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s2, { exclude: ["51"] });
+            }).then(function() {
+                // give some time for leave processes to complete
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                // s2 leaves automatically
+                assertMembers([], server);
+                assertSessionState("cos_", s1, s2);
+                assertSessionParted(s1, s2);
+                assertSessionStable(s1, s2);
+                done();
+            }).catch(logError);
+        });
+
+        it('concurrent join, stay-if-last, rejoin with autoinclude', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                s1.execute({ join: true });
+                return exec(s2, { join: true });
+            }).then(function() {
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s2, { exclude: ["51"] });
+            }).then(function() {
+                // give some time for leave processes to complete
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                // s2 remains in the channel
+                assertMembers(["52"], server);
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s1, { join: true });
+            }).then(function() {
+                // rejoin works, s2 auto-includes s1
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                done();
+            }).catch(logError);
+        });
+
+        it('double join', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server, true);
@@ -553,7 +617,7 @@ define([
             }).catch(logError);
         });
 
-        it('concurrent join with idle initial users', function(done) {
+        it('double join with idle initial users', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server); // effectively unresponsive

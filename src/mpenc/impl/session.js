@@ -688,12 +688,15 @@ define([
      *      {@link module:mpenc/message.MessageSecurity}.
      * @param [autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
+     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     *      instead of leaving it, as the last member. Default: false.
      */
     var HybridSession = function(context, sId, channel,
-        greeter, makeMessageSecurity, autoIncludeExtra) {
+        greeter, makeMessageSecurity, autoIncludeExtra, stayIfLastMember) {
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
         this._autoIncludeExtra = autoIncludeExtra || false;
+        this._stayIfLastMember = stayIfLastMember || false;
 
         this._owner = context.owner;
         this._ownSet = new ImmutableSet([this._owner]);
@@ -972,6 +975,24 @@ define([
         _assert(struct.isDisjoint(this._taskExclude, this._taskLeave));
     };
 
+    HybridSession.prototype._maybeLeaveChannel = function(pendingLeave) {
+        pendingLeave = pendingLeave || ImmutableSet.EMPTY;
+        if (this._stayIfLastMember &&
+            this._channel.curMembers().subtract(pendingLeave).equals(this._ownSet)) {
+            logger.info("remaining in channel as the last member: " + this._owner);
+            _assert(!this._greeting);
+            this._clearOwnOperation();
+            this._clearOwnProposal();
+            if (this._curSession) {
+                this._changeSubSession(null);
+            }
+            this._channelJustSynced = true;
+        } else {
+            logger.info("requesting channel leave self: " + this._owner);
+            return this._channel.execute({ leave: true });
+        }
+    };
+
     // Decide responses to others doing certain things
 
     // Respond to others that intend to leave the overall session.
@@ -1013,15 +1034,14 @@ define([
         // checks in _changeMembership for details
         var pendingLeave = this._channel.curMembers().intersect(this._taskLeave);
         if (pendingLeave.size) {
+            logger.info("requesting channel leave: " + pendingLeave.toArray());
             this._channel.send({ leave: pendingLeave });
-            logger.info("requested channel leave: " + pendingLeave.toArray());
         }
 
         // if we didn't leave the channel already, leave it
         if (!this._curSession && this._serverOrder.isSynced()) {
             if (!this._greeting) {
-                this._channel.send({ leave: true });
-                logger.info("requested channel leave self: " + this._owner);
+                this._maybeLeaveChannel(pendingLeave);
             } else {
                 // we/someone is already trying to re-include us
                 // (we may or may not have left in the meantime)
@@ -1596,7 +1616,7 @@ define([
             return Promise.resolve(this);
         } else if (state === "Cos_" || state === "COsJ" || state === "COsj" && this._greeting) {
             // no session and no local automated process, just leave the channel
-            return this._channel.execute({ leave: true });
+            return this._maybeLeaveChannel();
         } else if (state === "COsj" && !this._greeting) {
             // TODO(xl): [F] (parallel-op) might be able to speed things up a bit...
             throw new Error("already in the middle of parting");
@@ -1615,7 +1635,7 @@ define([
         // try to reach consistency, then leave the channel
         sess.onFin(function(mId) {
             if (sess === self._curSession && self._channel.curMembers()) {
-                self._channel.send({ leave: true });
+                self._maybeLeaveChannel();
             }
         });
 

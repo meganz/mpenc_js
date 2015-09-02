@@ -141,17 +141,20 @@ define([
      *      public keys for other members.
      * @param [autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
+     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     *      instead of leaving it, as the last member. Default: false.
      * @returns {module:mpenc/impl/session.HybridSession}
      * @memberOf module:mpenc
      */
     var createSession = function(context, sessionId, groupChannel,
-        privKey, pubKey, pubKeyDir, autoIncludeExtra) {
+        privKey, pubKey, pubKeyDir, autoIncludeExtra, stayIfLastMember) {
         return new sessionImpl.HybridSession(
             context, sessionId, groupChannel,
             new greeter.Greeter(context.owner, privKey, pubKey, pubKeyDir),
             function(greetState) {
                 return new message.MessageSecurity(greetState, DEFAULT_EXPONENTIAL_PADDING);
-            }, autoIncludeExtra);
+            },
+            autoIncludeExtra, stayIfLastMember);
     };
     mpenc.createSession = createSession;
 
