@@ -697,6 +697,7 @@ define([
         this._events = new EventContext(Session.EventTypes);
         this._autoIncludeExtra = autoIncludeExtra || false;
         this._stayIfLastMember = stayIfLastMember || false;
+        this._fubar = false;
 
         this._owner = context.owner;
         this._ownSet = new ImmutableSet([this._owner]);
@@ -1055,7 +1056,10 @@ define([
         _assert(greeting === this._greeting);
         var prevMembers = greeting.getPrevMembers();
         var newMembers = greeting.getNextMembers();
-        var channelMembers = this._channel.curMembers();
+        // we use _pendingGreetPP to store this._channel.curMembers() back from when
+        // the greeting actually completed, because this._channel isn't protected by the
+        // post-processing delaying logic in this class, and may have advanced too much
+        var channelMembers = this._pendingGreetPP;
 
         if (!newMembers.has(this._owner)) {
             // if we're being excluded, pretend nothing happened and just
@@ -1084,13 +1088,14 @@ define([
             }
         }
 
-        this._assertConsistentTasks(true);
+        this._assertConsistentTasks();
         return greeting;
     };
 
     HybridSession.prototype._onOthersEnter = function(others) {
         this._assertConsistentTasks();
-        _assert(!others.intersect(this._taskLeave).size);
+        _assert(!others.intersect(this._taskLeave).size,
+            "somehow taskLeave was set for absent user: " + this._taskLeave);
         var selfOp = this._ownOperationParam;
         var opInc = (selfOp && selfOp.action === "m") ? selfOp.include : ImmutableSet.EMPTY;
         var taskExc = others.intersect(this._taskExclude);
@@ -1166,47 +1171,52 @@ define([
     };
 
     HybridSession.prototype._recvMain = function(recv_in, useQueue) {
-        if ("pubtxt" in recv_in) {
-            if (this._recvGreet(recv_in)) {
-                return true;
-            } else if (useQueue) {
-                return this._tryDecrypt.trial(recv_in);
+        try {
+            if ("pubtxt" in recv_in) {
+                if (this._recvGreet(recv_in)) {
+                    return true;
+                } else if (useQueue) {
+                    return this._tryDecrypt.trial(recv_in);
+                } else {
+                    return this._sessionRecv.publish(recv_in).some(Boolean);
+                }
             } else {
-                return this._sessionRecv.publish(recv_in).some(Boolean);
-            }
-        } else {
-            recv_in = channel.checkChannelControl(recv_in);
-            var enter = recv_in.enter;
-            var leave = recv_in.leave;
+                recv_in = channel.checkChannelControl(recv_in);
+                var enter = recv_in.enter;
+                var leave = recv_in.leave;
 
-            if (leave === true) {
-                // [rule LI]
-                this._clearChannelRecords();
-                this._clearOwnOperation();
-                this._clearOwnProposal();
-                if (this._greeting) {
-                    if (this._greeting.getNextMembers().has(this._owner)) {
-                        this._greeting.fail(new Error("OperationAborted: we left the channel"));
-                    } else {
-                        this._greeting.fail(new Error("OperationIgnored: we left the channel "
-                            + "during a greeting to exclude us; assuming it succeeded"));
+                if (leave === true) {
+                    // [rule LI]
+                    this._clearChannelRecords();
+                    this._clearOwnOperation();
+                    this._clearOwnProposal();
+                    if (this._greeting) {
+                        if (this._greeting.getNextMembers().has(this._owner)) {
+                            this._greeting.fail(new Error("OperationAborted: we left the channel"));
+                        } else {
+                            this._greeting.fail(new Error("OperationIgnored: we left the channel "
+                                + "during a greeting to exclude us; assuming it succeeded"));
+                        }
                     }
+                    if (this._curSession) {
+                        this._changeSubSession(null);
+                    }
+                } else if (leave && leave.size) {
+                    this._onOthersLeave(leave);
                 }
-                if (this._curSession) {
-                    this._changeSubSession(null);
+
+                if (enter === true) {
+                    this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
+                    this._maybeSyncNew();
+                } else if (enter && enter.size) {
+                    this._onOthersEnter(enter);
                 }
-            } else if (leave && leave.size) {
-                this._onOthersLeave(leave);
-            }
 
-            if (enter === true) {
-                this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
-                this._maybeSyncNew();
-            } else if (enter && enter.size) {
-                this._onOthersEnter(enter);
+                return true;
             }
-
-            return true;
+        } catch (e) {
+            this._fubar = true;
+            throw e;
         }
     };
 
@@ -1272,7 +1282,7 @@ define([
                 if (op.isFinal()) {
                     _assert(!this._serverOrder.hasOngoingOp());
                     // wait for greeting to complete before processing other packets
-                    this._pendingGreetPP = true;
+                    this._pendingGreetPP = this._channel.curMembers();
                 }
             }
             return true;

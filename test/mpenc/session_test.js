@@ -411,9 +411,17 @@ define([
         var assertSessionStable = function() {
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
-                assert.strictEqual(sess._ownOperationPr, null, sess._owner + " should not have own operation");
-                assert.strictEqual(sess._greeting, null, sess._owner + " should not have greeting");
-                assert.strictEqual(sess._ownProposalPr, null, sess._owner + " should not have own proposal");
+                assert.strictEqual(sess._ownOperationPr, null,
+                    sess._owner + " should not have own operation");
+                assert.strictEqual(sess._greeting, null,
+                    sess._owner + " should not have greeting");
+                assert.strictEqual(sess._ownProposalPr, null,
+                    sess._owner + " should not have own proposal");
+                assert.strictEqual(sess._taskLeave.size, 0,
+                    sess._owner + " should not have any pending taskLeave");
+                assert.strictEqual(sess._taskExclude.size, 0,
+                    sess._owner + " should not have any pending taskExclude");
+                assert.notOk(sess._fubar, sess._owner + " had some internal error");
                 assert.ok(!sess._serverOrder.isSynced() || !sess._serverOrder.hasOngoingOp());
             }
         };
@@ -481,6 +489,7 @@ define([
             }).then(function() {
                 assertMembers(["51", "52", "53"], s1, s2, s3, server);
                 assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
                 return exec(s2, { exclude: ["51"] });
             }).then(function() {
                 assertMembers(["52", "53"], s2, s3);
@@ -529,6 +538,52 @@ define([
                 server.runAsync(16, testTimer);
                 return p.promise;
             }).then(function() {
+                done();
+            }).catch(logError);
+        });
+
+        it('pendingGreetPP order-of-processing logic', function(done) {
+            this.timeout(this.timeout() * 30);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                return exec(s1, { join: true });
+            }).then(function() {
+                return exec(s1, { include: ["52", "53"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                // s1 leaves the channel spontanously, e.g. disconnect
+                s1._channel.execute({ leave: true });
+                server.recv();
+                server.sendAll();
+                assertMembers(["52", "53"], server);
+                // s1's curSession auto-destroys itself
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1);
+                assertSessionStable(s1);
+                // others have started a greeting to exclude s1
+                server.recvAll();
+                server.sendAll();
+                assert.ok(s2._greeting, "expected greeting not started");
+                assert.ok(s3._greeting, "expected greeting not started");
+                assertSessionState("COS_", s2, s3);
+                // run greeting through to completion. but since JS Promises
+                // resolve asynchronously, onGreetingComplete() will only fire next tick
+                server.run();
+                // s1 tries to rejoin the channel
+                s1._channel.execute({ enter: true });
+                server.recv();
+                server.sendAll();
+                // if we're not careful, this would throw some async assertion errors
+                assertMembers(["51", "52", "53"], server);
+                return s3._greeting.getPromise();
+            }).then(function() {
+                assertMembers(["52", "53"], s2, s3);
+                assertSessionStable(s2, s3);
                 done();
             }).catch(logError);
         });
