@@ -232,6 +232,7 @@ define([
         if (!to_enter.size && !to_leave.size) {
             return true;
         }
+        var old_members = this._members;
         var to_remain = this._members.subtract(to_leave);
         this._members = to_remain.union(to_enter);
 
@@ -243,7 +244,7 @@ define([
             self._queues.get(id).push({ enter: true, members: self._members });
         });
         to_leave.forEach(function(id) {
-            self._queues.get(id).push({ leave: true });
+            self._queues.get(id).push({ leave: true, members: old_members });
         });
 
         return true;

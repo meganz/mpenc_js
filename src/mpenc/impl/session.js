@@ -903,8 +903,9 @@ define([
         }
     };
 
-    HybridSession.prototype._maybeSyncNew = function(members) {
-        _assert(this._channel.curMembers() !== null);
+    HybridSession.prototype._maybeSyncNew = function() {
+        var channelMembers = this._channel.curMembers();
+        _assert(channelMembers !== null);
         _assert(!this._serverOrder.isSynced());
         if (this._moreSeniorThanUs.size) {
             // Members more senior than us are still in the channel. Assume that they
@@ -917,8 +918,8 @@ define([
         this._serverOrder.syncNew();
         this._channelJustSynced = true;
         logger.info("created new session: " + this.toString());
-        if (this._channel.curMembers().size > 1) {
-            var others = this._channel.curMembers().subtract(this._ownSet);
+        if (channelMembers.size > 1) {
+            var others = channelMembers.subtract(this._ownSet);
             this._maybeHandleExtra("extra channel users after syncing serverOrder", others);
         }
     };
@@ -1099,7 +1100,7 @@ define([
         }
         if (taskExc.size) {
             // [rule EAL] we still haven't excluded them cryptographically, and can't
-            // allow them to rejoin until we've done this; auto-kick them ASAP. some
+            // allow them to reenter until we've done this; auto-kick them ASAP. some
             // GKAs allow computation of subgroup keys, but in that case we can model
             // it as a 1-packet membership operation (we need >= 1 packet for the
             // accept/reject mechanism anyways) and avoid this code path entirely.
