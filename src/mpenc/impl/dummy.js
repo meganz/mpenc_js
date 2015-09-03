@@ -175,6 +175,10 @@ define([
      */
     DummyGroupServer.prototype.recv = function(index) {
         index = index || 0;
+        if (!this._incoming.length) {
+            throw new Error("recv queue is empty");
+        }
+
         var sender = this._incoming[index].sender;
         for (var i = 0; i < index; i++) {
             if (this._incoming[i].sender === sender) {
@@ -202,7 +206,8 @@ define([
                 var remain = recv_in.recipients.intersect(this._members);
                 var others = this._members.subtract(remain);
                 logger.info("some members already left: " + left.toArray() +
-                    "; sent to remaining: " + remain.toArray() + "; and also: " + others.toArray());
+                    "; sent to remaining: [" + remain.toArray() +
+                    "]; and also: [" + others.toArray() + "]");
             }
             this._members.forEach(function(id) {
                 self._queues.get(id).push({ pubtxt: recv_in.pubtxt, sender: sender });

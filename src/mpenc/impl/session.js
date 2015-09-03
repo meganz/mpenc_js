@@ -118,6 +118,13 @@ define([
     var EXPIRE_GRACE_RATIO = 1.0625;
 
     /**
+     * Ratio of wait-period to (expected GKA run time + broadcast+latency).
+     * The wait-period is the average time we wait before trying to re-enter
+     * the channel, if we're auto-kicked when trying to join a session.
+     */
+    var REENTER_GRACE_RATIO = 1.5;
+
+    /**
      * Implementation of roughly the lower (transport-facing) part of Session.
      *
      * <p>Manages operations on the causally-ordered transcript data structure,
@@ -900,7 +907,8 @@ define([
             _assert(this._ownProposalPrev === inPrevPid);
             this._ownProposalPr.resolve(greeting);
         } else if (this._ownProposalPrev === inPrevPid) {
-            this._ownProposalPr.reject(new Error("ProposalRejected: " + btoa(inPid)));
+            this._ownProposalPr.reject(new Error("ProposalRejected: " +
+                btoa(this._ownProposalHash) + " (pHash) by accepted " + btoa(inPid)));
         }
     };
 
@@ -1232,7 +1240,11 @@ define([
         if (op !== null) {
             if (this._serverOrder.isSynced() &&
                 op.metadata && !this.curMembers().has(op.metadata.author)) {
-                logger.info("ignored GKA request from outside of group");
+                // message may be confusing; sometimes this happens when we are at COsJ
+                // by a rejected proposal to include us; the proposal already accepted
+                // of course is *also* outside of "our current group".
+                logger.info("ignored GKA request from outside of group " + this.toString()
+                    + " by: " + op.metadata.author);
                 return true;
             }
 
@@ -1587,33 +1599,81 @@ define([
         var ch = this._channel;
         var p = async.newPromiseAndWriters();
         var p1 = Promise.resolve(ch);
+        var cancels = [];
 
-        var cancelEvtWait;
         if (!this._channel.curMembers()) {
             p1 = p1.then(ch.execute.bind(ch, { enter: true }));
         }
 
         p1 = p1.then(function() {
             if (self._channel.curMembers().size > 1) {
-                // if it's not empty, just wait for someone to invite us
-                // TODO(xl): set a timeout here and reenter if no-one tries to include us
+                // if other people already in, then wait for someone to invite us
+
+                var estimateGKATicks = function(numberOfNewMembers) {
+                    var broadcastLatency = self._flowctl.getBroadcastLatency();
+                    // TODO(xl): this should be an API on Greeting
+                    var extraRounds = 2;
+                    var cpuTimeCost = 1000;
+                    return (extraRounds + numberOfNewMembers) * (broadcastLatency + cpuTimeCost);
+                };
+
+                // fail after a while, if no-one tries to include us
+                var maxAcceptableTime = estimateGKATicks(ch.curMembers().size);
+                var monitor = new async.Monitor(self._timer,
+                    [maxAcceptableTime], p.reject.bind(p.reject, self));
+                cancels.push(monitor.stop.bind(monitor));
+
+                // during this time, if we get auto-kicked e.g. by (rule EAL),
+                // then we should auto-reenter after a timeout
+                cancels.push(ch.onRecv(function(recv_in) {
+                    if (recv_in.leave !== true) {
+                        return;
+                    }
+                    var maxAcceptableTime = estimateGKATicks(recv_in.members.size);
+                    monitor.reset([REENTER_GRACE_RATIO * (
+                        maxAcceptableTime + self._flowctl.getBroadcastLatency())]);
+                    var randomFactor = Math.random() * 0.25 + 0.5;
+                    var retryTime = Math.floor(randomFactor * maxAcceptableTime);
+                    logger.info("kicked from channel whilst trying to join a session; " +
+                        "will retry after " + retryTime + " ticks: " + self.toString());
+                    cancels.push(self._timer.after(retryTime, function() {
+                        // it's hard to integrate Promised-based code with "cancels", so
+                        // instead have "if" guards here to avoid doing redundant stuff
+                        // in case "p.promise" settles in the meantime.
+                        if (monitor.state() === "STOPPED") {
+                            return;
+                        }
+                        return ch.execute({ enter: true }).then(function(_) {
+                            if (monitor.state() === "STOPPED") {
+                                return;
+                            }
+                            var maxAcceptableTime = estimateGKATicks(ch.curMembers().size);
+                            monitor.reset([maxAcceptableTime]);
+                        });
+                        // if we fail to reenter, then monitor will fire p.reject later
+                        // so we don't need to explicitly catch it here
+                    }));
+                }));
             } else {
                 // no session membership change expected, just finish this operation.
                 _assert(self._serverOrder.isSynced());
-                cancelEvtWait();
                 p.resolve(self);
             }
         });
 
-        cancelEvtWait = self._events.subscribe(SNMembers).untilTrue(function(evt) {
+        cancels.push(self._events.subscribe(SNMembers).untilTrue(function(evt) {
             if (evt.remain.equals(self._ownSet) && evt.include.size) {
                 p.resolve(self);
                 return true;
             }
-        });
+        }));
 
         p1.catch(p.reject);
-        return p.promise;
+        var cleanup = function(r) {
+            async.combinedCancel(cancels)();
+            return async.exitFinally(r);
+        };
+        return p.promise.then(cleanup, cleanup);
     };
 
     HybridSession.prototype._excludeSelf = function() {

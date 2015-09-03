@@ -995,7 +995,8 @@ define([
                 mType === ns.GREET_TYPE.INCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN ||
                 mType === ns.GREET_TYPE.EXCLUDE_AUX_PARTICIPANT_CONFIRM_DOWN) {
             if (!this.currentGreeting) {
-                _logIgnored(this.id, makePacketId(), "it is a downflow message but there is no current Greeting");
+                _logIgnored(this.id, makePacketId(),
+                    "got a downflow message but there is no current Greeting");
                 return null;
             }
             // Test if this is the final message.
@@ -1141,7 +1142,14 @@ define([
         this.proposedGreeting = null;
         this.proposalHash = null;
 
-        _assert(this.currentGreeting !== null);
+        // When settled, clear the currentGreeting field.
+        var self = this;
+        var clear = function(r) {
+            self.currentGreeting = null;
+            async.exitFinally(r);
+        };
+        this.currentGreeting.getPromise().then(clear, clear);
+
         return this.currentGreeting;
     };
 

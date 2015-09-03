@@ -453,9 +453,10 @@ define([
             }
         };
 
-        var execute = function(server, member, action) {
+        var execute = function(server, member, action, num) {
+            num = num || 16;
             var p = member.execute(action);
-            server.runAsync(16, testTimer);
+            server.runAsync(num, testTimer);
             return !p ? p : p.then(function(result) {
                 assert.strictEqual(result, member);
                 return result;
@@ -584,6 +585,76 @@ define([
             }).then(function() {
                 assertMembers(["52", "53"], s2, s3);
                 assertSessionStable(s2, s3);
+                done();
+            }).catch(logError);
+        });
+
+        it('rule EAL and auto-rejoin', function(done) {
+            this.timeout(this.timeout() * 30);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var s3 = mkHybridSession('myTestSession', "53", server, true);
+            var exec = execute.bind(null, server);
+            var monitoredJoinProcess;
+
+            Promise.resolve(true).then(function() {
+                return exec(s1, { join: true }, 2);
+            }).then(function() {
+                return exec(s1, { include: ["52", "53"] }, 2);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                // wait a while for runAsync() to stop doing stuff, so that it
+                // doesn't interfere with our later attempts at doing more precise
+                // timed things. this is a bit of a hack, pending a better solution...
+                return Promise.resolve(true);
+            }).then(function() {
+                // s1 leaves the channel spontanously, e.g. disconnect
+                s1._channel.execute({ leave: true });
+                server.recv();
+                server.sendAll();
+                assertMembers(["52", "53"], server);
+                // s1's curSession auto-destroys itself
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1);
+                assertSessionStable(s1);
+                server.recvAll();
+                // s1 tries to rejoin the channel, before greeting completes
+                monitoredJoinProcess = s1.execute({ join: true });
+                return Promise.resolve(true);
+            }).then(function() {
+                server.recv(); // { join: true } takes a tick to actually send
+                server.sendAll();
+                assert.ok(s2._greeting, "expected greeting not started");
+                assert.ok(s3._greeting, "expected greeting not started");
+                assertMembers(["51", "52", "53"], server);
+                assertSessionState("COS_", s2, s3);
+                // we do the below dance to make sure that _includeSelf fires
+                // the first p1.then() *before* the channel membership changes
+                // from underneath it, due to JS Promises being asynchronous.
+                // this is not expected to happen in a real network context.
+                return Promise.resolve(true);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1._channel);
+                return Promise.resolve(true);
+            }).then(function() {
+                server.run(); // members should auto-kick s1 here, by rule EAL
+                assertMembers(["52", "53"], server);
+                return async.timeoutPromise(testTimer, 4000);
+            }).then(function() {
+                server.runAsync(16, testTimer);
+                return Promise.resolve(true);
+            }).then(function() {
+                // eventually, s1 will auto-reenter themselves and the whole
+                // process should eventually complete
+                return monitoredJoinProcess;
+            }).then(function() {
+                // again, onGreetingComplete takes a while.... JS annoying
+                return Promise.resolve(true);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
                 done();
             }).catch(logError);
         });

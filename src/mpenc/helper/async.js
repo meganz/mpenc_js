@@ -1091,14 +1091,19 @@ define([
      * Stop the monitor.
      *
      * No more actions will be scheduled, until a reset.
+     *
+     * This may be used as a {@link module:mpenc/helper/async~canceller}.
      */
     Monitor.prototype.stop = function() {
+        var result = false;
         if (this._cancel) {
             this.pause();
+            result = true;
         }
         this._intervals = null;
         this._stopped = true;
         _assert(this.state() === "STOPPED");
+        return result;
     };
 
     Object.freeze(Monitor.prototype);

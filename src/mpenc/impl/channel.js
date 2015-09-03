@@ -206,6 +206,7 @@ define([
         this.opMetadata = [null];
         this.opMetadataAuthenticated = [true];
         this.opFinal = [prevPf];
+        logger.info("synced serverOrder prev_pF as: " + btoa(prevPf));
     };
 
     ServerOrder.prototype._acceptInitial = function(pId, metadata) {
