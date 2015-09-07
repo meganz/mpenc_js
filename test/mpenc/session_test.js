@@ -514,11 +514,25 @@ define([
         });
 
         it('sending messages', function(done) {
-            this.timeout(this.timeout() * 10);
+            this.timeout(this.timeout() * 30);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
             var exec = execute.bind(null, server);
+
+            var sendAndRecv = function(sender, content, recipient) {
+                sender.send({ content: content });
+                var mId = sender.messages().slice(-1)[0];
+                var p = async.newPromiseAndWriters();
+                // resolve when other person gets it
+                recipient.onEvent(MsgReady, [mId])(function(evt) {
+                    assert.strictEqual(mId, evt.mId);
+                    assert.strictEqual(recipient.messages().get(evt.mId).body.content, content);
+                    p.resolve(evt);
+                });
+                return p.promise;
+            };
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);
@@ -526,17 +540,15 @@ define([
             }).then(function() {
                 return exec(s1, { include: ["52"] });
             }).then(function() {
-                var testBody = "test message 1230583";
-                s1.send({ content: testBody });
-                var mId = s1.messages().slice(-1)[0];
-                var p = async.newPromiseAndWriters();
-                // resolve when other person gets it
-                s2.onEvent(MsgReady, [mId])(function(evt) {
-                    assert.strictEqual(s2.messages().get(evt.mId).body.content, testBody);
-                    p.resolve(evt);
-                });
+                var p = sendAndRecv(s1, "test message 1230583", s2);
                 server.runAsync(16, testTimer);
-                return p.promise;
+                return p;
+            }).then(function() {
+                return exec(s1, { include: ["53"] });
+            }).then(function() {
+                var p = sendAndRecv(s3, "test message 3406839", s1);
+                server.runAsync(16, testTimer);
+                return p;
             }).then(function() {
                 done();
             }).catch(logError);

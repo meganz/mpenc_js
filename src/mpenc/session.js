@@ -126,7 +126,7 @@ define([
      * @implements module:mpenc/session.SessionNotice
      * @memberOf module:mpenc/session
      */
-    var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude");
+    var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude parents");
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
@@ -153,6 +153,10 @@ define([
         if (!struct.isDisjoint(this.remain, this.include, this.exclude)) {
             throw new Error("tried to create SNMembers with contradictory membership change");
         }
+        if (!(this.parents instanceof ImmutableSet)) {
+            throw new Error("SNMembers.parents must be an ImmutableSet");
+        }
+
     };
 
     ns.SNMembers = SNMembers;

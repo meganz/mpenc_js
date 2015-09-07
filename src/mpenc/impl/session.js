@@ -1384,8 +1384,9 @@ define([
             " -> " + (this._current ? this._current.sess.toString() : null));
         var oldMembers = this._previous ? this._previous.sess.curMembers() : ownSet;
         var newMembers = greeting ? greeting.getNextMembers() : ownSet;
+        var parents = this._current ? this._current.parents : ImmutableSet.EMPTY;
         var diff = oldMembers.diff(newMembers);
-        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1]));
+        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1], parents));
 
         return greeting;
     };
@@ -1405,10 +1406,22 @@ define([
         cancels.push(this._messages.bindSource(sess, sess.transcript()));
         cancels.push(sess.onEvent(MsgAccepted)(this._onMaybeLeaveIntent.bind(this, sess)));
 
+        // TODO(xl): (server-consistency) check greeting.metadataIsAuthenticated === true here
+        // and arrange for retroactive authentication if not...
+        var parents = greeting.getMetadata().parents;
+        var inPrevSession = function(mId) { return previous.sess.transcript().has(mId); };
+        if (parents.size && previous && !(parents.toArray().every(inPrevSession))) {
+            // it is possible but more complex to handle this case; assume servers are nice for now
+            this._fubar = true;
+            throw new Error("SNMember parents not all accepted; dodgy transport? "
+                + parents.toArray().map(btoa));
+        }
+
         return {
             sess: sess,
             cancel: async.combinedCancel(cancels),
             greetState: greetState,
+            parents: parents
         };
     };
 
@@ -1505,7 +1518,8 @@ define([
 
         var p = this._setOwnProposal(prevPf, pHash);
         logger.info("proposed new greeting pHash:" + btoa(pHash) +
-            ": +{" + include.toArray() + "} -{" + exclude.toArray() + "}");
+            ": +{" + include.toArray() + "} -{" + exclude.toArray() +
+            "} from parents {" + parents.toArray().map(btoa) + "}");
         this._channel.send({ pubtxt: pubtxt, recipients: curMembers.union(include) });
         return p;
     };
