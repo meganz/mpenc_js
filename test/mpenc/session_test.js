@@ -430,8 +430,7 @@ define([
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
                 assertMembers([sess._owner], sess);
-                assert.strictEqual(sess._curSession, null);
-                assert.strictEqual(sess._curGreetState, null);
+                assert.strictEqual(sess._current, null);
             }
         };
 

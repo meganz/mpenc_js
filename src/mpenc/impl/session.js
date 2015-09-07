@@ -723,12 +723,8 @@ define([
         this._makeMessageSecurity = makeMessageSecurity;
 
         // sub-sessions
-        this._curSession = null;
-        this._curSessionCancel = null;
-        this._curGreetState = null;
-        this._prevSession = null;
-        this._prevSessionCancel = null;
-        this._prevGreetState = null;
+        this._current = null;
+        this._previous = null;
         this._droppedInconsistentSession = false;
 
         // sub-session send/recv logic
@@ -778,17 +774,17 @@ define([
     HybridSession.prototype._internalState = function() {
         if (!this._channel.curMembers()) {
             _assert(!this._serverOrder.isSynced());
-            _assert(!this._curSession);
+            _assert(!this._current);
             //_assert(!this._greeting); // fails because _clearGreeting is called asynchronously >:[
             // Not in the channel. Stable.
             return "cos_";
         } else if (!this._serverOrder.isSynced()) {
-            _assert(!this._curSession);
+            _assert(!this._current);
             _assert(!this._greeting);
             // In the channel, ServerOrder unsynced. Unstable; others should
             // cause us to be synced later, expecting COsj.
             return "Cos_";
-        } else if (!this._curSession) {
+        } else if (!this._current) {
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
                 _assert(!this._greeting);
@@ -865,8 +861,8 @@ define([
         }, clear).catch(logger.warn.bind(logger));
         // greeting accepted, try to achieve consistency in case this succeeds
         // and we need to rotate the sub-session
-        if (this._curSession && this._curSession.state() === SessionState.JOINED) {
-            this._curSession.sendObject(new Consistency(false));
+        if (this._current && this._current.sess.state() === SessionState.JOINED) {
+            this._current.sess.sendObject(new Consistency(false));
         }
     };
 
@@ -993,7 +989,7 @@ define([
             _assert(!this._greeting);
             this._clearOwnOperation();
             this._clearOwnProposal();
-            if (this._curSession) {
+            if (this._current) {
                 this._changeSubSession(null);
             }
             this._channelJustSynced = true;
@@ -1033,7 +1029,7 @@ define([
         if (!this._channel.curMembers()) {
             // already left channel, nothing to do
             return;
-        } else if (sess !== this._prevSession) {
+        } else if (!this._previous || sess !== this._previous.sess) {
             logger.info("onPrevSessionFin called with obsolete session, ignoring");
             return;
         }
@@ -1049,7 +1045,7 @@ define([
         }
 
         // if we didn't leave the channel already, leave it
-        if (!this._curSession && this._serverOrder.isSynced()) {
+        if (!this._current && this._serverOrder.isSynced()) {
             if (!this._greeting) {
                 this._maybeLeaveChannel(pendingLeave);
             } else {
@@ -1206,7 +1202,7 @@ define([
                                 + "during a greeting to exclude us; assuming it succeeded"));
                         }
                     }
-                    if (this._curSession) {
+                    if (this._current) {
                         this._changeSubSession(null);
                     }
                 } else if (leave && leave.size) {
@@ -1252,8 +1248,8 @@ define([
 
             var postAcceptInitial = function(pI, prev_pF) {
                 // TODO: [F] (handle-error) this may return null or throw, if partialDecode is too lenient
-                var greeting = self._greeter.decode(
-                    self._curGreetState, self.curMembers(), pubtxt, sender, op.pId);
+                var oldState = self._current ? self._current.greetState : null;
+                var greeting = self._greeter.decode(oldState, self.curMembers(), pubtxt, sender, op.pId);
                 self._setGreeting(greeting);
                 self._maybeFinishOwnProposal(makePacketHash(), pI, prev_pF, greeting);
             };
@@ -1343,7 +1339,7 @@ define([
     HybridSession.prototype._changeSubSession = function(greeting) {
         // Rotate to a new sub session with a different membership.
         // If greeting is null, this means we left the channel and the session.
-        _assert(!greeting || !this._curSession ||
+        _assert(!greeting || !this._current ||
             this.curMembers().equals(greeting.getPrevMembers()));
 
         var ownSet = this._ownSet;
@@ -1353,46 +1349,40 @@ define([
             greeting = null;
         }
 
-        if (this._prevSession) {
+        if (this._previous) {
             // this ought to be unnecessary, see python code for details
-            this._prevSession.stop();
-            this._prevSessionCancel();
-            if (!this._prevSession.isConsistent()) {
+            this._previous.sess.stop();
+            this._previous.cancel();
+            if (!this._previous.sess.isConsistent()) {
                 this._droppedInconsistentSession = true;
             }
         }
 
         // Rotate current session to previous
-        this._prevSession = this._curSession;
-        this._prevSessionCancel = this._curSessionCancel;
-        this._prevGreetState = this._curGreetState;
-        if (this._prevSession && this._prevSession.state() === SessionState.JOINED) {
+        this._previous = this._current;
+        if (this._previous && this._previous.sess.state() === SessionState.JOINED) {
             // this is the only place .fin() should be called, if we're not leaving
             // this is because .fin() places a contract that we're not supposed to send
             // further messages, but we can't possibly guarantee this before a greeting
             // completes.
-            this._prevSession.fin();
-            this._prevSession.onFin(this._onPrevSessionFin.bind(this, this._prevSession));
+            this._previous.sess.fin();
+            this._previous.sess.onFin(this._onPrevSessionFin.bind(this, this._previous.sess));
         }
 
         if (greeting) {
-            var sessionCreated = this._makeSubSession(greeting);
-            this._curSession = sessionCreated.session;
-            this._curSessionCancel = sessionCreated.sessionCancel;
-            this._curGreetState = sessionCreated.greetState;
+            var sessionCreated = this._makeSubSession(greeting, this._previous);
+            this._current = sessionCreated;
 
         } else {
-            this._curSession = null;
-            this._curSessionCancel = null;
-            this._curGreetState = null;
+            this._current = null;
 
-            this._prevSession.stop();
-            this._prevSessionCancel();
+            this._previous.sess.stop();
+            this._previous.cancel();
         }
 
-        logger.info("changed session: " + (this._prevSession ? this._prevSession.toString() : null) +
-            " -> " + (this._curSession ? this._curSession.toString() : null));
-        var oldMembers = this._prevSession ? this._prevSession.curMembers() : ownSet;
+        logger.info("changed session: " + (this._previous ? this._previous.sess.toString() : null) +
+            " -> " + (this._current ? this._current.sess.toString() : null));
+        var oldMembers = this._previous ? this._previous.sess.curMembers() : ownSet;
         var newMembers = greeting ? greeting.getNextMembers() : ownSet;
         var diff = oldMembers.diff(newMembers);
         this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1]));
@@ -1400,7 +1390,7 @@ define([
         return greeting;
     };
 
-    HybridSession.prototype._makeSubSession = function(greeting) {
+    HybridSession.prototype._makeSubSession = function(greeting, previous) {
         var subSId = greeting.getResultSId();
         var greetState = greeting.getResultState();
         var members = greeting.getNextMembers();
@@ -1416,9 +1406,9 @@ define([
         cancels.push(sess.onEvent(MsgAccepted)(this._onMaybeLeaveIntent.bind(this, sess)));
 
         return {
-            session: sess,
-            sessionCancel: async.combinedCancel(cancels),
-            greetState: greetState
+            sess: sess,
+            cancel: async.combinedCancel(cancels),
+            greetState: greetState,
         };
     };
 
@@ -1469,7 +1459,7 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.curMembers = function() {
-        return this._curSession ? this._curSession.curMembers() : this._ownSet;
+        return this._current ? this._current.sess.curMembers() : this._ownSet;
     };
 
     /**
@@ -1477,8 +1467,8 @@ define([
      */
     HybridSession.prototype.isConsistent = function() {
         return (!this._droppedInconsistentSession &&
-                (!this._prevSession || this._prevSession.isConsistent()) &&
-                (!this._curSession || this._curSession.isConsistent()));
+                (!this._previous || this._previous.sess.isConsistent()) &&
+                (!this._current || this._current.sess.isConsistent()));
     };
 
     HybridSession.prototype._proposeGreetInit = function(include, exclude) {
@@ -1507,8 +1497,9 @@ define([
         var prevPf = this._serverOrder.prevPf();
         var prevCh = this._serverOrder.prevCh();
 
-        var parents = this._curSession ? this._curSession.transcript().max() : ImmutableSet.EMPTY;
-        var pubtxt = this._greeter.encode(this._curGreetState, curMembers, newMembers,
+        var parents = this._current ? this._current.sess.transcript().max() : ImmutableSet.EMPTY;
+        var greetState = this._current ? this._current.greetState : null;
+        var pubtxt = this._greeter.encode(greetState, curMembers, newMembers,
             GreetingMetadata.create(prevPf, prevCh, this._owner, parents));
         var pHash = utils.sha256(pubtxt);
 
@@ -1700,12 +1691,12 @@ define([
 
         // send leave-intent, i.e. double-fin. this tells others that we want to leave
         // the whole HybridSession, as opposed to just the child Session.
-        var sess = this._curSession;
+        var sess = this._current.sess;
         sess.sendObject(new Consistency(true));
         sess.fin();
         // try to reach consistency, then leave the channel
         sess.onFin(function(mId) {
-            if (sess === self._curSession && self._channel.curMembers()) {
+            if (self._current && sess === self._current.sess && self._channel.curMembers()) {
                 self._maybeLeaveChannel();
             }
         });
@@ -1737,7 +1728,7 @@ define([
      */
     HybridSession.prototype.send = function(action) {
         if ("content" in action) {
-            return this._curSession ? this._curSession.sendData(action.content) : false;
+            return this._current ? this._current.sess.sendData(action.content) : false;
         } else {
             return this.execute(action) !== null;
         }
@@ -1764,10 +1755,10 @@ define([
             return this._runOwnOperation(new OwnOp("m", include, exclude),
                 this._changeMembership.bind(this, include, exclude));
 
-        } else if ("join" in action && !this._curSession) {
+        } else if ("join" in action && !this._current) {
             return this._runOwnOperation(new OwnOp("j"), this._includeSelf.bind(this));
 
-        } else if ("part" in action && this._curSession) {
+        } else if ("part" in action && this._current) {
             return this._runOwnOperation(new OwnOp("p"), this._excludeSelf.bind(this));
 
         } else {
