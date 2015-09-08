@@ -32,6 +32,7 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+    var ImmutableSet = struct.ImmutableSet;
 
 
     /**
@@ -209,7 +210,7 @@ define([
      * Typically, only Payload messages are included here. Implementations may
      * expose the Payload-parents of a message mId from transcript ts as:
      *
-     * pl_pmId = ts.pre_pred(mId, function(m) { return ts.get(m).body instanceof Payload; });
+     * pl_pmId = MsgReady.resolveEarlier(ts, ts.pre(mId));
      *
      * Note the right index definitions. For example, if three events were
      * published as (x, 0, []), (a, 0, [1]), (b, 1, [1]), the overall resulting
@@ -230,6 +231,43 @@ define([
      * @memberOf module:mpenc/transcript
      */
     var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parents");
+
+    /**
+     * Returns the latest Payload messages before-or-same as the given set of
+     * messages. For example, if mIds are the real parents of some message,
+     * then this returns the effective Payload parents of that message, as
+     * described in the class docstring.
+     *
+     * The output set is guaranteed to be an anti-chain i.e. all causally
+     * independent of each other. Note however, that it may not be the same
+     * size as the input set, and may even be empty even if the input is not.
+     * (However, if the input is empty then the output will be empty.)
+     *
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the messages.
+     * @param mIds {module:mpenc/helper/struct.ImmutableSet} Message ids to resolve.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Latest Payload messages.
+     * @throws {Error} If not all messages are contained in the transcript.
+     */
+    MsgReady.resolveEarlier = function(transcript, mIds) {
+        var it = transcript.iterAncestors(mIds.toArray(),
+            null, MsgReady.shouldIgnore.bind(null, transcript), true);
+        return new ImmutableSet(struct.iteratorToArray(it));
+    };
+
+    /**
+     * Whether a given message should be ignored for MsgReady purposes, i.e. if
+     * it is not a Payload message.
+     *
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the message.
+     * @param mId {string} Message id to check.
+     * @returns {boolean} Whether the given message id is a non-Payload message.
+     * @throws {Error} If not the message is not contained in the transcript.
+     */
+    MsgReady.shouldIgnore = function(transcript, mId) {
+        return !(transcript.get(mId).body instanceof message.Payload);
+    };
 
     Object.freeze(MsgReady.prototype);
     ns.MsgReady = MsgReady;
@@ -280,25 +318,23 @@ define([
     MessageLog.prototype.add;
 
     /**
-     * Subscribe to MsgAccepted events and add() them to this log.
+     * Subscribe to MsgAccepted events and maybe add() them to this log.
      *
      * @method
      * @param source {module:mpenc/helper/async.EventSource} Source of MsgAccepted events.
      * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
      * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
      */
-    MessageLog.prototype.bindSource = function(source, sourceTranscript) {
+    MessageLog.prototype.bindSource = function(source, transcript) {
         var self = this;
         var totalOrderCb = function(evt) {
             var mId = evt.mId;
-            _assert(sourceTranscript.has(mId));
-            if (!(sourceTranscript.get(mId).body instanceof message.Payload)) {
+            _assert(transcript.has(mId));
+            if (MsgReady.shouldIgnore(transcript, mId)) {
                 return;
             }
-            var userDataParents = sourceTranscript.pre_pred(mId, function(m) {
-                return sourceTranscript.get(m).body instanceof message.Payload;
-            });
-            self.add(sourceTranscript, mId, userDataParents);
+            self.add(transcript, mId,
+                MsgReady.resolveEarlier(transcript, transcript.pre(mId)));
         };
         return source.onEvent(MsgAccepted)(totalOrderCb);
     };

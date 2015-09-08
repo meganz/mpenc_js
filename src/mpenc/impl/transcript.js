@@ -19,12 +19,13 @@
 define([
     "mpenc/transcript",
     "mpenc/message",
+    "mpenc/helper/assert",
     "mpenc/helper/graph",
     "mpenc/helper/struct",
     "megalogger",
     "es6-collections",
 ], function(
-    transcript, message, graph, struct,
+    transcript, message, assert, graph, struct,
     MegaLogger, es6_shim
 ) {
     "use strict";
@@ -36,9 +37,13 @@ define([
      */
     var ns = {};
 
+    var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
+    var _assert = assert.assert;
+
+    var MsgReady = transcript.MsgReady;
+    var MessageLog = transcript.MessageLog;
     var ImmutableSet = struct.ImmutableSet;
     var safeGet = struct.safeGet;
-    var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
 
     /**
      * A set of BaseTranscript forming all or part of a session.
@@ -433,25 +438,29 @@ define([
      */
     var DefaultMessageLog = function() {
         if (!(this instanceof DefaultMessageLog)) { return new DefaultMessageLog(); }
-        transcript.MessageLog.call(this);
-        this._messageIndex = new Map(); // mId: int, index into _log
-        this._parents = [];
+        MessageLog.call(this);
+        this._messageIndex = new Map(); // mId: int, index into self as an Array
+        this._parents = []; // [ImmutableSet([mId of parents])]
         this._transcripts = new Set();
     };
 
-    DefaultMessageLog.prototype = Object.create(transcript.MessageLog.prototype);
+    DefaultMessageLog.prototype = Object.create(MessageLog.prototype);
+
+    DefaultMessageLog.prototype.indexOf = function(mId) {
+        return this._messageIndex.has(mId) ? this._messageIndex.get(mId) : -1;
+    };
+
+    // MessageLog
 
     DefaultMessageLog.prototype.add = function(tr, mId, parents) {
         if (this._messageIndex.has(mId)) {
             throw new Error("already added: " + btoa(mId));
         }
-        var msg = tr.get(mId);
-        if (!(msg.body instanceof message.Payload)) {
+        if (MsgReady.shouldIgnore(tr, mId)) {
             return;
         }
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
-        this.push(mId);
         this._parents.push(ImmutableSet.from(parents));
         this.__rInsert__(0, mId);
     };
@@ -459,7 +468,7 @@ define([
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;
         this._transcripts.forEach(function(ts) {
-            if (ts.has(mId) && ts.get(mId).body instanceof message.Payload) {
+            if (ts.has(mId) && !MsgReady.shouldIgnore(ts, mId)) {
                 targetTranscript = ts;
             }
         });
@@ -470,11 +479,11 @@ define([
         }
     };
 
+    // Messages
+
     DefaultMessageLog.prototype.has = function(mId) {
         return this._messageIndex.has(mId);
     };
-
-    // Messages
 
     DefaultMessageLog.prototype.get = function(mId) {
         return safeGet(this._getTranscript(mId), mId);
