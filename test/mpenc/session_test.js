@@ -513,12 +513,13 @@ define([
             }).catch(logError);
         });
 
-        it('sending messages', function(done) {
-            this.timeout(this.timeout() * 30);
+        it('sending messages and message-log splicing', function(done) {
+            this.timeout(this.timeout() * 40);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
             var s3 = mkHybridSession('myTestSession', "53", server);
+            var s4 = mkHybridSession('myTestSession', "54", server);
             var exec = execute.bind(null, server);
 
             var sendAndRecv = function(sender, content, recipient) {
@@ -546,10 +547,18 @@ define([
             }).then(function() {
                 return exec(s1, { include: ["53"] });
             }).then(function() {
+                return exec(s1, { include: ["54"] });
+            }).then(function() {
                 var p = sendAndRecv(s3, "test message 3406839", s1);
                 server.runAsync(16, testTimer);
                 return p;
             }).then(function() {
+                var m0 = s1.messages()[0];
+                var m1 = s1.messages()[1];
+                // test that parents "go through" subsession transcripts
+                assert.deepEqual(s1.messages().parents(m1).toArray(), [m0]);
+                assert.deepEqual(s2.messages().parents(m1).toArray(), [m0]);
+                assert.deepEqual(s3.messages().parents(m1).toArray(), []); // didn't see m0
                 done();
             }).catch(logError);
         });

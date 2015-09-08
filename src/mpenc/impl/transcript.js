@@ -442,6 +442,8 @@ define([
         this._messageIndex = new Map(); // mId: int, index into self as an Array
         this._parents = []; // [ImmutableSet([mId of parents])]
         this._transcripts = new Set();
+        this._transcriptParents = new Map();
+        this._lastTranscript = null;
     };
 
     DefaultMessageLog.prototype = Object.create(MessageLog.prototype);
@@ -459,11 +461,54 @@ define([
         if (MsgReady.shouldIgnore(tr, mId)) {
             return;
         }
+        parents = ImmutableSet.from(parents);
+        if (!parents.size) {
+            // if this message is a minimum for this transcript, then use
+            // transcript's parents instead, available externally,
+            var trParents = this._transcriptParents.get(tr);
+            if (trParents && trParents.size) {
+                _assert(trParents.toArray().every(this.has.bind(this)));
+                parents = trParents;
+                logger.info("DefaultMessageLog replaced empty parents of " + btoa(mId) +
+                    " with: {" + parents.toArray().map(btoa) + "}");
+            }
+        }
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
-        this._parents.push(ImmutableSet.from(parents));
+        this._parents.push(parents);
         this.__rInsert__(0, mId);
     };
+
+    // Resolve some mIds to latest earlier Payload mIds, "going through" to
+    // previous transcripts (using _transcriptParents) if this is empty.
+    DefaultMessageLog.prototype._resolveEarlier = function(tscr, mIds) {
+        if (!tscr) {
+            return ImmutableSet.EMPTY;
+        }
+        var resolved = MsgReady.resolveEarlier(tscr, mIds || tscr.max());
+        if (!resolved.size) {
+            resolved = this._transcriptParents.get(tscr);
+        }
+        _assert(resolved.toArray().every(this.has.bind(this)),
+            "resolved parents not all added to the log yet; this must be done first");
+        return resolved;
+    };
+
+    DefaultMessageLog.prototype.curParents = function() {
+        return this._resolveEarlier(this._lastTranscript);
+    };
+
+    // TODO(xl): make this less hacky, and formalise context on MessageLog.bindSource
+    var DML__bindSource = function(source, transcript, context) {
+        var parents = context ? ImmutableSet.from(context.parents) : ImmutableSet.EMPTY;
+        var parentTscr = context ? context.parentTscr : null;
+        _assert(!parentTscr || this._transcriptParents.has(parentTscr));
+        var payloadParents = this._resolveEarlier(parentTscr, parents);
+        this._transcriptParents.set(transcript, payloadParents);
+        this._lastTranscript = transcript;
+        return MessageLog.prototype.bindSource.call(this, source, transcript);
+    };
+    Object.defineProperty(DefaultMessageLog.prototype, "bindSource", { value: DML__bindSource });
 
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;

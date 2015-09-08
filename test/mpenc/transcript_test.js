@@ -329,6 +329,38 @@ define([
             assert.deepEqual(log.slice(), "OABXYE".split(""));
             assert.deepEqual(log.unacked(), "BXYE".split(""));
         });
+
+        it("accumulating multiple transcripts with parent splicing", function() {
+            var ctx0 = new async.EventContext([ns.MsgReady]);
+            var ctx1 = new async.EventContext([ns.MsgAccepted]);
+            var ctx2 = new async.EventContext([ns.MsgAccepted]);
+            var log = new impl.DefaultMessageLog();
+
+            log.bindTarget(ctx0);
+            var binds = [
+                [{ onEvent: ctx1.subscribe.bind(ctx1) }, tr],
+                [{ onEvent: ctx2.subscribe.bind(ctx2) }, tr2, {
+                    parents: new ImmutableSet(["C"]),
+                    parentTscr: tr,
+                }]
+            ];
+            var acceptOrder = "0OACB1XDYEZ".split("");
+            for (var i = 0; i < acceptOrder.length; i++) {
+                var id = acceptOrder[i];
+                if (id in binds) {
+                    log.bindSource.apply(log, binds[id]);
+                } else {
+                    var ctx = tr2.has(id) ? ctx2 : ctx1;
+                    ctx.publish(new ns.MsgAccepted(id));
+                }
+            }
+
+            assert.strictEqual(log.length, 4 + 2);
+            assert.deepEqual(log.parents("X").toArray(), ["A"]);
+            assert.deepEqual(log.parents("O").toArray(), []);
+            assert.deepEqual(log.slice(), "OABXYE".split(""));
+            assert.deepEqual(log.unacked(), "BXYE".split(""));
+        });
     });
 
     // jshint +W064

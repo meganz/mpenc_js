@@ -318,6 +318,18 @@ define([
     MessageLog.prototype.add;
 
     /**
+     * Get the would-be parents of a new message if it were sent now.
+     *
+     * This is similar to <code>Transcript.max()</code>, except that it only
+     * returns Payload messages.
+     *
+     * @abstract
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of mIds.
+     */
+    MessageLog.prototype.curParents;
+
+    /**
      * Subscribe to MsgAccepted events and maybe add() them to this log.
      *
      * @method

@@ -1403,7 +1403,6 @@ define([
         cancels.push(this._sessionRecv.subscribe(sess.recv.bind(sess)));
         cancels.push(sess.onSend(this._channel.send.bind(this._channel)));
         cancels.push(sess.chainUserEventsTo(this, this._events));
-        cancels.push(this._messages.bindSource(sess, sess.transcript()));
         cancels.push(sess.onEvent(MsgAccepted)(this._onMaybeLeaveIntent.bind(this, sess)));
 
         // TODO(xl): (server-consistency) check greeting.metadataIsAuthenticated === true here
@@ -1417,11 +1416,16 @@ define([
                 + parents.toArray().map(btoa));
         }
 
+        cancels.push(this._messages.bindSource(sess, sess.transcript(), {
+            parents: parents,
+            parentTscr: previous ? previous.sess.transcript() : null
+        }));
+
         return {
             sess: sess,
             cancel: async.combinedCancel(cancels),
             greetState: greetState,
-            parents: parents
+            parents: parents,
         };
     };
 
