@@ -21,15 +21,16 @@ define([
     "mpenc/session",
     "mpenc/message",
     "mpenc/channel",
-    "mpenc/greet/greeter",
+    "mpenc/impl/applied",
     "mpenc/impl/session",
     "mpenc/impl/transcript",
+    "mpenc/greet/greeter",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "megalogger"
 ], function(
     version, session, message, channel,
-    greeter, sessionImpl, transcriptImpl,
+    applied, sessionImpl, transcriptImpl, greeter,
     async, struct, MegaLogger
 ) {
     "use strict";
@@ -168,7 +169,7 @@ define([
 
     mpenc.channel = channel;
     mpenc.session = session;
-
+    mpenc.applied = applied;
 
     return mpenc;
 });
