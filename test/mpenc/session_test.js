@@ -80,71 +80,20 @@ define([
 
     var logError = function(e) { console.log(e.stack); };
 
-    var dummyFlowControl = {
-        getBroadcastLatency: function() {
-            return 5;
-        },
-        getFullAckInterval: function() {
-            return 2 * this.getBroadcastLatency() + 5;
-        },
-        asynchronity: function() {
-            return 3;
-        },
-    };
-
-    var makeDummyMessageSecurity = function(greetState) {
-        var sId = greetState.sessionId;
-        return {
-            authEncrypt: function(ts, message) {
-                var pubtxt = JSON.stringify({
-                    sId: btoa(sId),
-                    author: message.author,
-                    parents: message.parents.toArray().map(btoa),
-                    recipients: message.recipients.toArray(),
-                    sectxt: btoa(message.body)
-                });
-                return {
-                    pubtxt: pubtxt,
-                    secrets: {
-                        commit: stub(),
-                        destroy: stub(),
-                        mId: btoa(utils.sha256(pubtxt)),
-                    },
-                };
-            },
-            decryptVerify: function(ts, pubtxt, sender) {
-                if (pubtxt.charAt(0) !== "{") {
-                    throw new Error("PacketRejected");
-                }
-                var body = JSON.parse(pubtxt);
-                if (atob(body.sId) !== sId) {
-                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
-                }
-                body.parents = body.parents.map(atob);
-                body.body = atob(body.sectxt);
-                return {
-                    message: body,
-                    secrets: {
-                        commit: stub(),
-                        destroy: stub(),
-                        mId: btoa(utils.sha256(pubtxt)),
-                    },
-                };
-            },
-        };
-    };
-
     var mkSessionBase = function(owner) {
         owner = owner || "51";
         var context = new SessionContext(
-            owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, null);
+            owner, false, testTimer, new dummy.DummyFlowControl(), DefaultMessageCodec, null);
 
         var members = new ImmutableSet(["50", "51", "52"]);
         var sId = 's01';
-        return new SessionBase(context, sId, members, makeDummyMessageSecurity({ sessionId: sId }));
+        return new SessionBase(context, sId, members,
+            new dummy.DummyMessageSecurity({ sessionId: sId }));
     };
 
     describe("SessionBase test", function() {
+        var dummyFlowControl = new dummy.DummyFlowControl();
+
         it('ctor and stop', function() {
             var sess = mkSessionBase();
             assert.strictEqual(sess.sId(), 's01');
@@ -396,8 +345,8 @@ define([
     });
 
     var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
-        var context = new SessionContext(
-            owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
+        var context = new SessionContext(owner, false, testTimer,
+            new dummy.DummyFlowControl(), DefaultMessageCodec, DefaultMessageLog);
         // TODO(xl): replace with a dummy greeter so the tests run quicker
         var dummyGreeter = new greeter.Greeter(owner,
             _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
@@ -453,7 +402,7 @@ define([
         };
 
         var execute = function(server, member, action, num) {
-            num = num || 16;
+            num = num || 4;
             var p = member.execute(action);
             server.runAsync(num, testTimer);
             return !p ? p : p.then(function(result) {

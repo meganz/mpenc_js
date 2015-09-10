@@ -20,10 +20,11 @@ define([
     "mpenc/channel",
     "mpenc/helper/async",
     "mpenc/helper/struct",
+    "mpenc/helper/utils",
     "mpenc/helper/assert",
     "es6-collections",
     "megalogger"
-], function(channel, async, struct, assert, es6_shim, MegaLogger) {
+], function(channel, async, struct, utils, assert, es6_shim, MegaLogger) {
     "use strict";
 
     /**
@@ -41,6 +42,88 @@ define([
     var _assert = assert.assert;
 
     var logger = MegaLogger.getLogger('dummy', undefined, 'mpenc');
+
+
+    /**
+     * Dummy {@link module:mpenc/message.MessageSecurity} used for testing.
+     *
+     * The <code>greetState</code> parameter is assumed to contain a <code>
+     * sessionId</code> field which is a string.
+     *
+     * @class
+     * @memberOf module:mpenc/impl/dummy
+     */
+    var DummyMessageSecurity = function(greetState) {
+        var sId = greetState.sessionId;
+        var stub = function() {};
+        return {
+            authEncrypt: function(ts, message) {
+                var pubtxt = JSON.stringify({
+                    sId: btoa(sId),
+                    author: message.author,
+                    parents: message.parents.toArray().map(btoa),
+                    recipients: message.recipients.toArray(),
+                    sectxt: btoa(message.body)
+                });
+                return {
+                    pubtxt: pubtxt,
+                    secrets: {
+                        commit: stub,
+                        destroy: stub,
+                        mId: btoa(utils.sha256(pubtxt)),
+                    },
+                };
+            },
+            decryptVerify: function(ts, pubtxt, sender) {
+                if (pubtxt.charAt(0) !== "{") {
+                    throw new Error("PacketRejected");
+                }
+                var body = JSON.parse(pubtxt);
+                if (atob(body.sId) !== sId) {
+                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
+                }
+                body.parents = body.parents.map(atob);
+                body.body = atob(body.sectxt);
+                return {
+                    message: body,
+                    secrets: {
+                        commit: stub,
+                        destroy: stub,
+                        mId: btoa(utils.sha256(pubtxt)),
+                    },
+                };
+            },
+        };
+    };
+
+    ns.DummyMessageSecurity = DummyMessageSecurity;
+
+
+    /**
+     * Dummy flow control object used for testing.
+     *
+     * (FlowControl is not yet defined in the JS library; it will be ported
+     * soon from the python.
+     *
+     * @class
+     * @memberOf module:mpenc/impl/dummy
+     */
+    var DummyFlowControl = function() {
+        return {
+            getBroadcastLatency: function() {
+                return 5;
+            },
+            getFullAckInterval: function() {
+                return 2 * this.getBroadcastLatency() + 5;
+            },
+            asynchronity: function() {
+                return 3;
+            },
+        };
+    };
+
+    ns.DummyFlowControl = DummyFlowControl;
+
 
     /**
      * A dummy implementation of {@link module:mpenc/channel.GroupChannel},
@@ -273,7 +356,7 @@ define([
      * For a given recipient, deliver the next packet in their recv-queue.
      *
      * @param [id] {string} Recipient to deliver to. By default, the sender
-     *      selected by {@code selectNextSendTarget}.
+     *      selected by <code>selectNextSendTarget</code>.
      */
     DummyGroupServer.prototype.send = function(id) {
         id = id || this.selectNextSendTarget();

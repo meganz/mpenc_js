@@ -113,9 +113,9 @@ define([
      * @returns {module:mpenc/impl/session.SessionContext}
      * @memberOf module:mpenc
      */
-    var createContext = function(userId, timer) {
+    var createContext = function(userId, timer, flowControl) {
         return new sessionImpl.SessionContext(
-            userId, false, timer, DEFAULT_FLOW_CONTROL,
+            userId, false, timer, flowControl || DEFAULT_FLOW_CONTROL,
             message.DefaultMessageCodec,
             transcriptImpl.DefaultMessageLog);
     };
