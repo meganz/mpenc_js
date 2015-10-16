@@ -63,6 +63,27 @@ define([
                 }
             });
         });
+
+        describe('deriveGroupKey()', function() {
+            var baseCase = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b" +
+                           "\x0b\x0b\x0b\x0b\x0b\x0b";
+            it("sanity check", function() {
+                // Test Case 3 from RFC 5869
+                assert.strictEqual(btoa(ns.deriveGroupKey(baseCase, "")),
+                    btoa("\x8d\xa4\xe7\x75\xa5\x63\xc1\x8f\x71\x5f\x80\x2a\x06\x3c\x5a\x31" +
+                         "\xb8\xa1\x1f\x5c\x5e\xe1\x87\x9e\xc3\x45\x4e\x5f\x3c\x73\x8d\x2d"));
+            });
+            it("base case", function() {
+                // Test against Python:
+                // >>> from hmac import HMAC; from hashlib import sha256
+                // >>> hmac = lambda *args: HMAC(*args, digestmod=sha256)
+                // >>> hmac(hmac(b"", b"\x0b"*22).digest(), b"mpenc group key\x01").hexdigest()
+                // 'c9cc6b03feceadd360859a46932477ca924cc646be0d6f07dc8c4e2d49bd6301'
+                assert.strictEqual(btoa(ns.deriveGroupKey(baseCase)),
+                    btoa("\xc9\xcc\x6b\x03\xfe\xce\xad\xd3\x60\x85\x9a\x46\x93\x24\x77\xca" +
+                         "\x92\x4c\xc6\x46\xbe\x0d\x6f\x07\xdc\x8c\x4e\x2d\x49\xbd\x63\x01"));
+            });
+        });
     });
 
     describe('CliquesMember class', function() {
@@ -401,7 +422,7 @@ define([
                     participant.privKeyList = [_PRIV_KEY()];
                     participant.goupKey = _PRIV_KEY();
                 }
-                sinon_sandbox.spy(utils, 'sha256');
+                sinon_sandbox.spy(ns, 'deriveGroupKey');
                 // Exclude members '1' and '4'.
                 var thenMembers = ['2', '3', '5'];
                 var message = participant.akaExclude(['1', '4']);
@@ -411,7 +432,7 @@ define([
                 assert.notDeepEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY);
                 assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
                 assert.notDeepEqual(participant.groupKey, undefined);
-                sinon_assert.calledOnce(utils.sha256);
+                sinon_assert.calledOnce(ns.deriveGroupKey);
             });
         });
 

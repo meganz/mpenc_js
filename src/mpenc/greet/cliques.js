@@ -19,8 +19,9 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
+    "asmcrypto",
     "jodid25519"
-], function(assert, utils, jodid25519) {
+], function(assert, utils, asmCrypto, jodid25519) {
     "use strict";
 
     /**
@@ -40,6 +41,28 @@ define([
     var ns = {};
 
     var _assert = assert.assert;
+
+
+    /**
+     * Derive the shared confidentiality group key.
+     *
+     * The group key is a 32-byte string, half of which is later used for
+     * AES-128. It is derived from the cardinal key, a x25519 public value,
+     * using HKDF-SHA256.
+     *
+     * @param sharedCardinalKey {string} Input IKM for the HKDF. In mpENC, this
+     *      is the x25519 public key result of the group key agreement.
+     * @param [context] {string} Info string for the HKDF. In mpENC, this is
+     *      set to the constant "mpenc group key".
+     */
+    ns.deriveGroupKey = function(sharedCardinalKey, context) {
+        // equivalent to first block of HKDF, see RFC 5869
+        context = context === undefined ? "mpenc group key" : context;
+        var hmac = asmCrypto.HMAC_SHA256.bytes;
+        return jodid25519.utils.bytes2string(
+            hmac(context + "\x01", hmac(sharedCardinalKey, "")));
+    };
+
 
     /**
      * Carries message content for the CLIQUES protocol.
@@ -200,7 +223,7 @@ define([
         var cardinalKey = this._renewPrivKey();
 
         // Discard old and make new group key.
-        this.groupKey = utils.sha256(cardinalKey);
+        this.groupKey = ns.deriveGroupKey(cardinalKey);
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.CliquesMessage(this.id);
@@ -244,7 +267,7 @@ define([
         var cardinalKey = this._renewPrivKey();
 
         // Discard old and make new group key.
-        this.groupKey = utils.sha256(cardinalKey);
+        this.groupKey = ns.deriveGroupKey(cardinalKey);
 
         // Pass broadcast message on to all members.
         var broadcastMessage = new ns.CliquesMessage(this.id);
@@ -292,7 +315,7 @@ define([
         if (myPos === this.members.length - 1) {
             // I'm the last in the chain:
             // Cardinal is secret key.
-            this.groupKey = utils.sha256(cardinalKey);
+            this.groupKey = ns.deriveGroupKey(cardinalKey);
             this._setKeys(this.intKeys);
             // Broadcast all intermediate keys.
             message.source = this.id;
@@ -374,8 +397,8 @@ define([
         // New objects for intermediate keys.
         var myPos = this.members.indexOf(this.id);
         this.intKeys = intKeys;
-        this.groupKey = utils.sha256(ns._computeKeyList(this.privKeyList,
-                                                        this.intKeys[myPos]));
+        this.groupKey = ns.deriveGroupKey(
+            ns._computeKeyList(this.privKeyList, this.intKeys[myPos]));
     };
 
 
