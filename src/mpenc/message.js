@@ -310,7 +310,7 @@ define([
                 rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_PARENT, pmId);
             });
         }
-        // Protect multi-byte characters
+        // Protect multi-byte characters (encode UTF-8).
         var body = unescape(encodeURIComponent(message.body));
         rawBody += codec.encodeTLV(codec.TLV_TYPE.MESSAGE_BODY, body);
 
@@ -437,7 +437,7 @@ define([
 
         var body;
         rest = codec.popTLV(rest, _T.MESSAGE_BODY, function(value) {
-            // Undo protection for multi-byte characters.
+            // Undo protection for multi-byte characters (decode UTF-8).
             body = decodeURIComponent(escape(value));
             debugOutput.push('body: ' + value);
         });
