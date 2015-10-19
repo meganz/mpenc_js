@@ -19,12 +19,13 @@
 define([
     "mpenc/transcript",
     "mpenc/message",
+    "mpenc/helper/assert",
     "mpenc/helper/graph",
     "mpenc/helper/struct",
     "megalogger",
     "es6-collections",
 ], function(
-    transcript, message, graph, struct,
+    transcript, message, assert, graph, struct,
     MegaLogger, es6_shim
 ) {
     "use strict";
@@ -36,9 +37,13 @@ define([
      */
     var ns = {};
 
+    var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
+    var _assert = assert.assert;
+
+    var MsgReady = transcript.MsgReady;
+    var MessageLog = transcript.MessageLog;
     var ImmutableSet = struct.ImmutableSet;
     var safeGet = struct.safeGet;
-    var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
 
     /**
      * A set of BaseTranscript forming all or part of a session.
@@ -433,33 +438,82 @@ define([
      */
     var DefaultMessageLog = function() {
         if (!(this instanceof DefaultMessageLog)) { return new DefaultMessageLog(); }
-        transcript.MessageLog.call(this);
-        this._messageIndex = new Map(); // mId: int, index into _log
-        this._parents = [];
+        MessageLog.call(this);
+        this._messageIndex = new Map(); // mId: int, index into self as an Array
+        this._parents = []; // [ImmutableSet([mId of parents])]
         this._transcripts = new Set();
+        this._transcriptParents = new Map();
+        this._lastTranscript = null;
     };
 
-    DefaultMessageLog.prototype = Object.create(transcript.MessageLog.prototype);
+    DefaultMessageLog.prototype = Object.create(MessageLog.prototype);
+
+    DefaultMessageLog.prototype.indexOf = function(mId) {
+        return this._messageIndex.has(mId) ? this._messageIndex.get(mId) : -1;
+    };
+
+    // MessageLog
 
     DefaultMessageLog.prototype.add = function(tr, mId, parents) {
         if (this._messageIndex.has(mId)) {
             throw new Error("already added: " + btoa(mId));
         }
-        var msg = tr.get(mId);
-        if (!(msg.body instanceof message.Payload)) {
+        if (MsgReady.shouldIgnore(tr, mId)) {
             return;
+        }
+        parents = ImmutableSet.from(parents);
+        if (!parents.size) {
+            // if this message is a minimum for this transcript, then use
+            // transcript's parents instead, available externally,
+            var trParents = this._transcriptParents.get(tr);
+            if (trParents && trParents.size) {
+                _assert(trParents.toArray().every(this.has.bind(this)));
+                parents = trParents;
+                logger.info("DefaultMessageLog replaced empty parents of " + btoa(mId) +
+                    " with: {" + parents.toArray().map(btoa) + "}");
+            }
         }
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
-        this.push(mId);
-        this._parents.push(ImmutableSet.from(parents));
+        this._parents.push(parents);
         this.__rInsert__(0, mId);
     };
+
+    // Resolve some mIds to latest earlier Payload mIds, "going through" to
+    // previous transcripts (using _transcriptParents) if this is empty.
+    DefaultMessageLog.prototype._resolveEarlier = function(tscr, mIds) {
+        if (!tscr) {
+            return ImmutableSet.EMPTY;
+        }
+        var resolved = MsgReady.resolveEarlier(tscr, mIds || tscr.max());
+        if (!resolved.size) {
+            resolved = this._transcriptParents.get(tscr);
+        }
+        _assert(resolved.toArray().every(this.has.bind(this)),
+            "resolved parents not all added to the log yet; this must be done first");
+        return resolved;
+    };
+
+    DefaultMessageLog.prototype.curParents = function() {
+        return this._resolveEarlier(this._lastTranscript);
+    };
+
+    // TODO(xl): make this less hacky, and formalise context on MessageLog.bindSource
+    var DML__bindSource = function(source, transcript, context) {
+        var parents = context ? ImmutableSet.from(context.parents) : ImmutableSet.EMPTY;
+        var parentTscr = context ? context.parentTscr : null;
+        _assert(!parentTscr || this._transcriptParents.has(parentTscr));
+        var payloadParents = this._resolveEarlier(parentTscr, parents);
+        this._transcriptParents.set(transcript, payloadParents);
+        this._lastTranscript = transcript;
+        return MessageLog.prototype.bindSource.call(this, source, transcript);
+    };
+    Object.defineProperty(DefaultMessageLog.prototype, "bindSource", { value: DML__bindSource });
 
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;
         this._transcripts.forEach(function(ts) {
-            if (ts.has(mId) && ts.get(mId).body instanceof message.Payload) {
+            if (ts.has(mId) && !MsgReady.shouldIgnore(ts, mId)) {
                 targetTranscript = ts;
             }
         });
@@ -470,11 +524,11 @@ define([
         }
     };
 
+    // Messages
+
     DefaultMessageLog.prototype.has = function(mId) {
         return this._messageIndex.has(mId);
     };
-
-    // Messages
 
     DefaultMessageLog.prototype.get = function(mId) {
         return safeGet(this._getTranscript(mId), mId);

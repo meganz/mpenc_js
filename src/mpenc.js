@@ -21,15 +21,16 @@ define([
     "mpenc/session",
     "mpenc/message",
     "mpenc/channel",
-    "mpenc/greet/greeter",
+    "mpenc/impl/applied",
     "mpenc/impl/session",
     "mpenc/impl/transcript",
+    "mpenc/greet/greeter",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "megalogger"
 ], function(
     version, session, message, channel,
-    greeter, sessionImpl, transcriptImpl,
+    applied, sessionImpl, transcriptImpl, greeter,
     async, struct, MegaLogger
 ) {
     "use strict";
@@ -113,9 +114,9 @@ define([
      * @returns {module:mpenc/impl/session.SessionContext}
      * @memberOf module:mpenc
      */
-    var createContext = function(userId, timer) {
+    var createContext = function(userId, timer, flowControl) {
         return new sessionImpl.SessionContext(
-            userId, false, timer, DEFAULT_FLOW_CONTROL,
+            userId, false, timer, flowControl || DEFAULT_FLOW_CONTROL,
             message.DefaultMessageCodec,
             transcriptImpl.DefaultMessageLog);
     };
@@ -141,17 +142,20 @@ define([
      *      public keys for other members.
      * @param [autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
+     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     *      instead of leaving it, as the last member. Default: false.
      * @returns {module:mpenc/impl/session.HybridSession}
      * @memberOf module:mpenc
      */
     var createSession = function(context, sessionId, groupChannel,
-        privKey, pubKey, pubKeyDir, autoIncludeExtra) {
+        privKey, pubKey, pubKeyDir, autoIncludeExtra, stayIfLastMember) {
         return new sessionImpl.HybridSession(
             context, sessionId, groupChannel,
             new greeter.Greeter(context.owner, privKey, pubKey, pubKeyDir),
             function(greetState) {
                 return new message.MessageSecurity(greetState, DEFAULT_EXPONENTIAL_PADDING);
-            }, autoIncludeExtra);
+            },
+            autoIncludeExtra, stayIfLastMember);
     };
     mpenc.createSession = createSession;
 
@@ -165,7 +169,7 @@ define([
 
     mpenc.channel = channel;
     mpenc.session = session;
-
+    mpenc.applied = applied;
 
     return mpenc;
 });

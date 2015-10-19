@@ -24,18 +24,24 @@
 define([
     "mpenc/transcript",
     "mpenc/impl/transcript",
+    "mpenc/message",
     "mpenc/helper/async",
     "mpenc/helper/graph",
-    "mpenc/message",
+    "mpenc/helper/struct",
     "megalogger",
     "chai",
     "sinon/sandbox",
-], function(ns, impl, async, graph, message, MegaLogger,
-            chai, sinon_sandbox) {
+], function(
+    ns, impl, message,
+    async, graph, struct, MegaLogger,
+    chai, sinon_sandbox
+) {
     "use strict";
     // jshint -W064
 
     var assert = chai.assert;
+
+    var ImmutableSet = struct.ImmutableSet;
 
     var checkAdd = function(transcript, msg) {
         transcript.add(msg);
@@ -252,6 +258,11 @@ define([
         var mId_ud = "OABE".split("");
         var mId_ex = ["C", "D"];
 
+        var tr2 = new impl.BaseTranscript();
+        tr2.add(M("X", "Alice", [], ["Bob"], new message.Payload("x")));
+        tr2.add(M("Y", "Alice", ["X"], ["Bob"], new message.Payload("x")));
+        tr2.add(M("Z", "Alice", ["Y"], ["Bob"], new message.ExplicitAck(false)));
+
         var makeLog = function(src, dst, sourceTranscript) {
             var log = new impl.DefaultMessageLog();
             log.bindSource({ onEvent: src.subscribe.bind(src) }, sourceTranscript);
@@ -301,23 +312,51 @@ define([
             var ctx1 = new async.EventContext([ns.MsgAccepted]);
             var ctx2 = new async.EventContext([ns.MsgAccepted]);
             var log = new impl.DefaultMessageLog();
-            var tr2 = new impl.BaseTranscript();
-            tr2.add(M("X", "Alice", [], ["Bob"], new message.Payload("x")));
-            tr2.add(M("Y", "Alice", ["X"], ["Bob"], new message.Payload("x")));
-            tr2.add(M("Z", "Alice", ["Y"], ["Bob"], new message.ExplicitAck(false)));
 
             log.bindTarget(ctx0);
             log.bindSource({ onEvent: ctx1.subscribe.bind(ctx1) }, tr);
             log.bindSource({ onEvent: ctx2.subscribe.bind(ctx2) }, tr2);
             var acceptOrder = "OACBXDYEZ".split("");
-            for (var i=0; i<acceptOrder.length; i++) {
+            for (var i = 0; i < acceptOrder.length; i++) {
                 var mId = acceptOrder[i];
-                var ctx = tr2.has(mId)? ctx2: ctx1;
+                var ctx = tr2.has(mId) ? ctx2 : ctx1;
                 ctx.publish(new ns.MsgAccepted(mId));
             }
 
-            assert.strictEqual(log.length, 4+2);
+            assert.strictEqual(log.length, 4 + 2);
             assert.deepEqual(log.parents("X").toArray(), []);
+            assert.deepEqual(log.parents("O").toArray(), []);
+            assert.deepEqual(log.slice(), "OABXYE".split(""));
+            assert.deepEqual(log.unacked(), "BXYE".split(""));
+        });
+
+        it("accumulating multiple transcripts with parent splicing", function() {
+            var ctx0 = new async.EventContext([ns.MsgReady]);
+            var ctx1 = new async.EventContext([ns.MsgAccepted]);
+            var ctx2 = new async.EventContext([ns.MsgAccepted]);
+            var log = new impl.DefaultMessageLog();
+
+            log.bindTarget(ctx0);
+            var binds = [
+                [{ onEvent: ctx1.subscribe.bind(ctx1) }, tr],
+                [{ onEvent: ctx2.subscribe.bind(ctx2) }, tr2, {
+                    parents: new ImmutableSet(["C"]),
+                    parentTscr: tr,
+                }]
+            ];
+            var acceptOrder = "0OACB1XDYEZ".split("");
+            for (var i = 0; i < acceptOrder.length; i++) {
+                var id = acceptOrder[i];
+                if (id in binds) {
+                    log.bindSource.apply(log, binds[id]);
+                } else {
+                    var ctx = tr2.has(id) ? ctx2 : ctx1;
+                    ctx.publish(new ns.MsgAccepted(id));
+                }
+            }
+
+            assert.strictEqual(log.length, 4 + 2);
+            assert.deepEqual(log.parents("X").toArray(), ["A"]);
             assert.deepEqual(log.parents("O").toArray(), []);
             assert.deepEqual(log.slice(), "OABXYE".split(""));
             assert.deepEqual(log.unacked(), "BXYE".split(""));

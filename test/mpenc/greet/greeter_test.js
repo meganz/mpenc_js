@@ -985,7 +985,8 @@ define([
             var dummyGreeting = { id : "1", onSend : doNothing,
                 start : function(value) { return dummyMessage; },
                 getEphemeralPrivKey : function() { return _td.ED25519_PRIV_KEY; },
-                getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; } };
+                getEphemeralPubKey : function() { return _td.ED25519_PUB_KEY; },
+                getPromise : function() { return new Promise(function(){}); } };
 
             var channelMembers = new Set(["1", "2", "3"]);
             var initMembers = new Set(["1"]);

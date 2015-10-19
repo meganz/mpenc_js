@@ -80,71 +80,20 @@ define([
 
     var logError = function(e) { console.log(e.stack); };
 
-    var dummyFlowControl = {
-        getBroadcastLatency: function() {
-            return 5;
-        },
-        getFullAckInterval: function() {
-            return 2 * this.getBroadcastLatency() + 5;
-        },
-        asynchronity: function() {
-            return 3;
-        },
-    };
-
-    var makeDummyMessageSecurity = function(greetState) {
-        var sId = greetState.sessionId;
-        return {
-            authEncrypt: function(ts, message) {
-                var pubtxt = JSON.stringify({
-                    sId: btoa(sId),
-                    author: message.author,
-                    parents: message.parents.toArray().map(btoa),
-                    recipients: message.recipients.toArray(),
-                    sectxt: btoa(message.body)
-                });
-                return {
-                    pubtxt: pubtxt,
-                    secrets: {
-                        commit: stub(),
-                        destroy: stub(),
-                        mId: btoa(utils.sha256(pubtxt)),
-                    },
-                };
-            },
-            decryptVerify: function(ts, pubtxt, sender) {
-                if (pubtxt.charAt(0) !== "{") {
-                    throw new Error("PacketRejected");
-                }
-                var body = JSON.parse(pubtxt);
-                if (atob(body.sId) !== sId) {
-                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
-                }
-                body.parents = body.parents.map(atob);
-                body.body = atob(body.sectxt);
-                return {
-                    message: body,
-                    secrets: {
-                        commit: stub(),
-                        destroy: stub(),
-                        mId: btoa(utils.sha256(pubtxt)),
-                    },
-                };
-            },
-        };
-    };
-
     var mkSessionBase = function(owner) {
         owner = owner || "51";
         var context = new SessionContext(
-            owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, null);
+            owner, false, testTimer, new dummy.DummyFlowControl(), DefaultMessageCodec, null);
 
         var members = new ImmutableSet(["50", "51", "52"]);
         var sId = 's01';
-        return new SessionBase(context, sId, members, makeDummyMessageSecurity({ sessionId: sId }));
+        return new SessionBase(context, sId, members,
+            new dummy.DummyMessageSecurity({ sessionId: sId }));
     };
 
     describe("SessionBase test", function() {
+        var dummyFlowControl = new dummy.DummyFlowControl();
+
         it('ctor and stop', function() {
             var sess = mkSessionBase();
             assert.strictEqual(sess.sId(), 's01');
@@ -395,25 +344,33 @@ define([
         });
     });
 
-    var mkHybridSession = function(sId, owner, server, autoIncludeExtra) {
-        var context = new SessionContext(
-            owner, false, testTimer, dummyFlowControl, DefaultMessageCodec, DefaultMessageLog);
+    var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
+        var context = new SessionContext(owner, false, testTimer,
+            new dummy.DummyFlowControl(), DefaultMessageCodec, DefaultMessageLog);
         // TODO(xl): replace with a dummy greeter so the tests run quicker
         var dummyGreeter = new greeter.Greeter(owner,
             _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
                 get: function() { return _td.ED25519_PUB_KEY; }
             });
         return new HybridSession(context, sId, server.getChannel(owner),
-            dummyGreeter, MessageSecurity, autoIncludeExtra);
+            dummyGreeter, MessageSecurity, autoIncludeExtra, stayIfLastMember);
     };
 
     describe("HybridSession test", function() {
         var assertSessionStable = function() {
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
-                assert.strictEqual(sess._ownOperationPr, null, sess._owner + " should not have own operation");
-                assert.strictEqual(sess._greeting, null, sess._owner + " should not have greeting");
-                assert.strictEqual(sess._ownProposalPr, null, sess._owner + " should not have own proposal");
+                assert.strictEqual(sess._ownOperationPr, null,
+                    sess._owner + " should not have own operation");
+                assert.strictEqual(sess._greeting, null,
+                    sess._owner + " should not have greeting");
+                assert.strictEqual(sess._ownProposalPr, null,
+                    sess._owner + " should not have own proposal");
+                assert.strictEqual(sess._taskLeave.size, 0,
+                    sess._owner + " should not have any pending taskLeave");
+                assert.strictEqual(sess._taskExclude.size, 0,
+                    sess._owner + " should not have any pending taskExclude");
+                assert.notOk(sess._fubar, sess._owner + " had some internal error");
                 assert.ok(!sess._serverOrder.isSynced() || !sess._serverOrder.hasOngoingOp());
             }
         };
@@ -422,8 +379,7 @@ define([
             for (var i = 0; i < arguments.length; i++) {
                 var sess = arguments[i];
                 assertMembers([sess._owner], sess);
-                assert.strictEqual(sess._curSession, null);
-                assert.strictEqual(sess._curGreetState, null);
+                assert.strictEqual(sess._current, null);
             }
         };
 
@@ -445,9 +401,10 @@ define([
             }
         };
 
-        var execute = function(server, member, action) {
+        var execute = function(server, member, action, num) {
+            num = num || 4;
             var p = member.execute(action);
-            server.runAsync(16, testTimer);
+            server.runAsync(num, testTimer);
             return !p ? p : p.then(function(result) {
                 assert.strictEqual(result, member);
                 return result;
@@ -481,6 +438,7 @@ define([
             }).then(function() {
                 assertMembers(["51", "52", "53"], s1, s2, s3, server);
                 assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
                 return exec(s2, { exclude: ["51"] });
             }).then(function() {
                 assertMembers(["52", "53"], s2, s3);
@@ -504,12 +462,27 @@ define([
             }).catch(logError);
         });
 
-        it('sending messages', function(done) {
-            this.timeout(this.timeout() * 10);
+        it('sending messages and message-log splicing', function(done) {
+            this.timeout(this.timeout() * 40);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server);
             var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
+            var s4 = mkHybridSession('myTestSession', "54", server);
             var exec = execute.bind(null, server);
+
+            var sendAndRecv = function(sender, content, recipient) {
+                sender.send({ content: content });
+                var mId = sender.messages().slice(-1)[0];
+                var p = async.newPromiseAndWriters();
+                // resolve when other person gets it
+                recipient.onEvent(MsgReady, [mId])(function(evt) {
+                    assert.strictEqual(mId, evt.mId);
+                    assert.strictEqual(recipient.messages().get(evt.mId).body.content, content);
+                    p.resolve(evt);
+                });
+                return p.promise;
+            };
 
             Promise.resolve(true).then(function() {
                 assertMembers([], server);
@@ -517,23 +490,209 @@ define([
             }).then(function() {
                 return exec(s1, { include: ["52"] });
             }).then(function() {
-                var testBody = "test message 1230583";
-                s1.send({ content: testBody });
-                var mId = s1.messages().slice(-1)[0];
-                var p = async.newPromiseAndWriters();
-                // resolve when other person gets it
-                s2.onEvent(MsgReady, [mId])(function(evt) {
-                    assert.strictEqual(s2.messages().get(evt.mId).body.content, testBody);
-                    p.resolve(evt);
-                });
+                var p = sendAndRecv(s1, "test message 1230583", s2);
                 server.runAsync(16, testTimer);
-                return p.promise;
+                return p;
             }).then(function() {
+                return exec(s1, { include: ["53"] });
+            }).then(function() {
+                return exec(s1, { include: ["54"] });
+            }).then(function() {
+                var p = sendAndRecv(s3, "test message 3406839", s1);
+                server.runAsync(16, testTimer);
+                return p;
+            }).then(function() {
+                var m0 = s1.messages()[0];
+                var m1 = s1.messages()[1];
+                // test that parents "go through" subsession transcripts
+                assert.deepEqual(s1.messages().parents(m1).toArray(), [m0]);
+                assert.deepEqual(s2.messages().parents(m1).toArray(), [m0]);
+                assert.deepEqual(s3.messages().parents(m1).toArray(), []); // didn't see m0
                 done();
             }).catch(logError);
         });
 
-        it('concurrent join', function(done) {
+        it('pendingGreetPP order-of-processing logic', function(done) {
+            this.timeout(this.timeout() * 30);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server);
+            var s2 = mkHybridSession('myTestSession', "52", server);
+            var s3 = mkHybridSession('myTestSession', "53", server);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                return exec(s1, { join: true });
+            }).then(function() {
+                return exec(s1, { include: ["52", "53"] });
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                // s1 leaves the channel spontanously, e.g. disconnect
+                s1._channel.execute({ leave: true });
+                server.recv();
+                server.sendAll();
+                assertMembers(["52", "53"], server);
+                // s1's curSession auto-destroys itself
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1);
+                assertSessionStable(s1);
+                // others have started a greeting to exclude s1
+                server.recvAll();
+                server.sendAll();
+                assert.ok(s2._greeting, "expected greeting not started");
+                assert.ok(s3._greeting, "expected greeting not started");
+                assertSessionState("COS_", s2, s3);
+                // run greeting through to completion. but since JS Promises
+                // resolve asynchronously, onGreetingComplete() will only fire next tick
+                server.run();
+                // s1 tries to rejoin the channel
+                s1._channel.execute({ enter: true });
+                server.recv();
+                server.sendAll();
+                // if we're not careful, this would throw some async assertion errors
+                assertMembers(["51", "52", "53"], server);
+                return s3._greeting.getPromise();
+            }).then(function() {
+                assertMembers(["52", "53"], s2, s3);
+                assertSessionStable(s2, s3);
+                done();
+            }).catch(logError);
+        });
+
+        it('rule EAL and auto-rejoin', function(done) {
+            this.timeout(this.timeout() * 30);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var s3 = mkHybridSession('myTestSession', "53", server, true);
+            var exec = execute.bind(null, server);
+            var monitoredJoinProcess;
+
+            Promise.resolve(true).then(function() {
+                return exec(s1, { join: true }, 2);
+            }).then(function() {
+                return exec(s1, { include: ["52", "53"] }, 2);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                // wait a while for runAsync() to stop doing stuff, so that it
+                // doesn't interfere with our later attempts at doing more precise
+                // timed things. this is a bit of a hack, pending a better solution...
+                return Promise.resolve(true);
+            }).then(function() {
+                // s1 leaves the channel spontanously, e.g. disconnect
+                s1._channel.execute({ leave: true });
+                server.recv();
+                server.sendAll();
+                assertMembers(["52", "53"], server);
+                // s1's curSession auto-destroys itself
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1);
+                assertSessionStable(s1);
+                server.recvAll();
+                // s1 tries to rejoin the channel, before greeting completes
+                monitoredJoinProcess = s1.execute({ join: true });
+                return Promise.resolve(true);
+            }).then(function() {
+                server.recv(); // { join: true } takes a tick to actually send
+                server.sendAll();
+                assert.ok(s2._greeting, "expected greeting not started");
+                assert.ok(s3._greeting, "expected greeting not started");
+                assertMembers(["51", "52", "53"], server);
+                assertSessionState("COS_", s2, s3);
+                // we do the below dance to make sure that _includeSelf fires
+                // the first p1.then() *before* the channel membership changes
+                // from underneath it, due to JS Promises being asynchronous.
+                // this is not expected to happen in a real network context.
+                return Promise.resolve(true);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1._channel);
+                return Promise.resolve(true);
+            }).then(function() {
+                server.run(); // members should auto-kick s1 here, by rule EAL
+                assertMembers(["52", "53"], server);
+                return async.timeoutPromise(testTimer, 4000);
+            }).then(function() {
+                server.runAsync(16, testTimer);
+                return Promise.resolve(true);
+            }).then(function() {
+                // eventually, s1 will auto-reenter themselves and the whole
+                // process should eventually complete
+                return monitoredJoinProcess;
+            }).then(function() {
+                // again, onGreetingComplete takes a while.... JS annoying
+                return Promise.resolve(true);
+            }).then(function() {
+                assertMembers(["51", "52", "53"], s1, s2, s3, server);
+                assertSessionState("COS_", s1, s2, s3);
+                assertSessionStable(s1, s2, s3);
+                done();
+            }).catch(logError);
+        });
+
+        it('concurrent join and auto-leave', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                s1.execute({ join: true });
+                return exec(s2, { join: true });
+            }).then(function() {
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s2, { exclude: ["51"] });
+            }).then(function() {
+                // give some time for leave processes to complete
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                // s2 leaves automatically
+                assertMembers([], server);
+                assertSessionState("cos_", s1, s2);
+                assertSessionParted(s1, s2);
+                assertSessionStable(s1, s2);
+                done();
+            }).catch(logError);
+        });
+
+        it('concurrent join, stay-if-last, rejoin with autoinclude', function(done) {
+            this.timeout(this.timeout() * 10);
+            var server = new dummy.DummyGroupServer();
+            var s1 = mkHybridSession('myTestSession', "51", server, true, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, true, true);
+            var exec = execute.bind(null, server);
+
+            Promise.resolve(true).then(function() {
+                assertMembers([], server);
+                s1.execute({ join: true });
+                return exec(s2, { join: true });
+            }).then(function() {
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s2, { exclude: ["51"] });
+            }).then(function() {
+                // give some time for leave processes to complete
+                return async.timeoutPromise(testTimer, 100);
+            }).then(function() {
+                // s2 remains in the channel
+                assertMembers(["52"], server);
+                assertSessionState("cos_", s1);
+                assertSessionParted(s1, s2);
+                assertSessionStable(s1, s2);
+                return exec(s1, { join: true });
+            }).then(function() {
+                // rejoin works, s2 auto-includes s1
+                assertMembers(["51", "52"], server, s1, s2);
+                assertSessionState("COS_", s1, s2);
+                assertSessionStable(s1, s2);
+                done();
+            }).catch(logError);
+        });
+
+        it('double join', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server, true);
@@ -553,7 +712,7 @@ define([
             }).catch(logError);
         });
 
-        it('concurrent join with idle initial users', function(done) {
+        it('double join with idle initial users', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
             var s1 = mkHybridSession('myTestSession', "51", server); // effectively unresponsive

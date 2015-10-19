@@ -118,6 +118,13 @@ define([
     var EXPIRE_GRACE_RATIO = 1.0625;
 
     /**
+     * Ratio of wait-period to (expected GKA run time + broadcast+latency).
+     * The wait-period is the average time we wait before trying to re-enter
+     * the channel, if we're auto-kicked when trying to join a session.
+     */
+    var REENTER_GRACE_RATIO = 1.5;
+
+    /**
      * Implementation of roughly the lower (transport-facing) part of Session.
      *
      * <p>Manages operations on the causally-ordered transcript data structure,
@@ -688,12 +695,16 @@ define([
      *      {@link module:mpenc/message.MessageSecurity}.
      * @param [autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
+     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     *      instead of leaving it, as the last member. Default: false.
      */
     var HybridSession = function(context, sId, channel,
-        greeter, makeMessageSecurity, autoIncludeExtra) {
+        greeter, makeMessageSecurity, autoIncludeExtra, stayIfLastMember) {
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
         this._autoIncludeExtra = autoIncludeExtra || false;
+        this._stayIfLastMember = stayIfLastMember || false;
+        this._fubar = false;
 
         this._owner = context.owner;
         this._ownSet = new ImmutableSet([this._owner]);
@@ -712,12 +723,8 @@ define([
         this._makeMessageSecurity = makeMessageSecurity;
 
         // sub-sessions
-        this._curSession = null;
-        this._curSessionCancel = null;
-        this._curGreetState = null;
-        this._prevSession = null;
-        this._prevSessionCancel = null;
-        this._prevGreetState = null;
+        this._current = null;
+        this._previous = null;
         this._droppedInconsistentSession = false;
 
         // sub-session send/recv logic
@@ -767,17 +774,17 @@ define([
     HybridSession.prototype._internalState = function() {
         if (!this._channel.curMembers()) {
             _assert(!this._serverOrder.isSynced());
-            _assert(!this._curSession);
+            _assert(!this._current);
             //_assert(!this._greeting); // fails because _clearGreeting is called asynchronously >:[
             // Not in the channel. Stable.
             return "cos_";
         } else if (!this._serverOrder.isSynced()) {
-            _assert(!this._curSession);
+            _assert(!this._current);
             _assert(!this._greeting);
             // In the channel, ServerOrder unsynced. Unstable; others should
             // cause us to be synced later, expecting COsj.
             return "Cos_";
-        } else if (!this._curSession) {
+        } else if (!this._current) {
             // In the channel, ServerOrder synced, but no session.
             if (this._channelJustSynced) {
                 _assert(!this._greeting);
@@ -854,8 +861,8 @@ define([
         }, clear).catch(logger.warn.bind(logger));
         // greeting accepted, try to achieve consistency in case this succeeds
         // and we need to rotate the sub-session
-        if (this._curSession && this._curSession.state() === SessionState.JOINED) {
-            this._curSession.sendObject(new Consistency(false));
+        if (this._current && this._current.sess.state() === SessionState.JOINED) {
+            this._current.sess.sendObject(new Consistency(false));
         }
     };
 
@@ -896,12 +903,14 @@ define([
             _assert(this._ownProposalPrev === inPrevPid);
             this._ownProposalPr.resolve(greeting);
         } else if (this._ownProposalPrev === inPrevPid) {
-            this._ownProposalPr.reject(new Error("ProposalRejected: " + btoa(inPid)));
+            this._ownProposalPr.reject(new Error("ProposalRejected: " +
+                btoa(this._ownProposalHash) + " (pHash) by accepted " + btoa(inPid)));
         }
     };
 
-    HybridSession.prototype._maybeSyncNew = function(members) {
-        _assert(this._channel.curMembers() !== null);
+    HybridSession.prototype._maybeSyncNew = function() {
+        var channelMembers = this._channel.curMembers();
+        _assert(channelMembers !== null);
         _assert(!this._serverOrder.isSynced());
         if (this._moreSeniorThanUs.size) {
             // Members more senior than us are still in the channel. Assume that they
@@ -914,8 +923,8 @@ define([
         this._serverOrder.syncNew();
         this._channelJustSynced = true;
         logger.info("created new session: " + this.toString());
-        if (this._channel.curMembers().size > 1) {
-            var others = this._channel.curMembers().subtract(this._ownSet);
+        if (channelMembers.size > 1) {
+            var others = channelMembers.subtract(this._ownSet);
             this._maybeHandleExtra("extra channel users after syncing serverOrder", others);
         }
     };
@@ -972,6 +981,24 @@ define([
         _assert(struct.isDisjoint(this._taskExclude, this._taskLeave));
     };
 
+    HybridSession.prototype._maybeLeaveChannel = function(pendingLeave) {
+        pendingLeave = pendingLeave || ImmutableSet.EMPTY;
+        if (this._stayIfLastMember &&
+            this._channel.curMembers().subtract(pendingLeave).equals(this._ownSet)) {
+            logger.info("remaining in channel as the last member: " + this._owner);
+            _assert(!this._greeting);
+            this._clearOwnOperation();
+            this._clearOwnProposal();
+            if (this._current) {
+                this._changeSubSession(null);
+            }
+            this._channelJustSynced = true;
+        } else {
+            logger.info("requesting channel leave self: " + this._owner);
+            return this._channel.execute({ leave: true });
+        }
+    };
+
     // Decide responses to others doing certain things
 
     // Respond to others that intend to leave the overall session.
@@ -1002,7 +1029,7 @@ define([
         if (!this._channel.curMembers()) {
             // already left channel, nothing to do
             return;
-        } else if (sess !== this._prevSession) {
+        } else if (!this._previous || sess !== this._previous.sess) {
             logger.info("onPrevSessionFin called with obsolete session, ignoring");
             return;
         }
@@ -1013,15 +1040,14 @@ define([
         // checks in _changeMembership for details
         var pendingLeave = this._channel.curMembers().intersect(this._taskLeave);
         if (pendingLeave.size) {
+            logger.info("requesting channel leave: " + pendingLeave.toArray());
             this._channel.send({ leave: pendingLeave });
-            logger.info("requested channel leave: " + pendingLeave.toArray());
         }
 
         // if we didn't leave the channel already, leave it
-        if (!this._curSession && this._serverOrder.isSynced()) {
+        if (!this._current && this._serverOrder.isSynced()) {
             if (!this._greeting) {
-                this._channel.send({ leave: true });
-                logger.info("requested channel leave self: " + this._owner);
+                this._maybeLeaveChannel(pendingLeave);
             } else {
                 // we/someone is already trying to re-include us
                 // (we may or may not have left in the meantime)
@@ -1034,7 +1060,10 @@ define([
         _assert(greeting === this._greeting);
         var prevMembers = greeting.getPrevMembers();
         var newMembers = greeting.getNextMembers();
-        var channelMembers = this._channel.curMembers();
+        // we use _pendingGreetPP to store this._channel.curMembers() back from when
+        // the greeting actually completed, because this._channel isn't protected by the
+        // post-processing delaying logic in this class, and may have advanced too much
+        var channelMembers = this._pendingGreetPP;
 
         if (!newMembers.has(this._owner)) {
             // if we're being excluded, pretend nothing happened and just
@@ -1063,13 +1092,14 @@ define([
             }
         }
 
-        this._assertConsistentTasks(true);
+        this._assertConsistentTasks();
         return greeting;
     };
 
     HybridSession.prototype._onOthersEnter = function(others) {
         this._assertConsistentTasks();
-        _assert(!others.intersect(this._taskLeave).size);
+        _assert(!others.intersect(this._taskLeave).size,
+            "somehow taskLeave was set for absent user: " + this._taskLeave);
         var selfOp = this._ownOperationParam;
         var opInc = (selfOp && selfOp.action === "m") ? selfOp.include : ImmutableSet.EMPTY;
         var taskExc = others.intersect(this._taskExclude);
@@ -1079,7 +1109,7 @@ define([
         }
         if (taskExc.size) {
             // [rule EAL] we still haven't excluded them cryptographically, and can't
-            // allow them to rejoin until we've done this; auto-kick them ASAP. some
+            // allow them to reenter until we've done this; auto-kick them ASAP. some
             // GKAs allow computation of subgroup keys, but in that case we can model
             // it as a 1-packet membership operation (we need >= 1 packet for the
             // accept/reject mechanism anyways) and avoid this code path entirely.
@@ -1145,47 +1175,52 @@ define([
     };
 
     HybridSession.prototype._recvMain = function(recv_in, useQueue) {
-        if ("pubtxt" in recv_in) {
-            if (this._recvGreet(recv_in)) {
-                return true;
-            } else if (useQueue) {
-                return this._tryDecrypt.trial(recv_in);
+        try {
+            if ("pubtxt" in recv_in) {
+                if (this._recvGreet(recv_in)) {
+                    return true;
+                } else if (useQueue) {
+                    return this._tryDecrypt.trial(recv_in);
+                } else {
+                    return this._sessionRecv.publish(recv_in).some(Boolean);
+                }
             } else {
-                return this._sessionRecv.publish(recv_in).some(Boolean);
-            }
-        } else {
-            recv_in = channel.checkChannelControl(recv_in);
-            var enter = recv_in.enter;
-            var leave = recv_in.leave;
+                recv_in = channel.checkChannelControl(recv_in);
+                var enter = recv_in.enter;
+                var leave = recv_in.leave;
 
-            if (leave === true) {
-                // [rule LI]
-                this._clearChannelRecords();
-                this._clearOwnOperation();
-                this._clearOwnProposal();
-                if (this._greeting) {
-                    if (this._greeting.getNextMembers().has(this._owner)) {
-                        this._greeting.fail(new Error("OperationAborted: we left the channel"));
-                    } else {
-                        this._greeting.fail(new Error("OperationIgnored: we left the channel "
-                            + "during a greeting to exclude us; assuming it succeeded"));
+                if (leave === true) {
+                    // [rule LI]
+                    this._clearChannelRecords();
+                    this._clearOwnOperation();
+                    this._clearOwnProposal();
+                    if (this._greeting) {
+                        if (this._greeting.getNextMembers().has(this._owner)) {
+                            this._greeting.fail(new Error("OperationAborted: we left the channel"));
+                        } else {
+                            this._greeting.fail(new Error("OperationIgnored: we left the channel "
+                                + "during a greeting to exclude us; assuming it succeeded"));
+                        }
                     }
+                    if (this._current) {
+                        this._changeSubSession(null);
+                    }
+                } else if (leave && leave.size) {
+                    this._onOthersLeave(leave);
                 }
-                if (this._curSession) {
-                    this._changeSubSession(null);
+
+                if (enter === true) {
+                    this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
+                    this._maybeSyncNew();
+                } else if (enter && enter.size) {
+                    this._onOthersEnter(enter);
                 }
-            } else if (leave && leave.size) {
-                this._onOthersLeave(leave);
-            }
 
-            if (enter === true) {
-                this._moreSeniorThanUs = this._channel.curMembers().subtract(this._ownSet).asMutable();
-                this._maybeSyncNew();
-            } else if (enter && enter.size) {
-                this._onOthersEnter(enter);
+                return true;
             }
-
-            return true;
+        } catch (e) {
+            this._fubar = true;
+            throw e;
         }
     };
 
@@ -1201,7 +1236,11 @@ define([
         if (op !== null) {
             if (this._serverOrder.isSynced() &&
                 op.metadata && !this.curMembers().has(op.metadata.author)) {
-                logger.info("ignored GKA request from outside of group");
+                // message may be confusing; sometimes this happens when we are at COsJ
+                // by a rejected proposal to include us; the proposal already accepted
+                // of course is *also* outside of "our current group".
+                logger.info("ignored GKA request from outside of group " + this.toString()
+                    + " by: " + op.metadata.author);
                 return true;
             }
 
@@ -1209,8 +1248,8 @@ define([
 
             var postAcceptInitial = function(pI, prev_pF) {
                 // TODO: [F] (handle-error) this may return null or throw, if partialDecode is too lenient
-                var greeting = self._greeter.decode(
-                    self._curGreetState, self.curMembers(), pubtxt, sender, op.pId);
+                var oldState = self._current ? self._current.greetState : null;
+                var greeting = self._greeter.decode(oldState, self.curMembers(), pubtxt, sender, op.pId);
                 self._setGreeting(greeting);
                 self._maybeFinishOwnProposal(makePacketHash(), pI, prev_pF, greeting);
             };
@@ -1251,7 +1290,7 @@ define([
                 if (op.isFinal()) {
                     _assert(!this._serverOrder.hasOngoingOp());
                     // wait for greeting to complete before processing other packets
-                    this._pendingGreetPP = true;
+                    this._pendingGreetPP = this._channel.curMembers();
                 }
             }
             return true;
@@ -1300,7 +1339,7 @@ define([
     HybridSession.prototype._changeSubSession = function(greeting) {
         // Rotate to a new sub session with a different membership.
         // If greeting is null, this means we left the channel and the session.
-        _assert(!greeting || !this._curSession ||
+        _assert(!greeting || !this._current ||
             this.curMembers().equals(greeting.getPrevMembers()));
 
         var ownSet = this._ownSet;
@@ -1310,54 +1349,49 @@ define([
             greeting = null;
         }
 
-        if (this._prevSession) {
+        if (this._previous) {
             // this ought to be unnecessary, see python code for details
-            this._prevSession.stop();
-            this._prevSessionCancel();
-            if (!this._prevSession.isConsistent()) {
+            this._previous.sess.stop();
+            this._previous.cancel();
+            if (!this._previous.sess.isConsistent()) {
                 this._droppedInconsistentSession = true;
             }
         }
 
         // Rotate current session to previous
-        this._prevSession = this._curSession;
-        this._prevSessionCancel = this._curSessionCancel;
-        this._prevGreetState = this._curGreetState;
-        if (this._prevSession && this._prevSession.state() === SessionState.JOINED) {
+        this._previous = this._current;
+        if (this._previous && this._previous.sess.state() === SessionState.JOINED) {
             // this is the only place .fin() should be called, if we're not leaving
             // this is because .fin() places a contract that we're not supposed to send
             // further messages, but we can't possibly guarantee this before a greeting
             // completes.
-            this._prevSession.fin();
-            this._prevSession.onFin(this._onPrevSessionFin.bind(this, this._prevSession));
+            this._previous.sess.fin();
+            this._previous.sess.onFin(this._onPrevSessionFin.bind(this, this._previous.sess));
         }
 
         if (greeting) {
-            var sessionCreated = this._makeSubSession(greeting);
-            this._curSession = sessionCreated.session;
-            this._curSessionCancel = sessionCreated.sessionCancel;
-            this._curGreetState = sessionCreated.greetState;
+            var sessionCreated = this._makeSubSession(greeting, this._previous);
+            this._current = sessionCreated;
 
         } else {
-            this._curSession = null;
-            this._curSessionCancel = null;
-            this._curGreetState = null;
+            this._current = null;
 
-            this._prevSession.stop();
-            this._prevSessionCancel();
+            this._previous.sess.stop();
+            this._previous.cancel();
         }
 
-        logger.info("changed session: " + (this._prevSession ? this._prevSession.toString() : null) +
-            " -> " + (this._curSession ? this._curSession.toString() : null));
-        var oldMembers = this._prevSession ? this._prevSession.curMembers() : ownSet;
+        logger.info("changed session: " + (this._previous ? this._previous.sess.toString() : null) +
+            " -> " + (this._current ? this._current.sess.toString() : null));
+        var oldMembers = this._previous ? this._previous.sess.curMembers() : ownSet;
         var newMembers = greeting ? greeting.getNextMembers() : ownSet;
+        var parents = this._current ? this._current.parents : ImmutableSet.EMPTY;
         var diff = oldMembers.diff(newMembers);
-        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1]));
+        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1], parents));
 
         return greeting;
     };
 
-    HybridSession.prototype._makeSubSession = function(greeting) {
+    HybridSession.prototype._makeSubSession = function(greeting, previous) {
         var subSId = greeting.getResultSId();
         var greetState = greeting.getResultState();
         var members = greeting.getNextMembers();
@@ -1369,13 +1403,29 @@ define([
         cancels.push(this._sessionRecv.subscribe(sess.recv.bind(sess)));
         cancels.push(sess.onSend(this._channel.send.bind(this._channel)));
         cancels.push(sess.chainUserEventsTo(this, this._events));
-        cancels.push(this._messages.bindSource(sess, sess.transcript()));
         cancels.push(sess.onEvent(MsgAccepted)(this._onMaybeLeaveIntent.bind(this, sess)));
 
+        // TODO(xl): (server-consistency) check greeting.metadataIsAuthenticated === true here
+        // and arrange for retroactive authentication if not...
+        var parents = greeting.getMetadata().parents;
+        var inPrevSession = function(mId) { return previous.sess.transcript().has(mId); };
+        if (parents.size && previous && !(parents.toArray().every(inPrevSession))) {
+            // it is possible but more complex to handle this case; assume servers are nice for now
+            this._fubar = true;
+            throw new Error("SNMember parents not all accepted; dodgy transport? "
+                + parents.toArray().map(btoa));
+        }
+
+        cancels.push(this._messages.bindSource(sess, sess.transcript(), {
+            parents: parents,
+            parentTscr: previous ? previous.sess.transcript() : null
+        }));
+
         return {
-            session: sess,
-            sessionCancel: async.combinedCancel(cancels),
-            greetState: greetState
+            sess: sess,
+            cancel: async.combinedCancel(cancels),
+            greetState: greetState,
+            parents: parents,
         };
     };
 
@@ -1426,7 +1476,7 @@ define([
      * @inheritDoc
      */
     HybridSession.prototype.curMembers = function() {
-        return this._curSession ? this._curSession.curMembers() : this._ownSet;
+        return this._current ? this._current.sess.curMembers() : this._ownSet;
     };
 
     /**
@@ -1434,8 +1484,8 @@ define([
      */
     HybridSession.prototype.isConsistent = function() {
         return (!this._droppedInconsistentSession &&
-                (!this._prevSession || this._prevSession.isConsistent()) &&
-                (!this._curSession || this._curSession.isConsistent()));
+                (!this._previous || this._previous.sess.isConsistent()) &&
+                (!this._current || this._current.sess.isConsistent()));
     };
 
     HybridSession.prototype._proposeGreetInit = function(include, exclude) {
@@ -1464,14 +1514,16 @@ define([
         var prevPf = this._serverOrder.prevPf();
         var prevCh = this._serverOrder.prevCh();
 
-        var parents = this._curSession ? this._curSession.transcript().max() : ImmutableSet.EMPTY;
-        var pubtxt = this._greeter.encode(this._curGreetState, curMembers, newMembers,
+        var parents = this._current ? this._current.sess.transcript().max() : ImmutableSet.EMPTY;
+        var greetState = this._current ? this._current.greetState : null;
+        var pubtxt = this._greeter.encode(greetState, curMembers, newMembers,
             GreetingMetadata.create(prevPf, prevCh, this._owner, parents));
         var pHash = utils.sha256(pubtxt);
 
         var p = this._setOwnProposal(prevPf, pHash);
         logger.info("proposed new greeting pHash:" + btoa(pHash) +
-            ": +{" + include.toArray() + "} -{" + exclude.toArray() + "}");
+            ": +{" + include.toArray() + "} -{" + exclude.toArray() +
+            "} from parents {" + parents.toArray().map(btoa) + "}");
         this._channel.send({ pubtxt: pubtxt, recipients: curMembers.union(include) });
         return p;
     };
@@ -1556,33 +1608,81 @@ define([
         var ch = this._channel;
         var p = async.newPromiseAndWriters();
         var p1 = Promise.resolve(ch);
+        var cancels = [];
 
-        var cancelEvtWait;
         if (!this._channel.curMembers()) {
             p1 = p1.then(ch.execute.bind(ch, { enter: true }));
         }
 
         p1 = p1.then(function() {
             if (self._channel.curMembers().size > 1) {
-                // if it's not empty, just wait for someone to invite us
-                // TODO(xl): set a timeout here and reenter if no-one tries to include us
+                // if other people already in, then wait for someone to invite us
+
+                var estimateGKATicks = function(numberOfNewMembers) {
+                    var broadcastLatency = self._flowctl.getBroadcastLatency();
+                    // TODO(xl): this should be an API on Greeting
+                    var extraRounds = 2;
+                    var cpuTimeCost = 1000;
+                    return (extraRounds + numberOfNewMembers) * (broadcastLatency + cpuTimeCost);
+                };
+
+                // fail after a while, if no-one tries to include us
+                var maxAcceptableTime = estimateGKATicks(ch.curMembers().size);
+                var monitor = new async.Monitor(self._timer,
+                    [maxAcceptableTime], p.reject.bind(p.reject, self));
+                cancels.push(monitor.stop.bind(monitor));
+
+                // during this time, if we get auto-kicked e.g. by (rule EAL),
+                // then we should auto-reenter after a timeout
+                cancels.push(ch.onRecv(function(recv_in) {
+                    if (recv_in.leave !== true) {
+                        return;
+                    }
+                    var maxAcceptableTime = estimateGKATicks(recv_in.members.size);
+                    monitor.reset([REENTER_GRACE_RATIO * (
+                        maxAcceptableTime + self._flowctl.getBroadcastLatency())]);
+                    var randomFactor = Math.random() * 0.25 + 0.5;
+                    var retryTime = Math.floor(randomFactor * maxAcceptableTime);
+                    logger.info("kicked from channel whilst trying to join a session; " +
+                        "will retry after " + retryTime + " ticks: " + self.toString());
+                    cancels.push(self._timer.after(retryTime, function() {
+                        // it's hard to integrate Promised-based code with "cancels", so
+                        // instead have "if" guards here to avoid doing redundant stuff
+                        // in case "p.promise" settles in the meantime.
+                        if (monitor.state() === "STOPPED") {
+                            return;
+                        }
+                        return ch.execute({ enter: true }).then(function(_) {
+                            if (monitor.state() === "STOPPED") {
+                                return;
+                            }
+                            var maxAcceptableTime = estimateGKATicks(ch.curMembers().size);
+                            monitor.reset([maxAcceptableTime]);
+                        });
+                        // if we fail to reenter, then monitor will fire p.reject later
+                        // so we don't need to explicitly catch it here
+                    }));
+                }));
             } else {
                 // no session membership change expected, just finish this operation.
                 _assert(self._serverOrder.isSynced());
-                cancelEvtWait();
                 p.resolve(self);
             }
         });
 
-        cancelEvtWait = self._events.subscribe(SNMembers).untilTrue(function(evt) {
+        cancels.push(self._events.subscribe(SNMembers).untilTrue(function(evt) {
             if (evt.remain.equals(self._ownSet) && evt.include.size) {
                 p.resolve(self);
                 return true;
             }
-        });
+        }));
 
         p1.catch(p.reject);
-        return p.promise;
+        var cleanup = function(r) {
+            async.combinedCancel(cancels)();
+            return async.exitFinally(r);
+        };
+        return p.promise.then(cleanup, cleanup);
     };
 
     HybridSession.prototype._excludeSelf = function() {
@@ -1596,7 +1696,7 @@ define([
             return Promise.resolve(this);
         } else if (state === "Cos_" || state === "COsJ" || state === "COsj" && this._greeting) {
             // no session and no local automated process, just leave the channel
-            return this._channel.execute({ leave: true });
+            return this._maybeLeaveChannel();
         } else if (state === "COsj" && !this._greeting) {
             // TODO(xl): [F] (parallel-op) might be able to speed things up a bit...
             throw new Error("already in the middle of parting");
@@ -1609,13 +1709,13 @@ define([
 
         // send leave-intent, i.e. double-fin. this tells others that we want to leave
         // the whole HybridSession, as opposed to just the child Session.
-        var sess = this._curSession;
+        var sess = this._current.sess;
         sess.sendObject(new Consistency(true));
         sess.fin();
         // try to reach consistency, then leave the channel
         sess.onFin(function(mId) {
-            if (sess === self._curSession && self._channel.curMembers()) {
-                self._channel.send({ leave: true });
+            if (self._current && sess === self._current.sess && self._channel.curMembers()) {
+                self._maybeLeaveChannel();
             }
         });
 
@@ -1646,7 +1746,7 @@ define([
      */
     HybridSession.prototype.send = function(action) {
         if ("content" in action) {
-            return this._curSession ? this._curSession.sendData(action.content) : false;
+            return this._current ? this._current.sess.sendData(action.content) : false;
         } else {
             return this.execute(action) !== null;
         }
@@ -1673,10 +1773,10 @@ define([
             return this._runOwnOperation(new OwnOp("m", include, exclude),
                 this._changeMembership.bind(this, include, exclude));
 
-        } else if ("join" in action && !this._curSession) {
+        } else if ("join" in action && !this._current) {
             return this._runOwnOperation(new OwnOp("j"), this._includeSelf.bind(this));
 
-        } else if ("part" in action && this._curSession) {
+        } else if ("part" in action && this._current) {
             return this._runOwnOperation(new OwnOp("p"), this._excludeSelf.bind(this));
 
         } else {

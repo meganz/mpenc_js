@@ -59,8 +59,10 @@ define([
      * this means we're trying to make the event happen. Valid values are:</p>
      *
      * <dl>
-     * <dt><code>{ enter: true }</code></dt><dd>We enter the channel.</dd>
-     * <dt><code>{ leave: true }</code></dt><dd>We leave the channel.</dd>
+     * <dt><code>{ enter: true }</code></dt><dd>We enter the channel. If this
+     * is a ChannelNotice, <code>members</code> is also defined.</dd>
+     * <dt><code>{ leave: true }</code></dt><dd>We leave the channel.  If this
+     * is a ChannelNotice, <code>members</code> is also defined.</dd>
      * <dt><code>{ enter: *, leave: * }</code></dt><dd>Others enter/leave the
      * channel. The values must be "ImmutableSet"-like values, i.e. such that
      * {@link module:mpenc/helper/struct.ImmutableSet.from ImmutableSet.from}
@@ -77,6 +79,10 @@ define([
      * @property [leave] {(boolean|module:mpenc/helper/struct.ImmutableSet)}
      *      Members to leave the channel. If <code>true</code>, we'ourselves
      *      are the object of the event, and enter must be omitted.
+     * @property [members] {(boolean|module:mpenc/helper/struct.ImmutableSet)}
+     *      In a ChannelNotice, where <code>enter: true</code> or <code>leave:
+     *      true</code>, this represents the members in the channel after we
+     *      enter or before we leave, respectively.
      */
 
     /**
