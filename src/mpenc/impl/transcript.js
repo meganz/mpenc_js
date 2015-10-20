@@ -476,6 +476,7 @@ define([
         this._transcripts.add(tr);
         this._messageIndex.set(mId, this.length);
         this._parents.push(parents);
+        this.push(mId);
         this.__rInsert__(0, mId);
     };
 

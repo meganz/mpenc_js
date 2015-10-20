@@ -473,7 +473,6 @@ define([
      * @see module:mpenc/helper/async.SequenceInsert
      */
     ObservableSequence.prototype.__rInsert__ = function(rIdx, item) {
-        this.splice(this.length - rIdx, 0, item);
         this._updates.publish(new SequenceInsert(rIdx, item));
     };
 

@@ -922,7 +922,6 @@ define([
         // for creating a new session and including the less senior members.
         this._serverOrder.syncNew();
         this._channelJustSynced = true;
-        logger.info("created new session: " + this.toString());
         if (channelMembers.size > 1) {
             var others = channelMembers.subtract(this._ownSet);
             this._maybeHandleExtra("extra channel users after syncing serverOrder", others);
@@ -993,6 +992,7 @@ define([
                 this._changeSubSession(null);
             }
             this._channelJustSynced = true;
+            return Promise.resolve(this);
         } else {
             logger.info("requesting channel leave self: " + this._owner);
             return this._channel.execute({ leave: true });
@@ -1458,9 +1458,11 @@ define([
     HybridSession.prototype.state = function() {
         var state = this._internalState();
         var greeting = this._greeting;
-        if (state === "COS_" || state === "COsJ") {
+        if (state === "COS_") {
+            return SessionState.JOINED;
+        } else if (state === "COsJ") {
             return greeting && !greeting.getNextMembers().has(this._owner)
-                ? SessionState.PARTING : SessionState.JOINED;
+                ? SessionState.PARTING : SessionState.JOINING;
         } else if (state === "COsj") {
             return greeting ? SessionState.JOINING : SessionState.PARTING;
         } else if (state === "Cos_") {
