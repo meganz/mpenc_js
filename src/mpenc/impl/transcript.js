@@ -480,13 +480,11 @@ define([
         this.__rInsert__(0, mId);
     };
 
-    // Resolve some mIds to latest earlier Payload mIds, "going through" to
-    // previous transcripts (using _transcriptParents) if this is empty.
+    // Resolve some mIds to latest earlier Payload mIds, "falling back" to that
+    // of the previous transcript, if the former set is empty.
     DefaultMessageLog.prototype._resolveEarlier = function(tscr, mIds) {
-        if (!tscr) {
-            return ImmutableSet.EMPTY;
-        }
-        var resolved = MsgReady.resolveEarlier(tscr, mIds || tscr.max());
+        _assert(this._transcriptParents.has(tscr), "invalid transcript: " + tscr);
+        var resolved = MsgReady.resolveEarlier(tscr, mIds);
         if (!resolved.size) {
             resolved = this._transcriptParents.get(tscr);
         }
@@ -496,20 +494,23 @@ define([
     };
 
     DefaultMessageLog.prototype.curParents = function() {
-        return this._resolveEarlier(this._lastTranscript);
+        var lastTs = this._lastTranscript;
+        return lastTs ? this._resolveEarlier(lastTs, lastTs.max()) : ImmutableSet.EMPTY;
     };
 
-    // TODO(xl): make this less hacky, and formalise context on MessageLog.bindSource
-    var DML__bindSource = function(source, transcript, context) {
-        var parents = context ? ImmutableSet.from(context.parents) : ImmutableSet.EMPTY;
-        var parentTscr = context ? context.parentTscr : null;
-        _assert(!parentTscr || this._transcriptParents.has(parentTscr));
-        var payloadParents = this._resolveEarlier(parentTscr, parents);
+    DefaultMessageLog.prototype.bindSource = function(source, transcript, parents) {
+        if (parents && parents.size > 1) {
+            throw new Error("DefaultMessageLog does not support transcripts with > 1 parent");
+        }
+        var parentVal = (parents && parents.size) ? parents.entries().next().value : null;
+        var parentMIds = parentVal ? ImmutableSet.from(parentVal[0]) : ImmutableSet.EMPTY;
+        // note that payloadParents may belong to an ancestor, and not parentTscr itself
+        var payloadParents = parentVal ?
+            this._resolveEarlier(parentVal[1], parentMIds) : ImmutableSet.EMPTY;
         this._transcriptParents.set(transcript, payloadParents);
         this._lastTranscript = transcript;
         return MessageLog.prototype.bindSource.call(this, source, transcript);
     };
-    Object.defineProperty(DefaultMessageLog.prototype, "bindSource", { value: DML__bindSource });
 
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;

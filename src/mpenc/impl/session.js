@@ -1416,10 +1416,9 @@ define([
                 + parents.toArray().map(btoa));
         }
 
-        cancels.push(this._messages.bindSource(sess, sess.transcript(), {
-            parents: parents,
-            parentTscr: previous ? previous.sess.transcript() : null
-        }));
+        cancels.push(this._messages.bindSource(sess, sess.transcript(), new Map(previous ? [
+            [parents, previous.sess.transcript()]
+        ] : [])));
 
         return {
             sess: sess,

@@ -250,6 +250,9 @@ define([
      * @throws {Error} If not all messages are contained in the transcript.
      */
     MsgReady.resolveEarlier = function(transcript, mIds) {
+        if (!mIds.size) {
+            return ImmutableSet.EMPTY;
+        }
         var it = transcript.iterAncestors(mIds.toArray(),
             null, MsgReady.shouldIgnore.bind(null, transcript), true);
         return new ImmutableSet(struct.iteratorToArray(it));
@@ -335,9 +338,12 @@ define([
      * @method
      * @param source {module:mpenc/helper/async.EventSource} Source of MsgAccepted events.
      * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
+     * @param parents {Map} Map of <code>{ ImmutableSet([MessageID]): Transcript }</code>,
+     *      the latest messages to occur before the event that created <code>transcript</code>,
+     *      partitioned by the parent Transcript that the messages belong to.
      * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
      */
-    MessageLog.prototype.bindSource = function(source, transcript) {
+    MessageLog.prototype.bindSource = function(source, transcript, parents) {
         var self = this;
         var totalOrderCb = function(evt) {
             var mId = evt.mId;
@@ -371,7 +377,6 @@ define([
         return this.onUpdate(msgReadyCb);
     };
 
-    Object.freeze(MessageLog.prototype);
     ns.MessageLog = MessageLog;
     // jshint +W030
 

@@ -339,10 +339,9 @@ define([
             log.bindTarget(ctx0);
             var binds = [
                 [{ onEvent: ctx1.subscribe.bind(ctx1) }, tr],
-                [{ onEvent: ctx2.subscribe.bind(ctx2) }, tr2, {
-                    parents: new ImmutableSet(["C"]),
-                    parentTscr: tr,
-                }]
+                [{ onEvent: ctx2.subscribe.bind(ctx2) }, tr2, new Map([
+                    [new ImmutableSet(["C"]), tr]
+                ])]
             ];
             var acceptOrder = "0OACB1XDYEZ".split("");
             for (var i = 0; i < acceptOrder.length; i++) {
