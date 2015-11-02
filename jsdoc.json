@@ -1,19 +1,20 @@
 {
-	"templates": {
-	    "applicationName": "mpEnc Library",
-	    "disqus": "",
-	    "googleAnalytics": "",
-	    "openGraph": {
-	        "title": "mpEnc Library",
-	        "type": "website",
-	        "image": "",
-	        "site_name": "",
-	        "url": ""
-	    },
-	    "meta": {
-	        "title": "mpEnc Library",
-	        "description": "",
-	        "keyword": ""
-	    }
-	}
+    "templates": {
+        "applicationName": "mpEnc Library",
+        "disqus": "",
+        "googleAnalytics": "",
+        "openGraph": {
+            "title": "mpEnc Library",
+            "type": "website",
+            "image": "",
+            "site_name": "",
+            "url": ""
+        },
+        "meta": {
+            "title": "mpEnc Library",
+            "description": "",
+            "keyword": ""
+        }
+    },
+    "plugins": ["plugins/markdown"]
 }
