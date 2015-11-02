@@ -88,7 +88,7 @@ define([
      * @memberOf module:mpenc/impl/session
      */
     var SessionContext = struct.createTupleClass("SessionContext",
-        "owner keepfresh timer flowctl codec makeMessageLog");
+        "owner keepfresh timer privKey pubKey pubKeyDir flowctl codec makeMessageLog");
 
     Object.freeze(SessionContext.prototype);
     ns.SessionContext = SessionContext;
@@ -693,17 +693,21 @@ define([
      * @param makeMessageSecurity {function} 1-arg factory function, that takes
      *      a {@link module:mpenc/greet/greeter.GreetStore} and creates a new
      *      {@link module:mpenc/message.MessageSecurity}.
-     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     * @param [options] {Object} Tweak some behaviours; see below. Note that
+     *      non-default values are, in some sense, "less safe" than the default
+     *      values; please be aware of this and don't surprise your users.
+     * @param [options.autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
-     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     * @param [options.stayIfLastMember] {boolean} Whether to remain in the channel
      *      instead of leaving it, as the last member. Default: false.
      */
     var HybridSession = function(context, sId, channel,
-        greeter, makeMessageSecurity, autoIncludeExtra, stayIfLastMember) {
+        greeter, makeMessageSecurity, options) {
+        options = options || {};
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
-        this._autoIncludeExtra = autoIncludeExtra || false;
-        this._stayIfLastMember = stayIfLastMember || false;
+        this._autoIncludeExtra = options.autoIncludeExtra || false;
+        this._stayIfLastMember = options.stayIfLastMember || false;
         this._fubar = false;
 
         this._owner = context.owner;

@@ -38,12 +38,29 @@ define([
     /**
      * @exports mpenc
      * @description
-     * The multi-party encrypted chat protocol, public API.
-     * This is eventually to be extended towards the mpOTR standard, currently
-     * under development.
      *
-     * @property version {string}
-     *     Member's identifier string.
+     * The multi-party encrypted chat protocol, public API.
+     *
+     * @example
+     *
+     * // variables beginning '?' you need to supply yourself; see the
+     * // the relevant function doc for details, further below.
+     *
+     * // Initialisation
+     *
+     * var mpenc = // however you import it, AMD, Common-JS, whatever
+     * var timer = mpenc.createTimer();
+     * var context = mpenc.createContext(
+     *     ?userId, timer, ?privKey, ?pubKey, ?pubKeyDir);
+     *
+     * // Prepare to have a group chat:
+     *
+     * var groupChannel = // you need to implement your own, see docs.
+     *                    // this is the most signficant part to prepare.
+     * var session = mpenc.createSession(
+     *     context, ?sessionId, groupChannel, ?options);
+     *
+     * // TODO: how to send actions, receive notices, make queries
      */
     var mpenc = {};
 
@@ -104,19 +121,38 @@ define([
     /**
      * Create a new context for sessions.
      *
-     * There should only be one of these per user, shared between all their
-     * sessions.
+     * There should only be one of these per user (or device), shared between
+     * all their sessions.
+     *
+     * The returned context is an opaque object and we give no public API for
+     * it. Clients of this library should not need to interact with the object;
+     * you merely keep it around to pass to {@link module:mpenc.createSession}.
      *
      * @param userId {string}
      *      Global identifier for the local user.
      * @param timer {module:mpenc/helper/async.Timer}
-     *      Timer; see {@link module:mpenc.createTimer}.
+     *      Timer; e.g. see {@link module:mpenc.createTimer}. You do not *have*
+     *      to use that function; you can pass in anything here that satisfies
+     *      our expected interface - such as a third-party execution framework
+     *      or event loop, or if necessary an adapter to them that matches our
+     *      expected interface. Be aware of behavioural restrictions such as
+     *      ordering, not just the function parameter types.
+     * @param privKey {string}
+     *      The long-term Ed25519 private key for the local user, as a sequence
+     *      of 8-bit characters representing bytes.
+     * @param pubKey {string}
+     *      The long-term Ed25519 public key for the local user, as a sequence
+     *      of 8-bit characters representing bytes.
+     * @param pubKeyDir {{get: function}}
+     *      Object with a 1-arg "get" method for obtaining long-term Ed25519
+     *      public keys for other members (user Ids).
      * @returns {module:mpenc/impl/session.SessionContext}
      * @memberOf module:mpenc
      */
-    var createContext = function(userId, timer, flowControl) {
+    var createContext = function(userId, timer, privKey, pubKey, pubKeyDir, flowControl) {
         return new sessionImpl.SessionContext(
-            userId, false, timer, flowControl || DEFAULT_FLOW_CONTROL,
+            userId, false, timer, privKey, pubKey, pubKeyDir,
+            flowControl || DEFAULT_FLOW_CONTROL,
             message.DefaultMessageCodec,
             transcriptImpl.DefaultMessageLog);
     };
@@ -132,30 +168,26 @@ define([
      *      A unique identifier for this session, constant across all members.
      * @param groupChannel {module:mpenc/channel.GroupChannel}
      *      Group transport client / adapter object, for the session to be able
-     *      to communicate with the outside world.
-     * @param privKey {string}
-     *      The long-term Ed25519 private key for the local user.
-     * @param pubKey {string}
-     *      The long-term Ed25519 public key for the local user.
-     * @param pubKeyDir {{get: function}}
-     *      Object with a 1-arg "get" method for obtaining long-term Ed25519
-     *      public keys for other members.
-     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     *      to communicate with the outside world. For example, one can wrap an
+     *      XMPP client library to implement this object. See the documentation
+     *      for the class type, for details how we expect it to behave.
+     * @param [options] {Object} Tweak some behaviours; see below. Note that
+     *      non-default values are, in some sense, "less safe" than the default
+     *      values; please be aware of this and don't surprise your users.
+     * @param [options.autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
-     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     * @param [options.stayIfLastMember] {boolean} Whether to remain in the channel
      *      instead of leaving it, as the last member. Default: false.
      * @returns {module:mpenc/impl/session.HybridSession}
      * @memberOf module:mpenc
      */
-    var createSession = function(context, sessionId, groupChannel,
-        privKey, pubKey, pubKeyDir, autoIncludeExtra, stayIfLastMember) {
+    var createSession = function(context, sessionId, groupChannel, options) {
         return new sessionImpl.HybridSession(
             context, sessionId, groupChannel,
-            new greeter.Greeter(context.owner, privKey, pubKey, pubKeyDir),
+            new greeter.Greeter(context.owner, context.privKey, context.pubKey, context.pubKeyDir),
             function(greetState) {
                 return new message.MessageSecurity(greetState, DEFAULT_EXPONENTIAL_PADDING);
-            },
-            autoIncludeExtra, stayIfLastMember);
+            }, options);
     };
     mpenc.createSession = createSession;
 

@@ -83,7 +83,8 @@ define([
     var mkSessionBase = function(owner) {
         owner = owner || "51";
         var context = new SessionContext(
-            owner, false, testTimer, new dummy.DummyFlowControl(), DefaultMessageCodec, null);
+            owner, false, testTimer, null, null, null,
+            new dummy.DummyFlowControl(), DefaultMessageCodec, null);
 
         var members = new ImmutableSet(["50", "51", "52"]);
         var sId = 's01';
@@ -344,16 +345,17 @@ define([
         });
     });
 
-    var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
+    var mkHybridSession = function(sId, owner, server, options) {
         var context = new SessionContext(owner, false, testTimer,
+            _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
+                get: function() { return _td.ED25519_PUB_KEY; }
+            },
             new dummy.DummyFlowControl(), DefaultMessageCodec, DefaultMessageLog);
         // TODO(xl): replace with a dummy greeter so the tests run quicker
         var dummyGreeter = new greeter.Greeter(owner,
-            _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
-                get: function() { return _td.ED25519_PUB_KEY; }
-            });
+            context.privKey, context.pubKey, context.pubKeyDir);
         return new HybridSession(context, sId, server.getChannel(owner),
-            dummyGreeter, MessageSecurity, autoIncludeExtra, stayIfLastMember);
+            dummyGreeter, MessageSecurity, options);
     };
 
     describe("HybridSession test", function() {
@@ -561,9 +563,10 @@ define([
         it('rule EAL and auto-rejoin', function(done) {
             this.timeout(this.timeout() * 30);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
-            var s3 = mkHybridSession('myTestSession', "53", server, true);
+            var options = { autoIncludeExtra: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
+            var s3 = mkHybridSession('myTestSession', "53", server, options);
             var exec = execute.bind(null, server);
             var monitoredJoinProcess;
 
@@ -631,8 +634,9 @@ define([
         it('concurrent join and auto-leave', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var options = { autoIncludeExtra: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
@@ -660,8 +664,9 @@ define([
         it('concurrent join, stay-if-last, rejoin with autoinclude', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true, true);
+            var options = { autoIncludeExtra: true, stayIfLastMember: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
@@ -695,8 +700,9 @@ define([
         it('double join', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var options = { autoIncludeExtra: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {
@@ -715,9 +721,10 @@ define([
         it('double join with idle initial users', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
+            var options = { autoIncludeExtra: true };
             var s1 = mkHybridSession('myTestSession', "51", server); // effectively unresponsive
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
-            var s3 = mkHybridSession('myTestSession', "53", server, true);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
+            var s3 = mkHybridSession('myTestSession', "53", server, options);
             var exec = execute.bind(null, server);
 
             Promise.resolve(true).then(function() {

@@ -49,12 +49,12 @@ define([
 
     var logError = function(e) { console.log(e.stack); };
 
-    var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
-        var context = mpenc.createContext(owner, testTimer, new dummy.DummyFlowControl());
-        return mpenc.createSession(context, sId, server.getChannel(owner),
+    var mkHybridSession = function(sId, owner, server, options) {
+        var context = mpenc.createContext(owner, testTimer,
             _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
                 get: function() { return _td.ED25519_PUB_KEY; }
-            }, autoIncludeExtra, stayIfLastMember);
+            }, new dummy.DummyFlowControl());
+        return mpenc.createSession(context, sId, server.getChannel(owner), options);
     };
 
     describe("LocalSendQueue test", function() {
@@ -95,8 +95,9 @@ define([
         it('autosend after offline', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var options = { autoIncludeExtra: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             var fakeUI = new Map();
@@ -132,8 +133,9 @@ define([
         it('autoresend after reconnect', function(done) {
             this.timeout(this.timeout() * 20);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true, true);
+            var options = { autoIncludeExtra: true, stayIfLastMember: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             var expecting = new Map();

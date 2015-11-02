@@ -54,34 +54,34 @@ define([
     /**
      * A channel control message.
      *
-     * <p>In the context of a <code>ChannelNotice</code>, this means the event
-     * has already happened. In the context of a <code>ChannelAction</code>,
-     * this means we're trying to make the event happen. Valid values are:</p>
+     * In the context of a `ChannelNotice`, this means the event has already
+     * happened. In the context of a `ChannelAction`, this means we're trying
+     * to make the event happen. Valid values are:
      *
      * <dl>
-     * <dt><code>{ enter: true }</code></dt><dd>We enter the channel. If this
-     * is a ChannelNotice, <code>members</code> is also defined.</dd>
-     * <dt><code>{ leave: true }</code></dt><dd>We leave the channel.  If this
-     * is a ChannelNotice, <code>members</code> is also defined.</dd>
-     * <dt><code>{ enter: *, leave: * }</code></dt><dd>Others enter/leave the
+     * <dt>`{ enter: true }`</dt><dd>We enter the channel. If this
+     * is a ChannelNotice, `members` is also defined.</dd>
+     * <dt>`{ leave: true }`</dt><dd>We leave the channel.  If this
+     * is a ChannelNotice, `members` is also defined.</dd>
+     * <dt>`{ enter: *, leave: * }`</dt><dd>Others enter/leave the
      * channel. The values must be "ImmutableSet"-like values, i.e. such that
      * {@link module:mpenc/helper/struct.ImmutableSet.from ImmutableSet.from}
      * does not throw an error.</dd>
      * </dl>
      *
-     * <p>One may use {@link module:mpenc/channel.checkChannelControl
-     * checkChannelControl} to check valid values.</p>
+     * One may use {@link module:mpenc/channel.checkChannelControl
+     * checkChannelControl} to check valid values.
      *
      * @typedef {Object} ChannelControl
      * @property [enter] {(boolean|module:mpenc/helper/struct.ImmutableSet)}
-     *      Members to enter the channel. If <code>true</code>, we ourselves
+     *      Members to enter the channel. If `true`, we ourselves
      *      are the object of the event, and leave must be omitted.
      * @property [leave] {(boolean|module:mpenc/helper/struct.ImmutableSet)}
-     *      Members to leave the channel. If <code>true</code>, we'ourselves
+     *      Members to leave the channel. If `true`, we'ourselves
      *      are the object of the event, and enter must be omitted.
      * @property [members] {(boolean|module:mpenc/helper/struct.ImmutableSet)}
-     *      In a ChannelNotice, where <code>enter: true</code> or <code>leave:
-     *      true</code>, this represents the members in the channel after we
+     *      In a ChannelNotice, where `enter: true` or `leave:
+     *      true`, this represents the members in the channel after we
      *      enter or before we leave, respectively.
      */
 
@@ -116,49 +116,45 @@ define([
 
 
     /**
-     * A group transport channel.
+     * A group transport channel, from the view of a higher-layer client.
      *
-     * <p>Represents a group that has an existence outside of its membership. That
+     * TODO: fill this out more
+     *
+     * Represents a group that has an existence outside of its membership. That
      * is, unlike {@link module:mpenc/session.Session}, "not in the channel" and
      * "the channel has one member, i.e. us" are distinct states. We expect that
      * the group protocol does not allow non-members to query the membership of the
-     * channel, nor receive updates about the membership. In code terms:</p>
+     * channel, nor receive updates about the membership. In code terms:
      *
-     * <ul>
-     * <li><code>curMembers()</code><ul>
-     *   <li>returns <code>null</code> for "not in the channel"</li>
-     *   <li>returns <code>ImmutableSet([owner])</code> for "the channel has one member"</li>
-     *   <li>never returns an empty <code>ImmutableSet</code>.</li>
-     * </ul></li>
-     * <li>The first event received (i.e. published to subscribers of
-     * <code>onRecv</code>) must be a <code>{ enter: true }</code>.</li>
-     * <li>The event immediately after a <code>{ leave: true }</code> event, if
-     * any, must be a <code>{ enter: true }</code>.</li>
-     * </ul>
+     * - `curMembers()`
+     *   - returns `null` for "not in the channel"
+     *   - returns `ImmutableSet([owner])` for "the channel has one member"
+     *   - never returns an empty `ImmutableSet`.
+     * - The first event received (i.e. published to subscribers of `onRecv`)
+     *   must be a `{ enter: true }`.
+     * - The event immediately after a `{ leave: true }` event, if any, must be
+     *   a `{ enter: true }`.
      *
-     * <p>We expect that everyone receives the same events in the same order.
-     * This is checked by {@link module:mpenc/impl/channel.ServerOrder}. Other
-     * than this, implementations are free to choose how to order, e.g.
-     * messages sent concurrently at the same time by different members. In
-     * particular, there is no guarantee that an event <code>E</code> sent at
-     * time <code>T</code> when the channel membership was <code>M</code>, will
-     * be emitted back when the channel still has members <code>M</code>.</p>
+     * We expect that everyone receives the same events in the same order. This
+     * is checked by {@link module:mpenc/impl/channel.ServerOrder}. Other than
+     * this, implementations are free to choose how to order, e.g. messages
+     * sent concurrently at the same time by different members. In particular,
+     * there is no guarantee that an event `E` sent at time `T` when the
+     * channel membership was `M`, will be emitted back when the channel still
+     * has members `M`.
      *
-     * <p>The instantiated types for <code>ReceivingExecutor</code> are:</p>
+     * The instantiated types for `ReceivingExecutor` are:
      *
-     * <ul>
-     * <li><code>{@link module:mpenc/channel.GroupChannel#onRecv|RecvOutput}</code>:
-     *      {@link module:mpenc/channel~ChannelNotice}</li>
-     * <li><code>{@link module:mpenc/channel.GroupChannel#send|SendInput}</code>:
-     *      {@link module:mpenc/channel~ChannelAction}</li>
-     * </ul>
+     * - `{@link module:mpenc/channel.GroupChannel#onRecv|RecvOutput}`:
+     *   {@link module:mpenc/channel~ChannelNotice}
+     * - `{@link module:mpenc/channel.GroupChannel#send|SendInput}`:
+     *   {@link module:mpenc/channel~ChannelAction}
      *
-     * <p>Implementations <em>need not</em> define <code>execute()</code> when
-     * the input is a {@link module:mpenc/helper/utils~RawSend}, but they
-     * <strong>must</strong> define it when the input is a {@link
-     * module:mpenc/channel~ChannelControl}.</p>
+     * Implementations *need not* define `execute()` when the input is a
+     * {@link module:mpenc/helper/utils~RawSend}, but they **must** define it
+     * when the input is a {@link module:mpenc/channel~ChannelControl}.
      *
-     * <p>See {@link module:mpenc/impl/dummy.DummyGroupChannel} for an example.</p>
+     * See {@link module:mpenc/impl/dummy.DummyGroupChannel} for an example.
      *
      * @interface
      * @augments module:mpenc/helper/utils.ReceivingExecutor
@@ -172,7 +168,7 @@ define([
     /**
      * @method
      * @returns {?module:mpenc/helper/struct.ImmutableSet} The current channel
-     *      membership. If <code>null</code>, it means we are not currently in
+     *      membership. If `null`, it means we are not currently in
      *      the channel.
      */
     GroupChannel.prototype.curMembers;
