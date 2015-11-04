@@ -1,6 +1,6 @@
 {
     "templates": {
-        "applicationName": "mpEnc Library",
+        "systemName": "mpENC API Documentation",
         "disqus": "",
         "googleAnalytics": "",
         "openGraph": {
@@ -14,7 +14,12 @@
             "title": "mpEnc Library",
             "description": "",
             "keyword": ""
-        }
+        },
+        "theme": "simplex-custom",
+        "inverseNav": true
+    },
+    "opts": {
+        "template": "node_modules/ink-docstrap/template"
     },
     "plugins": ["plugins/markdown"]
 }

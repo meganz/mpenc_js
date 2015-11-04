@@ -2,6 +2,8 @@
 BROWSER = Firefox
 KARMA_FLAGS = # set to --preprocessors= to show line numbers, otherwise coverage clobbers them
 JSDOC_FLAGS = # set to --private to show private API, e.g. for developers working on mpENC
+# TODO: use npm (not github) version of ink-docstrap when
+# https://github.com/terryweiss/docstrap/issues/116 is fixed
 
 # Site-dependent variables
 BUILDDIR = build
@@ -48,10 +50,12 @@ test: $(KARMA) $(R_JS) $(DEP_ALL)
 browser-test:
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
-api-doc: $(JSDOC)
+api-doc: $(JSDOC) src/site.simplex-custom.css
+	mkdir -p doc/api/styles
+	cp src/site.simplex-custom.css doc/api/styles
 	$(NODE) $(JSDOC) --destination doc/api/ $(JSDOC_FLAGS) \
                  --configure jsdoc.json \
-                 --recurse src/
+                 --recurse src/ README.md
 
 jshint: $(JSHINT)
 	@-$(NODE) $(JSHINT) --verbose src test
