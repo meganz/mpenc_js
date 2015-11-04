@@ -23,6 +23,7 @@ define([
 
     /**
      * @exports mpenc/liveness
+     * @private
      * @description Liveness properties - reliability, recovery, consistency, freshness, etc.
      */
     var ns = {};
@@ -36,6 +37,7 @@ define([
      * expectation.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/liveness
      */
     var ConsistencyMonitor = function() {
@@ -77,6 +79,7 @@ define([
      * case for some Session implementations, e.g. HybridSession.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/liveness
      */
     var Flow = function() {

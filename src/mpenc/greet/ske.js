@@ -25,6 +25,7 @@ define([
 
     /**
      * @exports mpenc/greet/ske
+     * @private
      * @description
      * <p>Implementation of an authenticated Signature Key Exchange scheme.</p>
      *
@@ -51,6 +52,7 @@ define([
      * Carries message content for the authenticated signature key exchange.
      *
      * @constructor
+     * @private
      * @param source {string}
      *     Message originator (from).
      * @param dest {string}
@@ -105,6 +107,7 @@ define([
      * This implementation is using Edwards25519 ECDSA signatures.
      *
      * @constructor
+     * @private
      * @param id {string}
      *     Member's identifier string.
      * @returns {SignatureKeyExchangeMember}

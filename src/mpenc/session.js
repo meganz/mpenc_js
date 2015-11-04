@@ -56,14 +56,10 @@ define([
      * ERROR           0           0
      * </pre>
      *
-     * Note: JOINING and JOIN_FAILED are not currently used, pending further
-     * research into a fully causally-ordered transcript history that also
-     * supports partial visibility.
-     *
      * @enum {number}
      * @memberOf module:mpenc/session
      */
-    ns.SessionState = {
+    var SessionState = {
         /** We have joined the session and are ready to send messages. */
         JOINED       : 1,
         /** We will no longer send messages and have begun parting the session. */
@@ -79,9 +75,13 @@ define([
         /** A fatal error was detected and added to the transcript. */
         ERROR        : 7
     };
+    ns.SessionState = SessionState;
 
     /**
      * Things that can happen to a Session.
+     *
+     * **API WARNING**: currently `SNState` is never emitted by any `Session`;
+     * clients should not rely on that yet.
      *
      * @interface
      * @memberOf module:mpenc/session
@@ -298,9 +298,11 @@ define([
     // jshint -W030
 
     /**
-     * Array containing the types of events that this EventSource can publish.
+     * Array containing the events types that this `EventSource` can publish.
+     * For Session, this is just all the child classes of `SessionNotice`.
      *
      * @memberOf module:mpenc/session.Session
+     * @see module:mpenc/session.SessionNotice
      */
     Session.EventTypes = [SNState, SNMembers,
                           MsgReady, MsgFullyAcked,
@@ -327,6 +329,9 @@ define([
     Session.prototype.messages;
 
     /**
+     * **API WARNING**: the behaviour of this is currently experimental;
+     * clients should not rely on this yet.
+     *
      * @method
      * @returns {module:mpenc/session.SessionState} Current state of this session.
      */

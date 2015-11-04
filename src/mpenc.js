@@ -146,7 +146,7 @@ define([
      * @param pubKeyDir {{get: function}}
      *      Object with a 1-arg "get" method for obtaining long-term Ed25519
      *      public keys for other members (user Ids).
-     * @returns {module:mpenc/impl/session.SessionContext}
+     * @returns {SessionContext}
      * @memberOf module:mpenc
      */
     var createContext = function(userId, timer, privKey, pubKey, pubKeyDir, flowControl) {
@@ -162,7 +162,7 @@ define([
     /**
      * Create a new group session.
      *
-     * @param context {module:mpenc/impl/session.SessionContext}
+     * @param context {SessionContext}
      *      Session context; see {@link module:mpenc.createContext}.
      * @param sessionId {string}
      *      A unique identifier for this session, constant across all members.
@@ -178,7 +178,7 @@ define([
      *      new members that enter the transport channel. Default: false.
      * @param [options.stayIfLastMember] {boolean} Whether to remain in the channel
      *      instead of leaving it, as the last member. Default: false.
-     * @returns {module:mpenc/impl/session.HybridSession}
+     * @returns {module:mpenc/session.Session}
      * @memberOf module:mpenc
      */
     var createSession = function(context, sessionId, groupChannel, options) {

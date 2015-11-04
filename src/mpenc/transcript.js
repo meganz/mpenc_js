@@ -118,6 +118,7 @@ define([
      * Methods taking an mId or uId must raise KeyError if it is absent.
      *
      * @interface
+     * @private
      * @augments module:mpenc/helper/graph.CausalOrder
      * @augments module:mpenc/transcript.Messages
      * @memberOf module:mpenc/transcript
@@ -293,6 +294,7 @@ define([
      * E are {B}, because even though A < C, it is also the case that A < B.
      *
      * @class
+     * @private
      * @extends module:mpenc/helper/async.ObservableSequence
      * @augments module:mpenc/transcript.Messages
      * @memberOf module:mpenc/transcript

@@ -28,8 +28,7 @@ define([
 
     /**
      * @exports mpenc/codec
-     * Implementation of a protocol encoder/decoder.
-     *
+     * @private
      * @description
      * <p>Implementation of a protocol encoder/decoder.</p>
      *

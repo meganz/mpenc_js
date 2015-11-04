@@ -29,6 +29,7 @@ define([
     /**
      *
      * @exports mpenc/impl/channel
+     * @private
      * @description
      * <p>Implementation of the ServerOrder class from mpenc_py.</p>
      */
@@ -45,6 +46,7 @@ define([
      * See "Appendix 5: Hybrid Order" in [msg-notes] for more details.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/channel
      */
     var ServerOrder = function() {

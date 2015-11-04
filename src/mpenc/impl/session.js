@@ -39,6 +39,7 @@ define([
 
     /**
      * @exports mpenc/impl/session
+     * @private
      * @description
      * Session related operations
      */
@@ -85,6 +86,7 @@ define([
      * Context of a session.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      */
     var SessionContext = struct.createTupleClass("SessionContext",
@@ -140,6 +142,7 @@ define([
      * </ul>
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/liveness.Flow}
      * @implements {module:mpenc/helper/async.EventSource}
@@ -684,6 +687,7 @@ define([
      * A Session with a linear order on its membership operations.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/session.Session}
      * @param context {module:mpenc/impl/session.SessionContext} Session context.

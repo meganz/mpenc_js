@@ -29,6 +29,7 @@ define([
 
     /**
      * @exports mpenc/message
+     * @private
      * @description
      * Message interfaces.
      */
@@ -44,7 +45,16 @@ define([
     /**
      * A Message object, sent by a user.
      *
-     * @interface
+     * @class
+     * @property mId {string} Unique ID for this message.
+     * @property author {string} Original author of the message.
+     * @property parents {module:mpenc/helper/struct.ImmutableSet} Parent
+     *      message IDs, latest messages the author had accepted into their
+     *      transcript, before writing this message.
+     * @property recipients {module:mpenc/helper/struct.ImmutableSet} Readers
+     *      of this message, as intended by the original author.
+     * @property body {module:mpenc/message.MessageBody} Body of this message,
+     *      written by the original author.
      * @memberOf module:mpenc/message
      */
     var Message = function(mId, author, parents, recipients, body) {
@@ -91,7 +101,13 @@ define([
     ns.Message = Message;
 
     /**
-     * Message body object.
+     * Message body object, one of the following child types.
+     *
+     * @class
+     * @see module:mpenc/message.Payload
+     * @see module:mpenc/message.ExplicitAck
+     * @see module:mpenc/message.Consistency
+     * @memberOf module:mpenc/message
      */
     var MessageBody = function() {};
 
@@ -103,7 +119,10 @@ define([
     /**
      * Message actively sent by a user, to be consumed by the application.
      *
+     * @class
+     * @extends module:mpenc/message.MessageBody
      * @property body {string} Body of the message.
+     * @memberOf module:mpenc/message
      */
     var Payload = struct.createTupleClass("Payload", "content", MessageBody);
 
@@ -128,7 +147,10 @@ define([
      * of messages should also handle (e.g. resend) explicit acks that were sent
      * directly before it - since there is no other ack-monitor to handle these.
      *
+     * @class
+     * @extends module:mpenc/message.MessageBody
      * @property manual {boolean} Whether this was sent with conscious user oversight.
+     * @memberOf module:mpenc/message
      */
     var ExplicitAck = struct.createTupleClass("ExplicitAck", "manual", MessageBody);
 
@@ -142,19 +164,22 @@ define([
     Object.freeze(ExplicitAck.prototype);
     ns.ExplicitAck = ExplicitAck;
 
-    var HeartBeat = {}; // TODO(xl): TBA
+    var HeartBeat = {}; // TODO(xl): TBD
 
     /**
      * Request immediate acks from others so that consistency can be reached.
      * This is useful e.g. when changing the membership of the channel, and you
      * want to check consistency of the history with the previous membership.
      *
+     * @class
+     * @extends module:mpenc/message.MessageBody
      * @property close {boolean} If true, this is a commitment that the author
      *      will send no more Payload messages to the session, and that they
      *      will ignore the content of later messages by others, except to
      *      treat it as an ack of this message. After this is fully-acked,
      *      other members should formally exclude the author from the session,
      *      e.g. by running a greeting protocol.
+     * @memberOf module:mpenc/message
      */
     var Consistency = struct.createTupleClass("Consistency", "close", MessageBody);
 
@@ -251,6 +276,7 @@ define([
      * messages that are part of a session.
      *
      * @class
+     * @private
      * @param greetStore {module:mpenc/greet/greeter.GreetStore}
      * @param [paddingSize] {number}
      *     Number of bytes to pad the cipher text to come out as (default: 0

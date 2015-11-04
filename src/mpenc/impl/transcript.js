@@ -32,6 +32,7 @@ define([
 
     /**
      * @exports mpenc/impl/transcript
+     * @private
      * @description
      * Transcript implementation.
      */
@@ -49,6 +50,7 @@ define([
      * A set of BaseTranscript forming all or part of a session.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/transcript
      * @implements {module:mpenc/transcript.Transcript}
      */
@@ -433,6 +435,7 @@ define([
      * That is, add() always appends to the log.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/transcript
      * @extends {module:mpenc/transcript.MessageLog}
      */

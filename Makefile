@@ -1,6 +1,7 @@
 # User/runtime variables
 BROWSER = Firefox
 KARMA_FLAGS = # set to --preprocessors= to show line numbers, otherwise coverage clobbers them
+JSDOC_FLAGS = # set to --private to show private API, e.g. for developers working on mpENC
 
 # Site-dependent variables
 BUILDDIR = build
@@ -48,7 +49,7 @@ browser-test:
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
 api-doc: $(JSDOC)
-	$(NODE) $(JSDOC) --destination doc/api/ --private \
+	$(NODE) $(JSDOC) --destination doc/api/ $(JSDOC_FLAGS) \
                  --configure jsdoc.json \
                  --recurse src/
 

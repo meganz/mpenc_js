@@ -26,6 +26,7 @@ define([
 
     /**
      * @exports mpenc/greet/cliques
+     * @private
      * @description
      * <p>Implementation of group key agreement based on CLIQUES.</p>
      *
@@ -81,6 +82,7 @@ define([
      *     List (array) of intermediate keys to transmit.
      * @returns {CliquesMessage}
      * @constructor
+     * @private
      *
      * @property source
      *     Message originator (from).
@@ -113,6 +115,7 @@ define([
      * extended for group key agreement.
      *
      * @constructor
+     * @private
      * @param id {string}
      *     Member's identifier string.
      * @returns {CliquesMember}
