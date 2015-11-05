@@ -62,7 +62,7 @@ define([
         }, paddingSize);
     }
 
-    var defaultRecipients = new ImmutableSet(['Larry', 'Curly']);
+    var defaultReaders = new ImmutableSet(['Larry', 'Curly']);
 
     describe("DefaultMessageCodec", function() {
         var codec = ns.DefaultMessageCodec;
@@ -112,7 +112,7 @@ define([
             var result = _dummyMessageSecurity().authEncrypt(null, {
                 author: 'Moe',
                 parents: null,
-                recipients: defaultRecipients,
+                readers: defaultReaders,
                 body: "foo"
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
@@ -124,7 +124,7 @@ define([
             var result = _dummyMessageSecurity(32).authEncrypt(null, {
                 author: 'Moe',
                 parents: null,
-                recipients: defaultRecipients,
+                readers: defaultReaders,
                 body: "foo"
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
@@ -136,7 +136,7 @@ define([
             var result = _dummyMessageSecurity().authEncrypt(null, {
                 author: 'Moe',
                 parents: new ImmutableSet(["abcd", "1234"]),
-                recipients: defaultRecipients,
+                readers: defaultReaders,
                 body: "foo"
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
@@ -148,7 +148,7 @@ define([
             var result = _dummyMessageSecurity(32).authEncrypt(null, {
                 author: 'Moe',
                 parents: new ImmutableSet(["abcd", "1234"]),
-                recipients: defaultRecipients,
+                readers: defaultReaders,
                 body: "foo"
             });
             // sid/key hint (4 + 1), signature (4 + 64), protocol v (4 + 1),
@@ -185,7 +185,7 @@ define([
                 var encrypted = mSecurity.authEncrypt(null, {
                     author: "Moe",
                     parents: null,
-                    recipients: defaultRecipients,
+                    readers: defaultReaders,
                     body: tests[i],
                 }).pubtxt;
                 var result = mSecurity.decryptVerify(null, encrypted, 'Moe');
@@ -201,7 +201,7 @@ define([
                 var encrypted = mSecurity.authEncrypt(null, {
                     author: "Moe",
                     parents: null,
-                    recipients: defaultRecipients,
+                    readers: defaultReaders,
                     body: tests[i],
                 }).pubtxt;
                 var result = mSecurity.decryptVerify(null, encrypted, 'Moe');

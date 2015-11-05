@@ -408,28 +408,28 @@ define([
         var ts = this.transcript();
         var author = this.owner();
         var parents = ts.max();
-        var recipients = this.curMembers().subtract(new ImmutableSet([author]));
+        var readers = this.curMembers().subtract(new ImmutableSet([author]));
 
         var enc = this._msgsec.authEncrypt(ts, {
             author: author,
             parents: parents,
-            recipients: recipients,
+            readers: readers,
             body: this._codec.encode(body),
         });
         var pubtxt = enc.pubtxt, secret = enc.secrets;
 
         var mId = secret.mId;
-        var msg = new Message(mId, author, parents, recipients, body);
+        var msg = new Message(mId, author, parents, readers, body);
         try {
             this._add(msg, pubtxt);
             secret.commit();
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(mId, author, parents, recipients, e);
+            this._handleInvalidMessage(mId, author, parents, readers, e);
             return false;
         }
 
-        var stat = this._send.publish({ pubtxt: pubtxt, recipients: recipients });
+        var stat = this._send.publish({ pubtxt: pubtxt, recipients: readers });
         return stat.some(Boolean);
     };
 
@@ -458,11 +458,11 @@ define([
             var body = this._codec.decode(message.body);
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(mId, message.author, message.parents, message.recipients, e);
+            this._handleInvalidMessage(mId, message.author, message.parents, message.readers, e);
             return true; // decrypt succeeded so message was indeed properly part of the session
         }
 
-        var msg = new Message(mId, message.author, message.parents, message.recipients, body);
+        var msg = new Message(mId, message.author, message.parents, message.readers, body);
         this._tryAccept.trial([msg, pubtxt, secret]);
         return true;
     };
@@ -474,7 +474,7 @@ define([
         return this._send.subscribe(send_out);
     };
 
-    SessionBase.prototype._handleInvalidMessage = function(mId, author, parents, recipients, error) {
+    SessionBase.prototype._handleInvalidMessage = function(mId, author, parents, readers, error) {
         // TODO(xl): [D/F] more specific handling of:
         // - message decode error
         // - total-order breaking
@@ -514,7 +514,7 @@ define([
             return true;
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(msg.mId, msg.author, msg.parents, msg.recipients, e);
+            this._handleInvalidMessage(msg.mId, msg.author, msg.parents, msg.readers, e);
             return true; // message was accepted as invalid, don't buffer again
         }
     };

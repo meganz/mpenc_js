@@ -62,7 +62,7 @@ define([
                     sId: btoa(sId),
                     author: message.author,
                     parents: message.parents.toArray().map(btoa),
-                    recipients: message.recipients.toArray(),
+                    readers: message.readers.toArray(),
                     sectxt: btoa(message.body)
                 });
                 return {
@@ -142,12 +142,12 @@ define([
         this._recv = new Observable();
         this._onEnter = null;
         this._onLeave = null;
-        this.messagesReceived = 0;
+        this.packetsReceived = 0;
     };
 
     DummyGroupChannel.prototype.recv = function(recv_in) {
         if ("pubtxt" in recv_in) {
-            this.messagesReceived++;
+            this.packetsReceived++;
         } else {
             recv_in = channel.checkChannelControl(recv_in);
             var enter = recv_in.enter;

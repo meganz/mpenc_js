@@ -70,16 +70,16 @@ define([
     Messages.prototype.parents;
 
     /**
-     * The recipients that have not acked the given message.
+     * The readers that have not acked the given message.
      *
      * If this is empty, the message has been fully-acked, and this is a
      * certainly-good state. If non-empty, this is a maybe-bad state: the
-     * (other) recipients *may* have seen the message and even acked it, but
+     * (other) readers *may* have seen the message and even acked it, but
      * we (the local process) have not seen those acks, so we cannot be sure
      * of this. High layers must precisely understand these semantics.
      *
      * We (the local process) consider a message m authored by u to be "acked"
-     * by a recipient ru, iff we have accepted a message m_a authored by ru
+     * by a reader ru, iff we have accepted a message m_a authored by ru
      * where m <= m_a, and there is a chain of messages [m .. m_a] all of
      * which are visible to ru (i.e. authored by them, or by another to them).
      *
@@ -113,7 +113,7 @@ define([
      * back from being accepted until all of their predecessors are accepted.
      *
      * (We do not need a separate event to represent when a message is sent.
-     * The send-event is before each accept-event at every recipient, and there
+     * The send-event is before each accept-event at every reader, and there
      * are no events between these in the causal order, so we effectively treat
      * both as the same event.)
      *
@@ -141,12 +141,12 @@ define([
     Transcript.prototype.pre_uId;
 
     /**
-     * The latest message before mId authored by the given recipient of mId, or
+     * The latest message before mId authored by the given reader of mId, or
      * <code>null</code> if they did not author any such messages.
      *
      * @method
      * @param mId {string} Message id.
-     * @param ruId {string} Author (a recipient of mId) to find message for.
+     * @param ruId {string} Author (a reader of mId) to find message for.
      * @returns {?string} Latest preceding message id or <code>null</code>.
      * */
     Transcript.prototype.pre_ruId;
@@ -163,12 +163,12 @@ define([
     Transcript.prototype.pre_pred;
 
     /**
-     * The earliest message after mId authored by the given recipient of mId, or
+     * The earliest message after mId authored by the given reader of mId, or
      * <code>null</code> we did not yet see them author such a message.
      *
      * @method
      * @param mId {string} Message id.
-     * @param ruId {string} Author (a recipient of mId) to find message for.
+     * @param ruId {string} Author (a reader of mId) to find message for.
      * @returns {?string} Earliest succeeding message id or <code>null</code>.
      */
     Transcript.prototype.suc_ruId;

@@ -51,7 +51,7 @@ define([
 
     /**
      * Emitted when a previously-sent message was resent in a new sub-session,
-     * possibly with new parents and/or recipients.
+     * possibly with new parents and/or readers.
      *
      * <p>If <code>old_sId</code> is <code>null</code>, that means
      * <code>old_mId</code> is a virtual message id for a not-yet-sent queued
@@ -69,7 +69,7 @@ define([
     ns.MsgResent = MsgResent;
 
 
-    var RECIPIENTS_WILDCARD = {};
+    var READERS_WILDCARD = {};
 
     /**
      * A sending queue that offers manual and automatic resending of messages.
@@ -201,7 +201,7 @@ define([
     LocalSendQueue.prototype._getLogicalMembers = function() {
         var members = this._sess._current ? this._sess._current.sess.curMembers() :
                       this._sess._previous ? this._sess._previous.sess.curMembers() :
-                      RECIPIENTS_WILDCARD;
+                      READERS_WILDCARD;
         return this._resolveLogicalMembers(members);
     };
 
@@ -209,7 +209,7 @@ define([
     LocalSendQueue.prototype._checkMatches = function(idx, parents, members) {
         var toSend = this._toSend[idx];
         return toSend.parents.equals(parents) && (
-            toSend.members === RECIPIENTS_WILDCARD || toSend.members.equals(members));
+            toSend.members === READERS_WILDCARD || toSend.members.equals(members));
     };
 
     // Return the index into _toSend/_activeSent for a given mId, or -1 if not

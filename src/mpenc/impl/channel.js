@@ -244,7 +244,7 @@ define([
      *
      * @param owner {string} Owner of the local process
      * @param op {module:mpenc/greet/greeter.GreetingSummary} Operation summary
-     * @param transportRecipients {module:mpenc/helper/struct.ImmutableSet}
+     * @param recipients {module:mpenc/helper/struct.ImmutableSet}
      *      Members (user ids) in the channel when the packet was received;
      *      includes the owner.
      * @param postAcceptInitial {function} 2-arg function called when an initial
@@ -254,14 +254,14 @@ define([
      * @returns {boolean} Whether the packet was accepted or rejected.
      */
     ServerOrder.prototype.tryOpPacket = function(
-            owner, op, transportRecipients, postAcceptInitial, postAcceptFinal) {
+            owner, op, recipients, postAcceptInitial, postAcceptFinal) {
         var pId = op.pId;
         var prevPf = op.isInitial() ? op.metadata.prevPf : null;
         var prevPi = op.prevPi;
         var accepted = false;
         _assert(op.isInitial() || op.isFinal());
 
-        if (op.members.subtract(transportRecipients).size) {
+        if (op.members.subtract(recipients).size) {
             _assert(op.isInitial());
             // [rule XP]
             logger.info("rejected " + btoa(pId) + " because it was not echoed to some members");

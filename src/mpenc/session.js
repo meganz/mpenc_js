@@ -172,7 +172,7 @@ define([
     ns.MsgAccepted = MsgAccepted;
 
     /**
-     * When a message is acked by all of its intended recipients.
+     * When a message is acked by all of its intended readers.
      *
      * @class
      * @implements module:mpenc/session.SessionNotice
@@ -280,12 +280,12 @@ define([
 
     /**
      * A message has been accepted but not fully-acked, after a grace period.
-     * That is, it may not yet have been accepted by all its recipients.
+     * That is, it may not yet have been accepted by all its readers.
      *
      * This is probably due to the transport being unreliable, but could also be
-     * due to a malicious transport, or a malicious or buggy sender (who sent
-     * different messages to different recipients), or buggy recipient(s) (who
-     * did not ack the message). It is up to the user to respond appropriately.
+     * due to a malicious transport, or a malicious or buggy author (who sent
+     * different messages to different readers), or buggy reader(s) (who did not
+     * ack the message). It is up to the user to respond appropriately.
      *
      * The absence of this event does *not* mean the message has been fully-acked;
      * to check this, either wait for MsgFullyAcked (its absence means the message

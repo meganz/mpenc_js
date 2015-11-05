@@ -51,14 +51,14 @@ define([
      * @property parents {module:mpenc/helper/struct.ImmutableSet} Parent
      *      message IDs, latest messages the author had accepted into their
      *      transcript, before writing this message.
-     * @property recipients {module:mpenc/helper/struct.ImmutableSet} Readers
+     * @property readers {module:mpenc/helper/struct.ImmutableSet} Readers
      *      of this message, as intended by the original author.
      * @property body {module:mpenc/message.MessageBody} Body of this message,
      *      written by the original author.
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, author, parents, recipients, body) {
-        if (!(this instanceof Message)) { return new Message(mId, author, parents, recipients, body); }
+    var Message = function(mId, author, parents, readers, body) {
+        if (!(this instanceof Message)) { return new Message(mId, author, parents, readers, body); }
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -69,23 +69,23 @@ define([
         if (parents === null || parents === undefined) {
             throw new Error("invalid empty parents");
         }
-        if (recipients === null || recipients === undefined) {
-            throw new Error("invalid empty recipients");
+        if (readers === null || readers === undefined) {
+            throw new Error("invalid empty readers");
         }
 
         parents = ImmutableSet.from(parents);
         if (parents.has(null) || parents.has(undefined)) {
             throw new Error("invalid parents: has empty value");
         }
-        recipients = ImmutableSet.from(recipients);
-        if (recipients.has(null) || recipients.has(undefined)) {
-            throw new Error("invalid recipients: has empty value");
+        readers = ImmutableSet.from(readers);
+        if (readers.has(null) || readers.has(undefined)) {
+            throw new Error("invalid readers: has empty value");
         }
 
         this.mId = mId;
         this.author = author;
         this.parents = ImmutableSet.from(parents);
-        this.recipients = ImmutableSet.from(recipients);
+        this.readers = ImmutableSet.from(readers);
         this.body = body;
     };
 
@@ -94,7 +94,7 @@ define([
      * @param mId {string} Message (node) id.
      * @returns {module:mpenc/message.Message} Message object for the id. */
     Message.prototype.members = function() {
-        return this.recipients.union(new ImmutableSet([this.author]));
+        return this.readers.union(new ImmutableSet([this.author]));
     };
 
     Object.freeze(Message.prototype);
@@ -256,8 +256,8 @@ define([
      *     Author of the message.
      * @property parents {?module:mpenc/helper/struct.ImmutableSet}
      *     Parent message ids.
-     * @property recipients {module:mpenc/helper/struct.ImmutableSet}
-     *     Recipients of the message.
+     * @property readers {module:mpenc/helper/struct.ImmutableSet}
+     *     Readers of the message, as intended by the author.
      * @property body {string}
      *     MessageBody object encoded as a byte string.
      */
@@ -322,9 +322,9 @@ define([
         // iv, message data
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
-        var members = message.recipients.union(new ImmutableSet([this._greetStore.id]));
+        var members = message.readers.union(new ImmutableSet([this._greetStore.id]));
         _assert(members.equals(new ImmutableSet(this._greetStore.members)),
-                'Recipients not members of session: ' + members +
+                'Readers not members of session: ' + members +
                 '; current members: ' + this._greetStore.members);
 
         // Three portions: unsigned content (hint), signature, rest.
@@ -477,15 +477,15 @@ define([
 
         var idx = members.indexOf(author);
         _assert(idx >= 0);
-        var recipients = members.slice();
-        recipients.splice(idx, 1);
+        var readers = members.slice();
+        readers.splice(idx, 1);
 
         return {
             secrets: _dummyMessageSecrets(inspected.signature, inspected.rawMessage),
             message: {
                 author: author,
                 parents: parents,
-                recipients: recipients,
+                readers: readers,
                 body: body,
             },
         };

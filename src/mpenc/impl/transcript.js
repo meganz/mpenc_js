@@ -76,7 +76,7 @@ define([
 
         this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
 
-        this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
+        this._unackby = new Map(); // mId: Set[uId], readers of mId that we have not yet seen ack it
         this._unacked = ImmutableSet.EMPTY; // Set[mId] of not fully-acked messages
 
         var self = this;
@@ -168,7 +168,7 @@ define([
 
         if (u0 === u1) {
             return this._authorIndex.get(m0) <= this._authorIndex.get(m1);
-        } else if (this._messages.get(m1).recipients.has(u0)) {
+        } else if (this._messages.get(m1).readers.has(u0)) {
             var p0 = this._context.get(m1).get(u0);
             return p0 !== null && this._authorIndex.get(m0) <= this._authorIndex.get(p0);
         } else {
@@ -258,7 +258,7 @@ define([
         }
 
         var self = this;
-        var mId = msg.mId, uId = msg.author, pmId = msg.parents, ruId = msg.recipients;
+        var mId = msg.mId, uId = msg.author, pmId = msg.parents, ruId = msg.readers;
         // last message by the same author
         var pumId = this._authorMessages.has(uId)? this._authorMessages.get(uId).slice(-1)[0]: null;
         var pmIdArr = pmId.toArray();
@@ -287,7 +287,7 @@ define([
 
         if (ruId.size === 0) {
             // in principle, can support empty room talking to yourself
-            logger.warn("message has no recipients: " + btoa(mId));
+            logger.warn("message has no readers: " + btoa(mId));
         }
 
         // ensure graph is complete, also preventing cycles
@@ -412,8 +412,8 @@ define([
         if (ruId === undefined) {
             throw new Error("not implemented");
         }
-        if (!this._messages.get(mId).recipients.has(ruId)) {
-            throw new ReferenceError("invalid recipient: " + ruId);
+        if (!this._messages.get(mId).readers.has(ruId)) {
+            throw new ReferenceError("invalid reader: " + ruId);
         }
         var self = this;
         var visible = function(m) { return self._messages.get(m).members().has(ruId); };

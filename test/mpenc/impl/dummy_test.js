@@ -100,8 +100,8 @@ define([
             var c1 = server.getChannel(1);
 
             var joinAll = function() {
-                c0.messagesReceived = 0;
-                c1.messagesReceived = 0;
+                c0.packetsReceived = 0;
+                c1.packetsReceived = 0;
                 c0.send({ enter: true });
                 c1.send({ enter: true });
                 server.recvAll();
@@ -123,8 +123,8 @@ define([
             server.run();
             // 0 remains in channel
             assertMembersConsistent(server, all, [0]);
-            assert.strictEqual(c0.messagesReceived, 1);
-            assert.strictEqual(c1.messagesReceived, 0);
+            assert.strictEqual(c0.packetsReceived, 1);
+            assert.strictEqual(c1.packetsReceived, 0);
 
             joinAll();
             sendSequence();
@@ -133,8 +133,8 @@ define([
             server.run();
             // 1 remains in channel
             assertMembersConsistent(server, all, [1]);
-            assert.strictEqual(c0.messagesReceived, 0);
-            assert.strictEqual(c1.messagesReceived, 1);
+            assert.strictEqual(c0.packetsReceived, 0);
+            assert.strictEqual(c1.packetsReceived, 1);
         });
 
         it("execute() Promise resolution", function(done) {
