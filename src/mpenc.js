@@ -62,7 +62,19 @@ define([
      *
      * // TODO: how to send actions, receive notices, make queries
      */
-    var mpenc = {};
+    var mpenc = {
+        // public API, matching the documentation
+        channel: channel,
+        helper: {
+            async: async,
+            struct: struct,
+        },
+        impl: {
+            applied: applied,
+        },
+        session: session,
+        version: version,
+    };
 
     // Create the name space's root logger.
     MegaLogger.getLogger('mpenc');
@@ -70,8 +82,6 @@ define([
     // Create two more loggers for name spaces without their own modules.
     MegaLogger.getLogger('helper', undefined, 'mpenc');
     MegaLogger.getLogger('greet', undefined, 'mpenc');
-
-    mpenc.version = version;
 
 
     /**
@@ -191,17 +201,6 @@ define([
     };
     mpenc.createSession = createSession;
 
-
-    // expose some internals to help external implementations
-
-    mpenc.helper = {
-        async: async,
-        struct: struct
-    };
-
-    mpenc.channel = channel;
-    mpenc.session = session;
-    mpenc.applied = applied;
 
     return mpenc;
 });

@@ -34,13 +34,15 @@ define([
     // They may be referred to as {module:mpenc/channel~$name}
 
     /**
-     * Something happened on the group transport channel.
+     * Things that can happen in the group transport channel.
      *
      * @typedef {(module:mpenc/helper/utils~RawRecv|module:mpenc/channel~ChannelControl)} ChannelNotice
+     * @see module:mpenc/channel.GroupChannel#onRecv
+     * @see module:mpenc/channel~ChannelAction
      */
 
     /**
-     * Try to do something to/on the group transport channel.
+     * Things that can be done to/on the group transport channel.
      *
      * For RawRecv, it is not guaranteed that the message will reach the
      * intended set of recipients. For example, someone may leave the channel
@@ -49,6 +51,8 @@ define([
      * server echoes it back in a ChannelNotice event.
      *
      * @typedef {(module:mpenc/helper/utils~RawSend|module:mpenc/channel~ChannelControl)} ChannelAction
+     * @see module:mpenc/channel.GroupChannel#send
+     * @see module:mpenc/channel~ChannelNotice
      */
 
     /**

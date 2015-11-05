@@ -25,6 +25,7 @@ define([
 
     /**
      * @exports mpenc/helper/graph
+     * @private
      * @description
      * Graph algorithms.
      */
@@ -44,6 +45,7 @@ define([
      * Methods taking a vertex or author must throw an Error if it is absent.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/helper/graph
      */
     var CausalOrder = function() {

@@ -25,6 +25,7 @@ define([
 
     /**
      * @exports mpenc/helper/utils
+     * @private
      * @description
      * Some utilities.
      */
@@ -319,99 +320,14 @@ define([
 
 
     /**
-     * Check an object's invariants.
-     *
-     * Visits all ancestor prototypes of an object (including itself) and runs
-     * the 1-ary functions listed in prototype.__invariants against the object.
-     */
-    ns.checkInvariants = function(obj) {
-        var parent = obj;
-        while (parent !== Object.prototype) {
-            if (parent.hasOwnProperty("__invariants")) {
-                var invariants = parent.__invariants;
-                for (var k in invariants) {
-                    invariants[k](obj);
-                }
-            }
-            parent = Object.getPrototypeOf(parent);
-        }
-    };
-
-
-    /**
-     * (Deep) compares two JavaScript objects.
-     *
-     * Note: May not work with some objects.
-     *
-     * See: http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
-     *
-     * @param obj1 {object}
-     *     The first object to be compared against the second.
-     * @param obj2 {object}
-     *     The second object to be compared against the first.
-     * @returns {boolean}
-     *     A true on equality.
-     */
-    ns.objectEqual = function(obj1, obj2) {
-        // For the first loop, we only check for types
-        for (var propName in obj1) {
-            // Check for inherited methods and properties - like .equals itself
-            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty
-            // Return false if the return value is different.
-            if (obj1.hasOwnProperty(propName) !== obj2.hasOwnProperty(propName)) {
-                return false;
-            }
-            // Check instance type.
-            else if (typeof obj1[propName] !== typeof obj2[propName]) {
-                // Different types => not equal.
-                return false;
-            }
-        }
-        // Now a deeper check using other objects property names.
-        for(var propName in obj2) {
-            // We must check instances anyway, there may be a property that only exists in obj2.
-            // I wonder, if remembering the checked values from the first loop would be faster or not .
-            if (obj1.hasOwnProperty(propName) !== obj2.hasOwnProperty(propName)) {
-                return false;
-            } else if (typeof obj1[propName] !== typeof obj2[propName]) {
-                return false;
-            }
-
-            // If the property is inherited, do not check any more (it must be equal if both objects inherit it).
-            if(!obj1.hasOwnProperty(propName)) {
-                continue;
-            }
-
-            // Now the detail check and recursion.
-
-            // This returns the script back to the array comparing.
-            if (obj1[propName] instanceof Array && obj2[propName] instanceof Array) {
-                // Recurse into the nested arrays.
-                if (!ns.arrayEqual(obj1[propName], obj2[propName])) {
-                    return false;
-                }
-            } else if (obj1[propName] instanceof Object && obj2[propName] instanceof Object) {
-                // Recurse into another objects.
-                if (!ns.objectEqual(obj1[propName], obj2[propName])) {
-                    return false;
-                }
-            }
-            // Normal value comparison for strings and numbers.
-            else if(obj1[propName] !== obj2[propName]) {
-                return false;
-            }
-        }
-        // If everything passed, let's say YES.
-        return true;
-    };
-
-
-    /**
      * The state of the state machine was invalid.
      *
+     * @class
+     * @private
      * @param actual {*} Actual invalid state
      * @param label {string} Label to describe the error-checking
      * @param expected {Array} Expected valid states
+     * @memberOf module:mpenc/helper/utils
      */
     var StateError = function(actual, label, expected) {
         this._actual    = actual;
@@ -434,9 +350,13 @@ define([
 
     /**
      * A finite state machine.
+     *
+     * @class
+     * @private
      * @param changeType {function} State change factory, takes a (new, old)
      *      pair of states and returns an object.
      * @param initstate {*} Initial state of the state machine.
+     * @memberOf module:mpenc/helper/utils
      */
     var StateMachine = function(changeType, initstate) {
         this._state = initstate;

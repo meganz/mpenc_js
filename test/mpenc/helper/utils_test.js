@@ -102,38 +102,6 @@ define([
                 }
             });
         });
-
-        describe('checkInvariants()', function() {
-            it('inheritance test', function() {
-                // define invariant functions
-                var run_flags = 0;
-                var superInvariant = function(obj) {
-                    if (obj.super_prop) {
-                        run_flags |= 1;
-                    }
-                };
-                var childInvariant = function(obj) {
-                    if (obj.child_prop) {
-                        run_flags |= 2;
-                    }
-                };
-                // define interfaces
-                var SuperClass = function() {
-                    this.super_prop = true;
-                };
-                SuperClass.prototype.__invariants = {superInvariant:superInvariant};
-                var ChildClass = function() {
-                    SuperClass.call(this);
-                    this.child_prop = true;
-                };
-                ChildClass.prototype = Object.create(SuperClass.prototype);
-                ChildClass.prototype.__invariants = {childInvariant:childInvariant};
-                // test the object against invariants
-                var childObj = new ChildClass();
-                ns.checkInvariants(childObj);
-                assert.strictEqual(run_flags, 3);
-            });
-        });
     });
 
     describe("StateMachine test", function() {

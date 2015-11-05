@@ -74,21 +74,23 @@ define([
     ns.SessionState = SessionState;
 
     /**
-     * Things that can happen to a Session.
+     * Things that can happen in a Session. Specifically, this can be one of:
+     *
+     * - {@link module:mpenc/session.SNState}
+     * - {@link module:mpenc/session.SNMembers}
+     * - {@link module:mpenc/session.MsgReady}
+     * - {@link module:mpenc/session.MsgFullyAcked}
+     * - {@link module:mpenc/session.NotDecrypted}
+     * - {@link module:mpenc/session.NotAccepted}
+     * - {@link module:mpenc/session.NotFullyAcked}
      *
      * **API WARNING**: currently `SNState` is never emitted by any `Session`;
-     * clients should not rely on that yet.
+     * clients should not expect to see these events yet.
      *
      * @interface
      * @memberOf module:mpenc/session
      * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session.SNState
-     * @see module:mpenc/session.SNMembers
-     * @see module:mpenc/session.MsgReady
-     * @see module:mpenc/session.MsgFullyAcked
-     * @see module:mpenc/session.NotDecrypted
-     * @see module:mpenc/session.NotAccepted
-     * @see module:mpenc/session.NotFullyAcked
+     * @see module:mpenc/session~SessionAction
      */
     var SessionNotice = function() {
         throw new Error("cannot instantiate an interface");
@@ -301,10 +303,10 @@ define([
 
 
     /**
-     * Try to do something to/on the cryptographic logical session.
+     * Things that can be done to/on the cryptographic logical session.
      *
-     * <p>One may use {@link module:mpenc/session.checkSessionAction
-     * checkSessionAction} to check valid values.</p>
+     * One may use {@link module:mpenc/session.checkSessionAction
+     * checkSessionAction} to check valid values.
      *
      * @typedef {Object} SessionAction
      * @property [content] {string} Message to send, or if empty then send
@@ -321,6 +323,8 @@ define([
      * @property [exclude] {module:mpenc/helper/struct.ImmutableSet} Other
      *      members to try to exclude from the session. If this is set, only
      *      <code>include</code> may also be set.
+     * @see module:mpenc/session.Session#send
+     * @see module:mpenc/session.SessionNotice
      */
 
     /**
