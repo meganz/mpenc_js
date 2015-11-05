@@ -19,9 +19,8 @@
 define([
     "mpenc/message",
     "mpenc/helper/assert",
-    "mpenc/helper/async",
     "mpenc/helper/struct"
-], function(message, assert, async, struct) {
+], function(message, assert, struct) {
     "use strict";
 
     /**
@@ -42,6 +41,7 @@ define([
      * Methods taking a message id must throw an Error if it is absent.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/transcript
      */
     var Messages = function() {
@@ -84,7 +84,8 @@ define([
      * which are visible to ru (i.e. authored by them, or by another to them).
      *
      * Note: reaching full-ack locally does not mean that others have reached
-     * full-ack themselves. Solving that is the harder "consensus" problem.
+     * full-ack themselves. Solving that is the harder "consensus" problem, but
+     * it is not necessary for a messaging layer to solve this.
      *
      * @method
      * @param {string} mId
@@ -178,11 +179,96 @@ define([
 
 
     /**
-     * A log (or total order, or linear sequence) of messages for the user.
+     * A log (total order, or linear sequence) of messages for the local user,
+     * suitable for directly deriving message elements for the UI. However, it
+     * is not guaranteed that every member sees the same total order.
      *
-     * Only contains Payload messages. We generate "apparent" parents for each
-     * message, by collapsing non-Payload parents into the nearest Payload
-     * ancestor, preserving transitive reduction. For example:
+     * Independently of this total order, there is a causal order (or directed
+     * acyclic graph), available by querying `parents`. This is the true order
+     * of the messages in the session, and it *is* guaranteed that all members
+     * see the same causal order. That is, for every message, everyone has the
+     * same idea on what the *ancestors* of it are, and may calculate this by
+     * recursively calling `parents`. (The *ancestors* of a message is all the
+     * messages that had been seen by its author, when they wrote it.)
+     *
+     * The total order is some topological ordering of the causal order. That
+     * is, a message which is earlier than another in the causal order (i.e.
+     * reachable via `parents`), is also earlier than it in the total order as
+     * well (i.e. has a lower `indexOf`). This prevents most "user surprises"
+     * regarding ordering.
+     *
+     * All of the query methods deal with message IDs (global) and indexes
+     * (local to this data structure). To get an actual `Message` object, e.g.
+     * to retrieve its contents, first find its message ID, then call `get`.
+     *
+     * This log only contains `Payload` messages, i.e. those written by human
+     * users. Other messages, such as control messages automatically sent by
+     * the messaging layer, are hidden from this structure in a way that
+     * preserves causality. The documentation for `MessageLog.resolveEarlier`
+     * has more details, but this is not part of the public API.
+     *
+     * @interface
+     * @augments module:mpenc/transcript.Messages
+     * @memberOf module:mpenc/transcript
+     */
+    var MessageLog = function() {
+        throw new Error("cannot instantiate an interface");
+    };
+    // jshint -W030
+
+    /**
+     * Number of messages in this log.
+     *
+     * @member
+     * @type {number}
+     */
+    MessageLog.prototype.length;
+
+    /**
+     * @method
+     * @param index {number} Zero-based index. If negative, this indicates an
+     *      offset from the end of the log sequence.
+     * @returns {string} ID of the message at the given index.
+     */
+    MessageLog.prototype.at;
+
+    /**
+     * @method
+     * @param {string} Message ID.
+     * @returns {number} Zero-based index in this log of the given message ID,
+     *      or `-1` if the message is not contained in this log.
+     */
+    MessageLog.prototype.indexOf;
+
+    /**
+     * @method
+     * @param [begin] {number}
+     *      Index at which to begin copying, inclusive. If negative, this
+     *      indicates an offset from the end of the log sequence. Default: 0.
+     * @param [end] {number}
+     *      Index at which to end copying, exclusive. If negative, this
+     *      indicates an offset from the end of the log sequence. Default:
+     *      current length of the log.
+     * @returns {Array} Message IDs contained between the given indexes.
+     */
+    MessageLog.prototype.slice;
+
+    /**
+     * Get the would-be parents of a new message if it were sent now.
+     *
+     * This is similar to `Transcript.max()`, except that it only returns
+     * `Payload` messages.
+     *
+     * @method
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of mIds.
+     */
+    MessageLog.prototype.curParents;
+
+    /**
+     * Returns the latest Payload messages before-or-same as the given set of
+     * messages. For example, if mIds are the real parents of some message,
+     * then this returns the effective Payload parents of that message. For
+     * example:
      *
      * <pre>
      *       B - D - E
@@ -193,92 +279,12 @@ define([
      * O is the root; everything is Payload except C, D. Then, the parents of
      * E are {B}, because even though A < C, it is also the case that A < B.
      *
-     * @abstract
-     * @class
-     * @extends module:mpenc/helper/async.ObservableSequence
-     * @augments module:mpenc/transcript.Messages
-     * @memberOf module:mpenc/transcript
-     */
-    var MessageLog = function() {
-        if (!this.add) {
-            throw new Error("add() not implemented");
-        }
-        async.ObservableSequence.call(this);
-    };
-    // jshint -W030
-
-    MessageLog.prototype = Object.create(async.ObservableSequence.prototype);
-
-    /**
-     * Add a message to the log, at an index defined by the implementation.
-     *
-     * Subscribers to the ObservableSequence trait of this class are notified.
-     *
-     * This function mutates state; clients of this MessageLog **must not**
-     * call this function.
-     *
-     * @abstract
-     * @method
-     * @protected
-     * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
-     * @param mId {string} Identifier of the message to add.
-     * @param parents {string} Effective Payload parents of this message.
-     */
-    MessageLog.prototype.add;
-
-    /**
-     * Get the would-be parents of a new message if it were sent now.
-     *
-     * This is similar to <code>Transcript.max()</code>, except that it only
-     * returns Payload messages.
-     *
-     * @abstract
-     * @method
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Set of mIds.
-     */
-    MessageLog.prototype.curParents;
-
-    /**
-     * Create a subscriber for messages that are accepted into a Transcript.
-     * Whenever the subscriber receives an item (a message ID), perhaps `add()`
-     * it to this log too.
-     *
-     * This function mutates state; clients of this MessageLog **must not**
-     * call this function.
-     *
-     * @method
-     * @protected
-     * @param transcript {module:mpenc/transcript.Transcript}
-     *      Transcript object that contains the message.
-     * @param [parents] {Map} Map of `{ ImmutableSet([MessageID]): Transcript }`,
-     *      the latest messages to occur before the event that created `transcript`,
-     *      partitioned by the parent Transcript that the messages belong to.
-     * @returns {module:mpenc/helper/async~subscriber} 1-arg subscriber
-     *      function, that takes a message-ID (string) and returns undefined.
-     */
-    MessageLog.prototype.getSubscriberFor = function(transcript, parents) {
-        var self = this;
-        return function(mId) {
-            _assert(transcript.has(mId));
-            if (MessageLog.shouldIgnore(transcript, mId)) {
-                return;
-            }
-            self.add(transcript, mId,
-                MessageLog.resolveEarlier(transcript, transcript.pre(mId)));
-        };
-    };
-
-    /**
-     * Returns the latest Payload messages before-or-same as the given set of
-     * messages. For example, if mIds are the real parents of some message,
-     * then this returns the effective Payload parents of that message, as
-     * described in the class docstring.
-     *
      * The output set is guaranteed to be an anti-chain i.e. all causally
      * independent of each other. Note however, that it may not be the same
      * size as the input set, and may even be empty even if the input is not.
      * (However, if the input is empty then the output will be empty.)
      *
+     * @private
      * @param transcript {module:mpenc/transcript.Transcript}
      *      Transcript object that contains the messages.
      * @param mIds {module:mpenc/helper/struct.ImmutableSet} Message ids to resolve.
@@ -298,6 +304,7 @@ define([
      * Whether a given message should be ignored for MsgReady purposes, i.e. if
      * it is not a Payload message.
      *
+     * @private
      * @param transcript {module:mpenc/transcript.Transcript}
      *      Transcript object that contains the message.
      * @param mId {string} Message id to check.

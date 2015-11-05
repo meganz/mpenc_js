@@ -103,10 +103,13 @@ define([
     /**
      * Message body object, one of the following child types.
      *
+     * - {@link module:mpenc/message.Payload}
+     * - {@link module:mpenc/message.ExplicitAck}
+     * - {@link module:mpenc/message.Consistency}
+     *
+     * In practise, clients of our API will only ever see `Payload` objects.
+     *
      * @class
-     * @see module:mpenc/message.Payload
-     * @see module:mpenc/message.ExplicitAck
-     * @see module:mpenc/message.Consistency
      * @memberOf module:mpenc/message
      */
     var MessageBody = function() {};
@@ -148,6 +151,7 @@ define([
      * directly before it - since there is no other ack-monitor to handle these.
      *
      * @class
+     * @private
      * @extends module:mpenc/message.MessageBody
      * @property manual {boolean} Whether this was sent with conscious user oversight.
      * @memberOf module:mpenc/message
@@ -172,6 +176,7 @@ define([
      * want to check consistency of the history with the previous membership.
      *
      * @class
+     * @private
      * @extends module:mpenc/message.MessageBody
      * @property close {boolean} If true, this is a commitment that the author
      *      will send no more Payload messages to the session, and that they

@@ -473,7 +473,7 @@ define([
 
             var sendAndRecv = function(sender, content, recipient) {
                 sender.send({ content: content });
-                var mId = sender.messages().slice(-1)[0];
+                var mId = sender.messages().at(-1);
                 var p = async.newPromiseAndWriters();
                 // resolve when other person gets it
                 recipient.onEvent(MsgReady, [mId])(function(evt) {

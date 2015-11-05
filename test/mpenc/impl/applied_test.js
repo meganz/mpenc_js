@@ -166,7 +166,7 @@ define([
                 // give a bit more time for messages to be delivered
                 return async.timeoutPromise(testTimer, 100);
             }).then(function() {
-                var mId = s2.messages().slice(-1)[0];
+                var mId = s2.messages().at(-1);
                 assert.strictEqual(s2.messages().get(mId).body.content, "testing 3");
                 assert.deepEqual(s1.messages().slice(-3), s2.messages().slice());
                 done();

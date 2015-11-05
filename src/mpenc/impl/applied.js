@@ -326,7 +326,7 @@ define([
         } else {
             return {
                 sId: sess._current.sess.sId(),
-                mId: sess.messages().slice(-1)[0],
+                mId: sess.messages().at(-1),
             };
         }
     };
