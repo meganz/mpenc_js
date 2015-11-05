@@ -34,7 +34,6 @@ define([
     var Monitor = async.Monitor;
     var Subscribe = async.Subscribe;
     var ImmutableSet = struct.ImmutableSet;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
 
     /**
      * Default ConsistencyMonitor.

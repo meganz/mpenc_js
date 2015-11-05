@@ -17,10 +17,9 @@
  */
 
 define([
-    "mpenc/liveness",
-    "mpenc/transcript",
     "mpenc/helper/struct",
-], function(liveness, transcript, struct) {
+    "mpenc/helper/assert",
+], function(struct, assert) {
     "use strict";
 
     /**
@@ -30,12 +29,9 @@ define([
      */
     var ns = {};
 
-    var MsgReady      = transcript.MsgReady;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotAccepted   = liveness.NotAccepted;
-    var NotFullyAcked = liveness.NotFullyAcked;
-
     var ImmutableSet = struct.ImmutableSet;
+
+    var _assert = assert.assert;
 
 
     /**
@@ -88,11 +84,11 @@ define([
      * @see module:mpenc/session.Session#onRecv
      * @see module:mpenc/session.SNState
      * @see module:mpenc/session.SNMembers
-     * @see module:mpenc/transcript.MsgReady
-     * @see module:mpenc/transcript.MsgFullyAcked
+     * @see module:mpenc/session.MsgReady
+     * @see module:mpenc/session.MsgFullyAcked
      * @see module:mpenc/session.NotDecrypted
-     * @see module:mpenc/liveness.NotAccepted
-     * @see module:mpenc/liveness.NotFullyAcked
+     * @see module:mpenc/session.NotAccepted
+     * @see module:mpenc/session.NotFullyAcked
      */
     var SessionNotice = function() {
         throw new Error("cannot instantiate an interface");
@@ -161,11 +157,82 @@ define([
 
     ns.SNMembers = SNMembers;
 
-    /** @alias module:mpenc/transcript.MsgReady */
-    ns.MsgReady = transcript.MsgReady;
+    /**
+     * When a message is accepted into the transcript, in causal order.
+     *
+     * @class
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/session
+     */
+    var MsgAccepted = struct.createTupleClass("MsgAccepted", "mId");
 
-    /** @alias module:mpenc/transcript.MsgFullyAcked */
-    ns.MsgFullyAcked = transcript.MsgFullyAcked;
+    Object.freeze(MsgAccepted.prototype);
+    ns.MsgAccepted = MsgAccepted;
+
+    /**
+     * When a message is acked by all of its intended recipients.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/session
+     */
+    var MsgFullyAcked = struct.createTupleClass("MsgFullyAcked", "mId");
+
+    Object.freeze(MsgFullyAcked.prototype);
+    ns.MsgFullyAcked = MsgFullyAcked;
+
+    /**
+     * When a message is ready to be consumed by higher layers, such as the UI.
+     *
+     * These events may be published in a different order from MsgAccepted, but
+     * should still be a topological (preserves causality) total order. Events
+     * are published in sequence from a single EventContext.
+     *
+     * Typically, only Payload messages are included here. Implementations may
+     * expose the Payload-parents of a message mId from transcript ts as:
+     *
+     * pl_pmId = MessageLog.resolveEarlier(ts, ts.pre(mId));
+     *
+     * Note the right index definitions. For example, if three events were
+     * published as (x, 0, []), (a, 0, [1]), (b, 1, [1]), the overall resulting
+     * order would be [x, b, a], with the real parents of b and a both being x.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} The message id.
+     * @property rIdx {number} The right (negative) index in the existing total
+     *      order (i.e. of all previously-emitted MsgReady events) before which
+     *      to insert this message in the UI. A sequence of events where these
+     *      indexes are all 0, we call "append-only".
+     * @property parents {module:mpenc/helper/struct.ImmutableSet} Set of
+     *      positive integers, the right-indexes of the parent messages of this
+     *      message, relative to the right-index of this message. If this is
+     *      the first event emitted, then this must be {}. For subsequent
+     *      events, the UI should highlight cases where this is not {1}.
+     * @memberOf module:mpenc/session
+     */
+    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parents");
+
+    /**
+     * Create a `MsgReady` from a `SequenceInsert` event on a `MessageLog`.
+     *
+     * @method
+     * @param log {module:mpenc/transcript.MessageLog}
+     * @param update {module:mpenc/helper/async.SequenceInsert} Update event
+     * @returns {module:mpenc/session.MsgReady}
+     */
+    MsgReady.fromMessageLogUpdate = function(log, update) {
+        var rIdx = update.rIdx, mId = update.elem;
+        var parents = log.parents(mId).toArray().map(function(pm) {
+            return (log.length - rIdx - 1) - log.indexOf(pm);
+        });
+        _assert(parents.every(function(p) { return p > 0; }));
+        return new MsgReady(mId, rIdx, parents);
+    };
+
+    Object.freeze(MsgReady.prototype);
+    ns.MsgReady = MsgReady;
 
     /**
      * A packet has not yet been verify-decrypted, even after a grace period.
@@ -185,11 +252,52 @@ define([
 
     ns.NotDecrypted = NotDecrypted;
 
-    /** @alias module:mpenc/liveness.NotAccepted */
-    ns.NotAccepted = liveness.NotAccepted;
+    /**
+     * A message has been decrypted but not accepted, after a grace period.
+     * That is, the parent/ancestor messages have not yet all been accepted.
+     *
+     * This probably is due to the transport being unreliable, but could also be
+     * due to a malicious transport, or a malicious or buggy sender; and the
+     * message has been ignored.
+     *
+     * The absence of this event does *not* mean the message has been accepted;
+     * to check this, either wait for MsgAccepted (its absence means the message
+     * has *not* been accepted) or check Transcript for the message.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property uId {string} Verified author.
+     * @property pmId {module:mpenc/helper/struct.ImmutableSet} Claimed parent
+     *      messages that we timed out waiting for.
+     * @memberOf module:mpenc/session
+     */
+    var NotAccepted = struct.createTupleClass("NotAccepted", "uId pmId");
 
-    /** @alias module:mpenc/liveness.NotFullyAcked */
-    ns.NotFullyAcked = liveness.NotFullyAcked;
+    Object.freeze(NotAccepted.prototype);
+    ns.NotAccepted = NotAccepted;
+
+    /**
+     * A message has been accepted but not fully-acked, after a grace period.
+     * That is, it may not yet have been accepted by all its recipients.
+     *
+     * This is probably due to the transport being unreliable, but could also be
+     * due to a malicious transport, or a malicious or buggy sender (who sent
+     * different messages to different recipients), or buggy recipient(s) (who
+     * did not ack the message). It is up to the user to respond appropriately.
+     *
+     * The absence of this event does *not* mean the message has been fully-acked;
+     * to check this, either wait for MsgFullyAcked (its absence means the message
+     * has *not* been fully-acked) or check Transcript.unacked() for the message.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} Message ID.
+     * @memberOf module:mpenc/session
+     */
+    var NotFullyAcked = struct.createTupleClass("NotFullyAcked", "mId");
+
+    Object.freeze(NotFullyAcked.prototype);
+    ns.NotFullyAcked = NotFullyAcked;
 
 
     /**

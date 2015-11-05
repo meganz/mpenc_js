@@ -25,9 +25,7 @@ define([
     "mpenc/session",
     "mpenc/impl/session",
     "mpenc/greet/greeter",
-    "mpenc/liveness",
     "mpenc/message",
-    "mpenc/transcript",
     "mpenc/impl/dummy",
     "mpenc/impl/transcript",
     "mpenc/helper/async",
@@ -36,7 +34,7 @@ define([
     "megalogger",
     "chai",
     "sinon/stub",
-], function(ns, impl, greeter, liveness, message, transcript, dummy, transcriptImpl,
+], function(ns, impl, greeter, message, dummy, transcriptImpl,
     async, struct, utils,
     MegaLogger, chai, stub
 ) {
@@ -55,11 +53,11 @@ define([
     var DefaultMessageLog = transcriptImpl.DefaultMessageLog;
     var MessageSecurity = message.MessageSecurity;
 
-    var MsgAccepted   = transcript.MsgAccepted;
-    var NotAccepted   = liveness.NotAccepted;
-    var MsgReady      = transcript.MsgReady;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotFullyAcked = liveness.NotFullyAcked;
+    var MsgAccepted   = ns.MsgAccepted;
+    var MsgReady      = ns.MsgReady;
+    var MsgFullyAcked = ns.MsgFullyAcked;
+    var NotAccepted   = ns.NotAccepted;
+    var NotFullyAcked = ns.NotFullyAcked;
     var SNState       = ns.SNState;
 
     var StateMachine = impl.StateMachine;

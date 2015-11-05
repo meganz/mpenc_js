@@ -22,7 +22,6 @@ define([
     "mpenc/greet/greeter",
     "mpenc/liveness",
     "mpenc/message",
-    "mpenc/transcript",
     "mpenc/impl/channel",
     "mpenc/impl/liveness",
     "mpenc/impl/transcript",
@@ -32,7 +31,7 @@ define([
     "mpenc/helper/utils",
     "promise-polyfill",
     "megalogger"
-], function(session, channel, greeter, liveness, message, transcript,
+], function(session, channel, greeter, liveness, message,
     channelImpl, livenessImpl, transcriptImpl,
     assert, struct, async, utils, Promise, MegaLogger) {
     "use strict";
@@ -49,10 +48,11 @@ define([
     var _assert = assert.assert;
 
     // import events
-    var MsgAccepted   = transcript.MsgAccepted;
-    var NotAccepted   = liveness.NotAccepted;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotFullyAcked = liveness.NotFullyAcked;
+    var MsgAccepted   = session.MsgAccepted;
+    var MsgFullyAcked = session.MsgFullyAcked;
+    var MsgReady      = session.MsgReady;
+    var NotAccepted   = session.NotAccepted;
+    var NotFullyAcked = session.NotFullyAcked;
     var SNState = session.SNState;
     var SessionState = session.SessionState;
     var SNMembers = session.SNMembers;
@@ -721,11 +721,15 @@ define([
 
         this._timer = context.timer;
         var cancels = [];
+        var self = this;
 
         this._flowctl = context.flowctl;
 
-        this._messages = context.makeMessageLog();
-        cancels.push(this._messages.bindTarget(this._events));
+        var messageLog = context.makeMessageLog();
+        cancels.push(messageLog.onUpdate(function(update) {
+            self._events.publish(MsgReady.fromMessageLogUpdate(messageLog, update));
+        }));
+        this._messages = messageLog;
 
         this._greeter = greeter;
         this._makeMessageSecurity = makeMessageSecurity;
@@ -1424,9 +1428,13 @@ define([
                 + parents.toArray().map(btoa));
         }
 
-        cancels.push(this._messages.bindSource(sess, sess.transcript(), new Map(previous ? [
+        // publish MsgAccepted events into our MessageLog
+        var msgAcceptedSubscriber = this._messages.getSubscriberFor(sess.transcript(), new Map(previous ? [
             [parents, previous.sess.transcript()]
-        ] : [])));
+        ] : []));
+        cancels.push(sess.onEvent(MsgAccepted)(function(evt) {
+            return msgAcceptedSubscriber(evt.mId);
+        }));
 
         return {
             sess: sess,

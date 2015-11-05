@@ -26,6 +26,7 @@ define([
 
     /**
      * @exports mpenc/transcript
+     * @private
      * @description
      * Transcript interfaces.
      */
@@ -177,107 +178,6 @@ define([
 
 
     /**
-     * When a message is accepted into the transcript, in causal order.
-     *
-     * @class
-     * @property mId {string} The message id.
-     * @memberOf module:mpenc/transcript
-     */
-    var MsgAccepted = struct.createTupleClass("MsgAccepted", "mId");
-
-    Object.freeze(MsgAccepted.prototype);
-    ns.MsgAccepted = MsgAccepted;
-
-    /**
-     * When a message is acked by all of its intended recipients.
-     *
-     * @class
-     * @implements module:mpenc/session.SessionNotice
-     * @property mId {string} The message id.
-     * @memberOf module:mpenc/transcript
-     */
-    var MsgFullyAcked = struct.createTupleClass("MsgFullyAcked", "mId");
-
-    Object.freeze(MsgFullyAcked.prototype);
-    ns.MsgFullyAcked = MsgFullyAcked;
-
-    /**
-     * When a message is ready to be consumed by higher layers, such as the UI.
-     *
-     * These events may be published in a different order from MsgAccepted, but
-     * should still be a topological (preserves causality) total order. Events
-     * are published in sequence from a single EventContext.
-     *
-     * Typically, only Payload messages are included here. Implementations may
-     * expose the Payload-parents of a message mId from transcript ts as:
-     *
-     * pl_pmId = MsgReady.resolveEarlier(ts, ts.pre(mId));
-     *
-     * Note the right index definitions. For example, if three events were
-     * published as (x, 0, []), (a, 0, [1]), (b, 1, [1]), the overall resulting
-     * order would be [x, b, a], with the real parents of b and a both being x.
-     *
-     * @class
-     * @implements module:mpenc/session.SessionNotice
-     * @property mId {string} The message id.
-     * @property ridx {number} The right (negative) index in the existing total
-     *      order before which to insert this message. An ordering where these
-     *      indexes are all 0, we call "append-only".
-     * @property parents {module:mpenc/helper/struct.ImmutableSet} Set of
-     *      integers, the right-indexes of the parent messages, relative to the
-     *      current message. (For example, if a transcript is already in a
-     *      linear order, this would be {1} for every message.) If this is the
-     *      first message in the sequence, then this must be {}. For subsequent
-     *      messages, the UI should distinguish messages where this is not {1}.
-     * @memberOf module:mpenc/transcript
-     */
-    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parents");
-
-    /**
-     * Returns the latest Payload messages before-or-same as the given set of
-     * messages. For example, if mIds are the real parents of some message,
-     * then this returns the effective Payload parents of that message, as
-     * described in the class docstring.
-     *
-     * The output set is guaranteed to be an anti-chain i.e. all causally
-     * independent of each other. Note however, that it may not be the same
-     * size as the input set, and may even be empty even if the input is not.
-     * (However, if the input is empty then the output will be empty.)
-     *
-     * @param transcript {module:mpenc/transcript.Transcript}
-     *      Transcript object that contains the messages.
-     * @param mIds {module:mpenc/helper/struct.ImmutableSet} Message ids to resolve.
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Latest Payload messages.
-     * @throws {Error} If not all messages are contained in the transcript.
-     */
-    MsgReady.resolveEarlier = function(transcript, mIds) {
-        if (!mIds.size) {
-            return ImmutableSet.EMPTY;
-        }
-        var it = transcript.iterAncestors(mIds.toArray(),
-            null, MsgReady.shouldIgnore.bind(null, transcript), true);
-        return new ImmutableSet(struct.iteratorToArray(it));
-    };
-
-    /**
-     * Whether a given message should be ignored for MsgReady purposes, i.e. if
-     * it is not a Payload message.
-     *
-     * @param transcript {module:mpenc/transcript.Transcript}
-     *      Transcript object that contains the message.
-     * @param mId {string} Message id to check.
-     * @returns {boolean} Whether the given message id is a non-Payload message.
-     * @throws {Error} If not the message is not contained in the transcript.
-     */
-    MsgReady.shouldIgnore = function(transcript, mId) {
-        return !(transcript.get(mId).body instanceof message.Payload);
-    };
-
-    Object.freeze(MsgReady.prototype);
-    ns.MsgReady = MsgReady;
-
-
-    /**
      * A log (or total order, or linear sequence) of messages for the user.
      *
      * Only contains Payload messages. We generate "apparent" parents for each
@@ -293,8 +193,8 @@ define([
      * O is the root; everything is Payload except C, D. Then, the parents of
      * E are {B}, because even though A < C, it is also the case that A < B.
      *
+     * @abstract
      * @class
-     * @private
      * @extends module:mpenc/helper/async.ObservableSequence
      * @augments module:mpenc/transcript.Messages
      * @memberOf module:mpenc/transcript
@@ -314,8 +214,12 @@ define([
      *
      * Subscribers to the ObservableSequence trait of this class are notified.
      *
+     * This function mutates state; clients of this MessageLog **must not**
+     * call this function.
+     *
      * @abstract
      * @method
+     * @protected
      * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
      * @param mId {string} Identifier of the message to add.
      * @param parents {string} Effective Payload parents of this message.
@@ -335,48 +239,73 @@ define([
     MessageLog.prototype.curParents;
 
     /**
-     * Subscribe to MsgAccepted events and maybe add() them to this log.
+     * Create a subscriber for messages that are accepted into a Transcript.
+     * Whenever the subscriber receives an item (a message ID), perhaps `add()`
+     * it to this log too.
+     *
+     * This function mutates state; clients of this MessageLog **must not**
+     * call this function.
      *
      * @method
-     * @param source {module:mpenc/helper/async.EventSource} Source of MsgAccepted events.
-     * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
-     * @param parents {Map} Map of <code>{ ImmutableSet([MessageID]): Transcript }</code>,
-     *      the latest messages to occur before the event that created <code>transcript</code>,
+     * @protected
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the message.
+     * @param [parents] {Map} Map of `{ ImmutableSet([MessageID]): Transcript }`,
+     *      the latest messages to occur before the event that created `transcript`,
      *      partitioned by the parent Transcript that the messages belong to.
-     * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
+     * @returns {module:mpenc/helper/async~subscriber} 1-arg subscriber
+     *      function, that takes a message-ID (string) and returns undefined.
      */
-    MessageLog.prototype.bindSource = function(source, transcript, parents) {
+    MessageLog.prototype.getSubscriberFor = function(transcript, parents) {
         var self = this;
-        var totalOrderCb = function(evt) {
-            var mId = evt.mId;
+        return function(mId) {
             _assert(transcript.has(mId));
-            if (MsgReady.shouldIgnore(transcript, mId)) {
+            if (MessageLog.shouldIgnore(transcript, mId)) {
                 return;
             }
             self.add(transcript, mId,
-                MsgReady.resolveEarlier(transcript, transcript.pre(mId)));
+                MessageLog.resolveEarlier(transcript, transcript.pre(mId)));
         };
-        return source.onEvent(MsgAccepted)(totalOrderCb);
     };
 
     /**
-     * Whenever this log is updated, publish a MsgReady event.
+     * Returns the latest Payload messages before-or-same as the given set of
+     * messages. For example, if mIds are the real parents of some message,
+     * then this returns the effective Payload parents of that message, as
+     * described in the class docstring.
      *
-     * @method
-     * @param source {module:mpenc/helper/async.EventContext} Target for MsgReady events.
-     * @returns {module:mpenc/helper/async~canceller} Canceller for the subscription.
+     * The output set is guaranteed to be an anti-chain i.e. all causally
+     * independent of each other. Note however, that it may not be the same
+     * size as the input set, and may even be empty even if the input is not.
+     * (However, if the input is empty then the output will be empty.)
+     *
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the messages.
+     * @param mIds {module:mpenc/helper/struct.ImmutableSet} Message ids to resolve.
+     * @returns {module:mpenc/helper/struct.ImmutableSet} Latest Payload messages.
+     * @throws {Error} If not all messages are contained in the transcript.
      */
-    MessageLog.prototype.bindTarget = function(target) {
-        var self = this;
-        var msgReadyCb = function(update) {
-            var rIdx = update.rIdx, mId = update.elem;
-            var parents = self.parents(mId).toArray().map(function(pm) {
-                return (self.length - rIdx - 1) - self.indexOf(pm);
-            });
-            _assert(parents.every(function(p) { return p > 0; }));
-            target.publish(new MsgReady(mId, rIdx, parents));
-        };
-        return this.onUpdate(msgReadyCb);
+    MessageLog.resolveEarlier = function(transcript, mIds) {
+        if (!mIds.size) {
+            return ImmutableSet.EMPTY;
+        }
+        var it = transcript.iterAncestors(mIds.toArray(),
+            null, MessageLog.shouldIgnore.bind(null, transcript), true);
+        return new ImmutableSet(struct.iteratorToArray(it));
+    };
+
+    /**
+     * Whether a given message should be ignored for MsgReady purposes, i.e. if
+     * it is not a Payload message.
+     *
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the message.
+     * @param mId {string} Message id to check.
+     * @returns {boolean} Whether the given message id is a non-Payload message.
+     * @throws {Error} If not the message is not contained in the transcript.
+     */
+    MessageLog.shouldIgnore = function(transcript, mId) {
+        return !(transcript.get(mId).body instanceof message.Payload);
     };
 
     ns.MessageLog = MessageLog;

@@ -41,7 +41,6 @@ define([
     var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
     var _assert = assert.assert;
 
-    var MsgReady = transcript.MsgReady;
     var MessageLog = transcript.MessageLog;
     var ImmutableSet = struct.ImmutableSet;
     var safeGet = struct.safeGet;
@@ -461,7 +460,7 @@ define([
         if (this._messageIndex.has(mId)) {
             throw new Error("already added: " + btoa(mId));
         }
-        if (MsgReady.shouldIgnore(tr, mId)) {
+        if (MessageLog.shouldIgnore(tr, mId)) {
             return;
         }
         parents = ImmutableSet.from(parents);
@@ -487,7 +486,7 @@ define([
     // of the previous transcript, if the former set is empty.
     DefaultMessageLog.prototype._resolveEarlier = function(tscr, mIds) {
         _assert(this._transcriptParents.has(tscr), "invalid transcript: " + tscr);
-        var resolved = MsgReady.resolveEarlier(tscr, mIds);
+        var resolved = MessageLog.resolveEarlier(tscr, mIds);
         if (!resolved.size) {
             resolved = this._transcriptParents.get(tscr);
         }
@@ -501,7 +500,7 @@ define([
         return lastTs ? this._resolveEarlier(lastTs, lastTs.max()) : ImmutableSet.EMPTY;
     };
 
-    DefaultMessageLog.prototype.bindSource = function(source, transcript, parents) {
+    DefaultMessageLog.prototype.getSubscriberFor = function(transcript, parents) {
         if (parents && parents.size > 1) {
             throw new Error("DefaultMessageLog does not support transcripts with > 1 parent");
         }
@@ -512,13 +511,13 @@ define([
             this._resolveEarlier(parentVal[1], parentMIds) : ImmutableSet.EMPTY;
         this._transcriptParents.set(transcript, payloadParents);
         this._lastTranscript = transcript;
-        return MessageLog.prototype.bindSource.call(this, source, transcript);
+        return MessageLog.prototype.getSubscriberFor.call(this, transcript, parents);
     };
 
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;
         this._transcripts.forEach(function(ts) {
-            if (ts.has(mId) && !MsgReady.shouldIgnore(ts, mId)) {
+            if (ts.has(mId) && !MessageLog.shouldIgnore(ts, mId)) {
                 targetTranscript = ts;
             }
         });

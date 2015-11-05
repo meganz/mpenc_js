@@ -20,14 +20,13 @@ define([
     "mpenc/impl/applied",
     "mpenc",
     "mpenc/impl/dummy",
-    "mpenc/transcript",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
     "chai",
     "sinon/stub"
 ], function(ns,
-    mpenc, dummy, transcript,
+    mpenc, dummy,
     async, struct, utils,
     chai, stub
 ) {
@@ -35,7 +34,6 @@ define([
     var assert = chai.assert;
 
     var ImmutableSet = struct.ImmutableSet;
-    var MsgReady = transcript.MsgReady;
 
     var testTimer;
 

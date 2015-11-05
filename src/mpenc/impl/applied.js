@@ -18,15 +18,13 @@
 
 define([
     "mpenc/session",
-    "mpenc/transcript",
-    "mpenc/liveness",
     "mpenc/helper/assert",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "es6-collections",
     "megalogger"
 ], function(
-    session, transcript, liveness,
+    session,
     assert, async, struct, es6_shim, MegaLogger
 ) {
     "use strict";
@@ -42,10 +40,10 @@ define([
     var _assert = assert.assert;
     var identity = function(x) { return x; };
 
-    var MsgReady      = transcript.MsgReady;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotAccepted   = liveness.NotAccepted;
-    var NotFullyAcked = liveness.NotFullyAcked;
+    var MsgReady      = session.MsgReady;
+    var MsgFullyAcked = session.MsgFullyAcked;
+    var NotAccepted   = session.NotAccepted;
+    var NotFullyAcked = session.NotFullyAcked;
     var SNMembers     = session.SNMembers;
 
     var Observable = async.Observable;

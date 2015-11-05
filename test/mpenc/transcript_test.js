@@ -263,29 +263,30 @@ define([
         tr2.add(M("Y", "Alice", ["X"], ["Bob"], new message.Payload("x")));
         tr2.add(M("Z", "Alice", ["Y"], ["Bob"], new message.ExplicitAck(false)));
 
-        var makeLog = function(src, dst, sourceTranscript) {
-            var log = new impl.DefaultMessageLog();
-            log.bindSource({ onEvent: src.subscribe.bind(src) }, sourceTranscript);
-            log.bindTarget(dst);
-            // normally Session does this job, here we do it manually
-            var all = sourceTranscript.all();
-            for (var i=0; i<all.length; i++) {
-                src.publish(new ns.MsgAccepted(all[i]));
-            }
-            return log;
+        var bindSource = function(messageLog, subscribe, transcript, parents) {
+            var sub = messageLog.getSubscriberFor(transcript, parents);
+            return subscribe(sub);
         };
 
         it("Payload filtering", function() {
-            var ctx = new async.EventContext([ns.MsgAccepted, ns.MsgReady]);
-            var log = makeLog(ctx, ctx, tr);
+            // make log and publish transcript messages to it
+            var obs = new async.Observable();
+            var log = new impl.DefaultMessageLog();
+            bindSource(log, obs.subscribe, tr);
+            var all = tr.all();
+            for (var i = 0; i < all.length; i++) {
+                obs.publish(all[i]);
+            }
+            return log;
+
             assert.strictEqual(log.length, 4);
-            for (var i=0; i<mId_ud.length; i++) {
+            for (var i = 0; i < mId_ud.length; i++) {
                 assert(log.indexOf(mId_ud[i]) >= 0);
                 assert(log.get(mId_ud[i]) !== null);
                 assert(log.parents(mId_ud[i]) !== null);
                 assert(log.unackby(mId_ud[i]) !== null);
             }
-            for (var i=0; i<mId_ex.length; i++) {
+            for (var i = 0; i < mId_ex.length; i++) {
                 assert(log.indexOf(mId_ex[i]) < 0);
                 // jshint -W083
                 assert.throws(function() { log.get(mId_ex[i]); });
@@ -297,30 +298,35 @@ define([
             assert.deepEqual(log.parents("B").toArray(), ["A"]);
         });
 
-        it("MsgReady publishing", function() {
-            var ctx = new async.EventContext([ns.MsgAccepted, ns.MsgReady]);
+        it("MessageLog updates", function() {
+            // make log and watch its updates
+            var obs = new async.Observable();
+            var log = new impl.DefaultMessageLog();
+            bindSource(log, obs.subscribe, tr);
             var seen = [];
-            ctx.subscribe(ns.MsgReady)(function(evt) {
-                seen.push(evt.mId);
+            log.onUpdate(function(update) {
+                seen.push(update.elem);
             });
-            var log = makeLog(ctx, ctx, tr);
+            // publish transcript messages to log
+            var all = tr.all();
+            for (var i = 0; i < all.length; i++) {
+                obs.publish(all[i]);
+            }
             assert.strictEqual(seen.length, 4);
         });
 
         it("accumulating multiple transcripts", function() {
-            var ctx0 = new async.EventContext([ns.MsgReady]);
-            var ctx1 = new async.EventContext([ns.MsgAccepted]);
-            var ctx2 = new async.EventContext([ns.MsgAccepted]);
+            var obs1 = new async.Observable();
+            var obs2 = new async.Observable();
             var log = new impl.DefaultMessageLog();
 
-            log.bindTarget(ctx0);
-            log.bindSource({ onEvent: ctx1.subscribe.bind(ctx1) }, tr);
-            log.bindSource({ onEvent: ctx2.subscribe.bind(ctx2) }, tr2);
+            bindSource(log, obs1.subscribe, tr);
+            bindSource(log, obs2.subscribe, tr2);
             var acceptOrder = "OACBXDYEZ".split("");
             for (var i = 0; i < acceptOrder.length; i++) {
                 var mId = acceptOrder[i];
-                var ctx = tr2.has(mId) ? ctx2 : ctx1;
-                ctx.publish(new ns.MsgAccepted(mId));
+                var obs = tr2.has(mId) ? obs2 : obs1;
+                obs.publish(mId);
             }
 
             assert.strictEqual(log.length, 4 + 2);
@@ -331,15 +337,13 @@ define([
         });
 
         it("accumulating multiple transcripts with parent splicing", function() {
-            var ctx0 = new async.EventContext([ns.MsgReady]);
-            var ctx1 = new async.EventContext([ns.MsgAccepted]);
-            var ctx2 = new async.EventContext([ns.MsgAccepted]);
+            var obs1 = new async.Observable();
+            var obs2 = new async.Observable();
             var log = new impl.DefaultMessageLog();
 
-            log.bindTarget(ctx0);
             var binds = [
-                [{ onEvent: ctx1.subscribe.bind(ctx1) }, tr],
-                [{ onEvent: ctx2.subscribe.bind(ctx2) }, tr2, new Map([
+                [log, obs1.subscribe, tr],
+                [log, obs2.subscribe, tr2, new Map([
                     [new ImmutableSet(["C"]), tr]
                 ])]
             ];
@@ -347,10 +351,10 @@ define([
             for (var i = 0; i < acceptOrder.length; i++) {
                 var id = acceptOrder[i];
                 if (id in binds) {
-                    log.bindSource.apply(log, binds[id]);
+                    bindSource.apply(null, binds[id]);
                 } else {
-                    var ctx = tr2.has(id) ? ctx2 : ctx1;
-                    ctx.publish(new ns.MsgAccepted(id));
+                    var obs = tr2.has(id) ? obs2 : obs1;
+                    obs.publish(id);
                 }
             }
 

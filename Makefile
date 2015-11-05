@@ -47,7 +47,7 @@ test: $(KARMA) $(R_JS) $(DEP_ALL)
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --colors=false --browsers PhantomJS
 
 # use e.g. `make BROWSER=Chrome browser-test` to use a different browser
-browser-test:
+browser-test: $(KARMA) $(R_JS) $(DEP_ALL)
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
 api-doc: $(JSDOC) src/site.simplex-custom.css
