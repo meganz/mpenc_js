@@ -37,7 +37,7 @@ BUILD_DEP_ALL_NAMES = karma jsdoc jshint jscs requirejs almond uglify-js
 
 ASMCRYPTO_MODULES = common,utils,exports,globals,aes,aes-ecb,aes-cbc,aes-cfb,aes-ctr,aes-ccm,aes-gcm,aes-exports,aes-ecb-exports,aes-cbc-exports,aes-cfb-exports,aes-ctr-exports,aes-ccm-exports,aes-gcm-exports,hash,sha1,sha1-exports,sha256,sha256-exports,sha512,sha512-exports,hmac,hmac-sha1,hmac-sha256,hmac-sha512,hmac-sha1-exports,hmac-sha256-exports,hmac-sha512-exports,pbkdf2,pbkdf2-hmac-sha1,pbkdf2-hmac-sha256,pbkdf2-hmac-sha512,pbkdf2-hmac-sha1-exports,pbkdf2-hmac-sha256-exports,pbkdf2-hmac-sha512-exports,rng,rng-exports,rng-globals,bn,bn-exports,rsa,rsa-raw,rsa-pkcs1,rsa-keygen-exports,rsa-raw-exports sources
 
-all: test api-doc dist test-shared
+all: test doc dist test-shared
 
 dist: mpenc.js $(BUILDDIR)/mpenc-static.js
 
@@ -50,11 +50,20 @@ test: $(KARMA) $(R_JS) $(DEP_ALL)
 browser-test: $(KARMA) $(R_JS) $(DEP_ALL)
 	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
 
+doc: api-doc dev-doc
+
 api-doc: $(JSDOC) src/site.simplex-custom.css
 	mkdir -p doc/api/styles
 	cp src/site.simplex-custom.css doc/api/styles
 	$(NODE) $(JSDOC) --destination doc/api/ $(JSDOC_FLAGS) \
                  --configure jsdoc.json \
+                 --recurse src/ README.md
+
+dev-doc: $(JSDOC) src/site.simplex-custom.css
+	mkdir -p doc/dev/styles
+	cp src/site.simplex-custom.css doc/dev/styles
+	$(NODE) $(JSDOC) --destination doc/dev/ $(JSDOC_FLAGS) \
+                 --configure jsdoc.json --private \
                  --recurse src/ README.md
 
 jshint: $(JSHINT)
@@ -123,13 +132,13 @@ $(BUILD_DEP_ALL) $(DEP_NONCUSTOM): | .npm-build-deps
 	touch .npm-build-deps
 
 clean:
-	rm -rf doc/api/ coverage/ build/ mpenc.js test-results.xml
+	rm -rf doc/ coverage/ build/ mpenc.js test-results.xml
 
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
 	rm -f .npm-build-deps
 
-.PHONY: all test browser-test api-doc jshint jscs checks
+.PHONY: all test browser-test doc api-doc dev-doc jshint jscs checks
 .PHONY: clean clean-all
 .PHONY: build-static build-shared test-static test-shared dist
