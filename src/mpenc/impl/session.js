@@ -1396,9 +1396,9 @@ define([
             " -> " + (this._current ? this._current.sess.toString() : null));
         var oldMembers = this._previous ? this._previous.sess.curMembers() : ownSet;
         var newMembers = greeting ? greeting.getNextMembers() : ownSet;
-        var parents = this._current ? this._current.parents : ImmutableSet.EMPTY;
         var diff = oldMembers.diff(newMembers);
-        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1], parents));
+        this._events.publish(new SNMembers(
+            newMembers.subtract(diff[0]), diff[0], diff[1], this._messages.curParents()));
 
         return greeting;
     };

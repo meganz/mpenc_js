@@ -133,6 +133,8 @@ define([
      * @memberOf module:mpenc/session
      */
     var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude parents");
+    // TODO(xl): we probably want this to be more like MsgReady
+    // i.e. with rIdx, parIdx, and the same guidelines on how to display them
 
     /**
      * @returns {module:mpenc/helper/struct.ImmutableSet}
@@ -254,23 +256,23 @@ define([
      *      order (i.e. of all previously-emitted MsgReady events) before which
      *      to insert this message in the UI. A sequence of events where these
      *      indexes are all 0, we call "append-only".
-     * @property parents {module:mpenc/helper/struct.ImmutableSet} Set of
+     * @property parIdx {module:mpenc/helper/struct.ImmutableSet} Set of
      *      positive integers, the right-indexes of the parent messages of this
      *      message, relative to the right-index of this message.
      * @memberOf module:mpenc/session
      */
-    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parents");
+    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parIdx");
 
     /**
      * Whether the client should highlight this message, to hint the user to
-     * look up its real parents (i.e. `log.parents(evt.mId)` not `evt.parents`)
+     * look up its real parents (i.e. `log.parents(evt.mId)` not `evt.parIdx`)
      * in a secondary interface.
      *
      * (This should be ignored for the first message in a sequence, which never
      * requires highlighting, assuming it satisfies `rIdx: 0, parents: {}`.)
      */
     MsgReady.prototype.shouldHighlight = function() {
-        return this.parents.size !== 1 || this.parents.values().next().value !== 1;
+        return this.parIdx.size !== 1 || this.parIdx.values().next().value !== 1;
     };
 
     /**
