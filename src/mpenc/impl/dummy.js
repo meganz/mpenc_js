@@ -18,26 +18,30 @@
 
 define([
     "mpenc/channel",
+    "mpenc/impl/channel",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
     "mpenc/helper/assert",
     "es6-collections",
     "megalogger"
-], function(channel, async, struct, utils, assert, es6_shim, MegaLogger) {
+], function(
+    channel, channelImpl,
+    async, struct, utils, assert, es6_shim, MegaLogger
+) {
     "use strict";
 
     /**
      *
      * @exports mpenc/impl/dummy
+     * @private
      * @description
      * <p>Dummy implementations of various interfaces for testing.</p>
      */
     var ns = {};
 
-    var Observable = async.Observable;
-    var PromisingSet = async.PromisingSet;
     var ImmutableSet = struct.ImmutableSet;
+    var BaseGroupChannel = channelImpl.BaseGroupChannel;
 
     var _assert = assert.assert;
 
@@ -51,6 +55,7 @@ define([
      * sessionId</code> field which is a string.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/dummy
      */
     var DummyMessageSecurity = function(greetState) {
@@ -106,6 +111,7 @@ define([
      * soon from the python.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/dummy
      */
     var DummyFlowControl = function() {
@@ -126,114 +132,10 @@ define([
 
 
     /**
-     * A dummy implementation of {@link module:mpenc/channel.GroupChannel},
-     * using {@link module:mpenc/impl/dummy.DummyGroupServer} as the transport
-     * mechanism.
-     *
-     * <p>Users should not instantiate this class directly, but instead use
-     * {@link module:mpenc/impl/dummy.DummyGroupServer#getChannel}.</p>
-     *
-     * @class
-     * @memberOf module:mpenc/impl/dummy
-     */
-    var DummyGroupChannel = function() {
-        this._members = null;
-        this._send = new Observable();
-        this._recv = new Observable();
-        this._onEnter = null;
-        this._onLeave = null;
-        this.packetsReceived = 0;
-    };
-
-    DummyGroupChannel.prototype.recv = function(recv_in) {
-        if ("pubtxt" in recv_in) {
-            this.packetsReceived++;
-        } else {
-            recv_in = channel.checkChannelControl(recv_in);
-            var enter = recv_in.enter;
-            var leave = recv_in.leave;
-            if (enter === true) {
-                this._members = new PromisingSet(recv_in.members);
-                if (this._onEnter) {
-                    this._onEnter.resolve(this);
-                    this._onEnter = null;
-                }
-            } else if (leave === true) {
-                this._members = null;
-                if (this._onLeave) {
-                    this._onLeave.resolve(this);
-                    this._onLeave = null;
-                }
-            } else {
-                this._members.patch([enter, leave]);
-            }
-        }
-        this._recv.publish(recv_in);
-        return true;
-    };
-
-    DummyGroupChannel.prototype.onSend = function(sub) {
-        return this._send.subscribe(sub);
-    };
-
-    DummyGroupChannel.prototype.onRecv = function(sub) {
-        return this._recv.subscribe(sub);
-    };
-
-    DummyGroupChannel.prototype.send = function(send_out) {
-        return this._send.publish(send_out).some(Boolean);
-    };
-
-    DummyGroupChannel.prototype.execute = function(send_out) {
-        if (!this.send(send_out)) {
-            return null;
-        }
-        if ("pubtxt" in send_out) {
-            throw new Error("not implemented");
-        } else {
-            send_out = channel.checkChannelControl(send_out);
-            var enter = send_out.enter;
-            var leave = send_out.leave;
-            if (enter === true) {
-                if (this._members) { // already in channel
-                    return Promise.resolve(this);
-                }
-                if (!this._onEnter) {
-                    this._onEnter = async.newPromiseAndWriters();
-                }
-                return this._onEnter.promise;
-            } else if (leave === true) {
-                if (!this._members) { // already out of channel
-                    return Promise.resolve(this);
-                }
-                if (!this._onLeave) {
-                    this._onLeave = async.newPromiseAndWriters();
-                }
-                return this._onLeave.promise;
-            } else {
-                if (!this._members) {
-                    return null;
-                }
-                var to_enter = enter.subtract(this._members.value());
-                var to_leave = leave.intersect(this._members.value());
-                if (!to_enter.size && !to_leave.size) {
-                    return Promise.resolve(this);
-                }
-                var self = this;
-                return this._members.awaitDiff([to_enter, to_leave])
-                    .then(function() { return self; });
-            }
-        }
-    };
-
-    DummyGroupChannel.prototype.curMembers = function() {
-        return this._members ? this._members.value() : null;
-    };
-
-    /**
      * A dummy implementation of an MUC server, with one single group channel.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/dummy
      */
     var DummyGroupServer = function() {
@@ -444,7 +346,7 @@ define([
     DummyGroupServer.prototype.getChannel = function(id) {
         if (!this._channels.has(id)) {
             var self = this;
-            var channel = new DummyGroupChannel();
+            var channel = new BaseGroupChannel();
             channel.onSend(function(send_out) {
                 return self._incoming.push({ sender: id, action: send_out });
             });

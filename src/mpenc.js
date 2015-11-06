@@ -23,6 +23,7 @@ define([
     "mpenc/channel",
     "mpenc/impl/applied",
     "mpenc/impl/session",
+    "mpenc/impl/channel",
     "mpenc/impl/transcript",
     "mpenc/greet/greeter",
     "mpenc/helper/async",
@@ -30,7 +31,7 @@ define([
     "megalogger"
 ], function(
     version, session, message, channel,
-    applied, sessionImpl, transcriptImpl, greeter,
+    applied, sessionImpl, channelImpl, transcriptImpl, greeter,
     async, struct, MegaLogger
 ) {
     "use strict";
@@ -55,7 +56,8 @@ define([
      *
      * // Prepare to have a group chat:
      *
-     * var groupChannel = // you need to implement your own, see docs.
+     * var groupChannel = // you must implement your own, e.g. by extending
+     *                    // BaseGroupChannel; see docs for more details.
      *                    // this is the most signficant part to prepare.
      * var session = mpenc.createSession(
      *     context, ?sessionId, groupChannel, ?options);
@@ -71,6 +73,9 @@ define([
         },
         impl: {
             applied: applied,
+            channel: {
+                BaseGroupChannel: channelImpl.BaseGroupChannel,
+            },
         },
         session: session,
         version: version,

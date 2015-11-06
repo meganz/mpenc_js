@@ -17,13 +17,18 @@
  */
 
 define([
+    "mpenc/channel",
+    "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
     "mpenc/helper/assert",
     "es6-collections",
     "jodid25519",
     "megalogger"
-], function(struct, utils, assert, es6_shim, jodid25519, MegaLogger) {
+], function(
+    channel,
+    async, struct, utils, assert, es6_shim, jodid25519, MegaLogger
+) {
     "use strict";
 
     /**
@@ -35,10 +40,212 @@ define([
      */
     var ns = {};
 
+    var Observable = async.Observable;
+    var PromisingSet = async.PromisingSet;
     var ImmutableSet = struct.ImmutableSet;
     var _assert = assert.assert;
 
     var logger = MegaLogger.getLogger('channel', undefined, 'mpenc');
+
+
+    /**
+     * A stub implementation of {@link module:mpenc/channel.GroupChannel} that
+     * delegates to an even lower layer. ("You can solve any problem by
+     * introducing an extra level of indirection...")
+     *
+     * It keeps track of some state and fills in some higher-level behaviours
+     * in terms of lower-level behaviours, which it leaves unspecified. This
+     * helps to reduces the amount of code that implementors must write. For
+     * example, `execute` and `curMembers` are already implemented.
+     *
+     * Please read the documentation for `GroupChannel` before proceeding, and
+     * especially the definitions of {@link module:mpenc/channel~ChannelNotice}
+     * and {@link module:mpenc/channel~ChannelAction}.
+     *
+     * There are a few ways to build a full `GroupChannel` out of this class;
+     * see the examples below. Broadly speaking, one must:
+     *
+     * - translate incoming received packets into `ChannelNotice` events, then
+     *   pass these into `recv`.
+     * - translate `ChannelAction` requests into outgoing packets, either in
+     *   `onSend` or in `send`, then arrange for these packets to be sent.
+     *
+     * and then that should form a full implementation.
+     *
+     * @example
+     *
+     * // Receive has one main pattern:
+     *
+     * var groupChannel = new BaseGroupChannel();
+     * var myReceiveListener = function(incomingStanza) {
+     *   var channelNotices = ?translateFromXmpp(incomingStanza);
+     *   channelNotices.forEach(function(evt, i, arr) {
+     *     var status = groupChannel.recv(evt);
+     *     assert(status);
+     *   });
+     * };
+     * ?myXmppClientLibrary.?addReceiveListener(myReceiveListener);
+     * // when we want to stop receiving
+     * ?myXmppClientLibrary.?removeReceiveListener(myReceiveListener);
+     *
+     * // Sending has two main patterns:
+     *
+     * // (a) delegating to a lower layer
+     *
+     * var groupChannel = new BaseGroupChannel();
+     * var cancelSending = groupChannel.onSend(function(channelAction) {
+     *   var stanzasToSend = ?translateToXmpp(channelAction);
+     *   var statuses = stanzasToSend.map(function(req, i, arr) {
+     *     var didntFailImmediately = ?myXmppClientLibrary.?sendXmppStanza(req);
+     *     // if this might fail later, this should still be true here
+     *     return didntFailImmediately;
+     *   });
+     *   return statuses.every(Boolean);
+     * });
+     * // when we want to ignore further send requests
+     * cancelSending();
+     *
+     * // (b) inheriting and overriding
+     *
+     * var MyXmppGroupChannel = function() {
+     *   BaseGroupChannel.call(this);
+     * };
+     * MyXmppGroupChannel.prototype = Object.create(BaseGroupChannel.prototype);
+     * MyXmppGroupChannel.prototype.send = function(channelAction) {
+     *   // similar to what was passed into onSend() above
+     * };
+     * MyXmppGroupChannel.prototype.onSend = function() {
+     *   throw new Error("unneeded and unused after overriding send()");
+     * };
+     * // but you'd need to make up your own method to "ignore" send requests
+     * var groupChannel = new MyXmppGroupChannel();
+     *
+     * @class
+     * @implements module:mpenc/channel.GroupChannel
+     * @implements module:mpenc/helper/utils.SendingReceiver
+     * @memberOf module:mpenc/impl/channel
+     */
+    var BaseGroupChannel = function() {
+        this._members = null;
+        this._send = new Observable();
+        this._recv = new Observable();
+        this._onEnter = null;
+        this._onLeave = null;
+        this.packetsReceived = 0;
+    };
+
+    // SendingReceiver
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.recv = function(recv_in) {
+        if ("pubtxt" in recv_in) {
+            _assert(this._members.value().has(recv_in.sender),
+                "BaseGroupChannel received a packet from a sender not in the channel; " +
+                "either your usage of it is buggy or the transport is messing with you");
+            this.packetsReceived++;
+        } else {
+            recv_in = channel.checkChannelControl(recv_in);
+            var enter = recv_in.enter;
+            var leave = recv_in.leave;
+            if (enter === true) {
+                this._members = new PromisingSet(recv_in.members);
+                if (this._onEnter) {
+                    this._onEnter.resolve(this);
+                    this._onEnter = null;
+                }
+            } else if (leave === true) {
+                this._members = null;
+                if (this._onLeave) {
+                    this._onLeave.resolve(this);
+                    this._onLeave = null;
+                }
+            } else {
+                this._members.patch([enter, leave]);
+            }
+        }
+        this._recv.publish(recv_in);
+        return true;
+    };
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.onSend = function(sub) {
+        return this._send.subscribe(sub);
+    };
+
+    // GroupChannel
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.onRecv = function(sub) {
+        return this._recv.subscribe(sub);
+    };
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.send = function(send_out) {
+        return this._send.publish(send_out).some(Boolean);
+    };
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.execute = function(send_out) {
+        if ("pubtxt" in send_out) {
+            throw new Error("not implemented");
+        } else {
+            if (!this.send(send_out)) {
+                return null;
+            }
+            send_out = channel.checkChannelControl(send_out);
+            var enter = send_out.enter;
+            var leave = send_out.leave;
+            if (enter === true) {
+                if (this._members) { // already in channel
+                    return Promise.resolve(this);
+                }
+                if (!this._onEnter) {
+                    this._onEnter = async.newPromiseAndWriters();
+                }
+                return this._onEnter.promise;
+            } else if (leave === true) {
+                if (!this._members) { // already out of channel
+                    return Promise.resolve(this);
+                }
+                if (!this._onLeave) {
+                    this._onLeave = async.newPromiseAndWriters();
+                }
+                return this._onLeave.promise;
+            } else {
+                if (!this._members) {
+                    return null;
+                }
+                var to_enter = enter.subtract(this._members.value());
+                var to_leave = leave.intersect(this._members.value());
+                if (!to_enter.size && !to_leave.size) {
+                    return Promise.resolve(this);
+                }
+                var self = this;
+                return this._members.awaitDiff([to_enter, to_leave])
+                    .then(function() { return self; });
+            }
+        }
+    };
+
+    /**
+     * @inheritDoc
+     */
+    BaseGroupChannel.prototype.curMembers = function() {
+        return this._members ? this._members.value() : null;
+    };
+
+    ns.BaseGroupChannel = BaseGroupChannel;
+
 
     /**
      * Total order on membership operations using a server to break ties.
