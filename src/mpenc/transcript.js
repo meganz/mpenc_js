@@ -204,8 +204,8 @@ define([
      * This log only contains `Payload` messages, i.e. those written by human
      * users. Other messages, such as control messages automatically sent by
      * the messaging layer, are hidden from this structure in a way that
-     * preserves causality. The documentation for `MessageLog.resolveEarlier`
-     * has more details, but this is not part of the public API.
+     * preserves causality. The developer documentation (not the public API
+     * documentation) for `MessageLog.resolveEarlier` has more details.
      *
      * @interface
      * @augments module:mpenc/transcript.Messages

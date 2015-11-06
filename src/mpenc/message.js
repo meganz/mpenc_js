@@ -50,7 +50,8 @@ define([
      * @property author {string} Original author of the message.
      * @property parents {module:mpenc/helper/struct.ImmutableSet} Parent
      *      message IDs, latest messages the author had accepted into their
-     *      transcript, before writing this message.
+     *      transcript, before writing this message. Clients using our public
+     *      API should use `log.parents(mId)` instead of reading this property.
      * @property readers {module:mpenc/helper/struct.ImmutableSet} Readers
      *      of this message, as intended by the original author.
      * @property body {module:mpenc/message.MessageBody} Body of this message,

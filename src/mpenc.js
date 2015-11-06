@@ -44,7 +44,7 @@ define([
      *
      * @example
      *
-     * // variables beginning '?' you need to supply yourself; see the
+     * // Variables beginning '?' you need to supply yourself; see the
      * // the relevant function doc for details, further below.
      *
      * // Initialisation
@@ -62,7 +62,7 @@ define([
      * var session = mpenc.createSession(
      *     context, ?sessionId, groupChannel, ?options);
      *
-     * // TODO: how to send actions, receive notices, make queries
+     * // For interacting with the session, see mpenc/session.Session
      */
     var mpenc = {
         // public API, matching the documentation

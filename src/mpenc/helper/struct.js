@@ -237,7 +237,7 @@ define([
      *
      * @class
      * @param iterable {Iterable} Elements of the set
-     * @memberOf! module:mpenc/helper/struct
+     * @memberOf module:mpenc/helper/struct
      */
     var ImmutableSet = function(iterable) {
         if (!(this instanceof ImmutableSet)) {
@@ -248,6 +248,12 @@ define([
 
         // Facebook ImmutableSet provides length
         this.length = items.size;
+        /**
+         * Number of elements in this set.
+         *
+         * @member
+         * @type {number}
+         */
         this.size = items.size;
 
         // adhere to the Iterable interface if available
