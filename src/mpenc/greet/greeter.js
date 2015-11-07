@@ -1281,9 +1281,9 @@ define([
      *
      * <ul>
      * <li><code>{@link module:mpenc/greet/greeter.Greeting#recv|RecvInput}</code>:
-     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     *      {@link module:mpenc/helper/utils.RawRecv}</li>
      * <li><code>{@link module:mpenc/greet/greeter.Greeting#onSend|SendOutput}</code>:
-     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     *      {@link module:mpenc/helper/utils.RawSend}</li>
      * </ul>
      *
      * @class

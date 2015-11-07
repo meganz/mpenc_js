@@ -136,9 +136,9 @@ define([
      *
      * <ul>
      * <li><code>{@link module:mpenc/impl/session.SessionBase#recv|RecvInput}</code>:
-     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     *      {@link module:mpenc/helper/utils.RawRecv}</li>
      * <li><code>{@link module:mpenc/impl/session.SessionBase#onSend|SendOutput}</code>:
-     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     *      {@link module:mpenc/helper/utils.RawSend}</li>
      * </ul>
      *
      * @class

@@ -96,7 +96,7 @@ define([
      * @interface
      * @memberOf module:mpenc/session
      * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session~SessionAction
+     * @see module:mpenc/session.SessionAction
      */
     var SessionNotice = function() {
         throw new Error("cannot instantiate an interface");
@@ -379,7 +379,8 @@ define([
      * One may use {@link module:mpenc/session.checkSessionAction
      * checkSessionAction} to check valid values.
      *
-     * @typedef {Object} SessionAction
+     * @name SessionAction
+     * @interface
      * @property [content] {string} Message to send, or if empty then send
      *      an explicit ack. If this is set, other properties must not be set.
      * @property [join] {boolean} Include all others into our session. This
@@ -396,11 +397,12 @@ define([
      *      <code>include</code> may also be set.
      * @see module:mpenc/session.Session#send
      * @see module:mpenc/session.SessionNotice
+     * @memberOf module:mpenc/session
      */
 
     /**
-     * @param act {module:mpenc/session~SessionAction} Action to check.
-     * @return {module:mpenc/session~SessionAction} Validated action, maybe
+     * @param act {module:mpenc/session.SessionAction} Action to check.
+     * @return {module:mpenc/session.SessionAction} Validated action, maybe
      *      with canonicalised values.
      * @throws If the action was not valid and could not be canonicalised.
      */
@@ -458,7 +460,7 @@ define([
      * module:mpenc/transcript.MessageLog} for more discussion on ordering.
      *
      * Whilst part of the session, the client can attempt to issue {@link
-     * module:mpenc/session~SessionAction} requests. If satisfied then, as
+     * module:mpenc/session.SessionAction} requests. If satisfied then, as
      * stated above, the original context and membership are preserved when
      * readers (or the author) receive the corresponding event.
      *
@@ -470,7 +472,7 @@ define([
      * The instantiated types for `ReceivingExecutor` are:
      *
      * - `{@link module:mpenc/session.Session#send|SendInput}`:
-     *   {@link module:mpenc/session~SessionAction}
+     *   {@link module:mpenc/session.SessionAction}
      * - `{@link module:mpenc/session.Session#onRecv|RecvOutput}`:
      *   {@link module:mpenc/session.SessionNotice}
      *

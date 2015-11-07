@@ -35,24 +35,33 @@ define([
 
     ns._HEX_CHARS = '0123456789abcdef';
 
-    // The following are JSDoc typedefs
-    // They may be referred to as {module:mpenc/helper/utils~$name}
+    // Some public interfaces
+    // They may be referred to as {module:mpenc/helper/utils.$name}
 
     /**
      * Raw transport-layer data to be sent.
-     * @typedef {Object} RawSend
+     *
+     * @name RawSend
+     * @interface
      * @property pubtxt {string} Raw data to send
      * @property recipients {module:mpenc/helper/struct.ImmutableSet}
      *      Transport-layer recipient addresses to send to.
+     * @memberOf module:mpenc/helper/utils
      */
 
     /**
      * Raw transport-layer data that was received.
-     * @typedef {Object} RawRecv
+     *
+     * @name RawRecv
+     * @interface
      * @property pubtxt {string} Raw data that was received.
      * @property sender {string}
      *      Transport-layer unauthenticated sender address we received from.
+     * @memberOf module:mpenc/helper/utils
      */
+
+    // The following are JSDoc typedefs
+    // They may be referred to as {module:mpenc/helper/utils~$name}
 
     /**
      * 1-arg function to get some "associates" of a subject.

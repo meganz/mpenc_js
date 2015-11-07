@@ -38,7 +38,7 @@ define([
      *
      * This is either a received packet, or a membership change notice.
      *
-     * @typedef {(module:mpenc/helper/utils~RawRecv|module:mpenc/channel~ChannelControl)} ChannelNotice
+     * @typedef {(module:mpenc/helper/utils.RawRecv|module:mpenc/channel~ChannelControl)} ChannelNotice
      * @see module:mpenc/channel.GroupChannel#onRecv
      * @see module:mpenc/channel~ChannelAction
      */
@@ -56,7 +56,7 @@ define([
      * The actual recipients and previous context, will be known by the client
      * when the transport echoes it back in a `ChannelNotice` event.
      *
-     * @typedef {(module:mpenc/helper/utils~RawSend|module:mpenc/channel~ChannelControl)} ChannelAction
+     * @typedef {(module:mpenc/helper/utils.RawSend|module:mpenc/channel~ChannelControl)} ChannelAction
      * @see module:mpenc/channel.GroupChannel#send
      * @see module:mpenc/channel~ChannelNotice
      */
@@ -180,7 +180,7 @@ define([
      *   {@link module:mpenc/channel~ChannelAction}
      *
      * Implementations *need not* define `execute()` when the input is a
-     * {@link module:mpenc/helper/utils~RawSend}, but they **must** define it
+     * {@link module:mpenc/helper/utils.RawSend}, but they **must** define it
      * when the input is a {@link module:mpenc/channel~ChannelControl}.
      *
      * @interface
