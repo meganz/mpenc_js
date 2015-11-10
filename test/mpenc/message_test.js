@@ -179,7 +179,7 @@ define([
                      'Tēnā koe', 'Hänsel & Gretel', 'Слартибартфаст'];
 
         it('data messages', function() {
-            this.timeout(this.timeout() * 2);
+            this.timeout(this.timeout() * 5);
             for (var i = 0; i < tests.length; i++) {
                 var mSecurity = _dummyMessageSecurity();
                 var encrypted = mSecurity.authEncrypt(null, {
@@ -195,7 +195,7 @@ define([
         });
 
         it('data messages with exponential padding', function() {
-            this.timeout(this.timeout() * 2);
+            this.timeout(this.timeout() * 5);
             for (var i = 0; i < tests.length; i++) {
                 var mSecurity = _dummyMessageSecurity(32);
                 var encrypted = mSecurity.authEncrypt(null, {

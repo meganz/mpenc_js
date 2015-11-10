@@ -484,7 +484,7 @@ define([
 
         describe('whole ika', function() {
             it('whole flow for 5 ika members, 2 joining, 2 others leaving, refresh', function() {
-                this.timeout(this.timeout() * 2);
+                this.timeout(this.timeout() * 5);
                 var numMembers = 5;
                 var initiator = 0;
                 var members = [];

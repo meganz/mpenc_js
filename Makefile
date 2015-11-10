@@ -1,5 +1,5 @@
 # User/runtime variables
-BROWSER = Firefox
+BROWSER = Firefox # for browser-test and headless-browser-test
 KARMA_FLAGS = # set to --preprocessors= to show line numbers, otherwise coverage clobbers them
 JSDOC_FLAGS = # set to --private to show private API, e.g. for developers working on mpENC
 # TODO: use npm (not github) version of ink-docstrap when
@@ -37,18 +37,32 @@ BUILD_DEP_ALL_NAMES = karma jsdoc jshint jscs requirejs almond uglify-js
 
 ASMCRYPTO_MODULES = common,utils,exports,globals,aes,aes-ecb,aes-cbc,aes-cfb,aes-ctr,aes-ccm,aes-gcm,aes-exports,aes-ecb-exports,aes-cbc-exports,aes-cfb-exports,aes-ctr-exports,aes-ccm-exports,aes-gcm-exports,hash,sha1,sha1-exports,sha256,sha256-exports,sha512,sha512-exports,hmac,hmac-sha1,hmac-sha256,hmac-sha512,hmac-sha1-exports,hmac-sha256-exports,hmac-sha512-exports,pbkdf2,pbkdf2-hmac-sha1,pbkdf2-hmac-sha256,pbkdf2-hmac-sha512,pbkdf2-hmac-sha1-exports,pbkdf2-hmac-sha256-exports,pbkdf2-hmac-sha512-exports,rng,rng-exports,rng-globals,bn,bn-exports,rsa,rsa-raw,rsa-pkcs1,rsa-keygen-exports,rsa-raw-exports sources
 
+CAN_HEADLESS_BROWSER = (type xvfb-run && ( \
+  type firefox || type iceweasel || \
+  type google-chrome || type chromium || type chromium-browser )) >/dev/null
+
 all: test doc dist test-shared test-static
 
 dist: mpenc.js
 
 checks: jshint jscs
 
-test: $(KARMA) $(R_JS) $(DEP_ALL)
-	$(NODE) $(KARMA) start $(KARMA_FLAGS) --singleRun=true karma.conf.js --colors=false --browsers PhantomJS
+test:
+	if $(CAN_HEADLESS_BROWSER); then \
+	  $(MAKE) headless-browser-test; else $(MAKE) phantomjs-test; fi
 
-# use e.g. `make BROWSER=Chrome browser-test` to use a different browser
-browser-test: $(KARMA) $(R_JS) $(DEP_ALL)
-	$(NODE) $(KARMA) start $(KARMA_FLAGS) karma.conf.js --browsers $(BROWSER)
+phantomjs-test:
+	$(MAKE) BROWSER=PhantomJS karma-test
+
+headless-browser-test:
+	xvfb-run $(MAKE) BROWSER=$(BROWSER) karma-test
+
+karma-test: $(KARMA) $(R_JS) $(DEP_ALL)
+	$(NODE) $(KARMA) start --single-run=true --colors=false \
+	  $(KARMA_FLAGS) --browsers=$(BROWSER) karma.conf.js
+
+test-browser: $(KARMA) $(R_JS) $(DEP_ALL)
+	$(NODE) $(KARMA) start $(KARMA_FLAGS) --browsers=$(BROWSER) karma.conf.js
 
 doc: api-doc dev-doc
 

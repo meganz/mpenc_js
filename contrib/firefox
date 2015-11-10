@@ -1,0 +1,25 @@
+#!/bin/sh
+# Firefox wrapper that disables all extensions to avoid interfering with Karma.
+# If you need to, you can customise this to enable e.g. specific extensions.
+
+set -e
+get_profile_path() {
+    while [ -n "$1" ]; do
+        if [ "$1" = "-profile" ]; then
+            echo "$2";
+            return;
+        else
+            shift;
+        fi
+    done
+    echo >&2 "didn't set -profile; abort"
+    exit 1
+}
+profile_path="$(get_profile_path "$@")"
+mkdir -p "$profile_path"
+# we can't use -safe-mode since that pops up an annoying dialog box,
+# which breaks headless operation
+cat >"$profile_path/extensions.ini" <<EOF
+[ExtensionDirs]
+EOF
+exec "/usr/bin/$(basename "$0")" "$@"
