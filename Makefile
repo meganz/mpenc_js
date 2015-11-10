@@ -134,12 +134,12 @@ $(BUILD_DEP_ALL) $(DEP_NONCUSTOM): | .npm-build-deps
 	touch .npm-build-deps
 
 clean:
-	rm -rf doc/ coverage/ build/ mpenc.js test-results.xml
+	rm -rf doc/ coverage/ build/ mpenc.js* test-results.xml contrib/*.pyc
 
 clean-all: clean
 	rm -f $(BUILD_DEP_ALL) $(DEP_ALL)
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
-	rm -f .npm-build-deps
+	rm -f .npm-build-deps node_modules
 
 .PHONY: all test browser-test doc api-doc dev-doc jshint jscs checks
 .PHONY: clean clean-all
