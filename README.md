@@ -11,6 +11,18 @@ If you are reading this as a web page, you probably want:
 - [developer docs](../../doc/dev/module-mpenc.html) - for developers that wish
   to contribute patches or new features to this library.
 
+## Test dependencies
+
+Using your system package manager (e.g. Homebrew or Debian aptitude), install
+PhantomJS *or* `xvfb` and a browser (Firefox or Chrome), *or* both. Both setups
+work on headless machines such as a CI or build server, but `xvfb` + a browser
+will pull in more libraries than PhantomJS. But in some cases, the tests run
+even quicker than PhantomJS.
+
+If you have installed Firefox extensions on a system-wide basis that interferes
+with tests (e.g. NoScript), you can set `PATH="$PWD/contrib:$PATH"` to work
+around that.
+
 ## Building
 
 To build this library, in the top-level repository directory run:
@@ -22,13 +34,9 @@ build a dynamically-linked `mpenc.js` in the top-level repository directory, a
 statically-linked `mpenc-static.js` in `build/`, and then run some basic tests
 on both of these to make sure linking worked correctly.
 
-Optionally, you can install `xvfb-run(1)` and a browser (Firefox or Chrome) to
-run the tests in a headless environment such as a CI or build server. In some
-cases, this is even quicker than using PhantomJS. If you have installed Firefox
-extensions on a system-wide basis that interferes with tests (e.g. NoScript),
-you can set `PATH="$PWD/contrib:$PATH"` while running them to work around that.
-
-See `Makefile` for more fine-grained targets to run.
+See `Makefile` for more fine-grained targets to run. One target of interest is
+`test-browser`, which keeps the browser open to watch changes you make to the
+source files, and re-run affected tests automatically.
 
 Both the static- and dynamically-linked forms may be loaded as a AMD module
 (e.g. with RequireJS), a CommonJS module (e.g. in NodeJS), or directly using a
