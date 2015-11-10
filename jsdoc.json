@@ -1,17 +1,17 @@
 {
     "templates": {
-        "systemName": "mpENC API Documentation",
+        "systemName": "@systemName@",
         "disqus": "",
         "googleAnalytics": "",
         "openGraph": {
-            "title": "mpEnc Library",
+            "title": "mpENC library",
             "type": "website",
             "image": "",
             "site_name": "",
             "url": ""
         },
         "meta": {
-            "title": "mpEnc Library",
+            "title": "mpENC library",
             "description": "",
             "keyword": ""
         },

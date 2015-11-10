@@ -40,7 +40,7 @@ define([
      * @exports mpenc
      * @description
      *
-     * The multi-party encrypted chat protocol, public API.
+     * The multi-party encrypted chat protocol, public API entry point.
      *
      * @example
      *
@@ -52,15 +52,14 @@ define([
      * var mpenc = // however you import it, AMD, Common-JS, whatever
      * var timer = mpenc.createTimer();
      * var context = mpenc.createContext(
-     *     ?userId, timer, ?privKey, ?pubKey, ?pubKeyDir);
+     *   ?userId, timer, ?privKey, ?pubKey, ?pubKeyDir);
      *
      * // Prepare to have a group chat:
      *
      * var groupChannel = // you must implement your own, e.g. by extending
-     *                    // BaseGroupChannel; see docs for more details.
-     *                    // this is the most signficant part to prepare.
+     *   // mpenc/impl/channel.BaseGroupChannel; see docs for more details.
      * var session = mpenc.createSession(
-     *     context, ?sessionId, groupChannel, ?options);
+     *   context, ?sessionId, groupChannel, ?options);
      *
      * // For interacting with the session, see mpenc/session.Session
      */

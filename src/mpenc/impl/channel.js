@@ -56,7 +56,7 @@ define([
      * It keeps track of some state and fills in some higher-level behaviours
      * in terms of lower-level behaviours, which it leaves unspecified. This
      * helps to reduces the amount of code that implementors must write. For
-     * example, `execute` and `curMembers` are already implemented.
+     * example, `execute` and `curMembers` likely need not be overridden.
      *
      * Please read the documentation for `GroupChannel` before proceeding, and
      * especially the definitions of {@link module:mpenc/channel~ChannelNotice}
