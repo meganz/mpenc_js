@@ -31,6 +31,7 @@ define([
 
     /**
      * @exports mpenc/greet/greet
+     * @private
      * @description
      * <p>Implementation of a greet (key agreement) protocol wrapper.</p>
      *
@@ -252,6 +253,7 @@ define([
      * mpENC key agreement packet.
      *
      * @constructor
+     * @private
      * @param source {string}
      *     Message originator (from).
      * @memberOf module:mpenc/greet/greeter
@@ -792,6 +794,7 @@ define([
      * this constructor.</p>
      *
      * @class
+     * @private
      * @property prevPf {string}
      *      The packet-id of the previous operation's final message. If there
      *      was no previous operation, a random id should be used here instead.
@@ -836,6 +839,7 @@ define([
      * Summary of an initial or final greeting (membership operation) message.
      *
      * @class
+     * @private
      * @property pId {string}
      *      The packet-id of the message.
      * @property metadata {?module:mpenc/greet/greeter.GreetingMetadata}
@@ -904,6 +908,7 @@ define([
      * Greetings.
      *
      * @class
+     * @private
      * @param id {string}
      *      The owner of this greeter.
      * @param privKey {string}
@@ -1199,6 +1204,7 @@ define([
      * completed operations.
      *
      * @constructor
+     * @private
      * @param id {string}
      *      The owner of this greeter.
      * @param [opState] {number}
@@ -1275,12 +1281,13 @@ define([
      *
      * <ul>
      * <li><code>{@link module:mpenc/greet/greeter.Greeting#recv|RecvInput}</code>:
-     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     *      {@link module:mpenc/helper/utils.RawRecv}</li>
      * <li><code>{@link module:mpenc/greet/greeter.Greeting#onSend|SendOutput}</code>:
-     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     *      {@link module:mpenc/helper/utils.RawSend}</li>
      * </ul>
      *
      * @class
+     * @private
      * @param greeter {module:mpenc/greet/greeter.Greeter}
      *      Context of this Greeting operation with various static information.
      * @param [store] {module:mpenc/greet/greeter.GreetStore}

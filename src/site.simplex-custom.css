@@ -1,0 +1,5 @@
+@import url("site.simplex.css");
+
+#toc .toc-active {
+    background-color: #d9230f;
+}

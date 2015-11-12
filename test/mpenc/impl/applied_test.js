@@ -20,14 +20,13 @@ define([
     "mpenc/impl/applied",
     "mpenc",
     "mpenc/impl/dummy",
-    "mpenc/transcript",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
     "chai",
     "sinon/stub"
 ], function(ns,
-    mpenc, dummy, transcript,
+    mpenc, dummy,
     async, struct, utils,
     chai, stub
 ) {
@@ -35,7 +34,6 @@ define([
     var assert = chai.assert;
 
     var ImmutableSet = struct.ImmutableSet;
-    var MsgReady = transcript.MsgReady;
 
     var testTimer;
 
@@ -49,12 +47,12 @@ define([
 
     var logError = function(e) { console.log(e.stack); };
 
-    var mkHybridSession = function(sId, owner, server, autoIncludeExtra, stayIfLastMember) {
-        var context = mpenc.createContext(owner, testTimer, new dummy.DummyFlowControl());
-        return mpenc.createSession(context, sId, server.getChannel(owner),
+    var mkHybridSession = function(sId, owner, server, options) {
+        var context = mpenc.createContext(owner, testTimer,
             _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
                 get: function() { return _td.ED25519_PUB_KEY; }
-            }, autoIncludeExtra, stayIfLastMember);
+            }, new dummy.DummyFlowControl());
+        return mpenc.createSession(context, sId, server.getChannel(owner), options);
     };
 
     describe("LocalSendQueue test", function() {
@@ -95,8 +93,9 @@ define([
         it('autosend after offline', function(done) {
             this.timeout(this.timeout() * 10);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true);
+            var options = { autoIncludeExtra: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             var fakeUI = new Map();
@@ -132,8 +131,9 @@ define([
         it('autoresend after reconnect', function(done) {
             this.timeout(this.timeout() * 20);
             var server = new dummy.DummyGroupServer();
-            var s1 = mkHybridSession('myTestSession', "51", server, true, true);
-            var s2 = mkHybridSession('myTestSession', "52", server, true, true);
+            var options = { autoIncludeExtra: true, stayIfLastMember: true };
+            var s1 = mkHybridSession('myTestSession', "51", server, options);
+            var s2 = mkHybridSession('myTestSession', "52", server, options);
             var exec = execute.bind(null, server);
 
             var expecting = new Map();
@@ -166,7 +166,7 @@ define([
                 // give a bit more time for messages to be delivered
                 return async.timeoutPromise(testTimer, 100);
             }).then(function() {
-                var mId = s2.messages().slice(-1)[0];
+                var mId = s2.messages().at(-1);
                 assert.strictEqual(s2.messages().get(mId).body.content, "testing 3");
                 assert.deepEqual(s1.messages().slice(-3), s2.messages().slice());
                 done();

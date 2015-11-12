@@ -29,6 +29,7 @@ define([
 
     /**
      * @exports mpenc/message
+     * @private
      * @description
      * Message interfaces.
      */
@@ -44,11 +45,21 @@ define([
     /**
      * A Message object, sent by a user.
      *
-     * @interface
+     * @class
+     * @property mId {string} Unique ID for this message.
+     * @property author {string} Original author of the message.
+     * @property parents {module:mpenc/helper/struct.ImmutableSet} Parent
+     *      message IDs, latest messages the author had accepted into their
+     *      transcript, before writing this message. Clients using our public
+     *      API should use `log.parents(mId)` instead of reading this property.
+     * @property readers {module:mpenc/helper/struct.ImmutableSet} Readers
+     *      of this message, as intended by the original author.
+     * @property body {module:mpenc/message.MessageBody} Body of this message,
+     *      written by the original author.
      * @memberOf module:mpenc/message
      */
-    var Message = function(mId, author, parents, recipients, body) {
-        if (!(this instanceof Message)) { return new Message(mId, author, parents, recipients, body); }
+    var Message = function(mId, author, parents, readers, body) {
+        if (!(this instanceof Message)) { return new Message(mId, author, parents, readers, body); }
 
         if (mId === null || mId === undefined) {
             throw new Error("invalid empty mId");
@@ -59,23 +70,23 @@ define([
         if (parents === null || parents === undefined) {
             throw new Error("invalid empty parents");
         }
-        if (recipients === null || recipients === undefined) {
-            throw new Error("invalid empty recipients");
+        if (readers === null || readers === undefined) {
+            throw new Error("invalid empty readers");
         }
 
         parents = ImmutableSet.from(parents);
         if (parents.has(null) || parents.has(undefined)) {
             throw new Error("invalid parents: has empty value");
         }
-        recipients = ImmutableSet.from(recipients);
-        if (recipients.has(null) || recipients.has(undefined)) {
-            throw new Error("invalid recipients: has empty value");
+        readers = ImmutableSet.from(readers);
+        if (readers.has(null) || readers.has(undefined)) {
+            throw new Error("invalid readers: has empty value");
         }
 
         this.mId = mId;
         this.author = author;
         this.parents = ImmutableSet.from(parents);
-        this.recipients = ImmutableSet.from(recipients);
+        this.readers = ImmutableSet.from(readers);
         this.body = body;
     };
 
@@ -84,14 +95,23 @@ define([
      * @param mId {string} Message (node) id.
      * @returns {module:mpenc/message.Message} Message object for the id. */
     Message.prototype.members = function() {
-        return this.recipients.union(new ImmutableSet([this.author]));
+        return this.readers.union(new ImmutableSet([this.author]));
     };
 
     Object.freeze(Message.prototype);
     ns.Message = Message;
 
     /**
-     * Message body object.
+     * Message body object, one of the following child types.
+     *
+     * - {@link module:mpenc/message.Payload}
+     * - {@link module:mpenc/message.ExplicitAck}
+     * - {@link module:mpenc/message.Consistency}
+     *
+     * In practise, clients of our API will only ever see `Payload` objects.
+     *
+     * @class
+     * @memberOf module:mpenc/message
      */
     var MessageBody = function() {};
 
@@ -103,7 +123,10 @@ define([
     /**
      * Message actively sent by a user, to be consumed by the application.
      *
+     * @class
+     * @extends module:mpenc/message.MessageBody
      * @property body {string} Body of the message.
+     * @memberOf module:mpenc/message
      */
     var Payload = struct.createTupleClass("Payload", "content", MessageBody);
 
@@ -128,7 +151,11 @@ define([
      * of messages should also handle (e.g. resend) explicit acks that were sent
      * directly before it - since there is no other ack-monitor to handle these.
      *
+     * @class
+     * @private
+     * @extends module:mpenc/message.MessageBody
      * @property manual {boolean} Whether this was sent with conscious user oversight.
+     * @memberOf module:mpenc/message
      */
     var ExplicitAck = struct.createTupleClass("ExplicitAck", "manual", MessageBody);
 
@@ -142,19 +169,23 @@ define([
     Object.freeze(ExplicitAck.prototype);
     ns.ExplicitAck = ExplicitAck;
 
-    var HeartBeat = {}; // TODO(xl): TBA
+    var HeartBeat = {}; // TODO(xl): TBD
 
     /**
      * Request immediate acks from others so that consistency can be reached.
      * This is useful e.g. when changing the membership of the channel, and you
      * want to check consistency of the history with the previous membership.
      *
+     * @class
+     * @private
+     * @extends module:mpenc/message.MessageBody
      * @property close {boolean} If true, this is a commitment that the author
      *      will send no more Payload messages to the session, and that they
      *      will ignore the content of later messages by others, except to
      *      treat it as an ack of this message. After this is fully-acked,
      *      other members should formally exclude the author from the session,
      *      e.g. by running a greeting protocol.
+     * @memberOf module:mpenc/message
      */
     var Consistency = struct.createTupleClass("Consistency", "close", MessageBody);
 
@@ -226,8 +257,8 @@ define([
      *     Author of the message.
      * @property parents {?module:mpenc/helper/struct.ImmutableSet}
      *     Parent message ids.
-     * @property recipients {module:mpenc/helper/struct.ImmutableSet}
-     *     Recipients of the message.
+     * @property readers {module:mpenc/helper/struct.ImmutableSet}
+     *     Readers of the message, as intended by the author.
      * @property body {string}
      *     MessageBody object encoded as a byte string.
      */
@@ -251,6 +282,7 @@ define([
      * messages that are part of a session.
      *
      * @class
+     * @private
      * @param greetStore {module:mpenc/greet/greeter.GreetStore}
      * @param [paddingSize] {number}
      *     Number of bytes to pad the cipher text to come out as (default: 0
@@ -291,9 +323,9 @@ define([
         // iv, message data
         var sessionID = this._greetStore.sessionId;
         var groupKey = this._greetStore.groupKey;
-        var members = message.recipients.union(new ImmutableSet([this._greetStore.id]));
+        var members = message.readers.union(new ImmutableSet([this._greetStore.id]));
         _assert(members.equals(new ImmutableSet(this._greetStore.members)),
-                'Recipients not members of session: ' + members +
+                'Readers not members of session: ' + members +
                 '; current members: ' + this._greetStore.members);
 
         // Three portions: unsigned content (hint), signature, rest.
@@ -446,15 +478,15 @@ define([
 
         var idx = members.indexOf(author);
         _assert(idx >= 0);
-        var recipients = members.slice();
-        recipients.splice(idx, 1);
+        var readers = members.slice();
+        readers.splice(idx, 1);
 
         return {
             secrets: _dummyMessageSecrets(inspected.signature, inspected.rawMessage),
             message: {
                 author: author,
                 parents: parents,
-                recipients: recipients,
+                readers: readers,
                 body: body,
             },
         };

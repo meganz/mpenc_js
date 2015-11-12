@@ -57,13 +57,13 @@ define([
     };
 
     describe("ServerOrder class", function() {
-        var transportRecipients = new ImmutableSet(["1", "2", "3"]);
+        var recipients = new ImmutableSet(["1", "2", "3"]);
         var dummyPid = h("pId");
 
         var acceptOneInitialPacket = function(serverOrder) {
             var metadata = createDummyMetadata("1");
             var summary = GreetingSummary.create(dummyPid, metadata, null, ["1", "2", "3"]);
-            var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summary, recipients,
                     postPi, postPf);
 
             assert.ok(accepted, "Packet should have been accepted by ServerOrder");
@@ -96,7 +96,7 @@ define([
             var prevPi = h("prevPi");
             var summary = GreetingSummary.create(dummyPid, null, prevPi, ["1", "2", "3"]);
             var serverOrder = new ServerOrder();
-            var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summary, recipients,
                 postPi, postPf);
 
             assert.notOk(accepted, "Packet should not have been accepted by ServerOrder");
@@ -112,7 +112,7 @@ define([
             var summary = GreetingSummary.create(dummyPid, metadata, prevPi, ["1", "2", "3"]);
             var serverOrder = new ServerOrder();
             assert.notOk(serverOrder.isSynced());
-            var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summary, recipients,
                 postPi, postPf);
 
             assert.ok(accepted, "Should have accepted pi&pf op");
@@ -127,7 +127,7 @@ define([
             var metadata = createDummyMetadata("1");
             var summary = GreetingSummary.create(dummyPid, metadata, null, ["1", "3"]);
             var serverOrder = new ServerOrder();
-            var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summary, recipients,
                 postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op not for us");
@@ -139,7 +139,7 @@ define([
             // see another init pointing to same prev_pF
             var dummyPid2 = h("pId2");
             var summaryTwo = GreetingSummary.create(dummyPid2, metadata, null, ["1", "2", "3"]);
-            accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
+            accepted = serverOrder.tryOpPacket("2", summaryTwo, recipients,
                 postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op; we saw an earlier op with the same prevPf not for us");
@@ -156,7 +156,7 @@ define([
             serverOrder.syncNew();
             assert.ok(serverOrder.isSynced());
 
-            var accepted = serverOrder.tryOpPacket("2", summary, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summary, recipients,
                 postPi, postPf);
 
             assert.notOk(accepted, "Should not have accepted op not for us");
@@ -192,7 +192,7 @@ define([
             var dummyPid2 = h("pId2");
             var metadataTwo = createDummyMetadata("3");
             var summaryTwo = GreetingSummary.create(dummyPid2, metadataTwo, null, ["4"]);
-            var acceptedFail = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
+            var acceptedFail = serverOrder.tryOpPacket("2", summaryTwo, recipients,
                 postPi, postPf);
 
             assert.notOk(acceptedFail, "Message should not have been accepted.");
@@ -221,7 +221,7 @@ define([
             var summaryTwo = GreetingSummary.create(newPid, null, summary.pId, summary.members);
             assert.ok(summaryTwo.isFinal());
             assert.notOk(summaryTwo.isInitial());
-            var accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
+            var accepted = serverOrder.tryOpPacket("2", summaryTwo, recipients,
                 postPi, postPf);
 
             assert.ok(accepted, "Message should have been accepted.");
@@ -238,7 +238,7 @@ define([
             assert.strictEqual(postPf.getCall(0).args[1], dummyPid, "prevPi not correct value.");
 
             // Check duplicate not accepted
-            accepted = serverOrder.tryOpPacket("2", summaryTwo, transportRecipients,
+            accepted = serverOrder.tryOpPacket("2", summaryTwo, recipients,
                 postPi, postPf);
             assert.notOk(accepted, "Packet should not be accepted twice");
         });

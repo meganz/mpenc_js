@@ -23,6 +23,7 @@ define([
 
     /**
      * @exports mpenc/liveness
+     * @private
      * @description Liveness properties - reliability, recovery, consistency, freshness, etc.
      */
     var ns = {};
@@ -36,6 +37,7 @@ define([
      * expectation.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/liveness
      */
     var ConsistencyMonitor = function() {
@@ -77,6 +79,7 @@ define([
      * case for some Session implementations, e.g. HybridSession.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/liveness
      */
     var Flow = function() {
@@ -159,55 +162,6 @@ define([
     Object.freeze(Flow.prototype);
     ns.Flow = Flow;
     // jshint +W030
-
-
-    /**
-     * A message has been decrypted but not accepted, after a grace period.
-     * That is, the parent/ancestor messages have not yet all been accepted.
-     *
-     * This probably is due to the transport being unreliable, but could also be
-     * due to a malicious transport, or a malicious or buggy sender; and the
-     * message has been ignored.
-     *
-     * The absence of this event does *not* mean the message has been accepted;
-     * to check this, either wait for MsgAccepted (its absence means the message
-     * has *not* been accepted) or check Transcript for the message.
-     *
-     * @class
-     * @implements module:mpenc/session.SessionNotice
-     * @property uId {string} Verified author.
-     * @property pmId {module:mpenc/helper/struct.ImmutableSet} Claimed parent
-     *      messages that we timed out waiting for.
-     * @memberOf module:mpenc/liveness
-     */
-    var NotAccepted = struct.createTupleClass("NotAccepted", "uId pmId");
-
-    Object.freeze(NotAccepted.prototype);
-    ns.NotAccepted = NotAccepted;
-
-
-    /**
-     * A message has been accepted but not fully-acked, after a grace period.
-     * That is, it may not yet have been accepted by all its recipients.
-     *
-     * This is probably due to the transport being unreliable, but could also be
-     * due to a malicious transport, or a malicious or buggy sender (who sent
-     * different messages to different recipients), or buggy recipient(s) (who
-     * did not ack the message). It is up to the user to respond appropriately.
-     *
-     * The absence of this event does *not* mean the message has been fully-acked;
-     * to check this, either wait for MsgFullyAcked (its absence means the message
-     * has *not* been fully-acked) or check Transcript.unacked() for the message.
-     *
-     * @class
-     * @implements module:mpenc/session.SessionNotice
-     * @property mId {string} Message ID.
-     * @memberOf module:mpenc/liveness
-     */
-    var NotFullyAcked = struct.createTupleClass("NotFullyAcked", "mId");
-
-    Object.freeze(NotFullyAcked.prototype);
-    ns.NotFullyAcked = NotFullyAcked;
 
 
     return ns;

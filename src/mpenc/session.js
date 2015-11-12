@@ -17,10 +17,9 @@
  */
 
 define([
-    "mpenc/liveness",
-    "mpenc/transcript",
     "mpenc/helper/struct",
-], function(liveness, transcript, struct) {
+    "mpenc/helper/assert",
+], function(struct, assert) {
     "use strict";
 
     /**
@@ -30,12 +29,9 @@ define([
      */
     var ns = {};
 
-    var MsgReady      = transcript.MsgReady;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotAccepted   = liveness.NotAccepted;
-    var NotFullyAcked = liveness.NotFullyAcked;
-
     var ImmutableSet = struct.ImmutableSet;
+
+    var _assert = assert.assert;
 
 
     /**
@@ -56,14 +52,10 @@ define([
      * ERROR           0           0
      * </pre>
      *
-     * Note: JOINING and JOIN_FAILED are not currently used, pending further
-     * research into a fully causally-ordered transcript history that also
-     * supports partial visibility.
-     *
      * @enum {number}
      * @memberOf module:mpenc/session
      */
-    ns.SessionState = {
+    var SessionState = {
         /** We have joined the session and are ready to send messages. */
         JOINED       : 1,
         /** We will no longer send messages and have begun parting the session. */
@@ -79,20 +71,32 @@ define([
         /** A fatal error was detected and added to the transcript. */
         ERROR        : 7
     };
+    ns.SessionState = SessionState;
 
     /**
-     * Things that can happen to a Session.
+     * Things that can happen in a Session. Specifically, this can be one of:
+     *
+     * - {@link module:mpenc/session.SNState} (not yet implemented)
+     * - {@link module:mpenc/session.SNMembers}
+     * - {@link module:mpenc/session.MsgReady}
+     * - {@link module:mpenc/session.MsgFullyAcked}
+     * - {@link module:mpenc/session.NotFullyAcked}
+     * - {@link module:mpenc/session.NotDecrypted} (optional)
+     * - {@link module:mpenc/session.NotAccepted} (optional)
+     *
+     * **API WARNING**: currently `SNState` is never emitted by any `Session`;
+     * clients should not expect to see these events yet.
+     *
+     * `SessionNotice` events are all implicitly associated with a `Session`.
+     * They do not contain an *explicit* reference to it, because this is not
+     * necessary - in order to receive one of these objects, you need to have
+     * registered your callback using `Session.onRecv` or `Session.onEvent`,
+     * which means you must already have a reference to its session.
      *
      * @interface
      * @memberOf module:mpenc/session
      * @see module:mpenc/session.Session#onRecv
-     * @see module:mpenc/session.SNState
-     * @see module:mpenc/session.SNMembers
-     * @see module:mpenc/transcript.MsgReady
-     * @see module:mpenc/transcript.MsgFullyAcked
-     * @see module:mpenc/session.NotDecrypted
-     * @see module:mpenc/liveness.NotAccepted
-     * @see module:mpenc/liveness.NotFullyAcked
+     * @see module:mpenc/session.SessionAction
      */
     var SessionNotice = function() {
         throw new Error("cannot instantiate an interface");
@@ -104,9 +108,7 @@ define([
 
 
     /**
-     * When the session state changes.
-     *
-     * Emitted by {@link module:mpenc/session.Session}.
+     * The session state has changed.
      *
      * @class
      * @implements module:mpenc/session.SessionNotice
@@ -118,28 +120,50 @@ define([
 
 
     /**
-     * When the session membership changes.
-     *
-     * Emitted by {@link module:mpenc/session.Session}.
+     * The session membership has changed.
      *
      * @class
      * @implements module:mpenc/session.SessionNotice
+     * @property remain {module:mpenc/helper/struct.ImmutableSet}
+     *      The older members that still remain in the current session.
+     * @property include {module:mpenc/helper/struct.ImmutableSet}
+     *      The newer members included into the current session.
+     * @property exclude {module:mpenc/helper/struct.ImmutableSet}
+     *      The older members excluded from the current session.
      * @memberOf module:mpenc/session
      */
     var SNMembers = struct.createTupleClass("SNMembers", "remain include exclude parents");
+    // TODO(xl): we probably want this to be more like MsgReady
+    // i.e. with rIdx, parIdx, and the same guidelines on how to display them
 
     /**
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Previous membership set.
+     * @returns {module:mpenc/helper/struct.ImmutableSet}
+     *      The older members, i.e. `remain | exclude`.
      */
     SNMembers.prototype.prevMembers = function() {
         return this.remain.union(this.exclude);
     };
 
     /**
-     * @returns {module:mpenc/helper/struct.ImmutableSet} Current membership set.
+     * @returns {module:mpenc/helper/struct.ImmutableSet}
+     *      The current nemmbers, i.e. `remain | include`.
      */
     SNMembers.prototype.members = function() {
         return this.remain.union(this.include);
+    };
+
+    /**
+     * @returns {boolean} Whether this event represents joining a session.
+     */
+    SNMembers.prototype.isJoin = function() {
+        return this.remain.size === 1 && this.include.size && !this.exclude.size;
+    };
+
+    /**
+     * @returns {boolean} Whether this event represents parting a session.
+     */
+    SNMembers.prototype.isPart = function() {
+        return this.remain.size === 1 && !this.include.size && this.exclude.size;
     };
 
     SNMembers.prototype._postInit = function() {
@@ -161,21 +185,127 @@ define([
 
     ns.SNMembers = SNMembers;
 
-    /** @alias module:mpenc/transcript.MsgReady */
-    ns.MsgReady = transcript.MsgReady;
+    /**
+     * A message has been accepted into a Transcript.
+     *
+     * @class
+     * @private
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/session
+     */
+    var MsgAccepted = struct.createTupleClass("MsgAccepted", "mId");
 
-    /** @alias module:mpenc/transcript.MsgFullyAcked */
-    ns.MsgFullyAcked = transcript.MsgFullyAcked;
+    Object.freeze(MsgAccepted.prototype);
+    ns.MsgAccepted = MsgAccepted;
+
+    /**
+     * A message has been acknowledged by all of its intended readers.
+     *
+     * When you receive this event, you may unconditionally remove any warnings
+     * that you previously added in response to the lack of this event, e.g.
+     * when handling `NotFullyAcked`.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} The message id.
+     * @memberOf module:mpenc/session
+     */
+    var MsgFullyAcked = struct.createTupleClass("MsgFullyAcked", "mId");
+
+    Object.freeze(MsgFullyAcked.prototype);
+    ns.MsgFullyAcked = MsgFullyAcked;
+
+    /**
+     * A message is ready to be consumed by the higher-layer client.
+     *
+     * The client may see messages that have a membership *different* from the
+     * current session membership (e.g. because the author wrote it before
+     * *they* saw the membership change). The client *must* highlight messages
+     * where this is the case, otherwise the user could severely misunderstand
+     * the situation.
+     *
+     * The first event emitted will have `rIdx: 0, parents: {}`.
+     *
+     * For subsequent events, the client *should* highlight (e.g. in the UI)
+     * cases where `parents` is not `{1}`. Furthermore, if `rIdx` is not `0`,
+     * then the client will also need to re-evaluate whether to highlight the
+     * message after which this one was inserted, and perhaps all re-render all
+     * subsequent messages if this is necessary.
+     *
+     * (Lazy clients for now can just `assert(rIdx === 0)` since our system
+     * currently only emits `0` values. But in the future, if we want to add a
+     * mechanism to ensure that primary sequence is the same on all clients,
+     * then we would start to emit different values here.)
+     *
+     * To give a simple example: suppose we receive, in this order:
+     *
+     * - [0] `MsgReady(x, 0, {})`
+     * - [1] `MsgReady(a, 0, {1})`
+     * - [2] `MsgReady(b, 1, {1})`
+     *
+     * then the client should display, in its primary interface, the sequence
+     * of messages as `[x, b, a]`, then (after receiving [2]) highlight `a`,
+     * and make available a secondary "message details" interface to indicate
+     * that its real parent is `x`. (There is no need to highlight `b` because
+     * its true parent is the same as that implied by the primary interface.)
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} The message id.
+     * @property rIdx {number} The right (negative) index in the existing total
+     *      order (i.e. of all previously-emitted MsgReady events) before which
+     *      to insert this message in the UI. A sequence of events where these
+     *      indexes are all 0, we call "append-only".
+     * @property parIdx {module:mpenc/helper/struct.ImmutableSet} Set of
+     *      positive integers, the right-indexes of the parent messages of this
+     *      message, relative to the right-index of this message.
+     * @memberOf module:mpenc/session
+     */
+    var MsgReady = struct.createTupleClass("MsgReady", "mId rIdx parIdx");
+
+    /**
+     * Whether the client should highlight this message, to hint the user to
+     * look up its real parents (i.e. `log.parents(evt.mId)` not `evt.parIdx`)
+     * in a secondary interface.
+     *
+     * (This should be ignored for the first message in a sequence, which never
+     * requires highlighting, assuming it satisfies `rIdx: 0, parents: {}`.)
+     */
+    MsgReady.prototype.shouldHighlight = function() {
+        return this.parIdx.size !== 1 || this.parIdx.values().next().value !== 1;
+    };
+
+    /**
+     * Create a `MsgReady` from a `SequenceInsert` event on a `MessageLog`.
+     *
+     * @method
+     * @private
+     * @param log {module:mpenc/transcript.MessageLog}
+     * @param update {module:mpenc/helper/async.SequenceInsert} Update event
+     * @returns {module:mpenc/session.MsgReady}
+     */
+    MsgReady.fromMessageLogUpdate = function(log, update) {
+        var rIdx = update.rIdx, mId = update.elem;
+        var parents = log.parents(mId).toArray().map(function(pm) {
+            return (log.length - rIdx - 1) - log.indexOf(pm);
+        });
+        _assert(parents.every(function(p) { return p > 0; }));
+        return new MsgReady(mId, rIdx, parents);
+    };
+
+    Object.freeze(MsgReady.prototype);
+    ns.MsgReady = MsgReady;
 
     /**
      * A packet has not yet been verify-decrypted, even after a grace period.
+     *
+     * Lazy clients may ignore these events, and non-lazy clients probably want
+     * to display these only in a secondary interface.
      *
      * This is probably due to the transport being unreliable (previous messages
      * containing secrets not yet received), but could also be due to a malicious
      * transport, malicious outsiders, or a malicious or buggy sender; and the
      * message has been ignored.
-     *
-     * Emitted by {@link module:mpenc/session.Session}.
      *
      * @class
      * @implements module:mpenc/session.SessionNotice
@@ -185,20 +315,72 @@ define([
 
     ns.NotDecrypted = NotDecrypted;
 
-    /** @alias module:mpenc/liveness.NotAccepted */
-    ns.NotAccepted = liveness.NotAccepted;
+    /**
+     * A message has been decrypted but not accepted, after a grace period.
+     * That is, the parent/ancestor messages have not yet all been accepted.
+     *
+     * Lazy clients may ignore these events, and non-lazy clients probably want
+     * to display these only in a secondary interface. There are security
+     * implications to showing *too much* of the details of this event (e.g.
+     * the contents of the not-yet-accepted message). If this is non-intuitive,
+     * see the design paper or developer documentation for details.
+     *
+     * This probably is due to the transport being unreliable, but could also be
+     * due to a malicious transport, or a malicious or buggy sender; and the
+     * message has been ignored.
+     *
+     * The absence of this event does *not* mean the message has been accepted;
+     * only the presence of `MsgAccepted` means that.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property uId {string} Verified author.
+     * @property pmId {module:mpenc/helper/struct.ImmutableSet} Claimed parent
+     *      messages that we timed out waiting for.
+     * @memberOf module:mpenc/session
+     */
+    var NotAccepted = struct.createTupleClass("NotAccepted", "uId pmId");
 
-    /** @alias module:mpenc/liveness.NotFullyAcked */
-    ns.NotFullyAcked = liveness.NotFullyAcked;
+    Object.freeze(NotAccepted.prototype);
+    ns.NotAccepted = NotAccepted;
+
+    /**
+     * A message has been accepted but not fully-acked, after a grace period.
+     * That is, it may not yet have been seen by all its readers.
+     *
+     * Clients *must* highlight messages for which this is emitted, to warn the
+     * user and communicate this condition. When doing so, clients should take
+     * care to not bias the reader towards any particular interpretation on why
+     * this event has occured, unless they provide an actual mechanism the user
+     * can execute to further diagnose the problem or distinguish the causes.
+     *
+     * This is probably due to the transport being unreliable, but could also be
+     * due to a malicious transport, or a malicious or buggy author (who sent
+     * different messages to different readers), or buggy reader(s) (who did not
+     * ack the message). It is up to the user to respond appropriately.
+     *
+     * The absence of this event does *not* mean the message has been fully-acked;
+     * only the presence of `MsgFullyAcked` means that.
+     *
+     * @class
+     * @implements module:mpenc/session.SessionNotice
+     * @property mId {string} Message ID.
+     * @memberOf module:mpenc/session
+     */
+    var NotFullyAcked = struct.createTupleClass("NotFullyAcked", "mId");
+
+    Object.freeze(NotFullyAcked.prototype);
+    ns.NotFullyAcked = NotFullyAcked;
 
 
     /**
-     * Try to do something to/on the cryptographic logical session.
+     * Things that can be done to/on the cryptographic logical session.
      *
-     * <p>One may use {@link module:mpenc/session.checkSessionAction
-     * checkSessionAction} to check valid values.</p>
+     * One may use {@link module:mpenc/session.checkSessionAction
+     * checkSessionAction} to check valid values.
      *
-     * @typedef {Object} SessionAction
+     * @name SessionAction
+     * @interface
      * @property [content] {string} Message to send, or if empty then send
      *      an explicit ack. If this is set, other properties must not be set.
      * @property [join] {boolean} Include all others into our session. This
@@ -213,11 +395,14 @@ define([
      * @property [exclude] {module:mpenc/helper/struct.ImmutableSet} Other
      *      members to try to exclude from the session. If this is set, only
      *      <code>include</code> may also be set.
+     * @see module:mpenc/session.Session#send
+     * @see module:mpenc/session.SessionNotice
+     * @memberOf module:mpenc/session
      */
 
     /**
-     * @param act {module:mpenc/session~SessionAction} Action to check.
-     * @return {module:mpenc/session~SessionAction} Validated action, maybe
+     * @param act {module:mpenc/session.SessionAction} Action to check.
+     * @return {module:mpenc/session.SessionAction} Validated action, maybe
      *      with canonicalised values.
      * @throws If the action was not valid and could not be canonicalised.
      */
@@ -257,35 +442,129 @@ define([
 
 
     /**
-     * An ongoing communication session, from the view of a given member.
+     * A secure group messaging API, for a higher-layer client component that
+     * wishes to participate in it. User interfaces should be adapted to *call
+     * this interface*, when used with our system.
      *
-     * <p>A session is a logical entity tied to a member ("owner"), who performs
-     * operations on their view of the membership set. It has no existence
-     * outside of a member's conception of it - c.f. a group transport channel,
-     * where a server keeps it "existing" even if nobody is in it.</p>
+     * As part of being secure, the session only exists as an contract between
+     * its members and *no-one else*. That is, there is no distinction between
+     * "we are not part of the session" and "we are the only member".
      *
-     * <p>Hence, <code>this.curMembers().has(this.owner())</code> always returns
-     * <code>true</code>. Moreover, joining or parting another session is
-     * viewed as the other members being included into or excluded from a local
-     * 1-member session, as reflected in SNMembers.</p>
+     * Whilst part of the session, the client receives a sequence of {@link
+     * module:mpenc/session.SessionNotice} events from the channel. The order
+     * of this sequence may differ slightly between different members. This
+     * allows us to guarantee that everyone sees the same true order of events
+     * (which cannot be a sequence) that preserves what each author intended.
+     * The true order may be queried via other data associated with each event;
+     * see the docstring for that event for more details. See also {@link
+     * module:mpenc/transcript.MessageLog} for more discussion on ordering.
      *
-     * The instantiated types for <code>ReceivingExecutor</code> are:
+     * Whilst part of the session, the client can attempt to issue {@link
+     * module:mpenc/session.SessionAction} requests. If satisfied then, as
+     * stated above, the original context and membership are preserved when
+     * readers (or the author) receive the corresponding event.
      *
-     * <ul>
-     * <li><code>{@link module:mpenc/session.Session#send|SendInput}</code>:
-     *      {@link module:mpenc/session~SessionAction}.</li>
-     * <li><code>{@link module:mpenc/session.Session#onRecv|RecvOutput}</code>:
-     *      {@link module:mpenc/session.SessionNotice}</li>
-     * </ul>
+     * In concrete code terms, `this.curMembers().has(this.owner())` always
+     * returns `true`. Moreover, joining or parting another session is viewed
+     * as the others being included into or excluded from a local 1-member
+     * session; this view is reflected in the data of `SNMembers` events.
      *
-     * Additionally, the upper layer may subscribe to particular subsets of
-     * what <code>onRecv()</code> publishes, using <code>{@link
-     * module:mpenc/session.Session#onEvent|onEvent}</code>.
+     * The instantiated types for `ReceivingExecutor` are:
      *
-     * <p>Implementations <em>need not</em> define <code>execute()</code> for
-     * when the input has a <code>content</code> property, but they <strong>
-     * must</strong> define it for {@link module:mpenc/session~SessionAction
-     * all other values}.</p>
+     * - `{@link module:mpenc/session.Session#send|SendInput}`:
+     *   {@link module:mpenc/session.SessionAction}
+     * - `{@link module:mpenc/session.Session#onRecv|RecvOutput}`:
+     *   {@link module:mpenc/session.SessionNotice}
+     *
+     * The upper layer may also subscribe to subsets of what `onRecv()`
+     * publishes, using {@link module:mpenc/session.Session#onEvent|onEvent}.
+     *
+     * Implementations *need not* define `execute()` for when the input has a
+     * `content` property (i.e. sending a message), but they **must** define it
+     * for all other values.
+     *
+     * @example
+     *
+     * // For examples on how to obtain a Session, see the mpenc module. We'll
+     * // assume you stored that in the 'session' variable, below.
+     * //
+     * // Variables beginning '?' you need to supply yourself - whatever is
+     * // suitable for your UI layer.
+     *
+     * // Handle events:
+     *
+     * var log = session.messages();
+     * session.onEvent(SNMembers)(function(evt) {
+     *   if (evt.isJoin()) {
+     *     ?uiMessageView.?renderSelfJoined(evt.include);
+     *   } else if (evt.isPart()) {
+     *     ?uiMessageView.?renderSelfParted(evt.exclude);
+     *   } else {
+     *     ?uiMessageView.?renderMembersChanged(evt.include, evt.exclude);
+     *   }
+     *   ?uiUsersView.?renderMembership(evt.members());
+     * });
+     * session.onEvent(MsgReady)(function(evt) {
+     *   assert(evt.rIdx === 0,
+     *     "handling non-append-only sequences is not currently implemented");
+     *
+     *   var message = log.get(evt.mId);
+     *   ?uiMessageView.?renderNewMessage(evt.mId, message.author, message.body.content);
+     *
+     *   var sessMembers = session.curMembers();
+     *   var msgMembers = message.members();
+     *   if (!msgMembers.equals(sessMembers)) {
+     *     // handle this somehow, see MsgReady docstring for details.
+     *   }
+     *
+     *   if (log.length > 1 && evt.shouldHighlight()) {
+     *     var realParents = log.parents(evt.mId);
+     *     // handle this somehow, see MsgReady docstring for details.
+     *   }
+     * });
+     * session.onEvent(NotFullyAcked)(function(evt) {
+     *   ?uiMessageView.?reRenderMessage(evt.mId, {
+     *     notAckedWarning: true,
+     *     unackedBy: log.unackby(evt.mId),
+     *   });
+     * });
+     * session.onEvent(MsgFullyAcked)(function(evt) {
+     *   ?uiMessageView.?reRenderMessage(evt.mId, {
+     *     notAckedWarning: false,
+     *   });
+     * });
+     *
+     * // Send messages:
+     *
+     * var didntFailImmediately = session.send({ content: "Hello, World!" });
+     * // MsgReady is published automatically, and handled by your existing recv-hook.
+     * // 'didntFailImmediately' might be false if e.g. you were not in the session.
+     * // To implement "offline send queues" see mpenc/impl/applied.LocalSendQueue.
+     *
+     * // Include more members:
+     *
+     * var promise = session.execute({ include: ?wantToInclude });
+     * if (!promise) {
+     *   ?uiStatusView.?renderNotice("failed to start invite!");
+     *   // return or throw here
+     * }
+     * ?uiStatusView.?renderNotice(
+     *   "inviting: " + wantToInclude + "; please wait... ",
+     *   "in the meantime your messages are still encrypted to the old members");
+     * promise.then(function() {
+     *   ?uiStatusView.?renderNotice("your invite succeeded!");
+     *   // SNMembers is published automatically, and handled by your existing recv-hook.
+     * }, function() {
+     *   ?uiStatusView.?renderNotice("your invite failed! you can try again, though");
+     * }).catch(console.log);
+     * // Automatic timeouts to reject 'promise' are not yet implemented, but you
+     * // could make your own using 'Promise.race()'
+     * // Aborting the operation is not yet implemented, but could be in future.
+     * // You should *not* need to call any methods on GroupChannel yourself; if you
+     * // do then that is our bug that needs to be fixed.
+     *
+     * // Session join, session part, and member exclude all work similarly.
+     * // See doc for SessionAction on what to pass to execute().
      *
      * @interface
      * @augments module:mpenc/helper/utils.ReceivingExecutor
@@ -298,9 +577,11 @@ define([
     // jshint -W030
 
     /**
-     * Array containing the types of events that this EventSource can publish.
+     * Array containing the events types that this `EventSource` can publish.
+     * For Session, this is just all the child classes of `SessionNotice`.
      *
      * @memberOf module:mpenc/session.Session
+     * @see module:mpenc/session.SessionNotice
      */
     Session.EventTypes = [SNState, SNMembers,
                           MsgReady, MsgFullyAcked,
@@ -327,6 +608,9 @@ define([
     Session.prototype.messages;
 
     /**
+     * **API WARNING**: the behaviour of this is currently experimental;
+     * clients should not rely on this yet.
+     *
      * @method
      * @returns {module:mpenc/session.SessionState} Current state of this session.
      */

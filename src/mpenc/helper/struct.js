@@ -45,6 +45,7 @@ define([
      * Wrapper around a "get()"-capable object (e.g. Map) that throws
      * <code>ReferenceError</code> when the result is <code>undefined</code>.
      *
+     * @private
      * @memberOf! module:mpenc/helper/struct
      */
     var safeGet = function(gettable, key) {
@@ -236,7 +237,7 @@ define([
      *
      * @class
      * @param iterable {Iterable} Elements of the set
-     * @memberOf! module:mpenc/helper/struct
+     * @memberOf module:mpenc/helper/struct
      */
     var ImmutableSet = function(iterable) {
         if (!(this instanceof ImmutableSet)) {
@@ -247,6 +248,12 @@ define([
 
         // Facebook ImmutableSet provides length
         this.length = items.size;
+        /**
+         * Number of elements in this set.
+         *
+         * @member
+         * @type {number}
+         */
         this.size = items.size;
 
         // adhere to the Iterable interface if available
@@ -441,6 +448,7 @@ define([
 
 
     /**
+     * @private
      * @param iterables {...Object} An Iterable or an object with a
      *      <code>forEach</code> method.
      * @returns {boolean} Whether the given iterables are disjoint.
@@ -466,6 +474,7 @@ define([
      * {@link TrialBuffer} operates on.
      *
      * @interface
+     * @private
      * @memberOf module:mpenc/helper/struct
      */
     var TrialTarget = function() {
@@ -535,7 +544,8 @@ define([
      * <p>If the buffer goes above capacity, the oldest item is automatically
      * dropped without being tried again.</p>
      *
-     * @constructor
+     * @class
+     * @private
      * @param name {string}
      *     Name for this buffer, useful for debugging.
      * @param target {TrialTarget}
@@ -544,15 +554,7 @@ define([
      *     Whether to drop items that overflow the buffer according to
      *     #maxSize, or merely log a warning that the buffer is over
      *     capacity (optional, default: true).
-     * @returns {module:mpenc/helper/struct.TrialBuffer}
-     * @memberOf! module:mpenc/helper/struct#
-     *
-     * @property name {string}
-     *     Name of trial buffer.
-     * @property target {TrialTarget}
-     *     An object satisfying the TrialTarget interface, to apply trials to.
-     * @property drop {boolean}
-     *     Whether to drop parameters beyond the sizing of the buffer.
+     * @memberOf module:mpenc/helper/struct
      */
     var TrialBuffer = function(name, target, drop) {
         this.name = name || '';
@@ -682,6 +684,7 @@ define([
      * the param stays unaccepted for too long.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/helper/struct
      * @implements {module:mpenc/helper/struct.TrialTarget}
      * @param timer {module:mpenc/helper/async.Timer} Timer to run the timeout.

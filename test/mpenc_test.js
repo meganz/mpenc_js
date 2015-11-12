@@ -40,14 +40,18 @@ define([
         describe('create session', function() {
             it('ctor', function() {
                 var server = new dummy.DummyGroupServer();
-                var context = ns.createContext("51", ns.createTimer());
-                var session = ns.createSession(
-                    context, "mpencApiTestSession", server.getChannel("51"),
+                var context = ns.createContext("51", ns.createTimer(),
                     _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
                         get: function() { return _td.ED25519_PUB_KEY; }
                     });
+                var session = ns.createSession(
+                    context, "mpencApiTestSession", server.getChannel("51"));
                 assert.deepEqual(session.curMembers().toArray(), ["51"]);
             });
+
+            // once you have created a session, all other tests are as per
+            // tests for HybridSession in session_test.js; no point duplicating
+            // them here.
         });
     });
 });

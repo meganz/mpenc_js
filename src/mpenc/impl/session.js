@@ -22,7 +22,6 @@ define([
     "mpenc/greet/greeter",
     "mpenc/liveness",
     "mpenc/message",
-    "mpenc/transcript",
     "mpenc/impl/channel",
     "mpenc/impl/liveness",
     "mpenc/impl/transcript",
@@ -32,13 +31,14 @@ define([
     "mpenc/helper/utils",
     "promise-polyfill",
     "megalogger"
-], function(session, channel, greeter, liveness, message, transcript,
+], function(session, channel, greeter, liveness, message,
     channelImpl, livenessImpl, transcriptImpl,
     assert, struct, async, utils, Promise, MegaLogger) {
     "use strict";
 
     /**
      * @exports mpenc/impl/session
+     * @private
      * @description
      * Session related operations
      */
@@ -48,10 +48,11 @@ define([
     var _assert = assert.assert;
 
     // import events
-    var MsgAccepted   = transcript.MsgAccepted;
-    var NotAccepted   = liveness.NotAccepted;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
-    var NotFullyAcked = liveness.NotFullyAcked;
+    var MsgAccepted   = session.MsgAccepted;
+    var MsgFullyAcked = session.MsgFullyAcked;
+    var MsgReady      = session.MsgReady;
+    var NotAccepted   = session.NotAccepted;
+    var NotFullyAcked = session.NotFullyAcked;
     var SNState = session.SNState;
     var SessionState = session.SessionState;
     var SNMembers = session.SNMembers;
@@ -85,10 +86,11 @@ define([
      * Context of a session.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      */
     var SessionContext = struct.createTupleClass("SessionContext",
-        "owner keepfresh timer flowctl codec makeMessageLog");
+        "owner keepfresh timer privKey pubKey pubKeyDir flowctl codec makeMessageLog");
 
     Object.freeze(SessionContext.prototype);
     ns.SessionContext = SessionContext;
@@ -134,12 +136,13 @@ define([
      *
      * <ul>
      * <li><code>{@link module:mpenc/impl/session.SessionBase#recv|RecvInput}</code>:
-     *      {@link module:mpenc/helper/utils~RawRecv}</li>
+     *      {@link module:mpenc/helper/utils.RawRecv}</li>
      * <li><code>{@link module:mpenc/impl/session.SessionBase#onSend|SendOutput}</code>:
-     *      {@link module:mpenc/helper/utils~RawSend}</li>
+     *      {@link module:mpenc/helper/utils.RawSend}</li>
      * </ul>
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/liveness.Flow}
      * @implements {module:mpenc/helper/async.EventSource}
@@ -405,28 +408,28 @@ define([
         var ts = this.transcript();
         var author = this.owner();
         var parents = ts.max();
-        var recipients = this.curMembers().subtract(new ImmutableSet([author]));
+        var readers = this.curMembers().subtract(new ImmutableSet([author]));
 
         var enc = this._msgsec.authEncrypt(ts, {
             author: author,
             parents: parents,
-            recipients: recipients,
+            readers: readers,
             body: this._codec.encode(body),
         });
         var pubtxt = enc.pubtxt, secret = enc.secrets;
 
         var mId = secret.mId;
-        var msg = new Message(mId, author, parents, recipients, body);
+        var msg = new Message(mId, author, parents, readers, body);
         try {
             this._add(msg, pubtxt);
             secret.commit();
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(mId, author, parents, recipients, e);
+            this._handleInvalidMessage(mId, author, parents, readers, e);
             return false;
         }
 
-        var stat = this._send.publish({ pubtxt: pubtxt, recipients: recipients });
+        var stat = this._send.publish({ pubtxt: pubtxt, recipients: readers });
         return stat.some(Boolean);
     };
 
@@ -455,11 +458,11 @@ define([
             var body = this._codec.decode(message.body);
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(mId, message.author, message.parents, message.recipients, e);
+            this._handleInvalidMessage(mId, message.author, message.parents, message.readers, e);
             return true; // decrypt succeeded so message was indeed properly part of the session
         }
 
-        var msg = new Message(mId, message.author, message.parents, message.recipients, body);
+        var msg = new Message(mId, message.author, message.parents, message.readers, body);
         this._tryAccept.trial([msg, pubtxt, secret]);
         return true;
     };
@@ -471,7 +474,7 @@ define([
         return this._send.subscribe(send_out);
     };
 
-    SessionBase.prototype._handleInvalidMessage = function(mId, author, parents, recipients, error) {
+    SessionBase.prototype._handleInvalidMessage = function(mId, author, parents, readers, error) {
         // TODO(xl): [D/F] more specific handling of:
         // - message decode error
         // - total-order breaking
@@ -511,7 +514,7 @@ define([
             return true;
         } catch (e) {
             secret.destroy();
-            this._handleInvalidMessage(msg.mId, msg.author, msg.parents, msg.recipients, e);
+            this._handleInvalidMessage(msg.mId, msg.author, msg.parents, msg.readers, e);
             return true; // message was accepted as invalid, don't buffer again
         }
     };
@@ -684,6 +687,7 @@ define([
      * A Session with a linear order on its membership operations.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/session
      * @implements {module:mpenc/session.Session}
      * @param context {module:mpenc/impl/session.SessionContext} Session context.
@@ -693,17 +697,21 @@ define([
      * @param makeMessageSecurity {function} 1-arg factory function, that takes
      *      a {@link module:mpenc/greet/greeter.GreetStore} and creates a new
      *      {@link module:mpenc/message.MessageSecurity}.
-     * @param [autoIncludeExtra] {boolean} Whether to automatically include
+     * @param [options] {Object} Tweak some behaviours; see below. Note that
+     *      non-default values are, in some sense, "less safe" than the default
+     *      values; please be aware of this and don't surprise your users.
+     * @param [options.autoIncludeExtra] {boolean} Whether to automatically include
      *      new members that enter the transport channel. Default: false.
-     * @param [stayIfLastMember] {boolean} Whether to remain in the channel
+     * @param [options.stayIfLastMember] {boolean} Whether to remain in the channel
      *      instead of leaving it, as the last member. Default: false.
      */
     var HybridSession = function(context, sId, channel,
-        greeter, makeMessageSecurity, autoIncludeExtra, stayIfLastMember) {
+        greeter, makeMessageSecurity, options) {
+        options = options || {};
         this._context = context;
         this._events = new EventContext(Session.EventTypes);
-        this._autoIncludeExtra = autoIncludeExtra || false;
-        this._stayIfLastMember = stayIfLastMember || false;
+        this._autoIncludeExtra = options.autoIncludeExtra || false;
+        this._stayIfLastMember = options.stayIfLastMember || false;
         this._fubar = false;
 
         this._owner = context.owner;
@@ -713,11 +721,15 @@ define([
 
         this._timer = context.timer;
         var cancels = [];
+        var self = this;
 
         this._flowctl = context.flowctl;
 
-        this._messages = context.makeMessageLog();
-        cancels.push(this._messages.bindTarget(this._events));
+        var messageLog = context.makeMessageLog();
+        cancels.push(messageLog.onUpdate(function(update) {
+            self._events.publish(MsgReady.fromMessageLogUpdate(messageLog, update));
+        }));
+        this._messages = messageLog;
 
         this._greeter = greeter;
         this._makeMessageSecurity = makeMessageSecurity;
@@ -1384,9 +1396,9 @@ define([
             " -> " + (this._current ? this._current.sess.toString() : null));
         var oldMembers = this._previous ? this._previous.sess.curMembers() : ownSet;
         var newMembers = greeting ? greeting.getNextMembers() : ownSet;
-        var parents = this._current ? this._current.parents : ImmutableSet.EMPTY;
         var diff = oldMembers.diff(newMembers);
-        this._events.publish(new SNMembers(newMembers.subtract(diff[0]), diff[0], diff[1], parents));
+        this._events.publish(new SNMembers(
+            newMembers.subtract(diff[0]), diff[0], diff[1], this._messages.curParents()));
 
         return greeting;
     };
@@ -1416,9 +1428,13 @@ define([
                 + parents.toArray().map(btoa));
         }
 
-        cancels.push(this._messages.bindSource(sess, sess.transcript(), new Map(previous ? [
+        // publish MsgAccepted events into our MessageLog
+        var msgAcceptedSubscriber = this._messages.getSubscriberFor(sess.transcript(), new Map(previous ? [
             [parents, previous.sess.transcript()]
-        ] : [])));
+        ] : []));
+        cancels.push(sess.onEvent(MsgAccepted)(function(evt) {
+            return msgAcceptedSubscriber(evt.mId);
+        }));
 
         return {
             sess: sess,

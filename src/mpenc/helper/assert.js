@@ -23,6 +23,7 @@ define([
 
     /**
      * @exports mpenc/helper/assert
+     * @private
      * @description
      * <p>Assertion helper module.</p>
      *
@@ -44,6 +45,7 @@ define([
      * @param message
      *     Message for exception on failure.
      * @constructor
+     * @private
      */
     ns.AssertionFailed = function(message) {
         this.message = message;

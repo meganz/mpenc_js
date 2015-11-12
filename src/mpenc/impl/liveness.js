@@ -26,6 +26,7 @@ define([
 
     /**
      * @exports mpenc/impl/liveness
+     * @private
      * @description Liveness properties; implementation.
      */
     var ns = {};
@@ -33,7 +34,6 @@ define([
     var Monitor = async.Monitor;
     var Subscribe = async.Subscribe;
     var ImmutableSet = struct.ImmutableSet;
-    var MsgFullyAcked = transcript.MsgFullyAcked;
 
     /**
      * Default ConsistencyMonitor.
@@ -48,6 +48,7 @@ define([
      * The latter is only started if need_ackmon returns True for the key.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/liveness
      * @implements {module:mpenc/liveness.ConsistencyMonitor}
      * @param owner {string} owner of the local process.

@@ -1,20 +1,25 @@
 {
     "templates": {
-        "applicationName": "mpEnc Library",
+        "systemName": "@systemName@",
         "disqus": "",
         "googleAnalytics": "",
         "openGraph": {
-            "title": "mpEnc Library",
+            "title": "mpENC library",
             "type": "website",
             "image": "",
             "site_name": "",
             "url": ""
         },
         "meta": {
-            "title": "mpEnc Library",
+            "title": "mpENC library",
             "description": "",
             "keyword": ""
-        }
+        },
+        "theme": "simplex-custom",
+        "inverseNav": true
+    },
+    "opts": {
+        "template": "node_modules/ink-docstrap/template"
     },
     "plugins": ["plugins/markdown"]
 }

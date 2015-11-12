@@ -20,18 +20,20 @@ define([
     "mpenc/transcript",
     "mpenc/message",
     "mpenc/helper/assert",
+    "mpenc/helper/async",
     "mpenc/helper/graph",
     "mpenc/helper/struct",
     "megalogger",
     "es6-collections",
 ], function(
-    transcript, message, assert, graph, struct,
+    transcript, message, assert, async, graph, struct,
     MegaLogger, es6_shim
 ) {
     "use strict";
 
     /**
      * @exports mpenc/impl/transcript
+     * @private
      * @description
      * Transcript implementation.
      */
@@ -40,8 +42,8 @@ define([
     var logger = MegaLogger.getLogger("transcript", undefined, "mpenc");
     var _assert = assert.assert;
 
-    var MsgReady = transcript.MsgReady;
     var MessageLog = transcript.MessageLog;
+    var ObservableSequence = async.ObservableSequence;
     var ImmutableSet = struct.ImmutableSet;
     var safeGet = struct.safeGet;
 
@@ -49,6 +51,7 @@ define([
      * A set of BaseTranscript forming all or part of a session.
      *
      * @class
+     * @private
      * @memberOf module:mpenc/impl/transcript
      * @implements {module:mpenc/transcript.Transcript}
      */
@@ -73,7 +76,7 @@ define([
 
         this._context = new Map(); // mId: uId: mId1, latest message sent by uId before mId, or null
 
-        this._unackby = new Map(); // mId: Set[uId], recipients of mId that we have not yet seen ack it
+        this._unackby = new Map(); // mId: Set[uId], readers of mId that we have not yet seen ack it
         this._unacked = ImmutableSet.EMPTY; // Set[mId] of not fully-acked messages
 
         var self = this;
@@ -165,7 +168,7 @@ define([
 
         if (u0 === u1) {
             return this._authorIndex.get(m0) <= this._authorIndex.get(m1);
-        } else if (this._messages.get(m1).recipients.has(u0)) {
+        } else if (this._messages.get(m1).readers.has(u0)) {
             var p0 = this._context.get(m1).get(u0);
             return p0 !== null && this._authorIndex.get(m0) <= this._authorIndex.get(p0);
         } else {
@@ -255,7 +258,7 @@ define([
         }
 
         var self = this;
-        var mId = msg.mId, uId = msg.author, pmId = msg.parents, ruId = msg.recipients;
+        var mId = msg.mId, uId = msg.author, pmId = msg.parents, ruId = msg.readers;
         // last message by the same author
         var pumId = this._authorMessages.has(uId)? this._authorMessages.get(uId).slice(-1)[0]: null;
         var pmIdArr = pmId.toArray();
@@ -284,7 +287,7 @@ define([
 
         if (ruId.size === 0) {
             // in principle, can support empty room talking to yourself
-            logger.warn("message has no recipients: " + btoa(mId));
+            logger.warn("message has no readers: " + btoa(mId));
         }
 
         // ensure graph is complete, also preventing cycles
@@ -409,8 +412,8 @@ define([
         if (ruId === undefined) {
             throw new Error("not implemented");
         }
-        if (!this._messages.get(mId).recipients.has(ruId)) {
-            throw new ReferenceError("invalid recipient: " + ruId);
+        if (!this._messages.get(mId).readers.has(ruId)) {
+            throw new ReferenceError("invalid reader: " + ruId);
         }
         var self = this;
         var visible = function(m) { return self._messages.get(m).members().has(ruId); };
@@ -430,15 +433,18 @@ define([
     /**
      * MessageLog that orders messages in the same way as the accept-order.
      *
-     * That is, add() always appends to the log.
+     * Much of the code could be reused if we ever want to do different UI
+     * orderings; for now we'll avoid too many levels of inheritance.
      *
      * @class
+     * @private
+     * @extends {module:mpenc/helper/async.ObservableSequence}
+     * @implements {module:mpenc/transcript.MessageLog}
      * @memberOf module:mpenc/impl/transcript
-     * @extends {module:mpenc/transcript.MessageLog}
      */
     var DefaultMessageLog = function() {
         if (!(this instanceof DefaultMessageLog)) { return new DefaultMessageLog(); }
-        MessageLog.call(this);
+        ObservableSequence.call(this);
         this._messageIndex = new Map(); // mId: int, index into self as an Array
         this._parents = []; // [ImmutableSet([mId of parents])]
         this._transcripts = new Set();
@@ -446,26 +452,30 @@ define([
         this._lastTranscript = null;
     };
 
-    DefaultMessageLog.prototype = Object.create(MessageLog.prototype);
+    DefaultMessageLog.prototype = Object.create(ObservableSequence.prototype);
 
-    DefaultMessageLog.prototype.indexOf = function(mId) {
-        return this._messageIndex.has(mId) ? this._messageIndex.get(mId) : -1;
-    };
-
-    // MessageLog
-
-    DefaultMessageLog.prototype.add = function(tr, mId, parents) {
+    /**
+     * Add a message to the log, at an index defined by the implementation.
+     *
+     * Subscribers to the ObservableSequence trait of this class are notified.
+     *
+     * @method
+     * @param transcript {module:mpenc/transcript.Transcript} Transcript object that contains the message.
+     * @param mId {string} Identifier of the message to add.
+     * @param parents {string} Effective Payload parents of this message.
+     */
+    DefaultMessageLog.prototype._add = function(transcript, mId, parents) {
         if (this._messageIndex.has(mId)) {
             throw new Error("already added: " + btoa(mId));
         }
-        if (MsgReady.shouldIgnore(tr, mId)) {
+        if (MessageLog.shouldIgnore(transcript, mId)) {
             return;
         }
         parents = ImmutableSet.from(parents);
         if (!parents.size) {
             // if this message is a minimum for this transcript, then use
             // transcript's parents instead, available externally,
-            var trParents = this._transcriptParents.get(tr);
+            var trParents = this._transcriptParents.get(transcript);
             if (trParents && trParents.size) {
                 _assert(trParents.toArray().every(this.has.bind(this)));
                 parents = trParents;
@@ -473,7 +483,7 @@ define([
                     " with: {" + parents.toArray().map(btoa) + "}");
             }
         }
-        this._transcripts.add(tr);
+        this._transcripts.add(transcript);
         this._messageIndex.set(mId, this.length);
         this._parents.push(parents);
         this.push(mId);
@@ -484,7 +494,7 @@ define([
     // of the previous transcript, if the former set is empty.
     DefaultMessageLog.prototype._resolveEarlier = function(tscr, mIds) {
         _assert(this._transcriptParents.has(tscr), "invalid transcript: " + tscr);
-        var resolved = MsgReady.resolveEarlier(tscr, mIds);
+        var resolved = MessageLog.resolveEarlier(tscr, mIds);
         if (!resolved.size) {
             resolved = this._transcriptParents.get(tscr);
         }
@@ -493,12 +503,25 @@ define([
         return resolved;
     };
 
-    DefaultMessageLog.prototype.curParents = function() {
-        var lastTs = this._lastTranscript;
-        return lastTs ? this._resolveEarlier(lastTs, lastTs.max()) : ImmutableSet.EMPTY;
-    };
-
-    DefaultMessageLog.prototype.bindSource = function(source, transcript, parents) {
+    /**
+     * Create a subscriber to handle messages that are accepted into the given
+     * Transcript. This should only be called once for a given transcript.
+     *
+     * Whenever the subscriber receives a message ID, which must already be in
+     * the Transcript, add it to this log too but only if it passes the
+     * `MessageLog.shouldIgnore` test.
+     *
+     * @method
+     * @protected
+     * @param transcript {module:mpenc/transcript.Transcript}
+     *      Transcript object that contains the message.
+     * @param [parents] {Map} Map of `{ ImmutableSet([MessageID]): Transcript }`,
+     *      the latest messages to occur before the event that created `transcript`,
+     *      partitioned by the parent Transcript that the messages belong to.
+     * @returns {module:mpenc/helper/async~subscriber} 1-arg subscriber
+     *      function, that takes a message-ID (string) and returns undefined.
+     */
+    DefaultMessageLog.prototype.getSubscriberFor = function(transcript, parents) {
         if (parents && parents.size > 1) {
             throw new Error("DefaultMessageLog does not support transcripts with > 1 parent");
         }
@@ -509,13 +532,22 @@ define([
             this._resolveEarlier(parentVal[1], parentMIds) : ImmutableSet.EMPTY;
         this._transcriptParents.set(transcript, payloadParents);
         this._lastTranscript = transcript;
-        return MessageLog.prototype.bindSource.call(this, source, transcript);
+
+        var self = this;
+        return function(mId) {
+            _assert(transcript.has(mId));
+            if (MessageLog.shouldIgnore(transcript, mId)) {
+                return;
+            }
+            self._add(transcript, mId,
+                MessageLog.resolveEarlier(transcript, transcript.pre(mId)));
+        };
     };
 
     DefaultMessageLog.prototype._getTranscript = function(mId) {
         var targetTranscript;
         this._transcripts.forEach(function(ts) {
-            if (ts.has(mId) && !MsgReady.shouldIgnore(ts, mId)) {
+            if (ts.has(mId) && !MessageLog.shouldIgnore(ts, mId)) {
                 targetTranscript = ts;
             }
         });
@@ -525,6 +557,23 @@ define([
             throw new Error("transcript not found for mId:" + btoa(mId));
         }
     };
+
+    // MessageLog
+
+    DefaultMessageLog.prototype.at = function(index) {
+        return this[(index < 0) ? this.length + index : index];
+    };
+
+    DefaultMessageLog.prototype.indexOf = function(mId) {
+        return this._messageIndex.has(mId) ? this._messageIndex.get(mId) : -1;
+    };
+
+    DefaultMessageLog.prototype.curParents = function() {
+        var lastTs = this._lastTranscript;
+        return lastTs ? this._resolveEarlier(lastTs, lastTs.max()) : ImmutableSet.EMPTY;
+    };
+
+    // length, slice, already implemented by ObservableSequence via Array
 
     // Messages
 
