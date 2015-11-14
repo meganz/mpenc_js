@@ -19,6 +19,7 @@
 define([
     "mpenc/channel",
     "mpenc/impl/channel",
+    "mpenc/message",
     "mpenc/helper/async",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
@@ -26,7 +27,7 @@ define([
     "es6-collections",
     "megalogger"
 ], function(
-    channel, channelImpl,
+    channel, channelImpl, message,
     async, struct, utils, assert, es6_shim, MegaLogger
 ) {
     "use strict";
@@ -42,6 +43,7 @@ define([
 
     var ImmutableSet = struct.ImmutableSet;
     var BaseGroupChannel = channelImpl.BaseGroupChannel;
+    var DecryptVerifyError = message.DecryptVerifyError;
 
     var _assert = assert.assert;
 
@@ -81,11 +83,11 @@ define([
             },
             decryptVerify: function(ts, pubtxt, sender) {
                 if (pubtxt.charAt(0) !== "{") {
-                    throw new Error("PacketRejected");
+                    throw new DecryptVerifyError("PacketRejected");
                 }
                 var body = JSON.parse(pubtxt);
                 if (atob(body.sId) !== sId) {
-                    throw new Error("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
+                    throw new DecryptVerifyError("PacketRejected: not our expected sId " + btoa(sId) + "; actual " + body.sId);
                 }
                 body.parents = body.parents.map(atob);
                 body.body = atob(body.sectxt);

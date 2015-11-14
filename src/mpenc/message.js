@@ -240,6 +240,23 @@ define([
     ns.DefaultMessageCodec = DefaultMessageCodec;
 
 
+    /**
+     * Decryption-verification exception. If logging errors for debugging
+     * purposes, these errors may be ignored, or logged at a lower severity.
+     *
+     * @param message {string} Message for exception on failure.
+     * @class
+     * @private
+     * @memberOf module:mpenc/message.DecryptVerifyError
+     */
+    var DecryptVerifyError = function(message) {
+        this.message = message;
+    };
+    DecryptVerifyError.prototype = Object.create(Error.prototype);
+    DecryptVerifyError.prototype.name = 'DecryptVerifyError';
+    ns.DecryptVerifyError = DecryptVerifyError;
+
+
     var _dummyMessageSecrets = function(signature, content) {
         return {
             // ignore sidkeyHint since that's unauthenticated
@@ -437,6 +454,10 @@ define([
         var inspected = _inspectMessage(decoded.content);
         var sidkeyHash = utils.sha256(sessionID + groupKey);
 
+        if (!signingPubKey) {
+            throw new DecryptVerifyError("no key found for: " + authorHint);
+        }
+
         var verifySig = codec.verifyMessageSignature(
             codec.MESSAGE_TYPE.MPENC_DATA_MESSAGE,
             inspected.rawMessage,
@@ -445,7 +466,7 @@ define([
             sidkeyHash);
 
         if (!verifySig) {
-            throw new Error("bad signature");
+            throw new DecryptVerifyError("bad signature");
         }
 
         var decrypted = _decrypt(inspected, groupKey, authorHint, this._greetStore.members);

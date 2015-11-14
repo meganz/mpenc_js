@@ -71,6 +71,7 @@ define([
     var ExplicitAck = message.ExplicitAck;
     var Consistency = message.Consistency;
     var GreetingMetadata = greeter.GreetingMetadata;
+    var DecryptVerifyError = message.DecryptVerifyError;
 
     // import utils
     var Observable = async.Observable;
@@ -449,8 +450,12 @@ define([
             var message = dec.message, secret = dec.secrets;
             mId = secret.mId;
         } catch (e) {
-            logger.debug("SessionBase.recv rejected packet: " + e);
-            return false;
+            if (e instanceof DecryptVerifyError) {
+                logger.debug("SessionBase.recv rejected packet: " + e);
+                return false;
+            } else {
+                throw e;
+            }
         }
         _assert(message.author !== this.owner(), 'received non-duplicate message from self: ' + btoa(mId));
 
