@@ -20,8 +20,8 @@ define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
     "asmcrypto",
-    "jodid25519"
-], function(assert, utils, asmCrypto, jodid25519) {
+    "tweetnacl"
+], function(assert, utils, asmCrypto, tweetnacl) {
     "use strict";
 
     /**
@@ -60,8 +60,7 @@ define([
         // equivalent to first block of HKDF, see RFC 5869
         context = context === undefined ? "mpenc group key" : context;
         var hmac = asmCrypto.HMAC_SHA256.bytes;
-        return jodid25519.utils.bytes2string(
-            hmac(context + "\x01", hmac(sharedCardinalKey, "")));
+        return utils.bytes2string(hmac(context + "\x01", hmac(sharedCardinalKey, "")));
     };
 
 
@@ -124,12 +123,14 @@ define([
      *     Member's identifier string.
      * @property members
      *     List of all participants.
-     * @property intKeys
-     *     List (array) of intermediate keys for all participants. The key for
-     *     each participant contains all others' contributions but the
-     *     participant's one.
-     * @property privKey
-     *     This participant's private key.
+     * @property intKeys {Array<string>}
+     *     List (array) of intermediate keys (as 8-bit strings) for all
+     *     participants. The key for each participant contains all others'
+     *     contributions except for this participant's one.
+     * @property privKeyList {Array<Uint8Array>}
+     *     List of x25519 private values for this participant. The values are
+     *     Uint8Array to save some steps whilst using tweetnacl; we never move
+     *     them out of this class so there is no need to convert to string.
      * @property groupKey
      *     Shared secret, the group key.
      */
@@ -314,7 +315,7 @@ define([
         var myPos = this.members.indexOf(this.id);
 
         // Clone message.
-        message = utils.clone(message);
+        message = utils.clone(message, true);
         if (myPos === this.members.length - 1) {
             // I'm the last in the chain:
             // Cardinal is secret key.
@@ -347,22 +348,25 @@ define([
      */
     ns.CliquesMember.prototype._renewPrivKey = function() {
         // Make a new private key.
-        this.privKeyList.push(jodid25519.dh.generateKey());
+        var privKey = nacl.box.keyPair().secretKey;
+        this.privKeyList.push(privKey);
 
         // Update intermediate keys.
         var myPos = this.members.indexOf(this.id);
         for (var i = 0; i < this.intKeys.length; i++) {
             if (i !== myPos) {
-                var lastIndex = this.privKeyList.length - 1;
-                this.intKeys[i] = jodid25519.dh.computeKey(this.privKeyList[lastIndex],
-                                                           this.intKeys[i]);
+                var result;
+                if (this.intKeys[i]) {
+                    result = nacl.scalarMult(privKey, utils.string2bytes(this.intKeys[i]));
+                } else {
+                    result = nacl.scalarMult.base(privKey);
+                }
+                this.intKeys[i] = utils.bytes2string(result)
             }
         }
 
         // New cardinal is "own" intermediate scalar multiplied with our private.
-        var cardinalKey = ns._computeKeyList(this.privKeyList,
-                                             this.intKeys[myPos]);
-        return '' + cardinalKey;
+        return ns._computeKeyList(this.privKeyList, this.intKeys[myPos]);
     };
 
     /**
@@ -409,20 +413,20 @@ define([
      * Applies scalar multiplication of all private keys with an intermediate
      * key.
      *
-     * @param privKeyList {array}
+     * @param privKeyList {Array<Uint8Array>}
      *     List of private keys.
-     * @param intKey
+     * @param intKey {string}
      *     Intermediate key.
      * @returns
      *     Scalar product of keys.
      * @private
      */
     ns._computeKeyList = function(privKeyList, intKey) {
-        var result = intKey;
-        for (var i in privKeyList) {
-            result = jodid25519.dh.computeKey(privKeyList[i], result);
+        var result = intKey ? utils.string2bytes(intKey) : null;
+        for (var i = 0; i < privKeyList.length; i++) {
+            result = result ? nacl.scalarMult(privKeyList[i], result) : nacl.scalarMult.base(privKeyList[i]);
         }
-        return result;
+        return result ? utils.bytes2string(result) : null;
     };
 
 

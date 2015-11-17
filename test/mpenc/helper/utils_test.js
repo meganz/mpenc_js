@@ -51,11 +51,11 @@ define([
             });
         });
 
-        describe('_newKey08()', function() {
+        describe('randomString()', function() {
             it('properly sized keys', function() {
                 var keySizes = [128, 256, 512];
                 for (var i = 0; i < keySizes.length; i++) {
-                    var newKey = ns._newKey08(keySizes[i]);
+                    var newKey = ns.randomString(keySizes[i] / 8);
                     assert.strictEqual(_tu.keyBits(newKey, 8), keySizes[i]);
                 }
             });

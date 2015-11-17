@@ -22,9 +22,8 @@ define([
     "mpenc/helper/utils",
     "mpenc/codec",
     "asmcrypto",
-    "jodid25519",
     "megalogger",
-], function(assert, struct, utils, codec, asmCrypto, jodid25519, MegaLogger) {
+], function(assert, struct, utils, codec, asmCrypto, MegaLogger) {
     "use strict";
 
     /**
@@ -386,7 +385,7 @@ define([
      * Encrypts a given data message.
      *
      * The data message is encrypted using AES-128-CTR, and a new random
-     * IV/nonce (12 byte) is generated and returned.
+     * IV/nonce (96 bits, 12 bytes) is generated and returned.
      *
      * @param data {string}
      *     Binary string data message.
@@ -403,8 +402,7 @@ define([
      */
     ns._encryptRaw = function(dataBytes, key, paddingSize) {
         paddingSize = paddingSize | 0;
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = utils._newKey08(96);
+        var keyBytes = utils.string2bytes(key);
         // Prepend length in bytes to message.
         _assert(dataBytes.length < 0xffff,
                 'Message size too large for encryption scheme.');
@@ -417,10 +415,9 @@ define([
             var numPaddingBytes = exponentialPaddingSize - dataBytes.length;
             dataBytes += (new Array(numPaddingBytes)).join('\u0000');
         }
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
-        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, ivBytes);
-        return { data: jodid25519.utils.bytes2string(cipherBytes),
-                 iv: jodid25519.utils.bytes2string(nonceBytes) };
+        var nonce = utils.randomString(12);
+        var cipherBytes = asmCrypto.AES_CTR.encrypt(dataBytes, keyBytes, utils.string2bytes(nonce + "\0\0\0\0"));
+        return { data: utils.bytes2string(cipherBytes), iv: nonce };
     };
 
     /**
@@ -578,12 +575,11 @@ define([
         if (data === null || data === undefined) {
             return null;
         }
-        var keyBytes = new Uint8Array(jodid25519.utils.string2bytes(key));
-        var nonceBytes = jodid25519.utils.string2bytes(iv);
-        var ivBytes = new Uint8Array(nonceBytes.concat(utils.arrayMaker(4, 0)));
+        var keyBytes = utils.string2bytes(key);
+        var ivBytes = utils.string2bytes(iv.slice(0, 12) + "\0\0\0\0");
         var clearBytes = asmCrypto.AES_CTR.decrypt(data, keyBytes, ivBytes);
         // Strip off message size and zero padding.
-        var clearString = jodid25519.utils.bytes2string(clearBytes);
+        var clearString = utils.bytes2string(clearBytes);
         var messageSize = codec._bin2short(clearString.slice(0, 2));
         clearString = clearString.slice(2, messageSize + 2);
         return clearString;

@@ -25,13 +25,13 @@ define([
     "mpenc/codec",
     "mpenc/version",
     "mpenc/helper/utils",
-    "jodid25519",
     "asmcrypto",
+    "tweetnacl",
     "megalogger",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, version, utils, jodid25519, asmCrypto, MegaLogger,
+], function(ns, version, utils, asmCrypto, nacl, MegaLogger,
             chai, sinon_sandbox, sinon_assert) {
     "use strict";
 
@@ -380,8 +380,8 @@ define([
             // Extend timeout, this test may take a bit longer.
             this.timeout(this.timeout() * 3);
             for (var i = 0; i < 5; i++) {
-                var privKey = jodid25519.utils.bytes2string(utils._newKey08(512));
-                var pubKey = jodid25519.eddsa.publicKey(privKey);
+                var privKey = utils.randomString(32);
+                var pubKey = utils.toPublicKey(privKey);
                 var messageLength = Math.floor(1024 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var signature = ns.signMessage(ns.MESSAGE_TYPE.MPENC_GREET_MESSAGE,

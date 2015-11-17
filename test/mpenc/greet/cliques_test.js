@@ -44,9 +44,9 @@ define([
 
             it('vanilla cases with intKey', function() {
                 var intKey = _td.C25519_PUB_KEY;
-                var tests = [[_td.C25519_PRIV_KEY],
-                             [_td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY],
-                             [_td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY]];
+                var tests = [[_td.C25519_PRIV_KEY_B],
+                             [_td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B],
+                             [_td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B]];
                 for (var i = 0; i < tests.length; i++) {
                     assert.strictEqual(btoa(ns._computeKeyList(tests[i], intKey)),
                                        expected[i + 1]);
@@ -54,9 +54,9 @@ define([
             });
 
             it('without intKey', function() {
-                var tests = [[_td.C25519_PRIV_KEY],
-                             [_td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY],
-                             [_td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY, _td.C25519_PRIV_KEY]];
+                var tests = [[_td.C25519_PRIV_KEY_B],
+                             [_td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B],
+                             [_td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B, _td.C25519_PRIV_KEY_B]];
                 for (var i = 0; i < tests.length; i++) {
                     assert.strictEqual(btoa(ns._computeKeyList(tests[i])),
                                        expected[i]);
@@ -99,7 +99,7 @@ define([
             it('update local key state', function() {
                 var numMembers = 5;
                 var participant = new ns.CliquesMember('3');
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 var intKeys = [];
                 for (var i = 1; i <= numMembers; i++) {
                     participant.members.push(i.toString());
@@ -107,13 +107,13 @@ define([
                 }
                 participant._setKeys(intKeys);
                 assert.deepEqual(participant.intKeys, intKeys);
-                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY_B);
             });
 
             it('update local key state with key list', function() {
                 var numMembers = 5;
                 var participant = new ns.CliquesMember('3');
-                participant.privKeyList = [_PRIV_KEY(), _PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B(), _PRIV_KEY_B()];
                 var intKeys = [];
                 for (var i = 1; i <= numMembers; i++) {
                     participant.members.push(i.toString());
@@ -121,7 +121,7 @@ define([
                 }
                 participant._setKeys(intKeys);
                 assert.deepEqual(participant.intKeys, intKeys);
-                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY_B);
             });
         });
 
@@ -129,7 +129,7 @@ define([
             it('renewing private key and int keys', function() {
                 var numMembers = 5;
                 var participant = new ns.CliquesMember('3');
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 participant.intKeys = [];
                 for (var i = 1; i <= numMembers; i++) {
                     participant.members.push(i.toString());
@@ -137,8 +137,8 @@ define([
                 }
                 var cardinalKey = participant._renewPrivKey();
                 assert.lengthOf(participant.privKeyList, 2);
-                assert.strictEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(cardinalKey, _td.C25519_PRIV_KEY);
+                assert.strictEqual(utils.bytes2string(participant.privKeyList[0]), _td.C25519_PRIV_KEY);
+                assert.notDeepEqual(cardinalKey, _td.C25519_PRIV_KEY_B);
             });
         });
 
@@ -278,7 +278,7 @@ define([
                 }
                 var participant = new ns.CliquesMember('3');
                 participant.members = members;
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
@@ -299,7 +299,7 @@ define([
                 }
                 var participant = new ns.CliquesMember('3');
                 participant.members = members;
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
@@ -309,7 +309,7 @@ define([
                 participant.downflow(broadcastMessage);
                 assert.strictEqual(participant.intKeys, messageKeys);
                 assert.strictEqual(_tu.keyBits(participant.groupKey, 8), 256);
-                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.groupKey, _td.C25519_PRIV_KEY_B);
             });
 
             it('ika duplicate downflow message process', function() {
@@ -322,7 +322,7 @@ define([
                 }
                 var participant = new ns.CliquesMember('3');
                 participant.members = members;
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 var broadcastMessage = new ns.CliquesMessage();
                 broadcastMessage.source = '5';
                 broadcastMessage.agreement = 'ika';
@@ -357,7 +357,7 @@ define([
                 var numMembers = 5;
                 var members = [];
                 var participant = new ns.CliquesMember('3');
-                participant.privKeyList = [_PRIV_KEY()];
+                participant.privKeyList = [_PRIV_KEY_B()];
                 participant.groupKey = _PRIV_KEY();
                 participant.intKeys = [];
                 for (var i = 1; i <= numMembers; i++) {
@@ -369,8 +369,8 @@ define([
                 assert.lengthOf(message.members, 6);
                 assert.lengthOf(message.intKeys, 6);
                 assert.strictEqual(_tu.keyBits(participant.privKeyList[1], 8), 256);
-                assert.deepEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY);
+                assert.deepEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY_B);
+                assert.notDeepEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY_B);
                 assert.strictEqual(message.agreement, 'aka');
                 assert.strictEqual(message.flow, 'up');
                 assert.strictEqual(_tu.keyBits(message.intKeys[0], 8), 256);
@@ -419,8 +419,8 @@ define([
                 for (var i = 1; i <= initialMembers; i++) {
                     participant.members.push(i.toString());
                     participant.intKeys.push(_PRIV_KEY());
-                    participant.privKeyList = [_PRIV_KEY()];
-                    participant.goupKey = _PRIV_KEY();
+                    participant.privKeyList = [_PRIV_KEY_B()];
+                    participant.groupKey = _PRIV_KEY();
                 }
                 sinon_sandbox.spy(ns, 'deriveGroupKey');
                 // Exclude members '1' and '4'.
@@ -428,9 +428,9 @@ define([
                 var message = participant.akaExclude(['1', '4']);
                 assert.deepEqual(message.members, thenMembers);
                 assert.deepEqual(participant.members, thenMembers);
-                assert.deepEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY);
-                assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY);
+                assert.deepEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY_B);
+                assert.notDeepEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY_B);
+                assert.notDeepEqual(participant.groupKey, _td.C25519_PRIV_KEY_B);
                 assert.notDeepEqual(participant.groupKey, undefined);
                 sinon_assert.calledOnce(ns.deriveGroupKey);
             });
@@ -441,16 +441,16 @@ define([
                 var initialMembers = 5;
                 var participant = new ns.CliquesMember('3');
                 participant.intKeys = [];
-                participant.privKeyList = [_PRIV_KEY()];
-                participant.goupKey = _PRIV_KEY();
+                participant.privKeyList = [_PRIV_KEY_B()];
+                participant.groupKey = _PRIV_KEY();
                 for (var i = 1; i <= initialMembers; i++) {
                     participant.members.push(i.toString());
                     participant.intKeys.push(_PRIV_KEY());
                 }
                 var chkGroupKey = participant.groupKey;
                 var message = participant.akaRefresh();
-                assert.strictEqual(participant.privKeyList[0], _td.C25519_PRIV_KEY);
-                assert.notStrictEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY);
+                assert.strictEqual(utils.bytes2string(participant.privKeyList[0]), _td.C25519_PRIV_KEY);
+                assert.notStrictEqual(participant.privKeyList[1], _td.C25519_PRIV_KEY_B);
                 assert.notStrictEqual(participant.groupKey, chkGroupKey);
                 assert.lengthOf(participant.privKeyList, 2);
                 assert.strictEqual(message.dest, '');
@@ -472,8 +472,8 @@ define([
                 for (var i = 1; i <= initialMembers; i++) {
                     participant.members.push(i.toString());
                     participant.intKeys.push(_PRIV_KEY());
-                    participant.privKeyList = [_PRIV_KEY()];
-                    participant.goupKey = _PRIV_KEY();
+                    participant.privKeyList = [_PRIV_KEY_B()];
+                    participant.groupKey = _PRIV_KEY();
                 }
                 participant.akaQuit();
                 assert.deepEqual(participant.members, ['1', '2', '4', '5']);
@@ -613,6 +613,10 @@ define([
      * Returns a fresh copy of the private key constant, protected from "cleaning".
      * @returns Array of words.
      */
+    function _PRIV_KEY_B() {
+        return utils.clone(_td.C25519_PRIV_KEY_B);
+    }
+
     function _PRIV_KEY() {
         return utils.clone(_td.C25519_PRIV_KEY);
     }

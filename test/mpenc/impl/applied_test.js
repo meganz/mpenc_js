@@ -35,9 +35,11 @@ define([
 
     var ImmutableSet = struct.ImmutableSet;
 
+    var pubKeyDir = new Map();
     var testTimer;
 
     beforeEach(function() {
+        pubKeyDir.clear();
         testTimer = new async.Timer();
     });
 
@@ -48,10 +50,10 @@ define([
     var logError = function(e) { console.log(e.stack); };
 
     var mkHybridSession = function(sId, owner, server, options) {
+        var ownKeyPair = mpenc.createKeyPair();
+        pubKeyDir.set(owner, ownKeyPair.pubKey);
         var context = mpenc.createContext(owner, testTimer,
-            _td.ED25519_PRIV_KEY, _td.ED25519_PUB_KEY, {
-                get: function() { return _td.ED25519_PUB_KEY; }
-            }, new dummy.DummyFlowControl());
+            ownKeyPair, pubKeyDir, new dummy.DummyFlowControl());
         return mpenc.createSession(context, sId, server.getChannel(owner), options);
     };
 

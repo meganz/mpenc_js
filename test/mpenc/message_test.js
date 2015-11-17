@@ -26,13 +26,12 @@ define([
     "mpenc/codec",
     "mpenc/helper/struct",
     "mpenc/helper/utils",
-    "jodid25519",
     "asmcrypto",
     "megalogger",
     "chai",
     "sinon/sandbox",
     "sinon/assert",
-], function(ns, codec, struct, utils, jodid25519, asmCrypto, MegaLogger,
+], function(ns, codec, struct, utils, asmCrypto, MegaLogger,
             chai, sinon_sandbox) {
     "use strict";
 
@@ -216,7 +215,7 @@ define([
     describe("_encryptRaw()/_decryptRaw()", function() {
         it('several round trips', function() {
             for (var i = 0; i < 5; i++) {
-                var key = jodid25519.utils.bytes2string(utils._newKey08(128));
+                var key = utils.randomString(16);
                 var messageLength = Math.floor(256 * Math.random());
                 var message = _tu.cheapRandomString(messageLength);
                 var encryptResult = ns._encryptRaw(message, key);

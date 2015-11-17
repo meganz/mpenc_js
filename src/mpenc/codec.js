@@ -21,9 +21,9 @@ define([
     "mpenc/helper/utils",
     "mpenc/version",
     "asmcrypto",
-    "jodid25519",
+    "tweetnacl",
     "megalogger",
-], function(assert, utils, version, asmCrypto, jodid25519, MegaLogger) {
+], function(assert, utils, version, asmCrypto, tweetnacl, MegaLogger) {
     "use strict";
 
     /**
@@ -452,9 +452,9 @@ define([
      *     from: Participant ID of the sender;
      *     severity: Severity of the error message;
      *     message: Error text to include in the message.
-     * @param privKey {string}
-     *     Sender's (ephemeral) private signing key.
-     * @param pubKey {string}
+     * @param [privKey] {string}
+     *     Sender's (ephemeral) private signing key. (Ed25519 key seed.)
+     * @param [pubKey] {string}
      *     Sender's (ephemeral) public signing key.
      * @returns {string}
      *     A TLV string.
@@ -567,11 +567,11 @@ define([
      * @param type {integer}
      *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
-     *     Binary string data message.
+     *     Data message as an 8-bit string.
      * @param privKey {string}
-     *     Binary string representation of the ephemeral private key.
+     *     Ephemeral private key (ed25519 key seed), as an 8-bit string.
      * @param pubKey {string}
-     *     Binary string representation of the ephemeral public key.
+     *     Ephemeral public key, as an 8-bit string.
      * @property sidkeyHash {string}
      *     On {MPENC_DATA_MESSAGE} relevant only. A hash value hinting at the
      *     right combination of session ID and group key used for a data message.
@@ -584,7 +584,8 @@ define([
         if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
-        return jodid25519.eddsa.sign(prefix + data, privKey, pubKey);
+        return utils.bytes2string(nacl.sign.detached(utils.string2bytes(prefix + data),
+            nacl.sign.keyPair.fromSeed(utils.string2bytes(privKey)).secretKey));
     };
 
 
@@ -597,11 +598,11 @@ define([
      * @param type {integer}
      *     Message type, one of {@see mpenc/codec.MESSAGE_TYPE}.
      * @param data {string}
-     *     Binary string data message.
+     *     Data message as an 8-bit string.
      * @param signature {string}
-     *     Binary string representation of the signature.
+     *     Signature as an 8-bit string.
      * @param pubKey {string}
-     *     Binary string representation of the ephemeral public key.
+     *     Ephemeral public key, as an 8-bit string.
      * @property sidkeyHash {string}
      *     On {MPENC_DATA_MESSAGE} relevant only. A hash value hinting at the
      *     right combination of session ID and group key used for a data message.
@@ -614,7 +615,8 @@ define([
         if (type === ns.MESSAGE_TYPE.MPENC_DATA_MESSAGE) {
             prefix += sidkeyHash;
         }
-        return jodid25519.eddsa.verify(signature, prefix + data, pubKey);
+        return nacl.sign.detached.verify(
+            utils.string2bytes(prefix + data), utils.string2bytes(signature), utils.string2bytes(pubKey));
     };
 
 

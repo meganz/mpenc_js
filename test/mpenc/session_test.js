@@ -454,6 +454,12 @@ define([
                 // give some time for leave processes to complete
                 return async.timeoutPromise(testTimer, 100);
             }).then(function() {
+                if (server.curMembers().length > 0) {
+                    // PhantomJS needs an extra kick
+                    server.runAsync(4, testTimer);
+                }
+                return Promise.resolve(true);
+            }).then(function() {
                 assertMembers([], server);
                 assertSessionState("cos_", s1, s2, s3);
                 assertSessionParted(s1, s2, s3);
