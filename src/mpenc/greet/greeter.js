@@ -768,7 +768,7 @@ define([
         }
         // Sign `out` and prepend signature.
         var signature = codec.signMessage(codec.MESSAGE_TYPE.MPENC_GREET_MESSAGE,
-                                       out, privKey, pubKey);
+                                          out, privKey, pubKey);
         out = codec.encodeTLV(codec.TLV_TYPE.MESSAGE_SIGNATURE, signature) + out;
 
         return out;

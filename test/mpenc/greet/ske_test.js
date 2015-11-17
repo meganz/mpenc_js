@@ -6,13 +6,12 @@
 define([
     "mpenc/greet/ske",
     "mpenc/helper/utils",
-    "jodid25519",
     "chai",
     "sinon/assert",
     "sinon/sandbox",
     "sinon/spy",
     "asmcrypto",
-], function(ns, utils, jodid25519, chai, sinon_assert, sinon_sandbox, sinon_spy, asmCrypto) {
+], function(ns, utils, chai, sinon_assert, sinon_sandbox, sinon_spy, asmCrypto) {
     "use strict";
 
     /*
@@ -67,7 +66,6 @@ define([
                 var nonces = ['3333', '1111', '2222', '4444', '5555'];
 
                 sandbox.stub(utils, 'sha256', _echo);
-                sandbox.stub(jodid25519.utils, 'bytes2string', _echo);
                 var sid = ns._computeSid(members, nonces);
                 assert.strictEqual(sid, '13451111333344445555');
             });
@@ -119,7 +117,7 @@ define([
                 participant.nonce = _td.ED25519_PUB_KEY; // Same form as nonce.
                 participant.ephemeralPubKey = _td.ED25519_PUB_KEY;
                 var signature = participant._computeSessionSig();
-                assert.strictEqual(signature, _td.SIGNATURE);
+                assert.strictEqual(btoa(signature), btoa(_td.SIGNATURE));
             });
         });
 
@@ -267,7 +265,6 @@ define([
                 assert.deepEqual(message.members, members);
                 assert.lengthOf(message.nonces, 1);
                 assert.lengthOf(message.pubKeys, 1);
-                assert.ok(jodid25519.eddsa.isOnCurve(participant.ephemeralPubKey));
             });
 
             it('upflow on completed upflow, too many nonces', function() {

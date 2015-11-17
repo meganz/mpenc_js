@@ -28,7 +28,6 @@ define([
     "mpenc/helper/struct",
     "mpenc/codec",
     "asmcrypto",
-    "jodid25519",
     "promise-polyfill",
     "megalogger",
     "chai",
@@ -36,7 +35,7 @@ define([
     "sinon/sandbox",
     "sinon/spy",
     "sinon/stub",
-], function(ns, async, utils, struct, codec, asmCrypto, jodid25519, Promise, MegaLogger,
+], function(ns, async, utils, struct, codec, asmCrypto, Promise, MegaLogger,
             chai, sinon_assert, sinon_sandbox, sinon_spy, stub) {
     "use strict";
 
@@ -600,13 +599,13 @@ define([
                 var message = { source: '1', dest: '2',
                                 greetType: ns.GREET_TYPE.INIT_INITIATOR_UP,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [null, []],
+                                intKeys: [null, ""],
                                 nonces: ['foo'], pubKeys: ['foo'],
                                 sessionSignature: null };
                 var compare = { source: '2', dest: '3',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], []],
+                                intKeys: ["", "", ""],
                                 nonces: ['foo', 'bar'], pubKeys: ['foo', 'bar'],
                                 sessionSignature: null };
                 var participant = makeGreeting('2',
@@ -630,14 +629,14 @@ define([
                 var message = { source: '4', dest: '5',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_UP,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
+                                intKeys: ["", "", "", "", ""],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4'],
                                 sessionSignature: null };
                 var compare = { source: '5', dest: '',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
+                                intKeys: ["", "", "", "", ""],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
@@ -663,7 +662,7 @@ define([
                 var message = { source: '5', dest: '',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
+                                intKeys: ["", "", "", "", ""],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };
@@ -691,7 +690,7 @@ define([
                 var message = { source: '5', dest: '',
                                 greetType: ns.GREET_TYPE.INIT_PARTICIPANT_DOWN,
                                 members: ['1', '2', '3', '4', '5'],
-                                intKeys: [[], [], [], [], []],
+                                intKeys: ["", "", "", "", ""],
                                 nonces: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 pubKeys: ['foo1', 'foo2', 'foo3', 'foo4', 'foo5'],
                                 sessionSignature: 'bar' };

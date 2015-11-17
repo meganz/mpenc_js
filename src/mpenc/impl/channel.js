@@ -23,11 +23,10 @@ define([
     "mpenc/helper/utils",
     "mpenc/helper/assert",
     "es6-collections",
-    "jodid25519",
     "megalogger"
 ], function(
     channel,
-    async, struct, utils, assert, es6_shim, jodid25519, MegaLogger
+    async, struct, utils, assert, es6_shim, MegaLogger
 ) {
     "use strict";
 
@@ -395,7 +394,7 @@ define([
      * Sync by generating new random values.
      */
     ServerOrder.prototype.syncNew = function() {
-        var pId = jodid25519.eddsa.generateKeySeed();
+        var pId = utils.randomString(32);
         return this.syncWithPrev(pId, this.makeChainHash("", pId, "\xFF"));
     };
 

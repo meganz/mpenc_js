@@ -4,11 +4,13 @@
 .settings
 
 # Build files and directories
-/coverage
-/doc/api
+/coverage/
+/doc/
 /build/
+/test-results.xml
 /mpEnc_js-*.tgz
 /.npm-build-deps
+/contrib/*.pyc
 
 # npm things, don't add these to .npmignore
 /node_modules

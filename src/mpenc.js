@@ -28,11 +28,12 @@ define([
     "mpenc/greet/greeter",
     "mpenc/helper/async",
     "mpenc/helper/struct",
+    "mpenc/helper/utils",
     "megalogger"
 ], function(
     version, session, message, channel,
     applied, sessionImpl, channelImpl, transcriptImpl, greeter,
-    async, struct, MegaLogger
+    async, struct, utils, MegaLogger
 ) {
     "use strict";
 
@@ -51,8 +52,9 @@ define([
      *
      * var mpenc = // however you import it, AMD, Common-JS, whatever
      * var timer = mpenc.createTimer();
+     * var ownKeyPair = mpenc.createKeyPair(); // or, load it from somewhere else
      * var context = mpenc.createContext(
-     *   ?userId, timer, ?privKey, ?pubKey, ?pubKeyDir);
+     *   ?userId, timer, ownKeyPair, ?pubKeyDir);
      *
      * // Prepare to have a group chat:
      *
@@ -86,6 +88,22 @@ define([
     // Create two more loggers for name spaces without their own modules.
     MegaLogger.getLogger('helper', undefined, 'mpenc');
     MegaLogger.getLogger('greet', undefined, 'mpenc');
+
+
+    /**
+     * @typedef SignatureKeyPair
+     * @type Object
+     * @property privKey {string} Ed25519 private key, as a string of 8-bit
+     *      characters, to be kept secret and local to this device. For
+     *      historical reasons we use the "key seed", i.e. `k` as per
+     *      python-ed25519, rather than `a || RH` as per NaCl. See [Ed25519
+     *      Keys](https://blog.mozilla.org/warner/2011/11/29/ed25519-keys/) for
+     *      more details.
+     * @property pubKey {string} Ed25519 public key, as a string of 8-bit
+     *      characters, to be distributed to your contacts so that they may
+     *      distinguish you from an active attacker. (This has the same value
+     *      across multiple implementations.)
+     */
 
 
     /**
@@ -133,6 +151,44 @@ define([
 
 
     /**
+     * Create a key pair for the user.
+     *
+     * There should only be one of these per user (or device), shared between
+     * all their sessions. It is highly recommended that you persist this in
+     * long-term storage, otherwise your contacts will not be able to (x)
+     * distinguish you from a man-in-the-middle attacker.
+     *
+     * Some applications try to offer protection against forensic analysis by
+     * making these keys ephemeral (i.e. generating new ones for every session)
+     * and delegating the security concern at (x) to some other material such
+     * as a shared secret to be memorised for each contact. However, getting
+     * this right is very tricky, more often than not *decreases* security, and
+     * there has not yet been a "preferred standard approach" for it. We do not
+     * provide such an approach in this library, and we recommended you not to
+     * implement such an approach yourself, unless you understand exactly why
+     * it is safe to ignore our recommendation for your case. When unsure, just
+     * persist the key in the user's `localStorage`, or another store if that
+     * is better, such as a system keyring.
+     *
+     * @param [privKey] {string} An existing private key loaded from persistent
+     *      secure storage, as a string of 8-bit characters. If omitted, we
+     *      generate a new one using the asmCrypto RNG, which delegates in part
+     *      to the system RNG.
+     * @returns {module:mpenc~SignatureKeyPair} Your own key pair that includes
+     *      both the private and public parts of the key.
+     * @memberOf module:mpenc
+     */
+    var createKeyPair = function(privKey) {
+        privKey = privKey || utils.randomString(32);
+        return {
+            privKey: privKey,
+            pubKey: utils.toPublicKey(privKey),
+        };
+    };
+    mpenc.createKeyPair = createKeyPair;
+
+
+    /**
      * Create a new context for sessions.
      *
      * There should only be one of these per user (or device), shared between
@@ -151,21 +207,18 @@ define([
      *      or event loop, or if necessary an adapter to them that matches our
      *      expected interface. Be aware of behavioural restrictions such as
      *      ordering, not just the function parameter types.
-     * @param privKey {string}
-     *      The long-term Ed25519 private key for the local user, as a sequence
-     *      of 8-bit characters representing bytes.
-     * @param pubKey {string}
-     *      The long-term Ed25519 public key for the local user, as a sequence
-     *      of 8-bit characters representing bytes.
+     * @param ownKeyPair {module:mpenc~SignatureKeyPair}
+     *      The Ed25519 long-term (identity) key pair for the local user; e.g.
+     *      see {@link module:mpenc.createKeyPair}.
      * @param pubKeyDir {{get: function}}
-     *      Object with a 1-arg "get" method for obtaining long-term Ed25519
-     *      public keys for other members (user Ids).
+     *      Object with a 1-arg "get" method (userId -> pubKey) for obtaining
+     *      Ed25519 long-term (identity) public keys for other members.
      * @returns {SessionContext}
      * @memberOf module:mpenc
      */
-    var createContext = function(userId, timer, privKey, pubKey, pubKeyDir, flowControl) {
+    var createContext = function(userId, timer, ownKeyPair, pubKeyDir, flowControl) {
         return new sessionImpl.SessionContext(
-            userId, false, timer, privKey, pubKey, pubKeyDir,
+            userId, false, timer, ownKeyPair.privKey, ownKeyPair.pubKey, pubKeyDir,
             flowControl || DEFAULT_FLOW_CONTROL,
             message.DefaultMessageCodec,
             transcriptImpl.DefaultMessageLog);

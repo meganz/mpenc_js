@@ -14,12 +14,11 @@ module.exports = function(config) {
         // Dependency-based load order of library modules.
         // modules that already follow AMD need included: false
         {pattern: 'node_modules/es6-collections/es6-collections.js', included: false},
-        'node_modules/jsbn/index.js',
         'node_modules/asmcrypto.js/asmcrypto.js',
-        {pattern: 'node_modules/jodid25519/jodid25519.js', included: false},
         {pattern: 'node_modules/lru-cache/**/*.js', included: false},
         {pattern: 'node_modules/megalogger/**/*.js', included: false},
         {pattern: 'node_modules/promise-polyfill/**/*.js', included: false},
+        {pattern: 'node_modules/tweetnacl/**/*.js', included: false},
         // karma-sinon does not yet integrate with requirejs, so we have to do this hack
         {pattern: 'node_modules/sinon/lib/**/*.js', included: false},
 
@@ -53,7 +52,7 @@ module.exports = function(config) {
         type: 'html',
         dir: 'coverage/'
     },
-        
+
     // JUnit reporter configuration.
     junitReporter: {
         outputFile: 'test-results.xml'

@@ -27,14 +27,17 @@ var _td = {};
 
 /* Constants mainly for the mpenc.greet.cliques. */
 
+var atou8 = function(s) {
+    var d = atob(s);
+    return new Uint8Array(d.split("").map(function(v, i, a) {
+        return d.charCodeAt(i);
+    }));
+};
+
 // "Alice" keys from jodid25519.dh compliance test.
+_td.C25519_PRIV_KEY_B = atou8('dwdtCnMYpX08FsFyUbJmRd9ML4frwJkqsXf7pR25LCo=');
 _td.C25519_PRIV_KEY = atob('dwdtCnMYpX08FsFyUbJmRd9ML4frwJkqsXf7pR25LCo=');
 _td.C25519_PUB_KEY = atob('hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=');
-_td.BOB_PRIV = atob('XasIfmJKikt54X+Lg4AO5m87sSkmGLb9HC+LJ/+I4Os=');
-_td.BOB_PUB = atob('3p7bfXt9wbTTW2HC7OQ1Nz+DQ8hbeGdNrfx+FG+IK08=');
-_td.SECRET_KEY = atob('Sl2dW6TOLeFyjjv0gDUPJeB+IclH0Z4zdvCbPB4WF0I=');
-
-_td.COMP_KEY = atob('CkRWHRHU3gHMJdYeVM2P9N4ivX0ulIO4GCCzhKSGuRg=');
 
 /* Constants mainly for the mpenc.greet.ske. */
 
@@ -88,15 +91,6 @@ _td.DOWNFLOW_MESSAGE_STRING = atob('AAMAQEI7aL7VPi+ay79q4wImezN4Sc1qVmo1vUT3KZ'
 
 _td.DOWNFLOW_MESSAGE_PAYLOAD = '?mpENC:' + btoa(_td.DOWNFLOW_MESSAGE_STRING) + '.';
 
-_td.SESSION_KEY_STORE = { sessionIDs: [_td.SESSION_ID],
-                          sessions: {} };
-_td.SESSION_KEY_STORE.sessions[_td.SESSION_ID] = {
-    members: ['Moe', 'Larry', 'Curly'],
-    groupKeys: [_td.GROUP_KEY]
-};
-_td.SESSION_KEY_STORE.pubKeyMap = { 'Moe': _td.ED25519_PUB_KEY,
-                                    'Larry': _td.ED25519_PUB_KEY,
-                                    'Curly': _td.ED25519_PUB_KEY };
 _td.DATA_MESSAGE_STRING = atob('ABIAAVQAAwBAsqcfdFBp1P+ei9LTWIGpXn144fzi3UorsC'
                              + 'G7moGQzsoJFCJeLJYcj358uISQqRPej+nuscs7PPcMH58G'
                              + 'bn1iAwABAAEBAAIAAQMAEQAMevs2iGlNE8kspMvZABAACY'

@@ -19,8 +19,8 @@
 define([
     "mpenc/helper/assert",
     "mpenc/helper/utils",
-    "jodid25519",
-], function(assert, utils, jodid25519) {
+    "tweetnacl",
+], function(assert, utils, nacl) {
     "use strict";
 
     /**
@@ -194,18 +194,18 @@ define([
         this.ephemeralPubKeys = utils.clone(message.pubKeys);
 
         // Make new nonce and ephemeral signing key pair.
-        this.nonce = jodid25519.eddsa.generateKeySeed();
+        this.nonce = utils.randomString(32);
         this.nonces.push(this.nonce);
         if (!this.ephemeralPrivKey) {
             // Only generate a new key if we don't have one.
             // We might want to recover and just re-run the protocol.
-            this.ephemeralPrivKey = jodid25519.eddsa.generateKeySeed();
+            this.ephemeralPrivKey = utils.randomString(32);
         }
-        this.ephemeralPubKey = jodid25519.eddsa.publicKey(this.ephemeralPrivKey);
+        this.ephemeralPubKey = utils.toPublicKey(this.ephemeralPrivKey);
         this.ephemeralPubKeys.push(this.ephemeralPubKey);
 
         // Clone message.
-        message = utils.clone(message);
+        message = utils.clone(message, true);
 
         // Pass on a message.
         if (myPos === this.members.length - 1) {
@@ -243,8 +243,8 @@ define([
         var sessionAck = MAGIC_NUMBER + this.id + this.ephemeralPubKey
                        + this.nonce + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return jodid25519.eddsa.sign(hashValue, this.staticPrivKey,
-                                     this.staticPubKeyDir.get(this.id));
+        var keyPair = nacl.sign.keyPair.fromSeed(utils.string2bytes(this.staticPrivKey));
+        return utils.bytes2string(nacl.sign.detached(utils.string2bytes(hashValue), keyPair.secretKey));
     };
 
 
@@ -271,8 +271,8 @@ define([
         var sessionAck = MAGIC_NUMBER + memberId + this.ephemeralPubKeys[memberPos]
                        + this.nonces[memberPos] + this.sessionId;
         var hashValue = utils.sha256(sessionAck);
-        return jodid25519.eddsa.verify(signature, hashValue,
-                                       this.staticPubKeyDir.get(memberId));
+        return nacl.sign.detached.verify(utils.string2bytes(hashValue), utils.string2bytes(signature),
+            utils.string2bytes(this.staticPubKeyDir.get(memberId)));
     };
 
 
@@ -317,7 +317,7 @@ define([
         }
 
         // Clone message.
-        message = utils.clone(message);
+        message = utils.clone(message, true);
         // We haven't acknowledged, yet, so pass on the message.
         message.source = this.id;
         message.sessionSignature = this._computeSessionSig();
@@ -403,7 +403,7 @@ define([
         this.members = allMembers;
         this.discardAuthentications();
 
-        this.nonce = jodid25519.eddsa.generateKeySeed();
+        this.nonce = utils.randomString(32);
         var myPos = this.members.indexOf(this.id);
         this.nonces[myPos] = this.nonce;
 
@@ -445,7 +445,7 @@ define([
         }
 
         // Need a new nonce to force a different SID on same participant sets.
-        this.nonce = jodid25519.eddsa.generateKeySeed();
+        this.nonce = utils.randomString(32);
         var myPos = this.members.indexOf(this.id);
         this.nonces[myPos] = this.nonce;
 

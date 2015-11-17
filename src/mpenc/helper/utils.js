@@ -18,9 +18,9 @@
 
 define([
     "asmcrypto",
-    "jodid25519",
+    "tweetnacl",
     "megalogger",
-], function(asmCrypto, jodid25519, MegaLogger) {
+], function(asmCrypto, nacl, MegaLogger) {
     "use strict";
 
     /**
@@ -78,23 +78,53 @@ define([
      */
 
     /**
-     * Generates a new random key, and converts it into a format that
-     * the Ed25519 implementation understands.
+     * Generates a new random 8-bit string. Each character in the string is
+     * guaranteed to only have its lower 8 bits set.
      *
-     * @param bits {integer}
-     *     Number of bits of key strength (must be a multiple of 32).
-     * @returns {array}
-     *     8 bit value array of the key.
+     * @param bytes {integer} Number of bytes to generate.
+     * @returns {string} 8-bit string containing the entropy.
      * @private
      */
-    ns._newKey08 = function(bits) {
-        var buffer = new Uint8Array(Math.floor(bits / 8));
+    ns.randomString = function(bytes) {
+        var buffer = new Uint8Array(bytes);
         asmCrypto.getRandomValues(buffer);
-        var result = [];
-        for (var i = 0; i < buffer.length; i++) {
-            result.push(buffer[i]);
-        }
-        return result;
+        return ns.bytes2string(buffer);
+    };
+
+
+    /**
+     * Convert a private ed25519 key seed to a public key. The private key seed
+     * may be generated via `randomString(32)`.
+     *
+     * @returns {string} Public key as a 8-bit string.
+     * @private
+     */
+    ns.toPublicKey = function(privKey) {
+        return ns.bytes2string(nacl.sign.keyPair.fromSeed(ns.string2bytes(privKey)).publicKey);
+    };
+
+
+    /**
+     * Convert a byte string to a Uint8Array.
+     *
+     * @param s {string} 8-bit string.
+     * @returns {Uint8Array} Array of bytes.
+     * @private
+     */
+    ns.string2bytes = function(s) {
+        return new Uint8Array(s.split("").map(function(v) { return v.charCodeAt(0); }));
+    };
+
+
+    /**
+     * Convert a Uint8Array to a byte string.
+     *
+     * @param a {Uint8Array} Array of bytes.
+     * @returns {string} 8-bit string.
+     * @private
+     */
+    ns.bytes2string = function(a) {
+        return Array.prototype.map.call(a, function(v) { return String.fromCharCode(v); }).join("");
     };
 
 
@@ -212,7 +242,7 @@ define([
      *     Binary string.
      */
     ns.sha256 = function(data) {
-        return jodid25519.utils.bytes2string(asmCrypto.SHA256.bytes(data));
+        return ns.bytes2string(asmCrypto.SHA256.bytes(data));
     };
 
 
@@ -228,7 +258,7 @@ define([
      * @returns {object}
      *     A deep copy of the original object.
      */
-    ns.clone = function(obj) {
+    ns.clone = function(obj, loose) {
         // Handle the 3 simple types, and null or undefined.
         if (null === obj || "object" !== typeof obj) {
             return obj;
@@ -250,8 +280,15 @@ define([
             return copy;
         }
 
+        // Handle array
+        if (obj instanceof Uint8Array) {
+            var copy = new Uint8Array(obj.length); // jshint ignore:line
+            copy.set(obj);
+            return copy;
+        }
+
         // Handle object.
-        if (obj instanceof Object) {
+        if (obj instanceof Object && (obj.constructor === Object || loose)) {
             var copy = {};
             for (var attr in obj) {
                 if (obj.hasOwnProperty(attr)) {
