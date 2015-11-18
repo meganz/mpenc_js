@@ -2,6 +2,21 @@ This is an implementation of the Multi-Party Encrypted Messaging Protocol, by
 MEGA limited, as a JavaScript library. Its main purpose is to be used within a
 JavaScript web application that provides end-to-end secure group messaging.
 
+**THIS IS EXPERIMENTAL SOFTWARE AND SHOULD NOT BE USED IN SECURITY-CRITICAL
+SITUATIONS**. Eventually we want to get there, though, so any and all help
+reviewing our design and implementation would be appreciated!
+
+**NOTE ALSO THE WIRE PACKET FORMAT AND PROTOCOL VERSION NUMBER HAVE NOT BEEN
+STABILISED.** The version number is currently emitted as `1` on the wire, but
+we *will* be making incompatible changes while retaining this numbering. **YOU
+MUST NOT** release this in a way that leaves old copies of this library lying
+around on your users' computers, which may not interoperate with newer versions
+that use the same protocol version. **WE WILL ACTIVELY BREAK SUCH SITUATIONS**
+and **WE ACCEPT ABSOLUTELY NO RESPONSIBILITY** if your users suffer because you
+did not follow basic engineering instructions. Eventually we will commit to a
+stable wire format that remains backwards- and forwards-compatible within
+versions, but now is not yet the right time to do that.
+
 ## Documentation
 
 If you are reading this as a web page, you probably want:
