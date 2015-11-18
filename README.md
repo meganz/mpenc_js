@@ -6,9 +6,9 @@ JavaScript web application that provides end-to-end secure group messaging.
 
 If you are reading this as a web page, you probably want:
 
-- [API documentation](../../doc/api/module-mpenc.html) - for clients that wish
+- [API documentation](../api/module-mpenc.html) - for clients that wish
   to use this library in their applications.
-- [developer docs](../../doc/dev/module-mpenc.html) - for developers that wish
+- [developer docs](../dev/module-mpenc.html) - for developers that wish
   to contribute patches or new features to this library.
 
 ## Test dependencies
