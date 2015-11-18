@@ -66,7 +66,15 @@ define([
      * // For interacting with the session, see mpenc/session.Session
      */
     var mpenc = {
-        // public API, matching the documentation
+        /* Public API. This should exactly match the things that are not
+         * annotated with the @private JSDoc tag.
+         *
+         * Note that this differs from JSDoc's recommended meaning for @private
+         * which is roughly "something you shouldn't access from outside the
+         * module or class". Instead, in this code-base we use the '_' prefix
+         * to denote that. Of course, this is by convention; in JS there is no
+         * easy non-intrusive way to enforce this.
+         */
         channel: channel,
         helper: {
             async: async,
