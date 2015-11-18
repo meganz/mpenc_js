@@ -13,17 +13,25 @@ If you are reading this as a web page, you probably want:
 
 ## Test dependencies
 
-Using your system package manager (e.g. Homebrew or Debian aptitude), install
-PhantomJS *or* `xvfb` and a browser (Firefox or Chrome), *or* both. Both setups
-work on headless machines such as a CI or build server, but `xvfb` + a browser
-will pull in more libraries than PhantomJS. But in some cases, the tests run
-even quicker than PhantomJS.
+Install PhantomJS 2 (see below) *or* `xvfb` + a browser (Firefox or Chrome),
+*or* both. Both options work on headless machines such as a CI or build server;
+`xvfb` + a browser will pull in more libraries as dependencies than PhantomJS,
+but will probably run quicker.
 
 If you have installed Firefox extensions on a system-wide basis that interferes
-with tests (e.g. NoScript), you can set `PATH="$PWD/contrib:$PATH"` to work
-around that.
+with tests (e.g. `xul-ext-noscript`), you can set `PATH="$PWD/contrib:$PATH"`
+to work around that.
 
-For more details about using PhantomJS 2, see [below](#PhantomJS_2).
+To install PhantomJS 2, you have several options:
+
+- Custom install, for all platforms: `npm install phantomjs2-ext`. You will
+  need to `export PHANTOMJS_BIN="$PWD/node_modules/phantomjs2-ext/bin/phantomjs"`
+  before running tests.
+- System install, for Mac OS X: `brew install phantomjs`
+- System install, for Debian/Ubuntu from around 2015-11: Add [this APT
+  repo](https://people.debian.org/~infinity0/apt/), then run `apt-get update &&
+  apt-get install phantomjs`. Note that this package misses features from the
+  official package; but it should be enough to run this project's tests with.
 
 ## Building
 
@@ -45,29 +53,3 @@ Both the static- and dynamically-linked forms may be loaded as a AMD module
 `<script>` tag in which case the entry point will be made accessible via the
 global `mpenc` variable. The difference is that with the dynamic form, you also
 need to load the other dependencies yourself - see `package.json` for details.
-
-<a name="PhantomJS_2"></a>
-## PhantomJS 2
-
-You can either:
-
-Install PhantomJS 2 for your entire system. This is the easiest option, and
-when completed should make everything else "just work".
-
-- Debian/Ubuntu versioned around 2015-11: install `phantomjs` from [this APT
-  repo](https://people.debian.org/~infinity0/apt/)
-- Mac OS X: `brew install phantomjs`
-
-Install PhantomJS 2 to a custom location, e.g. your home directory. This is
-more fiddly, and you will need to set the `PHANTOMJS_BIN` envvar when running
-our tests. However it should work even if your system is not listed in the
-options above.
-
-- Linux: Download and extract one of the packages from [this github
-  repo](https://github.com/bprodoehl/phantomjs/releases/), not forgetting to
-  install the dependencies first.
-- Windows / Mac OS X:
-  - Download and extract directly from [PhantomJS
-    developers] (http://phantomjs.org/download.html), or
-  - `npm install phantomjs2` - this currently [doesn't work on
-    Linux](https://github.com/zeevl/phantomjs2/pull/3)

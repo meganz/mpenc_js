@@ -147,6 +147,7 @@ clean-all: clean
 	rm -rf $(BUILD_DEP_ALL_NAMES:%=$(NODE_PATH)/%) $(DEP_ALL_NAMES:%=$(NODE_PATH)/%)
 	rm -f .npm-build-deps node_modules
 
-.PHONY: all test browser-test doc api-doc dev-doc jshint jscs checks
-.PHONY: clean clean-all
+.PHONY: all test phantomjs-test headless-browser-test karma-test test-browser
 .PHONY: build-static build-shared test-static test-shared dist
+.PHONY: doc api-doc dev-doc jshint jscs checks
+.PHONY: clean clean-all
