@@ -1,2 +1,3 @@
 asmCrypto.random.skipSystemRNGWarning = true;
-localStorage.minLogLevel = 50;
+localStorage.minLogLevel = 30;
+localStorage.d = 1;
