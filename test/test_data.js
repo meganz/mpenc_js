@@ -6,7 +6,7 @@
 "use strict"; // jshint ignore:line
 
 /*
- * Created: 4 March 2014-2016 Guy K. Kloss <gk@mega.co.nz>
+ * Created: 4 March 2014 Guy K. Kloss <gk@mega.co.nz>
  *
  * (c) 2014-2016 by Mega Limited, Auckland, New Zealand
  *     https://mega.nz/
