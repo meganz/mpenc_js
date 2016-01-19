@@ -6,9 +6,9 @@
 "use strict"; // jshint ignore:line
 
 /*
- * Created: 4 March 2014-2015 Guy K. Kloss <gk@mega.co.nz>
+ * Created: 4 March 2014-2016 Guy K. Kloss <gk@mega.co.nz>
  *
- * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
+ * (c) 2014-2016 by Mega Limited, Auckland, New Zealand
  *     https://mega.nz/
  *
  * This file is part of the multi-party chat encryption suite.

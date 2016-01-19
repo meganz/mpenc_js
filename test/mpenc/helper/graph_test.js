@@ -6,7 +6,7 @@
 /*
  * Created: 02 Sep 2014 Ximin Luo <xl@mega.co.nz>
  *
- * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
+ * (c) 2014-2016 by Mega Limited, Auckland, New Zealand
  *     https://mega.nz/
  *
  * This file is part of the multi-party chat encryption suite.
