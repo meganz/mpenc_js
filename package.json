@@ -27,7 +27,7 @@
     "messaging",
     "encryption"
   ],
-  "author": "Guy K. Kloss <gk@mega.co.nz>",
+  "author": "Guy K. Kloss <gk@mega.co.nz>, Ximin Luo <xl@mega.co.nz>",
   "license": "AGPL-3",
   "readmeFilename": "README.md",
   "dependencies": {
