@@ -19,7 +19,9 @@ is not yet the right time to do that.
 
 ## Documentation
 
-If you are reading this as a web page, you probably want:
+If you are reading this directly from the source repository, you should skip
+this section. If you are reading this as part of the generated documentation,
+you should start with one of:
 
 - [API documentation](../api/module-mpenc.html) - for clients that wish
   to use this library in their applications.
