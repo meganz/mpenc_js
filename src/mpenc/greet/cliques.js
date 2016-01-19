@@ -2,7 +2,7 @@
  * Created: 20 Jan 2014 Guy K. Kloss <gk@mega.co.nz>
  *
  * (c) 2014-2015 by Mega Limited, Auckland, New Zealand
- *     http://mega.co.nz/
+ *     https://mega.nz/
  *
  * This file is part of the multi-party chat encryption suite.
  *

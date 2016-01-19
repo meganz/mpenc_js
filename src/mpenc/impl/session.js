@@ -2,7 +2,7 @@
  * Created: 7 May 2015 Vincent Guo <vg@mega.co.nz>
  *
  * (c) 2015 by Mega Limited, Auckland, New Zealand
- *     http://mega.co.nz/
+ *     https://mega.nz/
  *
  * This file is part of the multi-party chat encryption suite.
  *

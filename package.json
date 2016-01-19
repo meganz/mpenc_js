@@ -14,10 +14,10 @@
     "build-shared": "make build-shared",
     "build-static": "make build-static"
   },
-  "homepage": "https://code.developers.mega.co.nz/gk/mpenc_js",
+  "homepage": "https://github.com/meganz/mpenc_js",
   "repository": {
     "type": "git",
-    "url": "git@code.developers.mega.co.nz:gk/mpenc_js.git"
+    "url": "git@github.com:meganz/mpenc_js.git"
   },
   "bugs": {
     "url": "https://issues.developers.mega.co.nz/projects/karere"

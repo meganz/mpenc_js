@@ -11,7 +11,7 @@ This test runner will work with both Python 2.7 as well as 3.x.
 ## Created: 23 May 2015 Guy Kloss <gk@mega.co.nz>
 ##
 ## (c) 2015 by Mega Limited, Auckland, New Zealand
-##     http://mega.co.nz/
+##     https://mega.nz/
 ##     Simplified (2-clause) BSD License.
 ##
 ## You should have received a copy of the license along with this
